@@ -32,6 +32,15 @@ interface FinanceStats {
     totalInvoiced: number;
     invoiceCount: number;
     averageInvoiceAmount: number;
+    executiveFinance?: {
+        outstandingInvoiceAmount: number;
+        outstandingInvoiceCount: number;
+        overdueInvoiceAmount: number;
+        overdueInvoiceCount: number;
+        pendingPaymentVoucherCount: number;
+        retentionHeld: number;
+        activePenalties: number;
+    };
     dataQuality?: {
         invalidFinancialSnapshotCount: number;
         invalidInvoicableSnapshotCount: number;
@@ -157,6 +166,29 @@ export default function FinanceSection({ rtom = 'ALL', enabled = true }: Finance
     const statusAEntries = Object.entries(data.invoiceStatusA || {});
     const statusBEntries = Object.entries(data.invoiceStatusB || {});
     const hasStatus = statusAEntries.length > 0 || statusBEntries.length > 0;
+    const executive = data.executiveFinance ?? {
+        outstandingInvoiceAmount: 0,
+        outstandingInvoiceCount: 0,
+        overdueInvoiceAmount: 0,
+        overdueInvoiceCount: 0,
+        pendingPaymentVoucherCount: 0,
+        retentionHeld: 0,
+        activePenalties: 0,
+    };
+    const managementActions = [
+        executive.overdueInvoiceCount > 0
+            ? { count: executive.overdueInvoiceCount, title: 'Review overdue invoices', detail: `${formatLKR(executive.overdueInvoiceAmount)} is past its invoice due date.`, href: '/finance/ap/aging' }
+            : null,
+        executive.pendingPaymentVoucherCount > 0
+            ? { count: executive.pendingPaymentVoucherCount, title: 'Review payment approvals', detail: 'Payment vouchers are awaiting finance authorization.', href: '/finance/payments' }
+            : null,
+        (data.dataQuality?.invalidFinancialSnapshotCount ?? 0) > 0
+            ? { count: data.dataQuality?.invalidFinancialSnapshotCount ?? 0, title: 'Fix financial snapshots', detail: 'Completed SOD financial data is incomplete and excluded from reliable WIP.', href: '/service-orders/invoicable' }
+            : null,
+        executive.retentionHeld > 0
+            ? { count: executive.retentionHeld, title: 'Review retention releases', detail: 'Retention balances remain held against project closeout conditions.', href: '/finance/retention' }
+            : null,
+    ].filter((action): action is NonNullable<typeof action> => action !== null).slice(0, 3);
 
     const statusColor = (status: string) => {
         switch (status) {
@@ -198,6 +230,69 @@ export default function FinanceSection({ rtom = 'ALL', enabled = true }: Finance
                 </div>
             )}
             {/* Row 1 — headline metrics */}
+            <section aria-label="Executive financial snapshot" className="space-y-4">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Executive financial snapshot</h2>
+                        <p className="text-xs text-slate-600 dark:text-slate-400">Management-level exposure from scoped invoices, approvals, retention, and project penalties.</p>
+                    </div>
+                    <Link href="/finance/reports/pnl" className="text-xs font-bold text-primary hover:underline">Open full finance reports →</Link>
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <Card className="border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950" aria-label="Outstanding contractor invoices">
+                        <CardHeader className="pb-2"><CardTitle className="text-xs font-black uppercase tracking-wide text-slate-700 dark:text-slate-300">Outstanding invoices</CardTitle></CardHeader>
+                        <CardContent>
+                            <p className="text-2xl font-black text-slate-950 dark:text-slate-100"><Money value={executive.outstandingInvoiceAmount} /></p>
+                            <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{executive.outstandingInvoiceCount.toLocaleString()} invoice(s) awaiting settlement</p>
+                            <Link href="/finance/invoices" className="mt-3 inline-flex min-h-9 items-center text-xs font-bold text-primary hover:underline">Open invoices →</Link>
+                        </CardContent>
+                    </Card>
+                    <Card className="border-rose-200 bg-rose-50/60 dark:border-rose-900 dark:bg-rose-950/20" aria-label="Overdue contractor invoices">
+                        <CardHeader className="pb-2"><CardTitle className="text-xs font-black uppercase tracking-wide text-rose-800 dark:text-rose-300">Overdue invoices</CardTitle></CardHeader>
+                        <CardContent>
+                            <p className="text-2xl font-black text-rose-900 dark:text-rose-200"><Money value={executive.overdueInvoiceAmount} /></p>
+                            <p className="mt-1 text-xs text-rose-800 dark:text-rose-300">{executive.overdueInvoiceCount.toLocaleString()} invoice(s) past due date</p>
+                            <Link href="/finance/ap/aging" className="mt-3 inline-flex min-h-9 items-center text-xs font-bold text-rose-800 hover:underline dark:text-rose-300">Review aging →</Link>
+                        </CardContent>
+                    </Card>
+                    <Card className="border-blue-200 bg-blue-50/60 dark:border-blue-900 dark:bg-blue-950/20" aria-label="Pending payment approvals">
+                        <CardHeader className="pb-2"><CardTitle className="text-xs font-black uppercase tracking-wide text-blue-800 dark:text-blue-300">Payment approvals</CardTitle></CardHeader>
+                        <CardContent>
+                            <p className="text-2xl font-black text-blue-950 dark:text-blue-100">{executive.pendingPaymentVoucherCount.toLocaleString()}</p>
+                            <p className="mt-1 text-xs text-blue-800 dark:text-blue-300">Payment voucher(s) awaiting authorization</p>
+                            <Link href="/finance/payments" className="mt-3 inline-flex min-h-9 items-center text-xs font-bold text-blue-800 hover:underline dark:text-blue-300">Open payments →</Link>
+                        </CardContent>
+                    </Card>
+                    <Card className="border-emerald-200 bg-emerald-50/60 dark:border-emerald-900 dark:bg-emerald-950/20" aria-label="Retention and penalties">
+                        <CardHeader className="pb-2"><CardTitle className="text-xs font-black uppercase tracking-wide text-emerald-800 dark:text-emerald-300">Retention & penalties</CardTitle></CardHeader>
+                        <CardContent className="space-y-2">
+                            <div className="flex items-center justify-between gap-2 text-xs"><span className="text-emerald-800 dark:text-emerald-300">Retention held</span><span className="font-black text-emerald-950 dark:text-emerald-100"><Money value={executive.retentionHeld} /></span></div>
+                            <div className="flex items-center justify-between gap-2 text-xs"><span className="text-emerald-800 dark:text-emerald-300">Active LD penalties</span><span className="font-black text-emerald-950 dark:text-emerald-100"><Money value={executive.activePenalties} /></span></div>
+                            <Link href="/finance/retention" className="inline-flex min-h-9 items-center text-xs font-bold text-emerald-800 hover:underline dark:text-emerald-300">Review controls →</Link>
+                        </CardContent>
+                    </Card>
+                </div>
+                {managementActions.length > 0 && (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/60" aria-label="Finance management actions">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <h3 className="text-sm font-black text-slate-900 dark:text-slate-100">What needs management attention</h3>
+                                <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">Prioritized actions are calculated from the current scoped finance data.</p>
+                            </div>
+                            <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white dark:bg-slate-100 dark:text-slate-900">{managementActions.length} action{managementActions.length === 1 ? '' : 's'}</span>
+                        </div>
+                        <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+                            {managementActions.map(action => (
+                                <Link key={action.title} href={action.href} className="rounded-xl border border-slate-200 bg-white p-3 transition hover:border-primary hover:shadow-sm dark:border-slate-700 dark:bg-slate-950">
+                                    <p className="text-sm font-black text-slate-900 dark:text-slate-100">{action.title}</p>
+                                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{action.detail}</p>
+                                    <span className="mt-2 inline-flex text-xs font-bold text-primary">Open action →</span>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </section>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-emerald-500/20 shadow-sm transition-all hover:shadow-md">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">

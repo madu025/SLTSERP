@@ -71,6 +71,20 @@ export class DashboardService {
             status: { notIn: ['CANCELLED', 'REJECTED'] }
         };
 
+        // Executive finance controls use the same project/OPMC boundary as
+        // the operational dashboard. Details remain permission-gated in the
+        // linked finance pages.
+        const projectScopeConditions: Prisma.ProjectWhereInput[] = [];
+        if (rtom !== 'ALL') projectScopeConditions.push({ opmc: { rtom } });
+        if (accessibleOpmcs !== undefined) {
+            projectScopeConditions.push({
+                opmcId: { in: accessibleOpmcs.length > 0 ? accessibleOpmcs : [NIL_UUID] }
+            });
+        }
+        const projectScope: Prisma.ProjectWhereInput = projectScopeConditions.length > 0
+            ? { AND: projectScopeConditions }
+            : {};
+
         // 1. Unbilled WIP Revenue (Service Orders Completed but not invoiced)
         const [wipSods, pendingInvoicesA, pendingInvoicesB] = await Promise.all([
             prisma.serviceOrder.aggregate({
@@ -117,6 +131,63 @@ export class DashboardService {
         const pendingPayoutB = Number(pendingInvoicesB._sum.amountB || 0);
 
         const totalPendingPayouts = pendingPayoutA + pendingPayoutB + Number(unbilledContractorPayout);
+
+        const outstandingInvoiceWhere: Prisma.InvoiceWhereInput = {
+            ...activeInvoiceWhere,
+            status: { notIn: ['PAID', 'CANCELLED', 'REJECTED'] }
+        };
+        const overdueDate = new Date();
+        const [
+            outstandingAmountA,
+            outstandingAmountB,
+            outstandingInvoiceCount,
+            overdueAmountA,
+            overdueAmountB,
+            overdueInvoiceCount,
+            pendingPaymentVoucherCount,
+            retentionHeld,
+            activePenalties,
+        ] = await Promise.all([
+            prisma.invoice.aggregate({
+                where: { ...outstandingInvoiceWhere, statusA: { not: 'PAID' } },
+                _sum: { amountA: true }
+            }),
+            prisma.invoice.aggregate({
+                where: { ...outstandingInvoiceWhere, statusB: { not: 'PAID' } },
+                _sum: { amountB: true }
+            }),
+            prisma.invoice.count({ where: outstandingInvoiceWhere }),
+            prisma.invoice.aggregate({
+                where: { ...outstandingInvoiceWhere, statusA: { not: 'PAID' }, dueDate: { lt: overdueDate } },
+                _sum: { amountA: true }
+            }),
+            prisma.invoice.aggregate({
+                where: { ...outstandingInvoiceWhere, statusB: { not: 'PAID' }, dueDate: { lt: overdueDate } },
+                _sum: { amountB: true }
+            }),
+            prisma.invoice.count({ where: { ...outstandingInvoiceWhere, dueDate: { lt: overdueDate } } }),
+            prisma.paymentVoucher.count({ where: { project: projectScope, status: 'PENDING_APPROVAL' } }),
+            prisma.projectRetention.aggregate({
+                where: { project: projectScope, status: { not: 'FULLY_RELEASED' } },
+                _sum: { balanceAmount: true }
+            }),
+            prisma.projectLDPenalty.aggregate({
+                where: { project: projectScope, status: 'APPROVED' },
+                _sum: { netAmount: true }
+            }),
+        ]);
+
+        const executiveFinance = {
+            outstandingInvoiceAmount:
+                Number(outstandingAmountA._sum.amountA || 0) + Number(outstandingAmountB._sum.amountB || 0),
+            outstandingInvoiceCount,
+            overdueInvoiceAmount:
+                Number(overdueAmountA._sum.amountA || 0) + Number(overdueAmountB._sum.amountB || 0),
+            overdueInvoiceCount,
+            pendingPaymentVoucherCount,
+            retentionHeld: Number(retentionHeld._sum.balanceAmount || 0),
+            activePenalties: Number(activePenalties._sum.netAmount || 0),
+        };
 
         // 3. Monthly Revenue Trend (last 6 months, from completed Service Orders)
         const trendStart = new Date();
@@ -240,6 +311,7 @@ export class DashboardService {
             totalInvoiced,
             invoiceCount,
             averageInvoiceAmount,
+            executiveFinance,
             dataQuality: {
                 invalidFinancialSnapshotCount,
                 invalidInvoicableSnapshotCount,
