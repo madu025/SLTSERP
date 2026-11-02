@@ -179,12 +179,22 @@ export default function FinanceSection({ rtom = 'ALL', enabled = true }: Finance
             )}
             {isFetching && !error && <p className="text-xs font-medium text-slate-700 dark:text-slate-300" role="status">Refreshing finance data…</p>}
             {(data.dataQuality?.invalidFinancialSnapshotCount ?? 0) > 0 && (
-                <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-                    <p className="font-bold">Finance data validation warning</p>
-                    <p className="mt-1">
-                        {data.dataQuality?.invalidFinancialSnapshotCount.toLocaleString()} completed SODs have missing revenue or contractor cost snapshots.
-                        They are excluded from WIP totals until corrected.
-                    </p>
+                <div className="flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between" role="status">
+                    <div>
+                        <p className="font-bold">Finance data validation warning</p>
+                        <p className="mt-1">
+                            {data.dataQuality?.invalidFinancialSnapshotCount.toLocaleString()} completed SODs have missing revenue or contractor cost snapshots.
+                            They are excluded from WIP totals until corrected.
+                        </p>
+                        {(data.dataQuality?.invalidInvoicableSnapshotCount ?? 0) > 0 && (
+                            <p className="mt-1 text-xs font-semibold text-amber-900">
+                                {data.dataQuality?.invalidInvoicableSnapshotCount.toLocaleString()} are marked invoicable and need priority review.
+                            </p>
+                        )}
+                    </div>
+                    <Link href="/service-orders/invoicable" className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md bg-amber-800 px-3 py-2 text-xs font-bold text-white hover:bg-amber-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-800 focus-visible:ring-offset-2">
+                        Review invoicable SODs
+                    </Link>
                 </div>
             )}
             {/* Row 1 — headline metrics */}
@@ -213,7 +223,7 @@ export default function FinanceSection({ rtom = 'ALL', enabled = true }: Finance
                 <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20 shadow-sm transition-all hover:shadow-md">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-400">
-                            Pending Payouts (A + B)
+                            Contractor obligations
                         </CardTitle>
                         <Clock className="w-5 h-5 text-blue-600" />
                     </CardHeader>
@@ -222,7 +232,7 @@ export default function FinanceSection({ rtom = 'ALL', enabled = true }: Finance
                             <Money value={data.totalPendingPayouts} />
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                            Approved but unpaid contractor invoices
+                            Pending invoices plus unbilled completed SOD cost
                         </p>
                         <div className="flex justify-between text-xs mt-3 pt-2 border-t border-blue-500/10">
                             <span className="text-muted-foreground">Over 90 days:</span>

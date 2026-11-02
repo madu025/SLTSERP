@@ -158,10 +158,12 @@ export default function ProjectsSection({ user, enabled = true }: ProjectsSectio
             <Card className="shadow-sm transition-all hover:shadow-md border-slate-200 dark:border-slate-800">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium">Projects overview</CardTitle>
-                    <FolderKanban className="w-5 h-5 text-slate-500" />
+                    <Link href="/projects" aria-label="Open projects" className="rounded-md p-1 text-slate-500 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                        <FolderKanban className="w-5 h-5" />
+                    </Link>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                         <div className="space-y-1">
                             <span className="text-xs text-muted-foreground">Active Projects</span>
                             <div className="text-2xl font-bold">{overview.activeProjects}</div>
@@ -169,6 +171,10 @@ export default function ProjectsSection({ user, enabled = true }: ProjectsSectio
                         <div className="space-y-1">
                             <span className="text-xs text-muted-foreground">Delayed projects</span>
                             <div className="text-2xl font-bold text-rose-500">{overview.delayedCount}</div>
+                        </div>
+                        <div className="space-y-1">
+                            <span className="text-xs text-muted-foreground">Delayed active share</span>
+                            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{overview.scheduleVariance}%</div>
                         </div>
                     </div>
                     <div className="space-y-2">
@@ -228,7 +234,10 @@ export default function ProjectsSection({ user, enabled = true }: ProjectsSectio
                             ))}
                         </div>
                     )}
-                    <p className="mt-3 text-xs text-muted-foreground">Workflow stage, BOQ, materials, PAT, as-built and invoice closeout counters are not returned by this dashboard API.</p>
+                    <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                        <p>Summary view covers project status, budget utilization, and schedule delay. Detailed workflow closeout metrics are available in Project Control.</p>
+                        <Link href="/projects/dashboards/pm" className="shrink-0 font-bold text-primary hover:underline">Open project control →</Link>
+                    </div>
                 </CardContent>
             </Card>
         </div>

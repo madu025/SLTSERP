@@ -64,6 +64,13 @@ export class DashboardService {
             invoiceWhere.AND = [invoiceOpmcScope];
         }
 
+        // Cancelled/rejected invoices remain visible in the status breakdown,
+        // but must never inflate active financial totals, WIP, or aging.
+        const activeInvoiceWhere: Prisma.InvoiceWhereInput = {
+            ...invoiceWhere,
+            status: { notIn: ['CANCELLED', 'REJECTED'] }
+        };
+
         // 1. Unbilled WIP Revenue (Service Orders Completed but not invoiced)
         const [wipSods, pendingInvoicesA, pendingInvoicesB] = await Promise.all([
             prisma.serviceOrder.aggregate({
@@ -85,7 +92,7 @@ export class DashboardService {
             }),
             prisma.invoice.aggregate({
                 where: {
-                    ...invoiceWhere,
+                    ...activeInvoiceWhere,
                     statusA: 'PENDING'
                 },
                 _sum: {
@@ -94,7 +101,7 @@ export class DashboardService {
             }),
             prisma.invoice.aggregate({
                 where: {
-                    ...invoiceWhere,
+                    ...activeInvoiceWhere,
                     statusB: { in: ['HOLD', 'PENDING'] }
                 },
                 _sum: {
@@ -127,7 +134,7 @@ export class DashboardService {
             }),
             prisma.invoice.findMany({
                 where: {
-                    ...invoiceWhere,
+                    ...activeInvoiceWhere,
                     OR: [
                         { statusA: 'PENDING' },
                         { statusB: { in: ['HOLD', 'PENDING'] } }
@@ -184,7 +191,7 @@ export class DashboardService {
         const [statusAGroups, statusBGroups, invoiceTotals] = await Promise.all([
             prisma.invoice.groupBy({ by: ['statusA'], where: invoiceWhere, _count: { _all: true } }),
             prisma.invoice.groupBy({ by: ['statusB'], where: invoiceWhere, _count: { _all: true } }),
-            prisma.invoice.aggregate({ where: invoiceWhere, _sum: { amount: true }, _avg: { amount: true }, _count: { _all: true } })
+            prisma.invoice.aggregate({ where: activeInvoiceWhere, _sum: { amount: true }, _avg: { amount: true }, _count: { _all: true } })
         ]);
 
         const invoiceStatusA: Record<string, number> = {};
@@ -311,7 +318,7 @@ export class DashboardService {
             })
         ]);
 
-        const lowStockItems = lowStockStock
+        const lowStockCandidates = lowStockStock
             .map(stock => {
                 const quantity = Number(stock.quantity);
                 const allocatedQuantity = Number(stock.allocatedQuantity);
@@ -328,7 +335,9 @@ export class DashboardService {
                 };
             })
             .filter(stock => stock._isLowStock)
-            .sort((a, b) => a._quantityForSort - b._quantityForSort)
+            .sort((a, b) => a._quantityForSort - b._quantityForSort);
+        const lowStockCount = lowStockCandidates.length;
+        const lowStockItems = lowStockCandidates
             .slice(0, 5)
             .map(({ _quantityForSort: ignoredSort, _isLowStock: ignoredLow, ...stock }) => {
                 void ignoredSort;
@@ -338,6 +347,7 @@ export class DashboardService {
 
         return {
             lowStockItems,
+            lowStockCount,
             pendingMRNs,
             pendingGRNs,
             dataQuality: { negativeStockCount, materialUsageMissingCostCount },
@@ -478,7 +488,7 @@ export class DashboardService {
             })
         ]);
 
-        const mappedLowStockItems = lowStockItems
+        const lowStockCandidates = lowStockItems
             .map(stock => {
                 const quantity = Number(stock.quantity);
                 const allocatedQuantity = Number(stock.allocatedQuantity);
@@ -495,7 +505,9 @@ export class DashboardService {
                 };
             })
             .filter(stock => stock._isLowStock)
-            .sort((a, b) => a._quantityForSort - b._quantityForSort)
+            .sort((a, b) => a._quantityForSort - b._quantityForSort);
+        const lowStockCount = lowStockCandidates.length;
+        const mappedLowStockItems = lowStockCandidates
             .slice(0, 6)
             .map(({ _quantityForSort: ignoredSort, _isLowStock: ignoredLow, ...stock }) => {
                 void ignoredSort;
@@ -516,6 +528,7 @@ export class DashboardService {
             completedPOs,
             pendingGRNs: pendingGRNsCount,
             lowStockItems: mappedLowStockItems,
+            lowStockCount,
             recentPendingRequests,
             recentActivePOs: mappedRecentActivePOs,
             updatedAt: new Date().toISOString()

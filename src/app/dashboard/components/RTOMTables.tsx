@@ -84,6 +84,7 @@ export function RTOMTables({ isLoading, sortedRtoms }: RTOMTablesProps) {
                 </h3>
                 <div className="flex items-center gap-2">
                     <select
+                        aria-label="Sort RTOM comparison"
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as 'revenue' | 'volume' | 'rate' | 'name')}
                         className="h-8 px-2 text-xs font-bold rounded-xl border border-border/40 bg-background/80 text-foreground focus:ring-1 focus:ring-primary cursor-pointer"
@@ -97,6 +98,7 @@ export function RTOMTables({ isLoading, sortedRtoms }: RTOMTablesProps) {
                     <div className="relative w-full sm:w-56">
                         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                         <Input
+                            aria-label="Search RTOM comparison"
                             type="text"
                             placeholder="Search RTOM (e.g. R-WT)..."
                             value={searchTerm}
@@ -119,15 +121,16 @@ export function RTOMTables({ isLoading, sortedRtoms }: RTOMTablesProps) {
                     </div>
                     <div className="overflow-x-auto max-h-[480px]">
                         <table className="w-full">
+                            <caption className="sr-only">RTOM revenue and operational performance comparison</caption>
                             <thead className="bg-card-foreground/[0.03] sticky top-0 backdrop-blur-md z-10">
                                 <tr className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                    <th className="px-4 py-3">RTOM</th>
-                                    <th className="px-3 py-3">Rec</th>
-                                    <th className="px-3 py-3 text-emerald-500">Comp</th>
-                                    <th className="px-3 py-3 text-amber-500">Pend</th>
-                                    <th className="px-3 py-3 text-rose-500">Ret</th>
-                                    <th className="px-4 py-3 text-emerald-600 dark:text-emerald-400">Revenue</th>
-                                    <th className="px-4 py-3">Completion %</th>
+                                    <th scope="col" className="px-4 py-3">RTOM</th>
+                                    <th scope="col" className="px-3 py-3">Rec</th>
+                                    <th scope="col" className="px-3 py-3 text-emerald-500">Comp</th>
+                                    <th scope="col" className="px-3 py-3 text-amber-500">Pend</th>
+                                    <th scope="col" className="px-3 py-3 text-rose-500">Ret</th>
+                                    <th scope="col" className="px-4 py-3 text-emerald-600 dark:text-emerald-400">Revenue</th>
+                                    <th scope="col" className="px-4 py-3">Completion %</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border/20 uppercase text-xs">
@@ -136,11 +139,11 @@ export function RTOMTables({ isLoading, sortedRtoms }: RTOMTablesProps) {
                                 ) : filteredAndSortedRtoms.length === 0 ? (
                                     <EmptyRow colSpan={7} />
                                 ) : (
-                                    filteredAndSortedRtoms.map((r, i) => {
+                                    filteredAndSortedRtoms.map((r) => {
                                         const totalReceived = r.completed + r.pending + r.returned;
                                         const rate = totalReceived > 0 ? Math.round((r.completed / totalReceived) * 100) : 0;
                                         return (
-                                            <tr key={i} className="hover:bg-card-foreground/[0.03] transition-colors">
+                                            <tr key={r.name} className="hover:bg-card-foreground/[0.03] transition-colors">
                                                 <td className="px-4 py-3.5 font-bold text-foreground">{r.name}</td>
                                                 <td className="px-3 py-3.5 text-muted-foreground font-mono font-bold">{totalReceived}</td>
                                                 <td className="px-3 py-3.5 text-emerald-500 font-bold">{r.completed}</td>
@@ -175,12 +178,13 @@ export function RTOMTables({ isLoading, sortedRtoms }: RTOMTablesProps) {
                     </div>
                     <div className="overflow-x-auto max-h-[480px]">
                         <table className="w-full">
+                            <caption className="sr-only">RTOM PAT approval and rejection summary</caption>
                             <thead className="bg-card-foreground/[0.03] sticky top-0 backdrop-blur-md z-10">
                                 <tr className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                    <th className="px-6 py-3">RTOM</th>
-                                    <th className="px-6 py-3 text-emerald-500">Approved</th>
-                                    <th className="px-6 py-3 text-rose-500">Rejected</th>
-                                    <th className="px-6 py-3 text-orange-500">SLT Rej</th>
+                                    <th scope="col" className="px-6 py-3">RTOM</th>
+                                    <th scope="col" className="px-6 py-3 text-emerald-500">Approved</th>
+                                    <th scope="col" className="px-6 py-3 text-rose-500">Rejected</th>
+                                    <th scope="col" className="px-6 py-3 text-orange-500">SLT Rej</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border/20 uppercase text-xs">
@@ -189,8 +193,8 @@ export function RTOMTables({ isLoading, sortedRtoms }: RTOMTablesProps) {
                                 ) : filteredAndSortedRtoms.length === 0 ? (
                                     <EmptyRow colSpan={4} />
                                 ) : (
-                                    filteredAndSortedRtoms.map((r, i) => (
-                                        <tr key={i} className="hover:bg-card-foreground/[0.03] transition-colors">
+                                    filteredAndSortedRtoms.map((r) => (
+                                        <tr key={r.name} className="hover:bg-card-foreground/[0.03] transition-colors">
                                             <td className="px-6 py-3.5 font-bold text-foreground">{r.name}</td>
                                             <td className="px-6 py-3.5 text-emerald-500 font-black">{r.patPassed || 0}</td>
                                             <td className="px-6 py-3.5 text-rose-500 font-black">{r.patRejected || 0}</td>

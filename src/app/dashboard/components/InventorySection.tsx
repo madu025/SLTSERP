@@ -12,6 +12,7 @@ interface LowStockItem {
 
 interface InventoryStats {
     lowStockItems: LowStockItem[];
+    lowStockCount?: number;
     pendingMRNs: number;
     pendingGRNs: number;
     dataQuality?: {
@@ -108,6 +109,7 @@ export default function InventorySection({ rtom = 'ALL', enabled = true }: Inven
     }
 
     const lowStockItems = data?.lowStockItems || [];
+    const lowStockCount = data?.lowStockCount ?? lowStockItems.length;
     const pendingMRNs = data?.pendingMRNs || 0;
     const pendingGRNs = data?.pendingGRNs || 0;
 
@@ -121,19 +123,29 @@ export default function InventorySection({ rtom = 'ALL', enabled = true }: Inven
             )}
             {isFetching && !error && <p className="text-xs font-medium text-slate-700 dark:text-slate-300" role="status">Refreshing inventory data…</p>}
             {(data.dataQuality?.negativeStockCount ?? 0) > 0 && (
-                <div className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-950">
-                    <p className="font-bold">Inventory data validation warning</p>
-                    <p className="mt-1">
-                        {data.dataQuality?.negativeStockCount.toLocaleString()} stock balance(s) are negative and need reconciliation.
-                    </p>
+                <div className="flex flex-col gap-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-950 sm:flex-row sm:items-center sm:justify-between" role="status">
+                    <div>
+                        <p className="font-bold">Inventory data validation warning</p>
+                        <p className="mt-1">
+                            {data.dataQuality?.negativeStockCount.toLocaleString()} stock balance(s) are negative and need reconciliation.
+                        </p>
+                    </div>
+                    <Link href="/inventory/audit" className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md bg-rose-800 px-3 py-2 text-xs font-bold text-white hover:bg-rose-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800 focus-visible:ring-offset-2">
+                        Open reconciliation
+                    </Link>
                 </div>
             )}
             {(data.dataQuality?.materialUsageMissingCostCount ?? 0) > 0 && (
-                <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-                    <p className="font-bold">Material cost validation warning</p>
-                    <p className="mt-1">
-                        {data.dataQuality?.materialUsageMissingCostCount.toLocaleString()} material usage row(s) have no positive cost price and are excluded from reliable COGS totals.
-                    </p>
+                <div className="flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between" role="status">
+                    <div>
+                        <p className="font-bold">Material cost validation warning</p>
+                        <p className="mt-1">
+                            {data.dataQuality?.materialUsageMissingCostCount.toLocaleString()} material usage row(s) have no positive cost price and are excluded from reliable COGS totals.
+                        </p>
+                    </div>
+                    <Link href="/inventory/reports/material-summary" className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md bg-amber-800 px-3 py-2 text-xs font-bold text-white hover:bg-amber-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-800 focus-visible:ring-offset-2">
+                        Review material costs
+                    </Link>
                 </div>
             )}
             {/* Direct Link Banner to Stores Command Center */}
@@ -158,7 +170,7 @@ export default function InventorySection({ rtom = 'ALL', enabled = true }: Inven
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="md:col-span-2 border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:shadow-md">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Critical Stock Shortages</CardTitle>
+                    <CardTitle className="text-sm font-medium">Critical Stock Shortages ({lowStockCount})</CardTitle>
                     <AlertTriangle className="w-5 h-5 text-rose-500" />
                 </CardHeader>
                 <CardContent>
@@ -179,6 +191,11 @@ export default function InventorySection({ rtom = 'ALL', enabled = true }: Inven
                                     </Badge>
                                 </div>
                             ))}
+                            {lowStockCount > lowStockItems.length && (
+                                <Link href="/inventory/stock" className="block text-center text-xs font-bold text-primary hover:underline">
+                                    View all {lowStockCount} shortages
+                                </Link>
+                            )}
                         </div>
                     )}
                 </CardContent>
@@ -197,6 +214,7 @@ export default function InventorySection({ rtom = 'ALL', enabled = true }: Inven
                             {pendingMRNs}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">Material Requests awaiting approval</p>
+                        <Link href="/inventory/requests" className="mt-2 inline-flex text-xs font-bold text-primary hover:underline">Open requests →</Link>
                     </CardContent>
                 </Card>
 
@@ -212,6 +230,7 @@ export default function InventorySection({ rtom = 'ALL', enabled = true }: Inven
                             {pendingGRNs}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">Incoming stock receipts</p>
+                        <Link href="/inventory/grn" className="mt-2 inline-flex text-xs font-bold text-primary hover:underline">Open GRNs →</Link>
                     </CardContent>
                 </Card>
             </div>

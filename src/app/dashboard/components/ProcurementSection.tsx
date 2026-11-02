@@ -57,6 +57,7 @@ interface ProcurementTelemetry {
     completedPOs: number;
     pendingGRNs: number;
     lowStockItems: LowStockItem[];
+    lowStockCount?: number;
     recentPendingRequests: PendingRequest[];
     recentActivePOs: ActivePO[];
     updatedAt?: string;
@@ -156,6 +157,7 @@ export default function ProcurementSection({ rtom = 'ALL', enabled = true }: Pro
     const completedPOs = data?.completedPOs || 0;
     const pendingGRNs = data?.pendingGRNs || 0;
     const lowStockItems = data?.lowStockItems || [];
+    const lowStockCount = data?.lowStockCount ?? lowStockItems.length;
     const recentPendingRequests = data?.recentPendingRequests || [];
     const recentActivePOs = data?.recentActivePOs || [];
 
@@ -265,12 +267,12 @@ export default function ProcurementSection({ rtom = 'ALL', enabled = true }: Pro
                     <CardContent className="pb-4 px-5 flex justify-between items-end">
                         <div>
                             <div className="text-3xl font-black text-rose-900 dark:text-rose-200">
-                                {lowStockItems.length}
+                                    {lowStockCount}
                             </div>
                             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Materials at/below threshold level</p>
                         </div>
                         <Badge variant="destructive" className="font-mono text-[10px] font-bold">
-                            {lowStockItems.length > 0 ? 'Action Required' : 'Healthy'}
+                            {lowStockCount > 0 ? 'Action Required' : 'Healthy'}
                         </Badge>
                     </CardContent>
                 </Card>
@@ -479,6 +481,9 @@ export default function ProcurementSection({ rtom = 'ALL', enabled = true }: Pro
                                     </div>
                                 </div>
                             ))}
+                            {lowStockCount > lowStockItems.length && (
+                                <p className="mt-3 text-xs font-semibold text-muted-foreground">Showing the most critical {lowStockItems.length} of {lowStockCount} shortages.</p>
+                            )}
                         </div>
                     )}
                 </CardContent>
