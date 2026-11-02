@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Package, AlertTriangle, ClipboardList, PackageMinus, Warehouse } from "lucide-react";
 
 interface StockMovement { date: string; item: string; type: string; qty: number; ref: string; status: string; }
-interface LowStockAlert { item: string; current: number; min: number; unit: string; }
+interface LowStockAlert { item: string; current: number; onHand: number; allocated: number; min: number; unit: string; }
 interface LogisticsData { totalItems: number; lowStockCount: number; pendingGRNs: number; activeStockIssues: number; stockMovements: StockMovement[]; lowStockAlerts: LowStockAlert[]; }
 
 export default function LogisticsDashboardPage() {
@@ -64,10 +64,10 @@ export default function LogisticsDashboardPage() {
                                         {loading ? <p className="text-xs">Loading...</p> :
                                             data?.lowStockAlerts?.length ? data.lowStockAlerts.map((item, i) => (
                                                 <div key={i} className="flex items-center justify-between p-2 rounded bg-muted/50 border border-border/40">
-                                                    <div className="flex-1 min-w-0"><p className="text-xs font-semibold truncate">{item.item}</p><p className="text-[10px] text-muted-foreground mt-0.5">Current: {item.current} {item.unit} / Min: {item.min} {item.unit}</p></div>
+                                                    <div className="flex-1 min-w-0"><p className="text-xs font-semibold truncate">{item.item}</p><p className="text-[10px] text-muted-foreground mt-0.5">Available: {item.current} {item.unit} · On hand: {item.onHand} · Allocated: {item.allocated} · Min: {item.min} {item.unit}</p></div>
                                                     <div className="flex items-center gap-1.5 ml-3"><div className="w-14 h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-rose-500 rounded-full" style={{ width: `${item.min > 0 ? Math.min(100, (item.current / item.min) * 100) : 0}%` }} /></div><span className="text-[10px] font-bold text-rose-600">{item.min > 0 ? Math.round((item.current / item.min) * 100) : 0}%</span></div>
                                                 </div>
-                                            )) : <p className="text-xs text-muted-foreground">No alerts</p>}
+                                                )) : <p className="text-xs text-muted-foreground">No alerts</p>}
                                     </div>
                                 </CardContent>
                             </Card>

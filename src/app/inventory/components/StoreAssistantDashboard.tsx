@@ -192,7 +192,7 @@ export default function StoreAssistantDashboard({
                                             {kpiData?.pendingDispatches?.map((req) => (
                                                 <tr key={req.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                                                     <td className="px-4 py-3 font-bold text-slate-900 dark:text-slate-100">{req.requestNr}</td>
-                                                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-semibold">{req.requester?.name || 'N/A'}</td>
+                                                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-semibold">{req.requestedBy?.name || 'N/A'}</td>
                                                     <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
                                                         {req.items?.length || 0} Items
                                                     </td>
@@ -217,33 +217,41 @@ export default function StoreAssistantDashboard({
                         <CardHeader className="py-3 px-5 border-b border-slate-100 dark:border-slate-800 flex flex-row items-center justify-between">
                             <CardTitle className="text-sm font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                                 <Receipt className="w-4 h-4 text-purple-600" />
-                                Deliveries Awaiting GRN
+                                Inbound Requests Awaiting GRN
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-0">
-                            {kpiData?.pendingGrns?.length === 0 ? (
+                            {kpiData?.pendingGrnRequests?.length === 0 ? (
                                 <div className="p-8 text-center text-slate-500 text-xs font-medium flex flex-col items-center gap-2">
                                     <CheckCircle2 className="w-6 h-6 text-emerald-500" />
-                                    No pending deliveries in the yard.
+                                    No inbound requests are waiting for physical GRN receipt.
                                 </div>
                             ) : (
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left border-collapse text-xs">
                                         <thead>
                                             <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                                                <th className="px-4 py-3 font-black uppercase text-[10px] text-slate-400">GRN #</th>
-                                                <th className="px-4 py-3 font-black uppercase text-[10px] text-slate-400">Supplier</th>
+                                                <th className="px-4 py-3 font-black uppercase text-[10px] text-slate-400">Request #</th>
+                                                <th className="px-4 py-3 font-black uppercase text-[10px] text-slate-400">Requester</th>
+                                                <th className="px-4 py-3 font-black uppercase text-[10px] text-slate-400">Items</th>
+                                                <th className="px-4 py-3 font-black uppercase text-[10px] text-slate-400">Stage</th>
                                                 <th className="px-4 py-3 font-black uppercase text-[10px] text-slate-400 text-right">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                            {kpiData?.pendingGrns?.map((grn) => (
-                                                <tr key={grn.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                                                    <td className="px-4 py-3 font-bold text-slate-900 dark:text-slate-100">{grn.grnNumber}</td>
-                                                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-semibold">{grn.supplier || grn.purchaseOrder?.vendor || 'N/A'}</td>
+                                            {kpiData?.pendingGrnRequests?.map((request) => (
+                                                <tr key={request.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                                    <td className="px-4 py-3 font-bold text-slate-900 dark:text-slate-100">{request.requestNr}</td>
+                                                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-semibold">{request.requestedBy?.name || 'N/A'}</td>
+                                                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{request.items?.length || 0} Items</td>
+                                                    <td className="px-4 py-3">
+                                                        <Badge variant="outline" className="text-[10px] font-bold border-purple-200 bg-purple-50 text-purple-700">
+                                                            {request.workflowStage}
+                                                        </Badge>
+                                                    </td>
                                                     <td className="px-4 py-3 text-right">
-                                                        <Link href={`/inventory/grn?id=${grn.id}`} className="inline-flex items-center text-[10px] font-bold bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 transition-all shadow-sm">
-                                                            Start Count
+                                                        <Link href="/inventory/grn" className="inline-flex items-center text-[10px] font-bold bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 transition-all shadow-sm">
+                                                            Open GRN Entry
                                                         </Link>
                                                     </td>
                                                 </tr>

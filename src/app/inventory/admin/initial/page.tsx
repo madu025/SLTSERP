@@ -11,6 +11,8 @@ import { Loader2, Save, Search } from "lucide-react";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Badge } from "@/components/ui/badge";
+import RoleGuard from '@/components/RoleGuard';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 interface InventoryItem {
     id: string;
@@ -87,8 +89,7 @@ export default function InitialStockPage() {
             const res = await fetch("/api/inventory/stock", {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
-                    "x-user-id": "USER_ID_PLACEHOLDER" // Ideally from Auth Context
+                    "Content-Type": "application/json"
                 },
                 body: JSON.stringify(payload)
             });
@@ -133,6 +134,7 @@ export default function InitialStockPage() {
     );
 
     return (
+        <RoleGuard allowedRoles={[]} permissionId={RBAC_PERMISSIONS.INVENTORY_WRITE}>
         <div className="erp-page-wrapper flex-row overflow-hidden">
             <Sidebar />
             <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
@@ -253,5 +255,6 @@ export default function InitialStockPage() {
                 </div>
             </main>
         </div>
+        </RoleGuard>
     );
 }

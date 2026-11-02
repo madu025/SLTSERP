@@ -1,6 +1,6 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { PreErpReconciliationService } from '@/services/inventory/pre-erp-reconciliation.service';
 import { z } from 'zod';
 
@@ -38,12 +38,12 @@ export const GET = apiHandler(async (request) => {
 
   return PreErpReconciliationService.listBalances(params);
 }, {
-  roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.INVENTORY_READ],
   rawResponse: true,
 });
 
-export const POST = apiHandler(async (req, _params, body) => {
-  const userId = req.headers.get('x-user-id');
+export const POST = apiHandler(async (_req, params, body) => {
+  const userId = params._userId;
   if (!userId) throw AppError.unauthorized('Authentication required');
 
   if (Array.isArray((body as { items?: unknown[] }).items)) {
@@ -65,7 +65,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     return { success: true, data: result };
   }
 }, {
-  roles: ROLE_GROUPS.STORES_ALL,
+  permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
   audit: { action: 'UPSERT', entity: 'PRE_ERP_MATERIAL_BALANCE' },
   rawResponse: true,
 });

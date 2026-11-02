@@ -16,10 +16,21 @@ interface LowStockItem {
 interface InventoryStats {
     lowStockItems: LowStockItem[];
     lowStockCount?: number;
-    pendingMRNs: number;
-    pendingGRNs: number;
+    pendingMaterialRequests: number;
+    pendingGrnReceipts: number;
+    pendingMaterialReturnNotes: number;
+    pendingProjectReceipts: number;
+    pendingContractorReturns: number;
+    projectMaterialShortages: number;
+    stockSummary: {
+        onHandQuantity: number;
+        allocatedQuantity: number;
+        availableQuantity: number;
+        stockRowCount: number;
+    };
     dataQuality?: {
         negativeStockCount: number;
+        overAllocatedStockCount: number;
         materialUsageMissingCostCount: number;
     };
     updatedAt: string;
@@ -113,8 +124,18 @@ export default function InventorySection({ rtom = 'ALL', enabled = true }: Inven
 
     const lowStockItems = data?.lowStockItems || [];
     const lowStockCount = data?.lowStockCount ?? lowStockItems.length;
-    const pendingMRNs = data?.pendingMRNs || 0;
-    const pendingGRNs = data?.pendingGRNs || 0;
+    const pendingMaterialRequests = data?.pendingMaterialRequests || 0;
+    const pendingGrnReceipts = data?.pendingGrnReceipts || 0;
+    const pendingMaterialReturnNotes = data?.pendingMaterialReturnNotes || 0;
+    const pendingProjectReceipts = data?.pendingProjectReceipts || 0;
+    const pendingContractorReturns = data?.pendingContractorReturns || 0;
+    const projectMaterialShortages = data?.projectMaterialShortages || 0;
+    const stockSummary = data.stockSummary || {
+        onHandQuantity: 0,
+        allocatedQuantity: 0,
+        availableQuantity: 0,
+        stockRowCount: 0,
+    };
 
     return (
         <div className="space-y-4">
@@ -138,6 +159,19 @@ export default function InventorySection({ rtom = 'ALL', enabled = true }: Inven
                     </Link>
                 </div>
             )}
+            {(data.dataQuality?.overAllocatedStockCount ?? 0) > 0 && (
+                <div className="flex flex-col gap-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-950 sm:flex-row sm:items-center sm:justify-between" role="status">
+                    <div>
+                        <p className="font-bold">Reserved stock exceeds physical stock</p>
+                        <p className="mt-1">
+                            {data.dataQuality?.overAllocatedStockCount.toLocaleString()} stock balance(s) have no available quantity after reservations.
+                        </p>
+                    </div>
+                    <Link href="/inventory/audit" className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md bg-rose-800 px-3 py-2 text-xs font-bold text-white hover:bg-rose-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800 focus-visible:ring-offset-2">
+                        Review reservations
+                    </Link>
+                </div>
+            )}
             {(data.dataQuality?.materialUsageMissingCostCount ?? 0) > 0 && (
                 <div className="flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between" role="status">
                     <div>
@@ -151,6 +185,38 @@ export default function InventorySection({ rtom = 'ALL', enabled = true }: Inven
                     </Link>
                 </div>
             )}
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Inventory control summary">
+                <Card className="border-slate-200 dark:border-slate-800">
+                    <CardContent className="p-4">
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">On hand</p>
+                        <p className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">{stockSummary.onHandQuantity.toLocaleString()}</p>
+                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Physical quantity across scoped stores</p>
+                    </CardContent>
+                </Card>
+                <Card className="border-slate-200 dark:border-slate-800">
+                    <CardContent className="p-4">
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">Allocated</p>
+                        <p className="mt-1 text-2xl font-black text-indigo-800 dark:text-indigo-300">{stockSummary.allocatedQuantity.toLocaleString()}</p>
+                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Committed to project reservations</p>
+                    </CardContent>
+                </Card>
+                <Card className="border-slate-200 dark:border-slate-800">
+                    <CardContent className="p-4">
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">Available</p>
+                        <p className={`mt-1 text-2xl font-black ${stockSummary.availableQuantity < 0 ? 'text-rose-800 dark:text-rose-300' : 'text-emerald-800 dark:text-emerald-300'}`}>
+                            {stockSummary.availableQuantity.toLocaleString()}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">On hand minus allocated</p>
+                    </CardContent>
+                </Card>
+                <Card className="border-slate-200 dark:border-slate-800">
+                    <CardContent className="p-4">
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">Project shortages</p>
+                        <p className={`mt-1 text-2xl font-black ${projectMaterialShortages > 0 ? 'text-rose-800 dark:text-rose-300' : 'text-emerald-800 dark:text-emerald-300'}`}>{projectMaterialShortages}</p>
+                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Approved requirements needing supply</p>
+                    </CardContent>
+                </Card>
+            </div>
             {/* Direct Link Banner to Stores Command Center */}
             <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-md">
                 <div className="flex items-center gap-3">
@@ -224,15 +290,15 @@ export default function InventorySection({ rtom = 'ALL', enabled = true }: Inven
                 <Card className="bg-gradient-to-br from-indigo-500/10 to-indigo-500/5 border-indigo-500/20 shadow-sm transition-all hover:shadow-md">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium text-indigo-700 dark:text-indigo-400">
-                            Pending MRNs
+                            Material requests pending
                         </CardTitle>
                         <Package className="w-5 h-5 text-indigo-600" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-bold text-indigo-800 dark:text-indigo-300">
-                            {pendingMRNs}
+                            {pendingMaterialRequests}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">Material Requests awaiting approval</p>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">Requests awaiting store dispatch</p>
                         <Link href="/inventory/requests" className="mt-2 inline-flex text-xs font-bold text-primary hover:underline">Open requests →</Link>
                     </CardContent>
                 </Card>
@@ -240,16 +306,34 @@ export default function InventorySection({ rtom = 'ALL', enabled = true }: Inven
                 <Card className="bg-gradient-to-br from-violet-500/10 to-violet-500/5 border-violet-500/20 shadow-sm transition-all hover:shadow-md">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium text-violet-700 dark:text-violet-400">
-                            Pending GRNs
+                            Receipts awaiting GRN
                         </CardTitle>
                         <Truck className="w-5 h-5 text-violet-600" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-bold text-violet-800 dark:text-violet-300">
-                            {pendingGRNs}
+                            {pendingGrnReceipts}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">Incoming stock receipts</p>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">Procurement completed, store receipt pending</p>
                         <Link href="/inventory/grn" className="mt-2 inline-flex text-xs font-bold text-primary hover:underline">Open GRNs →</Link>
+                    </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-rose-500/10 to-rose-500/5 border-rose-500/20 shadow-sm transition-all hover:shadow-md">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-sm font-medium text-rose-800 dark:text-rose-300">
+                            Material return notes
+                        </CardTitle>
+                        <Package className="w-5 h-5 text-rose-700" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-3xl font-bold text-rose-900 dark:text-rose-200">{pendingMaterialReturnNotes}</div>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">Pending MRN approvals</p>
+                        <Link href="/inventory/admin/mrns" className="mt-2 inline-flex text-xs font-bold text-primary hover:underline">Review returns â†’</Link>
+                        {(pendingProjectReceipts > 0 || pendingContractorReturns > 0) && (
+                            <p className="mt-2 text-[11px] text-slate-700 dark:text-slate-300">
+                                Project receipts: {pendingProjectReceipts} Â· Contractor returns: {pendingContractorReturns}
+                            </p>
+                        )}
                     </CardContent>
                 </Card>
             </div>

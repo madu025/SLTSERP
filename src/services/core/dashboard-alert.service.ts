@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { NIL_UUID } from '@/lib/opmc-scope';
 import { Prisma } from '@prisma/client';
+import { isInventoryReorderNeeded } from '@/lib/inventory-dashboard-metrics';
 
 interface AlertItem {
     type: string;
@@ -36,7 +37,6 @@ export class DashboardAlertService {
         const lowStocks = await prisma.inventoryStock.findMany({
             where: {
                 storeId: { in: storeIds },
-                quantity: { lte: 10 }
             },
             include: {
                 item: true,
@@ -45,10 +45,16 @@ export class DashboardAlertService {
         });
 
         lowStocks.forEach(stock => {
-            if (stock.quantity <= stock.item.minLevel) {
+            const availableQuantity = Number(stock.quantity) - Number(stock.allocatedQuantity);
+            if (isInventoryReorderNeeded({
+                quantity: stock.quantity,
+                allocatedQuantity: stock.allocatedQuantity,
+                minLevel: stock.minLevel,
+                itemMinLevel: stock.item.minLevel,
+            })) {
                 alerts.push({
                     type: 'LOW_STOCK',
-                    message: `Low Stock: ${stock.item.name} (${stock.quantity} ${stock.item.unit}) at ${stock.store.name}`,
+                    message: `Low Stock: ${stock.item.name} (available ${availableQuantity}, on hand ${stock.quantity}, allocated ${stock.allocatedQuantity} ${stock.item.unit}) at ${stock.store.name}`,
                     severity: 'HIGH',
                     storeId: stock.storeId,
                     itemId: stock.item.id

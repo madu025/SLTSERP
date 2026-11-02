@@ -1,11 +1,13 @@
 export const dynamic = 'force-dynamic';
-import { ROLE_GROUPS } from '@/config/roles';
 import { InventoryService } from '@/services/inventory/inventory.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import type { StockRequestActionData } from '@/types/inventory/inventory-service.types';
 
-export const POST = apiHandler(async (request, _params, body) => {
-    const userId = request.headers.get('x-user-id') || 'SYSTEM';
+export const POST = apiHandler(async (_request, params, body) => {
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
     const requestId = body.requestId as string | undefined;
     const action = body.action as string | undefined;
     const remarks = body.remarks as string | undefined;
@@ -17,7 +19,7 @@ export const POST = apiHandler(async (request, _params, body) => {
 
     const result = await InventoryService.processStockRequestAction({
         requestId,
-        action: action as any,
+        action: action as StockRequestActionData['action'],
         userId,
         remarks,
         items: allocation
@@ -25,7 +27,7 @@ export const POST = apiHandler(async (request, _params, body) => {
 
     return result;
 }, {
-    roles: ROLE_GROUPS.MATERIAL_REQUESTERS,
+    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
     audit: { action: 'UPDATE', entity: 'STOCK_REQUEST' },
     rawResponse: true
 });

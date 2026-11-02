@@ -233,7 +233,7 @@ export default function StoreManagerCommandCenter({
                         Field Dispatch ({summary.pendingDispatchCount})
                     </TabsTrigger>
                     <TabsTrigger value="inbound" className="text-xs font-bold py-2 px-3 rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white">
-                        Inbound POs ({summary.pendingGrnCount})
+                        Awaiting GRN ({summary.pendingGrnCount})
                     </TabsTrigger>
                     <TabsTrigger value="reorder" className="text-xs font-bold py-2 px-3 rounded-lg data-[state=active]:bg-red-600 data-[state=active]:text-white">
                         Stockout ({summary.lowStockCount})
@@ -282,7 +282,7 @@ export default function StoreManagerCommandCenter({
                                             {kpiData?.pendingDispatches?.map((req) => (
                                                 <tr key={req.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                                                     <td className="px-4 py-3 font-bold text-slate-900 dark:text-slate-100">{req.requestNr}</td>
-                                                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-semibold">{req.requester?.name || 'N/A'}</td>
+                                                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-semibold">{req.requestedBy?.name || 'N/A'}</td>
                                                     <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
                                                         {req.items?.length || 0} Items ({req.items?.slice(0, 2).map(i => i.item?.name).filter(Boolean).join(', ')})
                                                     </td>
@@ -312,43 +312,45 @@ export default function StoreManagerCommandCenter({
                         <CardHeader className="py-3 px-5 border-b border-slate-100 dark:border-slate-800 flex flex-row items-center justify-between">
                             <CardTitle className="text-sm font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                                 <Receipt className="w-4 h-4 text-purple-600" />
-                                Inbound Deliveries Awaiting GRN
+                                Inbound Requests Awaiting GRN
                             </CardTitle>
                             <Link href="/inventory/grn" className="text-xs font-bold text-purple-600 hover:text-purple-700 flex items-center">
                                 Go to GRN Module <ArrowUpRight className="w-3.5 h-3.5 ml-0.5" />
                             </Link>
                         </CardHeader>
                         <CardContent className="p-0">
-                            {kpiData?.pendingGrns?.length === 0 ? (
+                            {kpiData?.pendingGrnRequests?.length === 0 ? (
                                 <div className="p-8 text-center text-slate-500 text-xs font-medium">
-                                    No pending GRN entries awaiting physical inspection.
+                                    No inbound requests are waiting for physical GRN receipt.
                                 </div>
                             ) : (
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left border-collapse text-xs">
                                         <thead>
                                             <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400">GRN #</th>
-                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400">PO Ref</th>
-                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400">Supplier</th>
-                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400">Date Created</th>
+                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400">Request #</th>
+                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400">Requester</th>
+                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400">Items</th>
+                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400">Workflow stage</th>
                                                 <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400 text-right">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                            {kpiData?.pendingGrns?.map((grn) => (
-                                                <tr key={grn.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                                                    <td className="px-4 py-3 font-bold text-slate-900 dark:text-slate-100">{grn.grnNumber}</td>
-                                                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-mono text-[11px]">
-                                                        {grn.purchaseOrder?.poNumber || grn.request?.requestNr || 'N/A'}
+                                            {kpiData?.pendingGrnRequests?.map((request) => (
+                                                <tr key={request.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                                    <td className="px-4 py-3 font-bold text-slate-900 dark:text-slate-100">{request.requestNr}</td>
+                                                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-semibold">{request.requestedBy?.name || 'N/A'}</td>
+                                                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+                                                        {request.items?.length || 0} Items ({request.items?.slice(0, 2).map(i => i.item?.name).filter(Boolean).join(', ')})
                                                     </td>
-                                                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-semibold">{grn.supplier || grn.purchaseOrder?.vendor || 'N/A'}</td>
-                                                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400 font-medium">
-                                                        {new Date(grn.createdAt).toLocaleDateString()}
+                                                    <td className="px-4 py-3">
+                                                        <Badge variant="outline" className="text-[10px] font-bold border-purple-200 bg-purple-50 text-purple-700">
+                                                            {request.workflowStage}
+                                                        </Badge>
                                                     </td>
                                                     <td className="px-4 py-3 text-right">
-                                                        <Link href={`/inventory/grn?id=${grn.id}`} className="inline-flex items-center text-[10px] font-bold bg-purple-600 text-white px-3 py-1 rounded-lg hover:bg-purple-700 transition-all">
-                                                            Perform Audit
+                                                        <Link href="/inventory/grn" className="inline-flex items-center text-[10px] font-bold bg-purple-600 text-white px-3 py-1 rounded-lg hover:bg-purple-700 transition-all">
+                                                            Open GRN Entry
                                                         </Link>
                                                     </td>
                                                 </tr>

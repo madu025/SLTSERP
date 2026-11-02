@@ -1,7 +1,7 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ConsumableAuditService } from '@/services/inventory/consumable-audit.service';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +21,6 @@ export const GET = apiHandler(async (req) => {
         data: auditSummary,
     };
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.INVENTORY_READ],
     audit: { action: 'AUDIT_CONSUMABLE_LEAKAGE', entity: 'Contractor' }
 });

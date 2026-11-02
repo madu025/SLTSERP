@@ -29,7 +29,16 @@ export interface KpiData {
         status: string;
         workflowStage: string;
         createdAt: string;
-        requester?: { name: string } | null;
+        requestedBy?: { name: string } | null;
+        items: Array<{ id: string; requestedQty: number; item: { name: string } }>;
+    }>;
+    pendingGrnRequests: Array<{
+        id: string;
+        requestNr: string;
+        status: string;
+        workflowStage: string;
+        createdAt: string;
+        requestedBy?: { name: string } | null;
         items: Array<{ id: string; requestedQty: number; item: { name: string } }>;
     }>;
     pendingGrns: Array<{

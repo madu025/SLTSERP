@@ -1,30 +1,53 @@
 import { apiHandler } from '@/lib/api-handler';
 import { prisma } from '@/lib/prisma';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { NextResponse } from 'next/server';
 import { StoreService } from '@/services/inventory/store.service';
+import { NIL_UUID, resolveOpmcScope } from '@/lib/opmc-scope';
+import { AppError } from '@/lib/error';
+import { effectiveInventoryMinLevel, isInventoryReorderNeeded } from '@/lib/inventory-dashboard-metrics';
 export const dynamic = 'force-dynamic';
 export const GET = apiHandler(async (req, params) => {
     const { searchParams } = new URL(req.url);
     let storeId = searchParams.get('storeId');
-    const { _userRole, _userId } = params;
-    const isGlobalManager = ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'MANAGER'].includes(_userRole || '');
-    if (!isGlobalManager && _userId) {
-        // Enforce store limit: assistants can only see their assigned store
-        const user = await prisma.user.findUnique({ where: { id: _userId }, select: { assignedStoreId: true }});
-        if (user?.assignedStoreId) {
+    const { _userId, _userRole } = params;
+    if (!_userId) throw AppError.unauthorized('Authentication required');
+
+    // Capability and store scope are separate. A display role must never turn
+    // a scoped store user into a global inventory reader.
+    const isGlobalScope = (await resolveOpmcScope(_userId)) === undefined;
+    const user = await prisma.user.findUnique({
+        where: { id: _userId },
+        select: { assignedStoreId: true },
+    });
+    if (!user) throw AppError.unauthorized('Authenticated user not found');
+
+    if (!isGlobalScope) {
+        const accessibleStores = await StoreService.getAccessibleStores(_userId, _userRole || '');
+        const accessibleStoreIds = accessibleStores.map((store) => store.id);
+
+        // A directly assigned store is authoritative for store assistants.
+        if (user.assignedStoreId) {
+            if (storeId && storeId !== 'all' && storeId !== user.assignedStoreId) {
+                throw AppError.forbidden('STORE_SCOPE_VIOLATION');
+            }
             storeId = user.assignedStoreId;
-        } else {
-            // Unassigned assistant gets no data
-            storeId = 'unassigned';
+        } else if (!storeId || storeId === 'all' || storeId === 'unassigned') {
+            // Do not translate an unassigned scoped user into {}. In Prisma,
+            // that would silently return every store in the database.
+            storeId = accessibleStoreIds[0] || NIL_UUID;
+        } else if (!accessibleStoreIds.includes(storeId)) {
+            throw AppError.forbidden('STORE_SCOPE_VIOLATION');
         }
     }
-    const storeFilter = (storeId && storeId !== 'all' && storeId !== 'unassigned') 
-        ? { storeId } 
-        : {};
+    const hasSpecificStore = Boolean(storeId && storeId !== 'all' && storeId !== 'unassigned' && storeId !== NIL_UUID);
+    const scopedStoreId = hasSpecificStore ? storeId! : NIL_UUID;
+    const storeFilter = isGlobalScope && (!storeId || storeId === 'all')
+        ? {}
+        : { storeId: scopedStoreId };
     // 1. Calculate Stock Valuation & Total Items
     // Use DB functions for single-store queries (zero egress computation)
-    const singleStoreId = (storeId && storeId !== 'all' && storeId !== 'unassigned') ? storeId : null;
+    const singleStoreId = hasSpecificStore ? storeId : null;
     let totalValue = 0;
     let totalQuantity = 0;
     let lowStockAlerts: Array<{ id: string; name: string; category: string | null; minLevel: number; currentQty: number }> = [];
@@ -37,6 +60,7 @@ export const GET = apiHandler(async (req, params) => {
             materialRows,
             expiringRows,
             pendingDispatches,
+            pendingGrnRequests,
             pendingGrns
         ] = await Promise.all([
             StoreService.getDashboardSummary(singleStoreId),
@@ -46,6 +70,19 @@ export const GET = apiHandler(async (req, params) => {
             prisma.stockRequest.findMany({
                 where: { status: { in: ['PENDING', 'APPROVED'] }, fromStoreId: singleStoreId },
                 take: 10, orderBy: { createdAt: 'desc' },
+                select: {
+                    id: true, requestNr: true, status: true, workflowStage: true, createdAt: true,
+                    requestedBy: { select: { name: true } },
+                    items: { select: { id: true, requestedQty: true, item: { select: { name: true } } } }
+                }
+            }),
+            prisma.stockRequest.findMany({
+                where: {
+                    workflowStage: { in: ['GRN_PENDING', 'STORE_RECEIVING'] },
+                    OR: [{ fromStoreId: singleStoreId }, { toStoreId: singleStoreId }]
+                },
+                take: 10,
+                orderBy: { createdAt: 'asc' },
                 select: {
                     id: true, requestNr: true, status: true, workflowStage: true, createdAt: true,
                     requestedBy: { select: { name: true } },
@@ -103,11 +140,12 @@ export const GET = apiHandler(async (req, params) => {
                 totalUniqueItems: itemCount,
                 lowStockCount: lowStockAlerts.length,
                 pendingDispatchCount: pendingDispatches.length,
-                pendingGrnCount: pendingGrns.length,
+                pendingGrnCount: pendingGrnRequests.length,
                 pendingMrnCount: pendingMrnsCount,
             },
             lowStockAlerts: lowStockAlerts.slice(0, 10),
             pendingDispatches,
+            pendingGrnRequests,
             pendingGrns,
             materialBalance,
             expiringBatches,
@@ -118,6 +156,8 @@ export const GET = apiHandler(async (req, params) => {
         where: storeFilter,
         select: {
             quantity: true,
+            allocatedQuantity: true,
+            minLevel: true,
             item: {
                 select: {
                     id: true,
@@ -129,9 +169,14 @@ export const GET = apiHandler(async (req, params) => {
             }
         }
     });
-    const itemStockMap = new Map<string, { item: { id: string; name: string; unitPrice: number | null; minLevel: number; category: string | null; }; totalQty: number }>();
+    const itemStockMap = new Map<string, {
+        item: { id: string; name: string; unitPrice: number | null; minLevel: number; category: string | null };
+        totalQty: number;
+        totalAllocated: number;
+    }>();
     for (const s of stocks) {
         const qty = Number(s.quantity) || 0;
+        const allocated = Number(s.allocatedQuantity) || 0;
         const price = s.item?.unitPrice ? Number(s.item.unitPrice) : 0;
         totalValue += qty * price;
         totalQuantity += qty;
@@ -140,23 +185,30 @@ export const GET = apiHandler(async (req, params) => {
                 id: s.item.id,
                 name: s.item.name,
                 unitPrice: s.item.unitPrice ? Number(s.item.unitPrice) : null,
-                minLevel: Number(s.item.minLevel) || 0,
+                minLevel: effectiveInventoryMinLevel({
+                    quantity: qty,
+                    minLevel: s.minLevel,
+                    itemMinLevel: s.item.minLevel
+                }),
                 category: s.item.category
             };
-            const existing = itemStockMap.get(s.item.id) || { item: parsedItem, totalQty: 0 };
+            const existing = itemStockMap.get(s.item.id) || { item: parsedItem, totalQty: 0, totalAllocated: 0 };
+            existing.item.minLevel = Math.max(existing.item.minLevel, parsedItem.minLevel);
             existing.totalQty += qty;
+            existing.totalAllocated += allocated;
             itemStockMap.set(s.item.id, existing);
         }
     }
     // Low stock items
-    itemStockMap.forEach(({ item, totalQty }) => {
-        if (item.minLevel > 0 && totalQty <= item.minLevel) {
+    itemStockMap.forEach(({ item, totalQty, totalAllocated }) => {
+        const availableQty = totalQty - totalAllocated;
+        if (isInventoryReorderNeeded({ quantity: totalQty, allocatedQuantity: totalAllocated, minLevel: item.minLevel })) {
             lowStockAlerts.push({
                 id: item.id,
                 name: item.name,
                 category: item.category,
                 minLevel: item.minLevel,
-                currentQty: totalQty
+                currentQty: availableQty
             });
         }
     });
@@ -164,7 +216,7 @@ export const GET = apiHandler(async (req, params) => {
     const pendingDispatches = await prisma.stockRequest.findMany({
         where: {
             status: { in: ['PENDING', 'APPROVED'] },
-            ...(storeId && storeId !== 'all' && storeId !== 'unassigned' ? { fromStoreId: storeId } : {})
+            ...(hasSpecificStore ? { fromStoreId: storeId } : isGlobalScope ? {} : { fromStoreId: NIL_UUID })
         },
         take: 10,
         orderBy: { createdAt: 'desc' },
@@ -186,7 +238,7 @@ export const GET = apiHandler(async (req, params) => {
             }
         }
     });
-    // 3. Awaiting GRNs
+    // 3. Recent GRNs. The awaiting queue is the StockRequest workflow below.
     const pendingGrns = await prisma.gRN.findMany({
         where: storeFilter,
         take: 10,
@@ -209,6 +261,23 @@ export const GET = apiHandler(async (req, params) => {
             }
         }
     });
+    const pendingGrnRequests = await prisma.stockRequest.findMany({
+        where: {
+            workflowStage: { in: ['GRN_PENDING', 'STORE_RECEIVING'] },
+            ...(hasSpecificStore
+                ? { OR: [{ fromStoreId: storeId }, { toStoreId: storeId }] }
+                : isGlobalScope
+                    ? {}
+                    : { OR: [{ fromStoreId: NIL_UUID }, { toStoreId: NIL_UUID }] })
+        },
+        take: 10,
+        orderBy: { createdAt: 'asc' },
+        select: {
+            id: true, requestNr: true, status: true, workflowStage: true, createdAt: true,
+            requestedBy: { select: { name: true } },
+            items: { select: { id: true, requestedQty: true, item: { select: { name: true } } } }
+        }
+    });
     // 4. Pending MRNs (Returns)
     const pendingMrnsCount = await prisma.mRN.count({
         where: {
@@ -219,7 +288,7 @@ export const GET = apiHandler(async (req, params) => {
     // 5. Material Balance & Expiring Batches for multi-store view
     // Use single DB function calls instead of N+1 per-store loop
     const stores = await prisma.inventoryStore.findMany({
-        where: storeFilter as any,
+        where: isGlobalScope && (!storeId || storeId === 'all') ? {} : { id: scopedStoreId },
         select: { id: true }
     });
     const storeIds = stores.map(s => s.id);
@@ -278,21 +347,22 @@ export const GET = apiHandler(async (req, params) => {
     return NextResponse.json({
         success: true,
         summary: {
-            totalStockValue: isGlobalManager ? Math.round(totalValue) : null,
+            totalStockValue: isGlobalScope ? Math.round(totalValue) : null,
             totalStockQuantity: totalQuantity,
             totalUniqueItems: itemStockMap.size,
             lowStockCount: lowStockAlerts.length,
             pendingDispatchCount: pendingDispatches.length,
-            pendingGrnCount: pendingGrns.length,
+            pendingGrnCount: pendingGrnRequests.length,
             pendingMrnCount: pendingMrnsCount,
         },
         lowStockAlerts: lowStockAlerts.slice(0, 10),
         pendingDispatches,
+        pendingGrnRequests,
         pendingGrns,
         materialBalance: materialBalance.slice(0, 50),
         expiringBatches: expiringBatches.slice(0, 20),
     });
 }, {
-    roles: [...ROLE_GROUPS.STORES, 'OSP_MANAGER', 'AREA_MANAGER'],
+    permissions: [RBAC_PERMISSIONS.INVENTORY_READ],
     rawResponse: true
 });

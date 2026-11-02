@@ -1,6 +1,6 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { PreErpReconciliationService } from '@/services/inventory/pre-erp-reconciliation.service';
 import { z } from 'zod';
 
@@ -12,8 +12,8 @@ const AdjustSchema = z.object({
   varianceReason: z.enum(['UNRECORDED_RECEIPT', 'BUFFER_STOCK', 'FIELD_SCRAP', 'OTHER']),
 });
 
-export const POST = apiHandler(async (req, _params, body) => {
-  const userId = req.headers.get('x-user-id');
+export const POST = apiHandler(async (_req, params, body) => {
+  const userId = params._userId;
   if (!userId) throw AppError.unauthorized('Authentication required');
 
   const result = await PreErpReconciliationService.submitVarianceAdjustment({
@@ -24,7 +24,7 @@ export const POST = apiHandler(async (req, _params, body) => {
   return { success: true, data: result };
 }, {
   schema: AdjustSchema,
-  roles: ROLE_GROUPS.STORES_ALL,
+  permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
   audit: { action: 'SUBMIT_ADJUSTMENT', entity: 'MATERIAL_VARIANCE_ADJUSTMENT' },
   rawResponse: true,
 });

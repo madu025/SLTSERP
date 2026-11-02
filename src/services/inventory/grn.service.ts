@@ -11,9 +11,14 @@ import { StoreService } from './store.service';
 import { LedgerService } from '../finance/ledger.service';
 
 export class GRNService {
-    static async getGRNs(storeId?: string) {
+    static async getGRNs(storeId?: string, allowedStoreIds?: string[]) {
+        const where: Prisma.GRNWhereInput = storeId
+            ? { storeId }
+            : allowedStoreIds
+                ? { storeId: { in: allowedStoreIds } }
+                : {};
         return await prisma.gRN.findMany({
-            where: storeId ? { storeId } : {},
+            where,
             include: {
                 store: true,
                 receivedBy: true,

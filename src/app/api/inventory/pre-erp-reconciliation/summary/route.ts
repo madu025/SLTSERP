@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { apiHandler } from '@/lib/api-handler';
 import { MaterialAuditReportService } from '@/services/inventory/material-audit-report.service';
 export const dynamic = 'force-dynamic';
@@ -7,6 +7,6 @@ export const GET = apiHandler(async (request) => {
   const opmcId = searchParams.get('opmcId') ?? undefined;
   return MaterialAuditReportService.getExecutiveAuditSummary(opmcId);
 }, {
-  roles: ROLE_GROUPS.FINANCE_APPROVERS,
+  permissions: [RBAC_PERMISSIONS.INVENTORY_READ],
   rawResponse: true,
 });

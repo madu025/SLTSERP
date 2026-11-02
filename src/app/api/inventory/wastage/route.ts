@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic';
 import { InventoryService } from '@/services/inventory';
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler, castBody } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 interface RecordWastageInput {
     storeId?: string;
@@ -13,8 +14,9 @@ interface RecordWastageInput {
     userId?: string;
 }
 
-export const POST = apiHandler(async (request, _params, body) => {
-    const userId = request.headers.get('x-user-id') || undefined;
+export const POST = apiHandler(async (_request, params, body) => {
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
 
     const input = castBody<RecordWastageInput>(body);
     const result = await InventoryService.recordWastage({
@@ -24,7 +26,7 @@ export const POST = apiHandler(async (request, _params, body) => {
 
     return result;
 }, {
-    roles: ROLE_GROUPS.STORES_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
     audit: { action: 'CREATE', entity: 'WASTAGE' },
     rawResponse: true
 });

@@ -13,10 +13,14 @@ export class StockService {
         return Math.round(val * 10000) / 10000;
     }
 
-    static async getStock(storeId: UUID) {
+    static async getStock(storeId: UUID, allowedStoreIds?: UUID[]) {
         if (!storeId) throw AppError.badRequest('STORE_ID_REQUIRED');
 
-        const whereClause = storeId === 'all' ? {} : { storeId };
+        const whereClause = storeId === 'all'
+            ? allowedStoreIds
+                ? { storeId: { in: allowedStoreIds } }
+                : {}
+            : { storeId };
 
         return await InventoryRepository.findManyStocks(
             whereClause,
@@ -236,10 +240,13 @@ export class StockService {
 
         // Store-Scope Enforcement: caller must be authorized for the target store
         await StoreService.assertStoreWriteAccess(userId, storeId);
+        const itemIds = items.map(i => i.itemId);
+        if (new Set(itemIds).size !== itemIds.length) {
+            throw AppError.badRequest('DUPLICATE_ITEM_IN_STOCK_ADJUSTMENT');
+        }
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
             // Delegate bulk stock operations to fn_bulk_stock_initialize (single atomic DB call)
-            const itemIds = items.map(i => i.itemId);
             const quantities = items.map(i => this.round(parseFloat(i.quantity.toString())));
 
             const bulkResult = await tx.$queryRaw<Array<{
@@ -264,11 +271,12 @@ export class StockService {
                 }));
 
             if (transactionItems.length > 0) {
+                const referenceId = `INIT-STOCK-${storeId}-${Date.now()}`;
                 await InventoryRepository.createTransaction({
                     type: 'ADJUSTMENT',
                     storeId,
                     userId: userId || 'SYSTEM',
-                    referenceId: `INIT-STOCK-${Date.now()}`,
+                    referenceId,
                     notes: reason || 'Initial Stock Setup',
                     items: {
                         create: transactionItems.map((ti) => ({
@@ -277,6 +285,21 @@ export class StockService {
                         }))
                     }
                 }, tx);
+
+                for (const transactionItem of transactionItems) {
+                    await AuditLedgerService.recordEntry({
+                        storeId,
+                        itemId: transactionItem.itemId,
+                        transactionType: 'CYCLE_COUNT_CORRECTION',
+                        referenceType: 'Adjustment',
+                        referenceId,
+                        quantityBefore: transactionItem.beforeQty,
+                        quantityChange: transactionItem.quantity,
+                        quantityAfter: transactionItem.afterQty,
+                        performedById: userId || 'SYSTEM',
+                        idempotencyKey: `${referenceId}:${transactionItem.itemId}`,
+                    }, tx);
+                }
             }
 
             return transactionItems.length;

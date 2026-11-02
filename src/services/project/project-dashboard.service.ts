@@ -118,6 +118,22 @@ export class ProjectDashboardService {
     static async getProjectStats(userId: string, userRole: string) {
         const projectWhere = await this.getProjectScope(userId, userRole);
         const projectIds = await this.getProjectIdsForScope(projectWhere);
+        const inventoryOpmcScope = await resolveOpmcScope(userId);
+        const inventoryStoreWhere: Prisma.InventoryStoreWhereInput = inventoryOpmcScope === undefined
+            ? {}
+            : {
+                opmcs: {
+                    some: {
+                        id: { in: inventoryOpmcScope.length > 0 ? inventoryOpmcScope : [NIL_UUID] },
+                    },
+                },
+            };
+        const inventoryStores = await prisma.inventoryStore.findMany({
+            where: inventoryStoreWhere,
+            select: { id: true },
+        });
+        const inventoryStoreIds = inventoryStores.map((store) => store.id);
+        const scopedInventoryStoreIds = inventoryStoreIds.length > 0 ? inventoryStoreIds : [NIL_UUID];
 
         // =====================================================
         // FINANCIALS DASHBOARD
@@ -226,23 +242,35 @@ export class ProjectDashboardService {
         // =====================================================
         // LOGISTICS & WAREHOUSE DASHBOARD
         // =====================================================
-        const totalItems = await prisma.inventoryStock.count();
-        const lowStockRaw: { quantity: number, minLevel: number, name: string, unit: string }[] = await prisma.$queryRaw`
-            SELECT s."quantity", s."minLevel", i."name", i."unit"
+        const totalItems = await prisma.inventoryStock.count({
+            where: { storeId: { in: inventoryStoreIds } },
+        });
+        const lowStockRaw: { quantity: number, allocatedQuantity: number, availableQuantity: number, minLevel: number, name: string, unit: string }[] = await prisma.$queryRaw`
+            SELECT s."quantity", s."allocatedQuantity",
+                   (s."quantity" - COALESCE(s."allocatedQuantity", 0)) AS "availableQuantity",
+                   CASE WHEN s."minLevel" > 0 THEN s."minLevel" ELSE i."minLevel" END AS "minLevel",
+                   i."name", i."unit"
             FROM "InventoryStock" s
             JOIN "InventoryItem" i ON i."id" = s."itemId"
-            WHERE s."quantity" <= s."minLevel"
+            WHERE s."storeId" IN (${Prisma.join(scopedInventoryStoreIds)})
+              AND (s."quantity" - COALESCE(s."allocatedQuantity", 0)) <=
+                  CASE WHEN s."minLevel" > 0 THEN s."minLevel" ELSE i."minLevel" END
             LIMIT 5
         `;
         const lowStockCountRaw: { count: number }[] = await prisma.$queryRaw`
             SELECT COUNT(*)::int AS count
             FROM "InventoryStock" s
-            WHERE s."quantity" <= s."minLevel"
+            JOIN "InventoryItem" i ON i."id" = s."itemId"
+            WHERE s."storeId" IN (${Prisma.join(scopedInventoryStoreIds)})
+              AND (s."quantity" - COALESCE(s."allocatedQuantity", 0)) <=
+                  CASE WHEN s."minLevel" > 0 THEN s."minLevel" ELSE i."minLevel" END
         `;
         const lowStockCount = lowStockCountRaw[0]?.count || 0;
         const lowStockAlerts = lowStockRaw.map((s) => ({
             item: s.name || 'Unknown',
-            current: s.quantity || 0,
+            current: s.availableQuantity || 0,
+            onHand: s.quantity || 0,
+            allocated: s.allocatedQuantity || 0,
             min: s.minLevel || 0,
             unit: s.unit || 'pcs'
         }));

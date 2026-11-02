@@ -1,5 +1,5 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
 
 export const dynamic = 'force-dynamic';
@@ -20,6 +20,6 @@ export const GET = apiHandler(async (req) => {
         data: verificationResult
     };
 }, {
-    roles: ROLE_GROUPS.STORES_ALL,
+    permissions: [RBAC_PERMISSIONS.INVENTORY_READ],
     rawResponse: true
 });

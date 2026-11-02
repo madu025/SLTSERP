@@ -68,9 +68,10 @@ export class MRNService {
         return mrn;
     }
 
-    static async getMRNs(storeId?: string, status?: string) {
+    static async getMRNs(storeId?: string, status?: string, allowedStoreIds?: string[]) {
         const where: Prisma.MRNWhereInput = {};
         if (storeId) where.storeId = storeId;
+        else if (allowedStoreIds) where.storeId = { in: allowedStoreIds };
         if (status) where.status = status;
 
         return await prisma.mRN.findMany({

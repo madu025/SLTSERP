@@ -457,7 +457,7 @@ export default function DashboardPage() {
                                         <DashboardTabHeader
                                             eyebrow="Stores and materials"
                                             title="Inventory control"
-                                            description="Review critical stock shortages, material valuation warnings, pending material requests, and goods receipts."
+                                            description="Review on-hand versus allocated stock, project shortages, dispatches, receipt queues, return approvals, and inventory data-quality exceptions."
                                         />
                                         <InventorySection rtom={selectedRtom} enabled={activeTab === 'inventory'} />
                                     </TabsContent>

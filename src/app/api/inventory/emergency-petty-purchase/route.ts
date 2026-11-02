@@ -1,14 +1,15 @@
 import { apiHandler } from '@/lib/api-handler';
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
 
 export const dynamic = 'force-dynamic';
 
-export const POST = apiHandler(async (request, _params, body) => {
+export const POST = apiHandler(async (_request, params, body) => {
   const requestId = body.requestId as string | undefined;
-  const userId = request.headers.get('x-user-id') || 'SYSTEM';
+  const userId = params._userId;
+  if (!userId) throw AppError.unauthorized('Authentication required');
 
   if (!requestId) {
     throw AppError.badRequest('requestId is required');
@@ -143,7 +144,7 @@ export const POST = apiHandler(async (request, _params, body) => {
 
   return result;
 }, {
-  roles: ROLE_GROUPS.MATERIAL_REQUESTERS,
+  permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
   audit: { action: 'EMERGENCY_FULFILL', entity: 'STOCK_REQUEST' },
   rawResponse: true
 });

@@ -1,6 +1,6 @@
 import { InventoryService } from '@/services/inventory';
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,6 +8,6 @@ export const GET = apiHandler(async () => {
     const data = await InventoryService.getTransitionPreview();
     return data;
 }, {
-    roles: ROLE_GROUPS.STORES_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.INVENTORY_READ],
     rawResponse: true
 });

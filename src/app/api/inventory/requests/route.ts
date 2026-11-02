@@ -1,8 +1,8 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { InventoryService } from '@/services/inventory/inventory.service';
 import { createStockRequest, processStockRequestAction } from '@/actions/inventory-actions';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +22,7 @@ export const GET = apiHandler(async (req) => {
 
     return await InventoryService.getStockRequests(filters);
 }, {
+    permissions: [RBAC_PERMISSIONS.INVENTORY_READ],
     rawResponse: true
 });
 
@@ -33,7 +34,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     }
     return result.data;
 }, {
-    roles: ROLE_GROUPS.MATERIAL_REQUESTERS,
+    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
     audit: { action: 'CREATE', entity: 'STOCK_REQUEST' },
     rawResponse: true
 });
@@ -46,7 +47,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
     }
     return result.data;
 }, {
-    roles: ROLE_GROUPS.MATERIAL_REQUESTERS,
+    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
     audit: { action: 'UPDATE_STATUS', entity: 'STOCK_REQUEST' },
     rawResponse: true
 });

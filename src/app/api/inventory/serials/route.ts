@@ -1,6 +1,6 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { InventoryService } from '@/services/inventory/inventory.service';
 import { apiHandler } from '@/lib/api-handler';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +16,6 @@ export const GET = apiHandler(async (request) => {
     const serials = await InventoryService.getAllSerials({ storeId, itemId, search, staffId });
     return serials;
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.INVENTORY_READ],
     rawResponse: true
 });

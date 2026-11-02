@@ -1,7 +1,7 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { StoreVarianceReconciliationService } from '@/services/inventory/store-variance-reconciliation.service';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +23,6 @@ export const GET = apiHandler(async (req) => {
         data: report,
     };
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.INVENTORY_READ],
     audit: { action: 'GENERATE_STORE_VARIANCE_REPORT', entity: 'InventoryStore' }
 });

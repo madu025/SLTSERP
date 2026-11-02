@@ -1,7 +1,7 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { InventoryService } from '@/services/inventory/inventory.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +23,6 @@ export const GET = apiHandler(async (request) => {
 
     throw AppError.badRequest('Store ID or Contractor ID is required');
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.INVENTORY_READ],
     rawResponse: true
 });

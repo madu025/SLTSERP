@@ -11,9 +11,10 @@ import { InventoryRepository } from '@/repositories/inventory.repository';
 import { ContractorRepository } from '@/repositories/contractor.repository';
 
 export class IssueService {
-    static async getMaterialIssues(contractorId: UUID, month?: string) {
+    static async getMaterialIssues(contractorId: UUID, month?: string, allowedStoreIds?: string[]) {
         const whereClause: Prisma.ContractorMaterialIssueWhereInput = { contractorId };
         if (month) whereClause.month = month;
+        if (allowedStoreIds) whereClause.storeId = { in: allowedStoreIds };
 
         return await prisma.contractorMaterialIssue.findMany({
             where: whereClause,
@@ -344,10 +345,11 @@ export class IssueService {
         contractorId?: string;
         storeId?: string;
         month?: string;
-    }) {
+    }, allowedStoreIds?: string[]) {
         const whereClause: Prisma.ContractorMaterialReturnWhereInput = {};
         if (filters.contractorId) whereClause.contractorId = filters.contractorId;
         if (filters.storeId) whereClause.storeId = filters.storeId;
+        else if (allowedStoreIds) whereClause.storeId = { in: allowedStoreIds };
         if (filters.month) whereClause.month = filters.month;
 
         return await prisma.contractorMaterialReturn.findMany({

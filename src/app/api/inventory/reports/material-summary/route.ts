@@ -1,8 +1,8 @@
 export const dynamic = 'force-dynamic';
 
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { MaterialSummaryReportService } from '@/services/inventory/material-summary-report.service';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const GET = apiHandler(async (req: Request, params) => {
     const { searchParams } = new URL(req.url);
@@ -25,7 +25,7 @@ export const GET = apiHandler(async (req: Request, params) => {
 
     return Response.json({ success: true, data: report });
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.INVENTORY_READ],
     audit: { action: 'VIEW_MATERIAL_SUMMARY_REPORT', entity: 'InventoryReport' },
 });
 

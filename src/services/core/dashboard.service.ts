@@ -2,6 +2,13 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { NIL_UUID } from '@/lib/opmc-scope';
 import { SOD_FINANCIAL_COMPLETION_STATUSES } from '@/lib/constants/sod-constants';
+import {
+    availableInventoryQuantity,
+    effectiveInventoryMinLevel,
+    inventoryNumber,
+    isInventoryOverAllocated,
+    isInventoryReorderNeeded,
+} from '@/lib/inventory-dashboard-metrics';
 
 export class DashboardService {
     static async getFinanceMetrics(rtom: string = 'ALL', accessibleOpmcs?: string[]) {
@@ -347,13 +354,31 @@ export class DashboardService {
             ? { opmc: projectOpmcConditions.length === 1 ? projectOpmcConditions[0] : { AND: projectOpmcConditions } }
             : {};
 
-        const [lowStockStock, pendingMRNs, pendingGRNs, negativeStockCount, materialUsageMissingCostCount] = await Promise.all([
+        const requestStoreScope: Prisma.StockRequestWhereInput = {
+            OR: [
+                { fromStore: storeWhere },
+                { toStore: storeWhere },
+            ],
+        };
+
+        const [
+            lowStockStock,
+            pendingMaterialRequests,
+            pendingGrnReceipts,
+            pendingMaterialReturnNotes,
+            pendingProjectReceipts,
+            pendingContractorReturns,
+            negativeStockCount,
+            materialUsageMissingCostCount,
+            stockTotals,
+            projectMaterialShortages,
+        ] = await Promise.all([
             prisma.inventoryStock.findMany({
                 where: {
                     store: storeWhere
                 },
                 include: {
-                    item: { select: { name: true, code: true, minLevel: true } },
+                    item: { select: { name: true, code: true, unit: true, minLevel: true } },
                     store: { select: { name: true } }
                 },
             }),
@@ -363,8 +388,20 @@ export class DashboardService {
                     fromStore: storeWhere
                 }
             }),
+            prisma.stockRequest.count({
+                where: {
+                    ...requestStoreScope,
+                    workflowStage: { in: ['GRN_PENDING', 'STORE_RECEIVING'] },
+                }
+            }),
+            prisma.mRN.count({
+                where: { status: 'PENDING', store: storeWhere }
+            }),
             prisma.projectGoodsReceipt.count({
                 where: { status: 'PENDING', project: projectWhere }
+            }),
+            prisma.contractorMaterialReturn.count({
+                where: { status: 'PENDING', store: storeWhere }
             }),
             prisma.inventoryStock.count({
                 where: {
@@ -387,23 +424,35 @@ export class DashboardService {
                             : {})
                     }
                 }
-            })
+            }),
+            prisma.inventoryStock.aggregate({
+                where: { store: storeWhere },
+                _sum: { quantity: true, allocatedQuantity: true },
+                _count: { _all: true },
+            }),
+            prisma.projectMaterialRequirement.count({
+                where: { status: 'SHORTAGE', project: projectWhere },
+            }),
         ]);
 
         const lowStockCandidates = lowStockStock
             .map(stock => {
-                const quantity = Number(stock.quantity);
-                const allocatedQuantity = Number(stock.allocatedQuantity);
-                const minLevel = Number(stock.minLevel) > 0
-                    ? Number(stock.minLevel)
-                    : Number(stock.item.minLevel);
+                const quantity = inventoryNumber(stock.quantity);
+                const allocatedQuantity = inventoryNumber(stock.allocatedQuantity);
+                const minLevel = effectiveInventoryMinLevel({
+                    minLevel: stock.minLevel,
+                    itemMinLevel: stock.item.minLevel,
+                    quantity,
+                    allocatedQuantity,
+                });
+                const availableQuantity = availableInventoryQuantity({ quantity, allocatedQuantity });
                 return {
                     ...stock,
                     minLevel,
-                    availableToPromise: Math.max(0, quantity - allocatedQuantity - minLevel),
-                    availableQuantity: Math.max(0, quantity - allocatedQuantity),
+                    availableToPromise: Math.max(0, availableQuantity - minLevel),
+                    availableQuantity,
                     _quantityForSort: quantity,
-                    _isLowStock: quantity <= minLevel
+                    _isLowStock: isInventoryReorderNeeded({ quantity, allocatedQuantity, minLevel }),
                 };
             })
             .filter(stock => stock._isLowStock)
@@ -420,9 +469,23 @@ export class DashboardService {
         return {
             lowStockItems,
             lowStockCount,
-            pendingMRNs,
-            pendingGRNs,
-            dataQuality: { negativeStockCount, materialUsageMissingCostCount },
+            dataQuality: {
+                negativeStockCount,
+                overAllocatedStockCount: lowStockStock.filter(isInventoryOverAllocated).length,
+                materialUsageMissingCostCount,
+            },
+            stockSummary: {
+                onHandQuantity: inventoryNumber(stockTotals._sum.quantity),
+                allocatedQuantity: inventoryNumber(stockTotals._sum.allocatedQuantity),
+                availableQuantity: inventoryNumber(stockTotals._sum.quantity) - inventoryNumber(stockTotals._sum.allocatedQuantity),
+                stockRowCount: stockTotals._count._all,
+            },
+            pendingMaterialRequests,
+            pendingGrnReceipts,
+            pendingMaterialReturnNotes,
+            pendingProjectReceipts,
+            pendingContractorReturns,
+            projectMaterialShortages,
             updatedAt: new Date().toISOString()
         };
     }
@@ -571,9 +634,9 @@ export class DashboardService {
                     ...stock,
                     minLevel,
                     availableToPromise: Math.max(0, quantity - allocatedQuantity - minLevel),
-                    availableQuantity: Math.max(0, quantity - allocatedQuantity),
+                    availableQuantity: quantity - allocatedQuantity,
                     _quantityForSort: quantity,
-                    _isLowStock: quantity <= minLevel
+                    _isLowStock: isInventoryReorderNeeded({ quantity, allocatedQuantity, minLevel })
                 };
             })
             .filter(stock => stock._isLowStock)

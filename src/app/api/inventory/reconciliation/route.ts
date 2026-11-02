@@ -1,8 +1,8 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { TransactionService } from '@/services/inventory/transaction.service';
 import { IssueService } from '@/services/inventory/issue.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,19 +19,20 @@ export const GET = apiHandler(async (request) => {
     const data = await TransactionService.getReconciliation({ contractorId, storeId, month });
     return { success: true, data };
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.INVENTORY_READ],
     rawResponse: true
 });
 
-export const POST = apiHandler(async (request, _params, body) => {
-    const userId = request.headers.get('x-user-id');
+export const POST = apiHandler(async (_request, params, body) => {
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
     const action = body.action as string | undefined;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { action: _action, ...data } = body;
 
     if (action === 'ISSUE') {
         const payload = data as Parameters<typeof IssueService.issueMaterial>[0];
-        const result = await IssueService.issueMaterial({ ...payload, userId: userId ?? undefined });
+        const result = await IssueService.issueMaterial({ ...payload, userId });
         return { success: true, data: result };
     }
 
@@ -40,14 +41,14 @@ export const POST = apiHandler(async (request, _params, body) => {
         const storeId = data.storeId as string | undefined;
         const month = data.month as string | undefined;
         const result = await TransactionService.generateBalanceSheet(
-            contractorId ?? '', storeId ?? '', month ?? '', userId ?? undefined
+            contractorId ?? '', storeId ?? '', month ?? '', userId
         );
         return { success: true, data: result };
     }
 
     throw AppError.badRequest('Invalid action');
 }, {
-    roles: ROLE_GROUPS.STORES_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
     audit: { action: 'EXECUTE', entity: 'RECONCILIATION' },
     rawResponse: true
 });

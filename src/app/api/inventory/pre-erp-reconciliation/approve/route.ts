@@ -1,6 +1,6 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { PreErpReconciliationService } from '@/services/inventory/pre-erp-reconciliation.service';
 import { z } from 'zod';
 
@@ -12,8 +12,8 @@ const ApproveSchema = z.object({
   rejectionReason: z.string().optional(),
 });
 
-export const POST = apiHandler(async (req, _params, body) => {
-  const userId = req.headers.get('x-user-id');
+export const POST = apiHandler(async (_req, params, body) => {
+  const userId = params._userId;
   if (!userId) throw AppError.unauthorized('Authentication required');
 
   if (body.action === 'APPROVE') {
@@ -33,7 +33,7 @@ export const POST = apiHandler(async (req, _params, body) => {
   }
 }, {
   schema: ApproveSchema,
-  roles: ROLE_GROUPS.FINANCE_APPROVERS,
+  permissions: [RBAC_PERMISSIONS.INVENTORY_APPROVE],
   audit: { action: 'APPROVE_ADJUSTMENT', entity: 'MATERIAL_VARIANCE_ADJUSTMENT' },
   rawResponse: true,
 });
