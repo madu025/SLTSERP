@@ -187,11 +187,14 @@ export default function InventorySection({ rtom = 'ALL', enabled = true }: Inven
                     ) : (
                         <div className="space-y-3">
                             {lowStockItems.map((stock, i) => {
-                                const availableQuantity = stock.availableQuantity ?? stock.quantity;
-                                const minLevel = stock.minLevel ?? 0;
+                                const quantity = Number(stock.quantity) || 0;
+                                const availableQuantity = stock.availableQuantity == null
+                                    ? quantity
+                                    : Number(stock.availableQuantity) || 0;
+                                const minLevel = Number(stock.minLevel) || 0;
                                 const shortageQuantity = minLevel > 0
                                     ? Math.max(minLevel - availableQuantity, 0)
-                                    : Math.max(-stock.quantity, 0);
+                                    : Math.max(-quantity, 0);
                                 return (
                                 <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
                                     <div className="flex flex-col">

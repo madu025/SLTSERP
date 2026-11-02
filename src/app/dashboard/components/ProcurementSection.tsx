@@ -469,11 +469,14 @@ export default function ProcurementSection({ rtom = 'ALL', enabled = true }: Pro
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                             {lowStockItems.map((stock, i) => {
-                                const availableQuantity = stock.availableQuantity ?? stock.quantity;
-                                const minLevel = stock.minLevel ?? 0;
+                                const quantity = Number(stock.quantity) || 0;
+                                const availableQuantity = stock.availableQuantity == null
+                                    ? quantity
+                                    : Number(stock.availableQuantity) || 0;
+                                const minLevel = Number(stock.minLevel) || 0;
                                 const shortageQuantity = minLevel > 0
                                     ? Math.max(minLevel - availableQuantity, 0)
-                                    : Math.max(-stock.quantity, 0);
+                                    : Math.max(-quantity, 0);
                                 return (
                                 <div key={i} className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between gap-3">
                                     <div className="flex flex-col min-w-0">
