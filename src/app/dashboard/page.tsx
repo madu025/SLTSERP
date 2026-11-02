@@ -353,7 +353,7 @@ export default function DashboardPage() {
                                 
                                 {canViewOperations && (
                                     <TabsContent value="operations" className="space-y-6">
-                                        <ExecutiveControlTower enabled={activeTab === 'operations'} />
+                                        <ExecutiveControlTower enabled={activeTab === 'operations'} operationalStats={stats} />
                                         {/* PAT Rejection Alert — scoped to Operations tab only */}
                                         {(stats?.pat?.rejected || 0) > 0 && (
                                             <Link

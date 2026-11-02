@@ -17,7 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatLKR } from '@/lib/utils';
-import type { ExecutiveDashboardData } from './types';
+import type { ExecutiveDashboardData, Stats } from './types';
 
 function formatAsOf(value?: string) {
     if (!value) return 'As-of timestamp unavailable from API';
@@ -42,7 +42,7 @@ function Metric({ label, value, hint, tone = 'text-foreground' }: { label: strin
 
 const EXECUTIVE_REQUEST_TIMEOUT_MS = 12_000;
 
-export default function ExecutiveControlTower({ enabled = true }: { enabled?: boolean }) {
+export default function ExecutiveControlTower({ enabled = true, operationalStats }: { enabled?: boolean; operationalStats?: Stats }) {
     const { data, isLoading, error, refetch, isFetching } = useQuery<ExecutiveDashboardData | null>({
         queryKey: ['dashboard-executive-control-tower'],
         queryFn: async ({ signal }) => {
@@ -138,6 +138,8 @@ export default function ExecutiveControlTower({ enabled = true }: { enabled?: bo
     const statusRows = projectStats.byStatus || [];
     const topContractors = (contractorRankings || []).slice(0, 3);
     const highRisk = recentActivity.highRiskPredictions || [];
+    const overdueSlaCount = operationalStats?.sla?.slaBreachedCount ?? 0;
+    const sodPatRejectedCount = operationalStats?.pat?.rejected ?? 0;
     const priorityActions = [
         controlTower && controlTower.workflow.approvals.stageApprovalsOpen > 0
             ? {
@@ -147,12 +149,28 @@ export default function ExecutiveControlTower({ enabled = true }: { enabled?: bo
                 href: '/projects/dashboards/pm',
             }
             : null,
+        sodPatRejectedCount > 0
+            ? {
+                count: sodPatRejectedCount,
+                title: 'Resolve SOD PAT rejections',
+                detail: 'Service orders have failed PAT outcomes waiting for operational review.',
+                href: '/service-orders/work-order/pat',
+            }
+            : null,
         patStats.failed > 0
             ? {
                 count: patStats.failed,
                 title: 'Resolve failed PAT sessions',
                 detail: 'Failed PAT sessions need corrective action before closeout.',
                 href: '/service-orders/work-order/pat',
+            }
+            : null,
+        overdueSlaCount > 0
+            ? {
+                count: overdueSlaCount,
+                title: 'Clear overdue SLA queue',
+                detail: 'Pending service orders have exceeded the 48-hour SLA threshold.',
+                href: '/service-orders/work-order',
             }
             : null,
         controlTower && controlTower.materials.shortageQty > 0
