@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 import { apiHandler } from "@/lib/api-handler";
 import { LDPenaltyService } from "@/services/finance/ld-penalty.service";
@@ -36,7 +35,6 @@ export const GET = apiHandler(async (req, params) => {
     const rows = await LDPenaltyService.getPenalties({ status });
     return accessible === undefined ? rows : rows.filter((r) => accessible.has(r.projectId));
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     rawResponse: true
 });
 

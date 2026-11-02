@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from "@/lib/api-handler";
 import { HelpdeskService } from "@/services/helpdesk/helpdesk.service";
 
@@ -16,5 +15,4 @@ export const GET = apiHandler(async (req) => {
     search
   });
 }, {
-  roles: ROLE_GROUPS.OFFICE_ADMINS
 });

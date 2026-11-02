@@ -1,6 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
 import { TrafficService } from '@/services/system/traffic.service';
-import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +15,5 @@ export const GET = apiHandler(
         };
     },
     {
-        roles: ROLE_GROUPS.ADMINS
     }
 );

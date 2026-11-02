@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { rentalPaymentService } from '@/services/fleet/RentalPaymentService';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
@@ -166,7 +165,6 @@ export const POST = apiHandler(async (request, params, body: RequestBody) => {
       throw AppError.badRequest(`Unknown action: ${action}`);
   }
 }, {
-  roles: ROLE_GROUPS.OFFICE_ADMINS,
   audit: { action: 'POST_ACTION', entity: 'RENTAL_SUMMARY' },
   rawResponse: true
 });
@@ -186,7 +184,6 @@ export const DELETE = apiHandler(async (request) => {
 
   return { success: true, data: { message: 'Summary deleted successfully' } };
 }, {
-  roles: ROLE_GROUPS.OFFICE_ADMINS,
   audit: { action: 'DELETE', entity: 'RENTAL_SUMMARY' },
   rawResponse: true
 });

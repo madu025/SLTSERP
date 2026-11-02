@@ -2,16 +2,15 @@ export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { BOMInvoiceService } from '@/services/finance/bom-invoice.service';
 import { SLTPortalAuthService } from '@/services/slt/slt-portal-auth.service';
-import { ROLE_GROUPS, hasRole } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
-import { requestContext } from '@/lib/request-context';
 
 const downloadSyncSchema = z.object({
     bomPath: z.string().min(1, 'bomPath is required')
 });
 
-export const POST = apiHandler(async (req, _params, body) => {
+export const POST = apiHandler(async (req, params, body) => {
     const data = downloadSyncSchema.parse(body);
 
     const extensionKey = req.headers.get('x-extension-key');
@@ -19,11 +18,10 @@ export const POST = apiHandler(async (req, _params, body) => {
     const extensionSecret = process.env.EXTENSION_SECRET;
     const isExtension = !!extensionSecret && extensionKey === extensionSecret;
 
-    const authUserId = req.headers.get('x-user-id');
-    const userRole = req.headers.get('x-user-role');
-    const hasAllowedRole = !!userRole && hasRole(userRole, ROLE_GROUPS.BOM_IMPORT_ADMINS);
+    const authUserId = params._userId;
+    const hasAllowedPermission = params._permissions.includes(RBAC_PERMISSIONS.FINANCE_APPROVE);
 
-    if (!isExtension && !hasAllowedRole) {
+    if (!isExtension && !hasAllowedPermission) {
         throw AppError.forbidden('Permission Denied: Unauthorized to import BOM invoices.');
     }
 
@@ -56,7 +54,7 @@ export const POST = apiHandler(async (req, _params, body) => {
         throw AppError.unauthorized('SLT portal session has expired. Please copy and save your active session cookie again.');
     }
 
-    const finalUserId = authUserId || 'ADMIN';
+    const finalUserId = authUserId || 'EXTENSION_SYNC';
     const result = await BOMInvoiceService.processBOMCSVImport(csvText, finalUserId, data.bomPath);
 
     return Response.json(result);

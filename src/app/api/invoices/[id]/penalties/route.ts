@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { InvoiceService } from '@/services/invoice/invoice.service';
@@ -20,7 +21,7 @@ export const POST = apiHandler(async (req, params, body) => {
     if (isNaN(data.amount) || data.amount <= 0) {
         throw AppError.badRequest('Valid penalty amount is required');
     }
-    const userId = req.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
     if (!userId) {
         throw AppError.unauthorized('Authentication required');
     }

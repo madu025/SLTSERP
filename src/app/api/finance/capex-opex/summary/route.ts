@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { assertOpmcAccess } from '@/lib/project-record-access';
 import { AppError } from '@/lib/error';
@@ -35,6 +34,5 @@ export const GET = apiHandler(async (request, ctx) => {
 
   return { ...summary, kpi, topExpenses };
 }, {
-  roles: ROLE_GROUPS.PROJECT_MANAGERS,
   rawResponse: true,
 });

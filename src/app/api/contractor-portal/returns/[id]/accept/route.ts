@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 
 
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 // POST /api/contractor-portal/returns/[id]/accept - Storekeeper fine-tunes & accepts MRN return request
 export const POST = apiHandler(async (req, params, body) => {
     const { acceptedQuantity, acceptedQuantities, storekeeperNotes } = body;
-    const userId = req.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
 
     return await ContractorInventoryService.acceptMaterialReturn(
         params.id, 
@@ -19,5 +19,4 @@ export const POST = apiHandler(async (req, params, body) => {
         acceptedQuantities as any
     );
 }, {
-    roles: ROLE_GROUPS.STORES_MANAGERS,
 });

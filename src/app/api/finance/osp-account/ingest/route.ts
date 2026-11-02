@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { OSPAccountIngestionService } from '@/services/finance/osp-account-ingestion.service';
 
@@ -12,6 +11,5 @@ export const POST = apiHandler(async () => {
     data: result
   };
 }, {
-  roles: ROLE_GROUPS.PROJECT_MANAGERS,
   audit: { action: 'BULK_INGEST', entity: 'OSP_ACCOUNT' }
 });

@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 import { apiHandler } from "@/lib/api-handler";
 import { RetentionService } from "@/services/finance/retention.service";
@@ -24,7 +23,6 @@ export const GET = apiHandler(async (req, params) => {
     const rows = await RetentionService.getRetentions({ status });
     return accessible === undefined ? rows : rows.filter((r) => accessible.has(r.projectId));
 }, {
-    roles: ROLE_GROUPS.FINANCE,
     rawResponse: true
 });
 

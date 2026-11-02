@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { BudgetAllocationService } from '@/services/finance/budget-allocation.service';
@@ -36,14 +36,13 @@ export const GET = apiHandler(async (request) => {
 
   return BudgetAllocationService.listBudgets(params);
 }, {
-  roles: ROLE_GROUPS.PROJECT_MANAGERS,
   rawResponse: true,
 });
 
 // ── POST — Create a new budget allocation ─────────────────────────────────────
 
 export const POST = apiHandler(async (req, _params, body) => {
-  const userId = req.headers.get('x-user-id');
+  const userId = getAuthenticatedUserId();
   if (!userId) throw AppError.unauthorized('Authentication required');
 
   const budget = await BudgetAllocationService.createBudget({
@@ -54,7 +53,6 @@ export const POST = apiHandler(async (req, _params, body) => {
   return { success: true, data: budget };
 }, {
   schema: CreateBudgetSchema,
-  roles: ROLE_GROUPS.FINANCE_APPROVERS,
   audit: { action: 'CREATE', entity: 'FINANCE_BUDGET_ALLOCATION' },
   rawResponse: true,
 });

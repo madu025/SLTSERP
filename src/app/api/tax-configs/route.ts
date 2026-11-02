@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { TaxConfigService } from '@/services/finance/tax-config.service';
 import { AppError } from '@/lib/error';
@@ -29,6 +28,5 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'TAX_CONFIG_CREATE', entity: 'TaxConfig' }
 });

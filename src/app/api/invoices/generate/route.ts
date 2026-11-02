@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { InvoiceGeneratorService } from '@/services/invoice/invoice.generator.service';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
@@ -20,7 +21,7 @@ const generateSchema = z.object({
 export const POST = apiHandler(async (req: Request) => {
     const json = await req.json();
     const data = generateSchema.parse(json);
-    const userId = req.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
     if (!userId) throw AppError.unauthorized('Authentication required');
 
     const result = await InvoiceGeneratorService.generateContractorMonthlyInvoice(data, userId);

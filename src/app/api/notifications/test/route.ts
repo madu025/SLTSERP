@@ -1,10 +1,11 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
 import { NotificationService } from '@/services/notification/notification.service';
 
 export const GET = apiHandler(async (req) => {
-    const userId = req.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
     
     console.log(`[TEST] Creating test notification requested by user: ${userId || 'UNKNOWN'}`);
     

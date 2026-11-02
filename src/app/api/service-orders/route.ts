@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { serviceOrderCreateSchema, serviceOrderPatchSchema, serviceOrderUpdateSchema } from '@/lib/validations/service-order.schema';
 import { apiHandler } from '@/lib/api-handler';
@@ -47,7 +48,7 @@ export const GET = apiHandler(async (request) => {
 
     // rtomId is optional (allows fetching cross-OPMC completed/invoicable SODs)
 
-    const userId = request.headers.get('x-user-id') || 'SYSTEM';
+    const userId = getAuthenticatedUserId() || 'SYSTEM';
     const result = await ServiceOrderService.getServiceOrders(userId, params);
     return result;
 }, { permissions: [RBAC_PERMISSIONS.SOD_READ], rawResponse: true });
@@ -55,7 +56,7 @@ export const GET = apiHandler(async (request) => {
 // POST - Create manual service order
 export const POST = apiHandler(
     async (req, _params, body: z.infer<typeof serviceOrderCreateSchema>) => {
-        const userId = req.headers.get('x-user-id') || undefined;
+        const userId = getAuthenticatedUserId() || undefined;
 
         // Resolve OPMC from rtomId
         const opmc = await prisma.oPMC.findUnique({
@@ -148,7 +149,7 @@ export const PUT = apiHandler(
             throw AppError.badRequest('Service Order ID required');
         }
         
-        const userId = request.headers.get('x-user-id') || undefined;
+        const userId = getAuthenticatedUserId() || undefined;
         const serviceOrder = await ServiceOrderService.updateServiceOrder(id, updateData, userId);
         return serviceOrder;
     },
@@ -163,7 +164,7 @@ export const PATCH = apiHandler(
             throw AppError.badRequest('Service Order ID required');
         }
 
-        const userId = request.headers.get('x-user-id') || undefined;
+        const userId = getAuthenticatedUserId() || undefined;
         const serviceOrder = await ServiceOrderService.updateServiceOrder(id, updateData, userId);
         return serviceOrder;
     },

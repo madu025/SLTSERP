@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { PATService } from '@/services/project/pat.service';
 import { AppError } from '@/lib/error';
@@ -11,7 +12,7 @@ export const GET = apiHandler(async (_request, params) => {
 
 export const POST = apiHandler(async (request, params, body) => {
     const { id: projectId } = params;
-    const userId = request.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
     
     if (!userId) {
         throw AppError.unauthorized('Unauthorized');

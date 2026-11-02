@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from "@/lib/api-handler";
@@ -18,7 +18,7 @@ export const GET = apiHandler(async (req, params) => {
 export const PUT = apiHandler(
   async (req, params, body) => {
     const { id } = await params;
-    const userId = req.headers.get("x-user-id")!;
+    const userId = getAuthenticatedUserId()!;
     const ipAddress = req.headers.get("x-real-ip") || undefined;
     const userAgent = req.headers.get("user-agent") || undefined;
 
@@ -26,7 +26,6 @@ export const PUT = apiHandler(
   },
   {
     schema: UpdateAssetSchema,
-    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "UPDATE",
       entity: "ITAsset"
@@ -37,14 +36,13 @@ export const PUT = apiHandler(
 export const DELETE = apiHandler(
   async (req, params) => {
     const { id } = await params;
-    const userId = req.headers.get("x-user-id")!;
+    const userId = getAuthenticatedUserId()!;
     const ipAddress = req.headers.get("x-real-ip") || undefined;
     const userAgent = req.headers.get("user-agent") || undefined;
 
     return await HelpdeskService.deleteAsset(userId, id, ipAddress, userAgent);
   },
   {
-    roles: ROLE_GROUPS.ADMINS,
     audit: {
       action: "DELETE",
       entity: "ITAsset"

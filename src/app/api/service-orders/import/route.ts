@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { AppError } from '@/lib/error';
@@ -34,7 +33,6 @@ export const POST = apiHandler(async (_request, _params, body) => {
         results
     };
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'LEGACY_BULK_IMPORT', entity: 'ServiceOrder' },
     rawResponse: true
 });

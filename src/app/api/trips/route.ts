@@ -3,7 +3,6 @@ import TripService from '@/services/fleet/TripService';
 import { TripStatusEnum } from '@prisma/client';
 import { createTripSchema, CreateTripSchema } from '@/lib/validations/trip.schema';
 import { Trip } from '@/types/fleet/trip.types';
-import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,5 +59,5 @@ export const POST = apiHandler<Trip, CreateTripSchema>(
 
         return trip;
     },
-    { schema: createTripSchema, roles: ROLE_GROUPS.OFFICE_ADMINS }
+    { schema: createTripSchema }
 );

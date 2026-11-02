@@ -5,7 +5,6 @@ import VehicleLogService from '@/services/fleet/VehicleLogService';
 import VehicleService from '@/services/fleet/VehicleService';
 import { startLogSchema, endLogSchema, StartLogSchema, EndLogSchema } from '@/lib/validations/vehicle.schema';
 import { VehicleLog } from '@/types/fleet/vehicle.types';
-import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 
 /**
@@ -49,7 +48,7 @@ export const POST = apiHandler<VehicleLog, StartLogSchema>(
 
     return log;
   },
-  { schema: startLogSchema, roles: ROLE_GROUPS.OFFICE_ADMINS }
+  { schema: startLogSchema }
 );
 
 /**
@@ -66,5 +65,5 @@ export const PUT = apiHandler<VehicleLog, EndLogSchema>(
 
     return log;
   },
-  { schema: endLogSchema, roles: ROLE_GROUPS.OFFICE_ADMINS }
+  { schema: endLogSchema }
 );

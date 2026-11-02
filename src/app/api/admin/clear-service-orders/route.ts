@@ -1,5 +1,4 @@
 export const dynamic = 'force-dynamic';
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { AdminSystemService } from '@/services/admin/system.service';
 
@@ -16,6 +15,5 @@ export const POST = apiHandler(async () => {
         results
     });
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'CLEAR_ALL_SERVICE_ORDERS', entity: 'System' }
 });

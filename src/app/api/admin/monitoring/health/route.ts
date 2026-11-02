@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { SystemMonitoringService } from '@/services/admin/system-monitoring.service';
 
@@ -8,5 +7,4 @@ export const dynamic = 'force-dynamic';
 export const GET = apiHandler(async () => {
     return await SystemMonitoringService.getHealthStats();
 }, {
-    roles: ROLE_GROUPS.ADMINS
 });

@@ -1,13 +1,11 @@
 import { apiHandler } from '@/lib/api-handler';
 import { FXService } from '@/services/finance/fx.service';
 import { z } from 'zod';
-import { ROLE_GROUPS } from "@/config/roles";
 export const dynamic = 'force-dynamic';
 export const GET = apiHandler(async () => {
   const rates = await FXService.getAllLatestRates();
   return rates;
 }, {
-  roles: ROLE_GROUPS.FINANCE_APPROVERS
 });
 const updateRateSchema = z.object({
   currencyCode: z.string().min(3).max(3),
@@ -21,6 +19,5 @@ export const POST = apiHandler(async (req: Request) => {
   const result = await FXService.setExchangeRate(parsed.currencyCode, parsed.exchangeRate, effectiveDate);
   return result;
 }, {
-  roles: ROLE_GROUPS.FINANCE_APPROVERS,
   audit: { action: 'UPDATE', entity: 'EXCHANGE_RATE' }
 });

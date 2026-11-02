@@ -51,6 +51,11 @@ const bootstrapGrants: Record<string, readonly string[]> = {
     'procurement.write': ROLE_GROUPS.PROCUREMENT,
     'contractor.read': ROLE_GROUPS.CONTRACTOR_READERS,
     'contractor.write': ROLE_GROUPS.CONTRACTORS,
+    'helpdesk.read': [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.OFFICE_ADMINS, ...ROLE_GROUPS.IT_ADMINS])],
+    'helpdesk.write': [...new Set([...ROLE_GROUPS.OFFICE_ADMINS, ...ROLE_GROUPS.EAM_ASSET_MANAGERS, ...ROLE_GROUPS.IT_ADMINS])],
+    'helpdesk.approve': [...new Set([...ROLE_GROUPS.EAM_ASSET_MANAGERS, ...ROLE_GROUPS.FINANCE_APPROVERS])],
+    'fleet.read': [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.OFFICE_ADMINS])],
+    'fleet.write': ROLE_GROUPS.OFFICE_ADMINS,
     'admin.rbac': ROLE_GROUPS.CORE_ADMINS,
 };
 

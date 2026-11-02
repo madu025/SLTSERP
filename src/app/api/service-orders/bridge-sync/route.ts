@@ -13,7 +13,7 @@ export async function OPTIONS() {
         headers: {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, x-user-id, x-user-role',
+            'Access-Control-Allow-Headers': 'Content-Type',
         },
     });
 }

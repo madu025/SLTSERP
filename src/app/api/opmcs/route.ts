@@ -1,14 +1,14 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler, castBody } from '@/lib/api-handler';
 import { OpmcService } from '@/services/slt/opmc.service';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
 // GET all OPMCs
 export const GET = apiHandler(async () => {
     return await OpmcService.getAllOPMCs();
-}, { rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.DASHBOARD_READ], rawResponse: true });
 
 // POST new OPMC
 export const POST = apiHandler(async (_request, _params, body) => {
@@ -16,7 +16,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
         castBody<Parameters<typeof OpmcService.createOPMC>[0]>(body)
     );
 }, {
-    roles: ROLE_GROUPS.ADMINS,
+    permissions: [RBAC_PERMISSIONS.ADMIN_RBAC],
     audit: { action: 'OPMC_CREATE', entity: 'OPMC' },
     rawResponse: true
 });
@@ -30,7 +30,7 @@ export const PUT = apiHandler(async (_request, _params, body) => {
         castBody<Parameters<typeof OpmcService.updateOPMC>[0]>(body)
     );
 }, {
-    roles: ROLE_GROUPS.ADMINS,
+    permissions: [RBAC_PERMISSIONS.ADMIN_RBAC],
     audit: { action: 'OPMC_UPDATE', entity: 'OPMC' },
     rawResponse: true
 });
@@ -45,7 +45,7 @@ export const DELETE = apiHandler(async (request) => {
     await OpmcService.deleteOPMC(id);
     return { message: 'OPMC deleted successfully' };
 }, {
-    roles: ROLE_GROUPS.ADMINS,
+    permissions: [RBAC_PERMISSIONS.ADMIN_RBAC],
     audit: { action: 'OPMC_DELETE', entity: 'OPMC' },
     rawResponse: true
 });

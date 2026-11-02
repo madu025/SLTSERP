@@ -1,8 +1,8 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 export const dynamic = 'force-dynamic';
 import { z } from 'zod';
 import { apiHandler } from '@/lib/api-handler';
 import { TrafficService } from '@/services/system/traffic.service';
-import { ROLE_GROUPS } from '@/config/roles';
 import { AuditService } from '@/services/audit/audit.service';
 
 const schema = z.object({
@@ -14,7 +14,7 @@ export const POST = apiHandler(
     async (req: Request) => {
         const body = await req.json();
         const { identifier, action } = schema.parse(body);
-        const userId = req.headers.get('x-user-id') || 'system';
+        const userId = getAuthenticatedUserId() || 'system';
 
         if (action === 'BLOCK') {
             await TrafficService.blockEntity(identifier);
@@ -42,6 +42,5 @@ export const POST = apiHandler(
         };
     },
     {
-        roles: ROLE_GROUPS.ADMINS
     }
 );

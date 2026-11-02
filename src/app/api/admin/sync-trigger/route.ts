@@ -1,5 +1,4 @@
 export const dynamic = 'force-dynamic';
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/service-order/sod.service';
 
@@ -25,7 +24,6 @@ export const POST = apiHandler(async () => {
         tick
     }, { status });
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'TRIGGER_MANUAL_SYNC', entity: 'Admin' },
     rawResponse: true
 });

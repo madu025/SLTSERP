@@ -1,6 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
 import { NotificationTemplateService } from '@/services/admin/notification-template.service';
-import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
 
@@ -32,7 +31,6 @@ export const GET = apiHandler(async (req) => {
     isActive: isActive !== null && isActive !== undefined ? isActive === 'true' : undefined
   });
 }, {
-  roles: ROLE_GROUPS.ADMINS as unknown as string[],
   rawResponse: true
 });
 
@@ -42,7 +40,6 @@ export const POST = apiHandler(async (_req, _params, body) => {
   return await NotificationTemplateService.create(data);
 }, {
   schema: templateSchema,
-  roles: ROLE_GROUPS.ADMINS as unknown as string[],
   audit: { action: 'CREATE', entity: 'NOTIFICATION_TEMPLATE' },
   rawResponse: true
 });
@@ -53,7 +50,6 @@ export const PUT = apiHandler(async (_req, _params, body) => {
   return await NotificationTemplateService.update(data);
 }, {
   schema: updateTemplateSchema,
-  roles: ROLE_GROUPS.ADMINS as unknown as string[],
   audit: { action: 'UPDATE', entity: 'NOTIFICATION_TEMPLATE' },
   rawResponse: true
 });
@@ -70,7 +66,6 @@ export const DELETE = apiHandler(async (req) => {
   await NotificationTemplateService.delete(id);
   return { message: 'Template deleted successfully' };
 }, {
-  roles: ROLE_GROUPS.ADMINS as unknown as string[],
   audit: { action: 'DELETE', entity: 'NOTIFICATION_TEMPLATE' },
   rawResponse: true
 });

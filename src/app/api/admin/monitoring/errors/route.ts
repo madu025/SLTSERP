@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { SystemMonitoringService } from '@/services/admin/system-monitoring.service';
 
@@ -25,7 +24,6 @@ export const GET = apiHandler(async (req) => {
         search
     });
 }, {
-    roles: ROLE_GROUPS.ADMINS
 });
 
 // PATCH /api/admin/monitoring/errors - Bulk resolve all unresolved error logs
@@ -33,7 +31,6 @@ export const PATCH = apiHandler(async (req, params) => {
     const userId = params._userId || 'system-admin';
     return await SystemMonitoringService.resolveAllUnresolved(userId);
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'BULK_RESOLVE_ERROR_LOGS', entity: 'SystemErrorLog' }
 });
 
@@ -49,6 +46,5 @@ export const DELETE = apiHandler(async (req) => {
         daysToKeep
     });
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'CLEAR_SYSTEM_ERROR_LOGS', entity: 'SystemErrorLog' }
 });

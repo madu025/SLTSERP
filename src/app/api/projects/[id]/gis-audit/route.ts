@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { GISAuditService } from '@/services/gis/gis-audit.service';
 import { AppError } from '@/lib/error';
@@ -6,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (request, params) => {
     const { id: projectId } = params;
-    const userId = request.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
     
     if (!userId) {
         throw AppError.unauthorized('Unauthorized');

@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from "@/lib/api-handler";
 import { AppError } from "@/lib/error";
 import { HelpdeskService } from "@/services/helpdesk/helpdesk.service";
@@ -18,7 +18,7 @@ export const GET = apiHandler(async (req, params) => {
 export const POST = apiHandler(
   async (req, params, body) => {
     const { id: assetId } = await params;
-    const userId = req.headers.get("x-user-id")!;
+    const userId = getAuthenticatedUserId()!;
     const ipAddress = req.headers.get("x-real-ip") || undefined;
     const userAgent = req.headers.get("user-agent") || undefined;
 
@@ -26,7 +26,6 @@ export const POST = apiHandler(
   },
   {
     schema: CreateITAssetUnitSchema,
-    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "CREATE",
       entity: "ITAssetUnit"
@@ -36,7 +35,7 @@ export const POST = apiHandler(
 
 export const PUT = apiHandler(
   async (req, params, body) => {
-    const userId = req.headers.get("x-user-id")!;
+    const userId = getAuthenticatedUserId()!;
     const ipAddress = req.headers.get("x-real-ip") || undefined;
     const userAgent = req.headers.get("user-agent") || undefined;
 
@@ -44,7 +43,6 @@ export const PUT = apiHandler(
   },
   {
     schema: UpdateITAssetUnitSchema,
-    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "UPDATE",
       entity: "ITAssetUnit"
@@ -60,14 +58,13 @@ export const DELETE = apiHandler(
       throw AppError.badRequest("UNIT_ID_REQUIRED");
     }
 
-    const userId = req.headers.get("x-user-id")!;
+    const userId = getAuthenticatedUserId()!;
     const ipAddress = req.headers.get("x-real-ip") || undefined;
     const userAgent = req.headers.get("user-agent") || undefined;
 
     return await HelpdeskService.deleteAssetUnit(userId, unitId, ipAddress, userAgent);
   },
   {
-    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "DELETE",
       entity: "ITAssetUnit"

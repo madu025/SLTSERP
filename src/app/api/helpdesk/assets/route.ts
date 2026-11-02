@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from "@/lib/api-handler";
 import { HelpdeskService } from "@/services/helpdesk/helpdesk.service";
 import { CreateAssetSchema } from "@/lib/validations/helpdesk.schema";
@@ -28,7 +28,7 @@ export const GET = apiHandler(async (req) => {
 
 export const POST = apiHandler(
   async (req, _params, body) => {
-    const userId = req.headers.get("x-user-id")!;
+    const userId = getAuthenticatedUserId()!;
     const ipAddress = req.headers.get("x-real-ip") || undefined;
     const userAgent = req.headers.get("user-agent") || undefined;
 
@@ -36,7 +36,6 @@ export const POST = apiHandler(
   },
   {
     schema: CreateAssetSchema,
-    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "CREATE",
       entity: "ITAsset"

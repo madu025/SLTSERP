@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
@@ -41,7 +42,7 @@ interface NotificationPreferenceClient {
 }
 
 export const GET = apiHandler(async (req: Request) => {
-    const userId = req.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
     if (!userId) throw AppError.unauthorized('Unauthorized');
 
     const preferences = await (prisma as unknown as NotificationPreferenceClient).notificationPreference.findMany({
@@ -55,7 +56,7 @@ export const GET = apiHandler(async (req: Request) => {
 });
 
 export const POST = apiHandler(async (req: Request) => {
-    const userId = req.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
     if (!userId) throw AppError.unauthorized('Unauthorized');
 
     const body = await req.json();
@@ -90,4 +91,4 @@ export const POST = apiHandler(async (req: Request) => {
         success: true,
         data: preference
     });
-}, { roles: ['ALL'] });
+});

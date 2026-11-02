@@ -1,6 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
 import { OSPAccountCrudService } from '@/services/finance/osp-account-crud.service';
-import { ROLE_GROUPS } from '@/config/roles';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +16,5 @@ export const PATCH = apiHandler(async (_request, params, body) => {
   return { message: `Rent Payment ${action.toLowerCase()}d successfully`, data: result };
 }, {
   schema: actionSchema,
-  roles: ROLE_GROUPS.FINANCE_APPROVERS,
   audit: { action: 'APPROVE_RENT', entity: 'OSP_RENT' }
 });

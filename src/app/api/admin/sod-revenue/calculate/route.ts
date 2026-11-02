@@ -3,7 +3,6 @@ export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { SodRevenueService } from '@/services/admin/sod-revenue.service';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
 
 export const GET = apiHandler(async (req) => {
     const { searchParams } = new URL(req.url);
@@ -26,5 +25,4 @@ export const GET = apiHandler(async (req) => {
         }
     });
 }, {
-    roles: ROLE_GROUPS.FINANCE_ALL
 });

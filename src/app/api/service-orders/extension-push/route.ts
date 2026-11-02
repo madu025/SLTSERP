@@ -6,7 +6,8 @@ import { AppError } from '@/lib/error';
 import { redis } from '@/lib/redis';
 import { verifyJWT } from '@/lib/auth';
 import { cookies } from 'next/headers';
-import { ROLE_GROUPS } from '@/config/roles';
+import { validateSession } from '@/lib/session-validator';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 async function checkAdminAuth() {
     try {
@@ -14,7 +15,11 @@ async function checkAdminAuth() {
         const token = cookieStore.get('token')?.value;
         if (!token) return false;
         const verified = await verifyJWT(token);
-        return !!verified && (ROLE_GROUPS.ADMINS as readonly string[]).includes(String(verified.role));
+        if (!verified) return false;
+        const userId = (verified.userId || verified.id || verified.sub) as string | undefined;
+        if (!userId) return false;
+        const session = await validateSession(userId, (verified.tokenVersion as number | undefined) ?? null);
+        return session.valid && (session.permissions ?? []).includes(RBAC_PERMISSIONS.ADMIN_RBAC);
     } catch {
         return false;
     }
@@ -26,7 +31,7 @@ export async function OPTIONS() {
         headers: {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, x-user-id, x-user-role, x-extension-key',
+            'Access-Control-Allow-Headers': 'Content-Type, x-extension-key',
         },
     });
 }

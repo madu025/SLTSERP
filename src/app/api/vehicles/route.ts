@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import VehicleService from '@/services/fleet/VehicleService';
 import { VehicleStatusEnum, OwnershipTypeEnum } from '@prisma/client';
 import { apiHandler } from '@/lib/api-handler';
@@ -38,7 +37,6 @@ export const POST = apiHandler(async (request, _params, body) => {
 
     return await VehicleService.createVehicle(body as any);
 }, {
-    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: { action: 'CREATE', entity: 'VEHICLE' }
 });
 

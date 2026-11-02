@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from "@/lib/api-handler";
 import { SoftwareLicenseService } from "@/services/core/software-license.service";
 import { CreateSoftwareLicenseSchema } from "@/lib/validations/helpdesk.schema";
@@ -23,7 +23,7 @@ export const GET = apiHandler(async (req) => {
 
 export const POST = apiHandler(
   async (req, _params, body) => {
-    const userId = req.headers.get("x-user-id")!;
+    const userId = getAuthenticatedUserId()!;
     const ipAddress = req.headers.get("x-real-ip") || undefined;
     const userAgent = req.headers.get("user-agent") || undefined;
 
@@ -31,7 +31,6 @@ export const POST = apiHandler(
   },
   {
     schema: CreateSoftwareLicenseSchema,
-    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "CREATE",
       entity: "SoftwareLicense"

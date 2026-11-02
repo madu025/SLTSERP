@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectAssetService } from '@/services/project/project-asset.service';
 import { z } from 'zod';
@@ -24,7 +25,7 @@ export const POST = apiHandler(async (request, params, body) => {
     const { id: projectId } = params;
     const data = createAssetSchema.parse(body);
 
-    const userId = request.headers.get('x-user-id') || 'system';
+    const userId = getAuthenticatedUserId() || 'system';
 
     const asset = await ProjectAssetService.createAsset(projectId, {
         assetType: data.assetType,

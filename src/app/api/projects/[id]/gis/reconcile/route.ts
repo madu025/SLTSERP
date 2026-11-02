@@ -1,10 +1,11 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { GISReconciliationService } from '@/services/gis/GISReconciliationService';
 
 export const dynamic = 'force-dynamic';
 
 export const POST = apiHandler(async (request, params) => {
-    const userId = request.headers.get('x-user-id') || 'system';
+    const userId = getAuthenticatedUserId() || 'system';
     const { id: projectId } = params;
 
     const result = await GISReconciliationService.reconcile(projectId, userId);

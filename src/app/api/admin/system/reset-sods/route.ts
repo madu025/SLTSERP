@@ -1,5 +1,4 @@
 export const dynamic = 'force-dynamic';
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { AdminSystemService } from '@/services/admin/system.service';
 import { AppError } from '@/lib/error';
@@ -30,6 +29,5 @@ export const POST = apiHandler(async (_req, _params, body) => {
         timestamp: new Date().toISOString()
     });
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'RESET_SYSTEM_DATA', entity: 'Admin' }
 });

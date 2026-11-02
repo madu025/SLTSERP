@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from "@/lib/api-handler";
 import { AppError } from "@/lib/error";
 import { HelpdeskAuditService } from "@/services/helpdesk/helpdesk-audit.service";
@@ -33,7 +33,6 @@ export const GET = apiHandler(
     return await HelpdeskAuditService.getAudits();
   },
   {
-    roles: ROLE_GROUPS.OFFICE_ADMINS
   }
 );
 
@@ -63,7 +62,7 @@ export const PUT = apiHandler(
   async (req, _params, body) => {
     const url = new URL(req.url);
     const auditId = url.searchParams.get("auditId");
-    const userId = req.headers.get("x-user-id");
+    const userId = getAuthenticatedUserId();
 
     if (!auditId) {
       throw AppError.badRequest("Audit ID is required");
@@ -72,7 +71,6 @@ export const PUT = apiHandler(
     return await HelpdeskAuditService.syncAuditToInventory(auditId, body || undefined, userId);
   },
   {
-    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "UPDATE",
       entity: "ITAssetAudit"
@@ -93,7 +91,6 @@ export const PATCH = apiHandler(
     return await HelpdeskAuditService.rejectAudit(auditId);
   },
   {
-    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "UPDATE",
       entity: "ITAssetAudit"
@@ -114,7 +111,6 @@ export const DELETE = apiHandler(
     return await HelpdeskAuditService.deleteAudit(auditId);
   },
   {
-    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "DELETE",
       entity: "ITAssetAudit"

@@ -1,6 +1,5 @@
 import { extractContractDataFromPdfText } from '@/services/slt/slt-contract-pdf-parser';
 import { apiHandler } from '@/lib/api-handler';
-import { ROLE_GROUPS } from '@/config/roles';
 import { StorageService } from '@/services/storage/storage.service';
 import fs from 'fs';
 import path from 'path';
@@ -131,6 +130,5 @@ export const POST = apiHandler(async (req: Request) => {
     }
 }, {
     // Same scope as the /finance/slt-contracts page that hosts this upload
-    roles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER', 'MANAGER'],
     rawResponse: true
 });

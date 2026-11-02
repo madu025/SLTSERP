@@ -1,7 +1,6 @@
 import { VendorService } from "@/services/finance/vendor.service";
 import { apiHandler } from "@/lib/api-handler";
 import { AppError } from "@/lib/error";
-import { ROLE_GROUPS } from "@/config/roles";
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +23,7 @@ export const PUT = apiHandler(async (request, params, body) => {
     const { id } = resolvedParams;
     const vendor = await VendorService.updateVendor(id, body);
     return vendor;
-}, { rawResponse: true, roles: ROLE_GROUPS.PROCUREMENT });
+}, { rawResponse: true });
 
 // DELETE /api/vendors/[id] - Soft delete vendor
 export const DELETE = apiHandler(async (request, params) => {
@@ -32,4 +31,4 @@ export const DELETE = apiHandler(async (request, params) => {
     const { id } = resolvedParams;
     const vendor = await VendorService.deleteVendor(id);
     return { message: "Vendor deactivated successfully", vendor };
-}, { rawResponse: true, roles: ROLE_GROUPS.PROCUREMENT });
+}, { rawResponse: true });

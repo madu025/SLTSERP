@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ChartOfAccountsService } from '@/services/finance/chart-of-accounts.service';
 import { z } from 'zod';
@@ -28,7 +27,6 @@ export const GET = apiHandler(async () => {
     const accounts = await ChartOfAccountsService.getAllAccounts();
     return { accounts };
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS
 });
 
 export const POST = apiHandler(async (req) => {
@@ -37,7 +35,6 @@ export const POST = apiHandler(async (req) => {
     const account = await ChartOfAccountsService.createAccount(validated);
     return { account };
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'CREATE', entity: 'CHART_OF_ACCOUNTS' }
 });
 
@@ -48,6 +45,5 @@ export const PUT = apiHandler(async (req) => {
     const account = await ChartOfAccountsService.updateAccount(id, data);
     return { account };
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'UPDATE', entity: 'CHART_OF_ACCOUNTS' }
 });

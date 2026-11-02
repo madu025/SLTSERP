@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { PettyCashService } from '@/services/finance/petty-cash.service';
@@ -33,7 +33,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const description = body.description as string | null | undefined;
     const recipientName = body.recipientName as string | null | undefined;
     const receiptUrl = body.receiptUrl as string | null | undefined;
-    const userId = req.headers.get("x-user-id");
+    const userId = getAuthenticatedUserId();
 
     if (!accountId || !title || amount === undefined || !category || !userId) {
         throw AppError.badRequest('accountId, title, amount, and category are required');
@@ -59,7 +59,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
     const id = body.id as string | undefined;
     const action = body.action as string | undefined;
     const rejectionReason = body.rejectionReason as string | undefined;
-    const userId = req.headers.get("x-user-id");
+    const userId = getAuthenticatedUserId();
 
     if (!id || !action || !userId) {
         throw AppError.badRequest('id and action are required');
@@ -73,7 +73,6 @@ export const PATCH = apiHandler(async (req, _params, body) => {
         throw AppError.badRequest('Invalid action. Must be APPROVE or REJECT');
     }
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'UPDATE_STATUS', entity: 'PETTY_CASH_VOUCHER' },
     rawResponse: true
 });

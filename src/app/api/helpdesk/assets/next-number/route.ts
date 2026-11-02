@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { HelpdeskService } from '@/services/helpdesk/helpdesk.service';
 import { ITDeviceType } from '@prisma/client';
@@ -18,6 +17,5 @@ export const GET = apiHandler(
     return { nextAssetNumber };
   },
   {
-    roles: ROLE_GROUPS.OFFICE_ADMINS
   }
 );

@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { PettyCashService } from '@/services/finance/petty-cash.service';
@@ -17,7 +17,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const name = body.name as string | undefined;
     const opmcId = body.opmcId as string | undefined;
     const imprestLimit = body.imprestLimit as string | number | undefined;
-    const userId = req.headers.get("x-user-id");
+    const userId = getAuthenticatedUserId();
 
     if (!name || !opmcId || imprestLimit === undefined || !userId) {
         throw AppError.badRequest('name, opmcId, and imprestLimit are required');
@@ -30,7 +30,6 @@ export const POST = apiHandler(async (req, _params, body) => {
         createdById: userId
     });
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'CREATE', entity: 'PETTY_CASH_ACCOUNT' },
     rawResponse: true
 });

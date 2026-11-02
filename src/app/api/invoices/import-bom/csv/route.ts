@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { BOMInvoiceService } from '@/services/finance/bom-invoice.service';
-import { ROLE_GROUPS, hasRole } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { z } from 'zod';
 import { AppError } from '@/lib/error';
 
@@ -11,7 +11,7 @@ export async function OPTIONS() {
         headers: {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, x-user-id, x-user-role, x-extension-key',
+            'Access-Control-Allow-Headers': 'Content-Type, x-extension-key',
         },
     });
 }
@@ -21,7 +21,7 @@ const importBomCsvSchema = z.object({
     bomPath: z.string().optional()
 });
 
-export const POST = apiHandler(async (req, _params, body) => {
+export const POST = apiHandler(async (req, params, body) => {
     const data = importBomCsvSchema.parse(body);
 
     const extensionKey = req.headers.get('x-extension-key');
@@ -29,12 +29,10 @@ export const POST = apiHandler(async (req, _params, body) => {
     const extensionSecret = process.env.EXTENSION_SECRET;
     const isExtension = !!extensionSecret && extensionKey === extensionSecret;
 
-    const userId = req.headers.get('x-user-id') ?? 'EXTENSION_SYNC';
-    const userRole = req.headers.get('x-user-role');
+    const userId = params._userId ?? 'EXTENSION_SYNC';
+    const hasAllowedPermission = params._permissions.includes(RBAC_PERMISSIONS.FINANCE_APPROVE);
 
-    const hasAllowedRole = !!userRole && hasRole(userRole, ROLE_GROUPS.BOM_IMPORT_ADMINS);
-
-    if (!isExtension && !hasAllowedRole) {
+    if (!isExtension && !hasAllowedPermission) {
         throw AppError.forbidden('Permission Denied: Unauthorized to import BOM invoices.');
     }
 

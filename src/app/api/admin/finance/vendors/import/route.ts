@@ -1,5 +1,4 @@
 export const dynamic = 'force-dynamic';
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { VendorService } from '@/services/finance/vendor.service';
 import { z } from 'zod';
@@ -30,6 +29,5 @@ export const POST = apiHandler(async (_req, _params, body) => {
         ...result
     };
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'IMPORT_VENDORS_BULK', entity: 'Finance' }
 });

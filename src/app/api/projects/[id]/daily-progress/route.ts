@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { z } from 'zod';
 import { apiHandler } from '@/lib/api-handler';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
@@ -34,7 +35,7 @@ export const GET = apiHandler(async (_request, params) => {
 export const POST = apiHandler(async (request, params, body) => {
     const { id: projectId } = await params;
     await assertProjectAccess(projectId, params._userId);
-    const userId = request.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
 
     return await ProjectProgressService.createDailyProgress({
         reportDate: body.reportDate,

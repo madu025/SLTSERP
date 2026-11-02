@@ -1,5 +1,4 @@
 import { apiHandler } from '@/lib/api-handler';
-import { ROLE_GROUPS } from '@/config/roles';
 import { TEMPLATE_CODES, getTemplateCodesByCategory } from '@/config/notification-templates';
 
 export const dynamic = 'force-dynamic';
@@ -11,6 +10,5 @@ export const GET = apiHandler(async () => {
     grouped: getTemplateCodesByCategory()
   };
 }, {
-  roles: ROLE_GROUPS.ADMINS as unknown as string[],
   rawResponse: true
 });

@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/service-order';
 import { z } from 'zod';
@@ -14,7 +15,7 @@ const schema = z.object({
 export const POST = apiHandler(async (req: Request) => {
     const json = await req.json();
     const { sodIds, notes } = schema.parse(json);
-    const userId = req.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
     if (!userId) throw AppError.unauthorized('Authenticated verification user is required');
 
     const { count, verifiedIds, rejected } = await ServiceOrderService.verifyInvoicable(sodIds, userId, notes);

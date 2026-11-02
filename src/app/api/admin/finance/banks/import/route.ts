@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { BankService } from '@/services/finance/bank.service';
 import { z } from 'zod';
@@ -22,7 +21,6 @@ export const POST = apiHandler(async (_req, _params, body) => {
         ...result
     };
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'IMPORT_BANKS_BULK', entity: 'Finance' },
     rawResponse: true
 });

@@ -3,7 +3,6 @@ import { apiHandler } from '@/lib/api-handler';
 import TripService from '@/services/fleet/TripService';
 import { endTripSchema, EndTripSchema } from '@/lib/validations/trip.schema';
 import { Trip } from '@/types/fleet/trip.types';
-import { ROLE_GROUPS } from '@/config/roles';
 
 /**
  * PATCH: End a trip
@@ -22,5 +21,5 @@ export const PATCH = apiHandler<Trip, EndTripSchema>(
 
         return trip;
     },
-    { schema: endTripSchema, roles: ROLE_GROUPS.OFFICE_ADMINS }
+    { schema: endTripSchema }
 );

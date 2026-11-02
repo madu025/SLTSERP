@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { OSPAccountCrudService } from '@/services/finance/osp-account-crud.service';
 import { z } from 'zod';
@@ -14,6 +13,5 @@ export const PATCH = apiHandler(async (_request, params, body) => {
   return { message: `Project Advance ${action.toLowerCase()}d successfully`, data: result };
 }, {
   schema: actionSchema,
-  roles: ROLE_GROUPS.FINANCE_APPROVERS,
   audit: { action: 'APPROVE_ADVANCE', entity: 'OSP_ADVANCE' }
 });

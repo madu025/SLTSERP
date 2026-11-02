@@ -28,7 +28,6 @@ const publicPaths = [
     '/api/service-orders/extension-push',
     '/api/service-orders/bridge-sync',
     '/api/service-orders/bridge-data',
-    '/api/opmcs',
     '/api/invoices/import-bom/csv',
     '/api/invoices/slt-registry',
     '/api/helpdesk/assets/search-by-serial',
@@ -125,6 +124,9 @@ export async function middleware(request: NextRequest) {
     requestHeaders.delete('x-user-id');
     requestHeaders.delete('x-user-role');
     requestHeaders.delete('x-contractor-id');
+    requestHeaders.delete('x-authenticated-user-id');
+    requestHeaders.delete('x-authenticated-user-role');
+    requestHeaders.delete('x-authenticated-contractor-id');
     requestHeaders.delete('x-token-version');
     requestHeaders.delete('x-pathname');
 
@@ -241,12 +243,12 @@ export async function middleware(request: NextRequest) {
     // If authenticated
     const uid = (verifiedToken.userId || verifiedToken.id || verifiedToken.sub) as string;
     if (uid) {
-        requestHeaders.set('x-user-id', uid);
+        requestHeaders.set('x-authenticated-user-id', uid);
     }
     const userRole = verifiedToken.role as string;
-    requestHeaders.set('x-user-role', userRole);
+    requestHeaders.set('x-authenticated-user-role', userRole);
     if (verifiedToken.contractorId) {
-        requestHeaders.set('x-contractor-id', verifiedToken.contractorId as string);
+        requestHeaders.set('x-authenticated-contractor-id', verifiedToken.contractorId as string);
     }
     // Propagate the token version so downstream handlers can verify session freshness
     if (verifiedToken.tokenVersion !== undefined) {

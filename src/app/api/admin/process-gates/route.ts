@@ -1,7 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProcessGateAdminService } from '@/services/admin/process-gate.service';
 import { z } from 'zod';
-import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +25,7 @@ const createGateSchema = z.object({
 export const GET = apiHandler(async () => {
     const gates = await ProcessGateAdminService.getAllGates();
     return gates;
-}, { roles: ROLE_GROUPS.ADMINS });
+});
 
 // Gate policy configuration is privilege-granting (defines approval authority),
 // so mutations are restricted to SUPER_ADMIN/ADMIN only.
@@ -37,4 +36,4 @@ export const POST = apiHandler(async (_req, _params, body) => {
       message: 'Process Gate Policy created successfully',
       data: newGate
     };
-}, { roles: ROLE_GROUPS.CORE_ADMINS, schema: createGateSchema, audit: { action: 'CREATE', entity: 'PROCESS_GATE' } });
+}, { schema: createGateSchema, audit: { action: 'CREATE', entity: 'PROCESS_GATE' } });

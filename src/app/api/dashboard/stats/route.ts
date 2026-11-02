@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { ServiceOrderDashboardService } from '@/services/service-order/sod-dashboard.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
@@ -11,7 +12,7 @@ export const GET = apiHandler(async (request) => {
     // trust a client-supplied ?userId (impersonation vector). The param is
     // only accepted for backward compatibility and must equal the session
     // user.
-    const userId = request.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
     const queryUserId = searchParams.get('userId');
 
     if (!userId) {

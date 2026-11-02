@@ -1,5 +1,4 @@
 export const dynamic = 'force-dynamic';
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor/contractor.service';
 import { AppError, ErrorCode } from '@/lib/error';
@@ -41,7 +40,6 @@ export const POST = apiHandler<unknown, RegistrationInviteSchema>(
     },
     {
         schema: registrationInviteSchema,
-        roles: ROLE_GROUPS.OFFICE_ADMINS,
         audit: {
             action: 'GENERATE_INVITE',
             entity: 'Contractor'

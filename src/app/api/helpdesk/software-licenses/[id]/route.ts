@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from "@/lib/api-handler";
 import { SoftwareLicenseService } from "@/services/core/software-license.service";
 import { UpdateSoftwareLicenseSchema } from "@/lib/validations/helpdesk.schema";
@@ -13,7 +13,7 @@ export const GET = apiHandler(async (_req, params) => {
 export const PUT = apiHandler(
   async (req, params, body) => {
     const { id } = await params;
-    const userId = req.headers.get("x-user-id")!;
+    const userId = getAuthenticatedUserId()!;
     const ipAddress = req.headers.get("x-real-ip") || undefined;
     const userAgent = req.headers.get("user-agent") || undefined;
 
@@ -21,7 +21,6 @@ export const PUT = apiHandler(
   },
   {
     schema: UpdateSoftwareLicenseSchema,
-    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "UPDATE",
       entity: "SoftwareLicense"
@@ -32,14 +31,13 @@ export const PUT = apiHandler(
 export const DELETE = apiHandler(
   async (req, params) => {
     const { id } = await params;
-    const userId = req.headers.get("x-user-id")!;
+    const userId = getAuthenticatedUserId()!;
     const ipAddress = req.headers.get("x-real-ip") || undefined;
     const userAgent = req.headers.get("user-agent") || undefined;
 
     return await SoftwareLicenseService.deleteLicense(userId, id, ipAddress, userAgent);
   },
   {
-    roles: ROLE_GROUPS.ADMINS,
     audit: {
       action: "DELETE",
       entity: "SoftwareLicense"

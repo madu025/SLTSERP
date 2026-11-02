@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { HelpdeskService } from '@/services/helpdesk/helpdesk.service';
@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 
 export const POST = apiHandler(
   async (req) => {
-    const userId = req.headers.get('x-user-id')!;
+    const userId = getAuthenticatedUserId()!;
     const ipAddress = req.headers.get('x-real-ip') || undefined;
     const userAgent = req.headers.get('user-agent') || undefined;
 
@@ -31,7 +31,6 @@ export const POST = apiHandler(
     return await HelpdeskService.bulkImportAssets(userId, buffer, ipAddress, userAgent);
   },
   {
-    roles: [...ROLE_GROUPS.OFFICE_ADMINS, ...ROLE_GROUPS.CORE_ADMINS, 'ENGINEER'],
     audit: {
       action: 'CREATE',
       entity: 'ITAsset'

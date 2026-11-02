@@ -1,7 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { z } from 'zod';
 import { SystemSettingService } from '@/services/core/system-setting.service';
-import { ROLE_GROUPS } from '@/config/roles';
 const accessPolicySchema = z.object({
     policies: z.record(z.string(), z.array(z.string()))
 });
@@ -17,7 +16,6 @@ export const POST = apiHandler<{ success: boolean }, z.infer<typeof accessPolicy
     },
     {
         schema: accessPolicySchema,
-        roles: ROLE_GROUPS.CORE_ADMINS,
         audit: { action: 'SAVE_POLICIES', entity: 'ACCESS_POLICY' }
     }
 );

@@ -1,5 +1,4 @@
 import { apiHandler } from '@/lib/api-handler';
-import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 import { NotificationTemplateEngineService } from '@/services/notification/template-engine.service';
 import { EmailService } from '@/services/notification/email.service';
@@ -82,7 +81,6 @@ export const POST = apiHandler(async (req, _params, body) => {
   };
 }, {
   schema: testSendSchema,
-  roles: ROLE_GROUPS.ADMINS as unknown as string[],
   audit: { action: 'TEST_SEND', entity: 'NOTIFICATION_TEMPLATE' },
   rawResponse: true
 });

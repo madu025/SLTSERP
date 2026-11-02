@@ -1,18 +1,20 @@
 export const dynamic = 'force-dynamic';
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { BOMInvoiceService } from '@/services/finance/bom-invoice.service';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { AppError } from '@/lib/error';
 import { z } from 'zod';
 const importBomSchema = z.object({
     rows: z.array(z.any()).min(1, "Rows must be a non-empty array"),
     bomPath: z.string().optional()
 });
-export const POST = apiHandler(async (req, _params, body) => {
+export const POST = apiHandler(async (_req, params, body) => {
     const data = importBomSchema.parse(body);
-    const userId = req.headers.get('x-user-id') || 'ADMIN';
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
     const result = await BOMInvoiceService.processBOMImport(data.rows, userId, data.bomPath);
     return Response.json(result);
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS, // Excluded AREA_COORDINATOR, QC_OFFICER based on legacy logic
+    permissions: [RBAC_PERMISSIONS.FINANCE_APPROVE],
     audit: { action: 'IMPORT_BOM_INVOICES', entity: 'Invoice' }
 });

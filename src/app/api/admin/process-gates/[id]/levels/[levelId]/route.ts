@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { ProcessGateAdminService } from '@/services/admin/process-gate.service';
-import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 
 export const DELETE = apiHandler(async (req, params) => {
@@ -18,4 +17,4 @@ export const DELETE = apiHandler(async (req, params) => {
       message: 'Approval Level deleted successfully',
       data: { success: true }
     };
-}, { roles: ROLE_GROUPS.CORE_ADMINS, audit: { action: 'DELETE', entity: 'PROCESS_GATE_LEVEL' } });
+}, { audit: { action: 'DELETE', entity: 'PROCESS_GATE_LEVEL' } });

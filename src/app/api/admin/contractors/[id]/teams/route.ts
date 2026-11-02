@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor/contractor.service';
 import { TeamInput } from '@/types/contractor/contractor.types';
@@ -32,7 +31,6 @@ export const GET = apiHandler(
         return { teams, contractor };
     },
     {
-        roles: ROLE_GROUPS.CONTRACTOR_READERS
     }
 );
 
@@ -44,7 +42,6 @@ export const POST = apiHandler(
         return { success: true, message: 'Teams saved successfully' };
     },
     {
-        roles: ROLE_GROUPS.OFFICE_ADMINS,
         audit: { action: 'UPDATE_TEAMS', entity: 'Contractor' }
     }
 );

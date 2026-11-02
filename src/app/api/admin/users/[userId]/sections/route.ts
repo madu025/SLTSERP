@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
@@ -18,7 +17,6 @@ export const GET = apiHandler(async (_req, params) => {
 
     return assignments;
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     rawResponse: true
 });
 
@@ -31,7 +29,6 @@ export const POST = apiHandler(async (_req, params, body) => {
 
     return assignment;
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     rawResponse: true,
     audit: { action: 'ASSIGN_USER_SECTION', entity: 'User' }
 });

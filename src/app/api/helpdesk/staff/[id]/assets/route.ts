@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from "@/lib/api-handler";
 
 
@@ -13,6 +12,5 @@ export const GET = apiHandler(
     return await HelpdeskService.getStaffAssets(id);
   },
   {
-    roles: ROLE_GROUPS.OFFICE_ADMINS
   }
 );

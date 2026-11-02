@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { SmtpConfigService } from '@/services/admin/smtp-config.service';
 import { z } from 'zod';
-import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +16,7 @@ const SmtpSchema = z.object({
 export const GET = apiHandler(async () => {
     const config = await SmtpConfigService.getConfig();
     return NextResponse.json({ data: config });
-}, { roles: ROLE_GROUPS.ADMINS });
+});
 
 export const PUT = apiHandler(async (_req, _params, body) => {
     const validated = SmtpSchema.parse(body);
@@ -28,6 +27,5 @@ export const PUT = apiHandler(async (_req, _params, body) => {
         data: result
     });
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'UPDATE_SMTP_CONFIG', entity: 'SystemSetting' }
 });

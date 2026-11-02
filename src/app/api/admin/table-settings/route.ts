@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
@@ -29,7 +28,6 @@ export const POST = apiHandler(async (_req, _params, body) => {
     const result = await AdminSystemService.updateTableSettings(data.tableName, data.visibleColumns, TABLE_COLUMNS);
     return result;
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'UPDATE_TABLE_SETTINGS', entity: 'System' },
     rawResponse: true
 });

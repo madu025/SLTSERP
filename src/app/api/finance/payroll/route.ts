@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 
 import { PayrollExpenseService } from '@/services/finance/payroll-expense.service';
@@ -13,12 +13,11 @@ export const GET = apiHandler(async (req) => {
     const data = await PayrollExpenseService.getPayrollExpenses(opmcId, period);
     return data;
 }, {
-    roles: ROLE_GROUPS.FINANCE_ALL
 });
 
 export const POST = apiHandler(async (req) => {
     const body = await req.json();
-    const userId = req.headers.get('x-user-id') || (req as Request & { user?: { id?: string } }).user?.id || undefined;
+    const userId = getAuthenticatedUserId() || (req as Request & { user?: { id?: string } }).user?.id || undefined;
 
     const record = await PayrollExpenseService.recordPayrollAllocation({
         period: body.period,
@@ -31,6 +30,5 @@ export const POST = apiHandler(async (req) => {
 
     return record;
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'CREATE', entity: 'PAYROLL_ALLOCATION' }
 });

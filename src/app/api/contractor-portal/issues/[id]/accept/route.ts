@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { apiHandler } from '@/lib/api-handler';
 
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 export const POST = apiHandler(async (req: Request, params: any, body: any) => {
     const issueId = params?.id as string;
     const { signatureName } = body || {};
-    const userId = req.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
 
     if (!issueId) {
         throw AppError.badRequest('Issue ID is required.');
@@ -19,6 +19,5 @@ export const POST = apiHandler(async (req: Request, params: any, body: any) => {
 
     return await ContractorInventoryService.acceptMaterialIssue(issueId, signatureName, userId);
 }, {
-    roles: ROLE_GROUPS.STORES_MANAGERS,
     audit: { action: 'ACCEPT_CONTRACTOR_MATERIAL_ISSUE', entity: 'ContractorMaterialIssue' }
 });

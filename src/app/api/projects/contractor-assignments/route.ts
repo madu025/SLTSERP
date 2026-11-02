@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
@@ -19,7 +20,7 @@ const assignmentSchema = z.object({
 export const GET = apiHandler(async (request) => {
   const projectId = new URL(request.url).searchParams.get('projectId');
   if (!projectId) throw AppError.badRequest('projectId is required');
-  await assertProjectAccess(projectId, request.headers.get('x-user-id'));
+  await assertProjectAccess(projectId, getAuthenticatedUserId());
   return ProjectContractorAssignmentService.list(projectId);
 }, { permissions: [RBAC_PERMISSIONS.PROJECT_READ], rawResponse: true });
 

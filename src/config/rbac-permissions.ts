@@ -31,6 +31,11 @@ export const RBAC_PERMISSIONS = {
     PROCUREMENT_WRITE: 'procurement.write',
     CONTRACTOR_READ: 'contractor.read',
     CONTRACTOR_WRITE: 'contractor.write',
+    HELPDESK_READ: 'helpdesk.read',
+    HELPDESK_WRITE: 'helpdesk.write',
+    HELPDESK_APPROVE: 'helpdesk.approve',
+    FLEET_READ: 'fleet.read',
+    FLEET_WRITE: 'fleet.write',
     ADMIN_RBAC: 'admin.rbac',
 } as const;
 
@@ -62,6 +67,11 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.PROCUREMENT_WRITE, module: 'PROCUREMENT', action: 'WRITE', scope: 'OPMC', description: 'Modify procurement data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.CONTRACTOR_READ, module: 'CONTRACTOR', action: 'READ', scope: 'OPMC', description: 'Read contractor data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.CONTRACTOR_WRITE, module: 'CONTRACTOR', action: 'WRITE', scope: 'OPMC', description: 'Submit contractor portal work, stock, and return actions within the assigned OPMC scope' },
+    { code: RBAC_PERMISSIONS.HELPDESK_READ, module: 'HELPDESK', action: 'READ', scope: 'OPMC', description: 'Read helpdesk tickets, assets, telemetry, and support data within the assigned OPMC scope' },
+    { code: RBAC_PERMISSIONS.HELPDESK_WRITE, module: 'HELPDESK', action: 'WRITE', scope: 'OPMC', description: 'Create or update helpdesk tickets, assets, and support records within the assigned OPMC scope' },
+    { code: RBAC_PERMISSIONS.HELPDESK_APPROVE, module: 'HELPDESK', action: 'APPROVE', scope: 'OPMC', description: 'Approve helpdesk asset custody and disposal workflows within the assigned OPMC scope' },
+    { code: RBAC_PERMISSIONS.FLEET_READ, module: 'FLEET', action: 'READ', scope: 'OPMC', description: 'Read fleet, vehicle, trip, and utilization data within the assigned OPMC scope' },
+    { code: RBAC_PERMISSIONS.FLEET_WRITE, module: 'FLEET', action: 'WRITE', scope: 'OPMC', description: 'Modify fleet, vehicle, and trip records within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.ADMIN_RBAC, module: 'ADMIN', action: 'RBAC', scope: 'GLOBAL', description: 'Manage users, roles, permission grants, and scope assignments' },
 ] as const;
 

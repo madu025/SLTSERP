@@ -1,5 +1,4 @@
 export const dynamic = 'force-dynamic';
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { UserService } from '@/services/hr/user.service';
 
@@ -11,7 +10,6 @@ export const DELETE = apiHandler(async (_req, params) => {
 
     return { message: 'Assignment removed successfully' };
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     rawResponse: true,
     audit: { action: 'REMOVE_USER_SECTION', entity: 'User' }
 });

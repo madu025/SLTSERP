@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from "@/lib/api-handler";
 import { AppError } from "@/lib/error";
 import { SoftwareLicenseService } from "@/services/core/software-license.service";
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export const POST = apiHandler(
   async (req, params, body) => {
     const { id: licenseId } = await params;
-    const userId = req.headers.get("x-user-id")!;
+    const userId = getAuthenticatedUserId()!;
     const ipAddress = req.headers.get("x-real-ip") || undefined;
     const userAgent = req.headers.get("user-agent") || undefined;
 
@@ -17,7 +17,6 @@ export const POST = apiHandler(
   },
   {
     schema: CreateSoftwareLicenseAssignmentSchema,
-    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "CREATE",
       entity: "SoftwareLicenseAssignment"
@@ -33,14 +32,13 @@ export const DELETE = apiHandler(
       throw AppError.badRequest("ASSIGNMENT_ID_REQUIRED");
     }
     
-    const userId = req.headers.get("x-user-id")!;
+    const userId = getAuthenticatedUserId()!;
     const ipAddress = req.headers.get("x-real-ip") || undefined;
     const userAgent = req.headers.get("user-agent") || undefined;
 
     return await SoftwareLicenseService.revokeLicense(userId, assignmentId, ipAddress, userAgent);
   },
   {
-    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "DELETE",
       entity: "SoftwareLicenseAssignment"

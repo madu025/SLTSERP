@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { AppError } from '@/lib/error';
 import { apiHandler } from '@/lib/api-handler';
 import { PettyCashService } from '@/services/finance/petty-cash.service';
@@ -18,7 +18,7 @@ export const GET = apiHandler(async (req) => {
 // POST /api/finance/petty-cash/reimbursements - Submit reimbursement request
 export const POST = apiHandler(async (req, _params, body) => {
     const accountId = body.accountId as string | undefined;
-    const userId = req.headers.get("x-user-id");
+    const userId = getAuthenticatedUserId();
 
     if (!accountId || !userId) {
         throw AppError.badRequest('accountId is required');
@@ -34,7 +34,7 @@ export const POST = apiHandler(async (req, _params, body) => {
 export const PATCH = apiHandler(async (req, _params, body) => {
     const id = body.id as string | undefined;
     const paymentVoucherId = body.paymentVoucherId as string | undefined;
-    const userId = req.headers.get("x-user-id");
+    const userId = getAuthenticatedUserId();
 
     if (!id || !paymentVoucherId || !userId) {
         throw AppError.badRequest('id and paymentVoucherId are required');
@@ -42,7 +42,6 @@ export const PATCH = apiHandler(async (req, _params, body) => {
 
     return await PettyCashService.completeReimbursement(id, paymentVoucherId, userId);
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'COMPLETE_REIMBURSEMENT', entity: 'PETTY_CASH_REIMBURSEMENT' },
     rawResponse: true
 });

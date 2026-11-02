@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { resolveUserId } from '@/lib/uuid';
@@ -25,7 +25,6 @@ export const GET = apiHandler(async (_req, params) => {
 
   return budget;
 }, {
-  roles: ROLE_GROUPS.FINANCE_ALL,
   rawResponse: true,
 });
 
@@ -35,7 +34,7 @@ export const PUT = apiHandler(async (req, params, body) => {
   const id = params.id;
   if (!id) throw AppError.badRequest('Budget ID required');
 
-  const userId = req.headers.get('x-user-id') ?? undefined;
+  const userId = getAuthenticatedUserId() ?? undefined;
 
   // approvedById is a uuid column — never trust client placeholders like 'system'
   const { approvedById: bodyApprover, ...rest } = body;
@@ -48,7 +47,6 @@ export const PUT = apiHandler(async (req, params, body) => {
   return { success: true, data: updated };
 }, {
   schema: UpdateBudgetSchema,
-  roles: ROLE_GROUPS.FINANCE_APPROVERS,
   audit: { action: 'UPDATE', entity: 'FINANCE_BUDGET_ALLOCATION' },
   rawResponse: true,
 });
@@ -69,7 +67,6 @@ export const DELETE = apiHandler(async (_req, params) => {
     throw error;
   }
 }, {
-  roles: ROLE_GROUPS.FINANCE_APPROVERS,
   audit: { action: 'DELETE', entity: 'FINANCE_BUDGET_ALLOCATION' },
   rawResponse: true,
 });

@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { ProjectInvoiceService } from '@/services/project/project-invoice.service';
@@ -10,7 +11,7 @@ export const dynamic = 'force-dynamic';
 export const GET = apiHandler<unknown, void>(
     async (request, params) => {
         const { id: projectId } = params;
-        const userId = request.headers.get('x-user-id');
+        const userId = getAuthenticatedUserId();
         if (!userId) {
             throw AppError.unauthorized('Unauthorized');
         }

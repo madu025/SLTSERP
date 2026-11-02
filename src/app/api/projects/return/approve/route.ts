@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectStockIssueService } from '@/services/project/project-stock-issue.service';
@@ -12,7 +13,7 @@ import { AppError } from '@/lib/error';
  */
 export const POST = apiHandler<{ success: boolean }, ApproveReturnSchema>(
     async (request: Request, params: unknown, body) => {
-        const approvedById = request.headers.get('x-user-id');
+        const approvedById = getAuthenticatedUserId();
         if (!approvedById) {
             throw AppError.unauthorized('Unauthorized');
         }

@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { StatsService } from '@/lib/stats.service';
 
@@ -19,6 +18,5 @@ export const POST = apiHandler(async () => {
         duration: `${duration}s`
     });
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'SYSTEM_RECALCULATE_STATS', entity: 'Admin' }
 });

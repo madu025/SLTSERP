@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { sodImportQueue, addJob } from '@/lib/queue';
 import { AppError } from '@/lib/error';
@@ -6,7 +6,7 @@ import { AppError } from '@/lib/error';
 export const dynamic = 'force-dynamic';
 
 export const POST = apiHandler(async (request, _params, body) => {
-    const userId = request.headers.get('x-user-id') || 'SYSTEM';
+    const userId = getAuthenticatedUserId() || 'SYSTEM';
     const { rows, skipMaterials = false } = body || {};
 
     if (!rows || !Array.isArray(rows) || rows.length === 0) {
@@ -25,7 +25,6 @@ export const POST = apiHandler(async (request, _params, body) => {
         message: 'Import task queued successfully'
     };
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'ENQUEUE_BULK_IMPORT', entity: 'ServiceOrder' },
     rawResponse: true
 });

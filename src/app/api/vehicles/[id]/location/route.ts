@@ -27,6 +27,5 @@ export const POST = apiHandler(async (_request, params, body) => {
     const vehicle = await VehicleService.updateVehicleLocation(params.id, latitude, longitude, speed_kmh, heading);
     return vehicle;
 }, {
-    roles: ['ALL'],
     audit: { action: 'LOCATION_UPDATE', entity: 'Vehicle' }
 });

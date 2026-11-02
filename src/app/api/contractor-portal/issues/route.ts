@@ -1,4 +1,5 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
+import { getRequestAuth } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 
 
@@ -8,13 +9,12 @@ import { ContractorService } from '@/services/contractor/contractor.service';
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (req: Request) => {
-    const userId = req.headers.get('x-user-id');
-    const context = await ContractorService.resolveContractorContext(userId, req.headers.get('x-contractor-id'));
+    const userId = getAuthenticatedUserId();
+    const context = await ContractorService.resolveContractorContext(userId, getRequestAuth().contractorId);
     const contractorId = context.contractorId;
 
     if (!contractorId) return [];
 
     return await ContractorInventoryService.getMaterialIssues(contractorId);
 }, {
-    roles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.CONTRACTORS],
 });

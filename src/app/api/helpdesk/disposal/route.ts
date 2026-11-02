@@ -1,18 +1,14 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { z } from 'zod';
 import { DisposalReason } from '@prisma/client';
 import { AppError } from '@/lib/error';
 import { AssetDisposalService } from '@/services/helpdesk/asset-disposal.service';
-import { ROLE_GROUPS } from '@/config/roles';
-
-// EAM disposal creators; approvals additionally allow finance approvers
-const DISPOSAL_CREATORS = ROLE_GROUPS.EAM_ASSET_MANAGERS;
-const DISPOSAL_APPROVERS = [...new Set([...ROLE_GROUPS.EAM_ASSET_MANAGERS, ...ROLE_GROUPS.FINANCE_APPROVERS])];
 
 export const dynamic = 'force-dynamic';
 
-async function getAuthUserId(req: Request): Promise<string> {
-    const userId = req.headers.get('x-user-id');
+async function getAuthUserId(): Promise<string> {
+    const userId = getAuthenticatedUserId();
     if (!userId) {
         throw AppError.unauthorized('Unauthorized access');
     }
@@ -30,7 +26,7 @@ export const GET = apiHandler(async (req: Request) => {
 });
 
 export const POST = apiHandler(async (req: Request) => {
-    const userId = await getAuthUserId(req);
+    const userId = await getAuthUserId();
     const payload = await req.json();
 
     const schema = z.object({
@@ -42,12 +38,11 @@ export const POST = apiHandler(async (req: Request) => {
     const data = schema.parse(payload);
     return await AssetDisposalService.createDisposalRequest(userId, data);
 }, {
-    roles: DISPOSAL_CREATORS,
     rawResponse: true
 });
 
 export const PUT = apiHandler(async (req: Request) => {
-    const userId = await getAuthUserId(req);
+    const userId = await getAuthUserId();
     const payload = await req.json();
 
     const schema = z.object({
@@ -58,6 +53,5 @@ export const PUT = apiHandler(async (req: Request) => {
     const data = schema.parse(payload);
     return await AssetDisposalService.processDisposalApproval(userId, data);
 }, {
-    roles: DISPOSAL_APPROVERS,
     rawResponse: true
 });

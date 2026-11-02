@@ -1,8 +1,8 @@
+import { getAuthenticatedUserId, getRequestAuth } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor/contractor.service';
 import { contractorSchema } from '@/lib/validations/contractor.schema';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from "@/config/roles";
 import type { ContractorUpdateData } from '@/types/contractor/contractor.types';
 
 export const dynamic = 'force-dynamic';
@@ -17,8 +17,8 @@ export const GET = apiHandler(
         const limit = parseInt(searchParams.get('limit') || '50');
         const rtomId = searchParams.get('rtomId') || searchParams.get('opmcId');
         
-        const userId = req.headers.get('x-user-id') || undefined;
-        const role = req.headers.get('x-user-role') || undefined;
+        const userId = getAuthenticatedUserId() || undefined;
+        const role = getRequestAuth().userRole || undefined;
 
         const opmcIds = rtomId ? [rtomId] : undefined;
 
@@ -31,7 +31,6 @@ export const GET = apiHandler(
         });
     },
     {
-        roles: ROLE_GROUPS.CONTRACTOR_READERS
     }
 );
 
@@ -44,7 +43,6 @@ export const POST = apiHandler(
     },
     {
         schema: contractorSchema,
-        roles: ROLE_GROUPS.OFFICE_ADMINS,
         audit: {
             action: 'CREATE',
             entity: 'Contractor'
@@ -63,7 +61,6 @@ export const PUT = apiHandler(
     },
     {
         schema: contractorSchema,
-        roles: ROLE_GROUPS.OFFICE_ADMINS,
         audit: {
             action: 'UPDATE',
             entity: 'Contractor'
@@ -87,7 +84,6 @@ export const DELETE = apiHandler(
         };
     },
     {
-        roles: ROLE_GROUPS.OFFICE_ADMINS,
         audit: {
             action: 'DELETE',
             entity: 'Contractor'

@@ -1,6 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
 import { TaxService } from '@/services/finance/tax.service';
-import { ROLE_GROUPS } from "@/config/roles";
 
 export const dynamic = 'force-dynamic';
 
@@ -15,5 +14,4 @@ export const GET = apiHandler(async (req) => {
     const report = await TaxService.getWhtRegister(fromDate, toDate);
     return report;
 }, {
-    roles: ROLE_GROUPS.FINANCE_ALL
 });

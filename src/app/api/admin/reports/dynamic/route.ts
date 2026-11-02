@@ -1,5 +1,4 @@
 export const dynamic = 'force-dynamic';
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { DynamicReportService, DynamicReportPayload } from '@/services/inventory/dynamic-report.service';
 import { z } from 'zod';
@@ -27,6 +26,5 @@ export const POST = apiHandler(async (_req, _params, body) => {
     // envelope (`{ success: true, data: report }`) consumed by the UI.
     return report;
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'GENERATE_DYNAMIC_REPORT', entity: 'Reports' }
 });

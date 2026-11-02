@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { z } from 'zod';
 import { ITAssetDepreciationService } from '@/services/helpdesk/asset-depreciation.service';
@@ -12,7 +13,7 @@ export const GET = apiHandler(async () => {
 });
 
 export const POST = apiHandler(async (req: Request) => {
-    const userId = req.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
     if (!userId) {
         throw AppError.unauthorized('Authentication required');
     }

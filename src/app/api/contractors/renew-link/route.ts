@@ -3,7 +3,6 @@ import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor/contractor.service';
 import { z } from 'zod';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
 
 const renewSchema = z.object({
     id: z.string().min(1, "Contractor ID is required")
@@ -19,6 +18,5 @@ export const POST = apiHandler(async (req, _params, body) => {
     const result = await ContractorService.generateRenewalLink(data.id, origin);
     return Response.json({ success: true, ...result });
 }, {
-    roles: ROLE_GROUPS.CONTRACTOR_TEAM_READERS,
     audit: { action: 'GENERATE_RENEWAL_LINK', entity: 'Contractor' }
 });

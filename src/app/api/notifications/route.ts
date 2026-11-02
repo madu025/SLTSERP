@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { NotificationService, AppointmentNotificationService } from '@/services/notification/notification.service';
 import { OpmcService } from '@/services/slt/opmc.service';
@@ -10,7 +11,7 @@ const APPOINTMENT_CHECK_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
 
 export const GET = apiHandler(async (request) => {
     const { searchParams } = new URL(request.url);
-    const userId = request.headers.get('x-user-id') || searchParams.get('userId');
+    const userId = getAuthenticatedUserId() || searchParams.get('userId');
     if (!userId) throw AppError.unauthorized('Unauthorized');
 
     const limit = parseInt(searchParams.get('limit') || '50', 10);
@@ -36,7 +37,7 @@ export const GET = apiHandler(async (request) => {
 }, { rawResponse: true });
 
 export const PATCH = apiHandler(async (request) => {
-    const userId = request.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
     if (!userId) throw AppError.unauthorized('Unauthorized');
 
     const { searchParams } = new URL(request.url);
@@ -64,16 +65,15 @@ export const PATCH = apiHandler(async (request) => {
         await NotificationService.markAllAsRead(userId);
     }
     return { success: true };
-}, { roles: ['ALL'] });
+});
 
 export const DELETE = apiHandler(async (request) => {
-    const userId = request.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
     if (!userId) throw AppError.unauthorized('Unauthorized');
 
     await NotificationService.deleteAll(userId);
     return { success: true };
 }, {
-    roles: ['ALL'],
     audit: {
         action: 'DELETE',
         entity: 'Notification'

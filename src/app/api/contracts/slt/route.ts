@@ -1,6 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
 import { SLTContractService, CreateContractInput } from '@/services/slt/slt-contract.service';
-import { ROLE_GROUPS } from '@/config/roles';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -39,7 +38,6 @@ const createContractSchema = z.object({
 });
 
 // SLT contract creation sets billing rates & targets — manager-level write scope
-const CONTRACT_WRITERS = [...ROLE_GROUPS.CORE_ADMINS, 'CEO', 'FINANCE_MANAGER'];
 
 export const GET = apiHandler(
     async () => {
@@ -50,13 +48,12 @@ export const GET = apiHandler(
 
 export const POST = apiHandler<Record<string, unknown>, CreateContractInput>(
     async (req, params, body) => {
-        const userName = req.headers.get('x-user-name') || 'System User';
+        const userName = params._userName || 'System User';
         const contract = await SLTContractService.createContract(body, userName);
         return contract;
     },
     {
         schema: createContractSchema,
-        roles: CONTRACT_WRITERS,
         audit: { action: 'SLT_CONTRACT_CREATE', entity: 'SLTContract' }
     }
 );

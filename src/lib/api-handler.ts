@@ -10,7 +10,6 @@ import { validateSession } from '@/lib/session-validator';
 import { getPrefixGuardRoles, getPrefixReadGuardRoles, PASSWORD_CHANGE_EXEMPT_PATHS } from '@/config/route-guard-defaults';
 import { assertProjectAccess } from '@/lib/project-access';
 import { isValidUuid } from '@/lib/uuid';
-import { isCanonicalPermission } from '@/config/rbac-permissions';
 import { resolveRouteCapability } from '@/lib/route-capabilities';
 
 // ─── Response Envelope ────────────────────────────────────────────────────────
@@ -53,10 +52,16 @@ export interface ApiResponse<T = unknown> {
  * transparently so callers that don't need them are unaffected.
  */
 export interface ApiHandlerMeta {
-    /** Authenticated user ID from x-user-id header */
+    /** Authenticated user ID resolved by the server-side session boundary. */
     _userId: string | null;
-    /** Authenticated user role from x-user-role header */
+    /** Compatibility role label from the validated session. */
     _userRole: string | null;
+    /** Display name from the validated session. */
+    _userName: string | null;
+    /** Canonical database-backed permissions from the validated session. */
+    _permissions: string[];
+    /** Contractor identity from the validated session, when applicable. */
+    _contractorId: string | null;
     /** Request correlation ID (x-request-id or generated UUID) */
     _requestId: string;
     /**
@@ -226,13 +231,22 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
     return async (req: Request, context: { params?: Promise<P> | P } | undefined) => {
         const start = Date.now();
 
-        const userId         = req.headers.get('x-user-id');
-        let userRole         = req.headers.get('x-user-role');
+        const userId         = req.headers.get('x-authenticated-user-id');
+        let userRole         = req.headers.get('x-authenticated-user-role');
         const rawReqId       = req.headers.get('x-request-id');
         const requestId      = rawReqId ?? crypto.randomUUID();
         const idempotencyKey = req.headers.get('x-idempotency-key');
 
-        return await requestContext.run({ requestId }, async () => {
+        const authContext = {
+            requestId,
+            userId,
+            userRole,
+            userName: null as string | null,
+            permissions: [] as string[],
+            contractorId: req.headers.get('x-authenticated-contractor-id'),
+        };
+
+        return await requestContext.run(authContext, async () => {
             try {
                 // ── 0. Session freshness (fail-closed) ───────────────────────
                 // Verifies the account still exists, is active, and the token
@@ -253,6 +267,10 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                     }
                     if (session.role) userRole = session.role;
                     sessionPermissions = session.permissions ?? [];
+                    authContext.userRole = userRole;
+                    authContext.userName = session.userName ?? null;
+                    authContext.contractorId = session.contractorId ?? null;
+                    authContext.permissions = sessionPermissions;
 
                     // ── 0b. Forced password-change lockdown (fail-closed) ────
                     // Accounts flagged with mustChangePassword may only reach the
@@ -277,8 +295,11 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                 // or if `menuPath` is set — prevents `roles: []` from bypassing RBAC.
                 const hasExplicitPermissionGuard = Array.isArray(options?.permissions) && options.permissions.length > 0;
                 const autoCapability = hasExplicitPermissionGuard ? undefined : resolveRouteCapability(pathname, req.method);
-                const hasCanonicalSession = sessionPermissions.some((permission) => isCanonicalPermission(permission));
-                const hasAutoPermissionGuard = !!autoCapability && hasCanonicalSession;
+                // A mapped API namespace is always permission-gated. Do not
+                // fall back to legacy role lists when a user has no canonical
+                // DB capability yet; that would make an unseeded account pass
+                // through after the role-list cleanup.
+                const hasAutoPermissionGuard = !!autoCapability;
                 const hasPermissionGuard = hasExplicitPermissionGuard || hasAutoPermissionGuard;
                 const declaredGuard = Array.isArray(options?.roles) || !!options?.menuPath || hasPermissionGuard;
                 const isMutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
@@ -491,6 +512,9 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                     ...routeParams,
                     _userId: userId,
                     _userRole: userRole,
+                    _userName: authContext.userName,
+                    _permissions: sessionPermissions,
+                    _contractorId: authContext.contractorId ?? null,
                     _requestId: requestId,
                     _idempotencyKey: idempotencyKey,
                 };

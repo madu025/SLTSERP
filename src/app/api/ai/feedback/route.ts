@@ -27,6 +27,5 @@ export const POST = apiHandler(async (_req, _params, body) => {
 
     return Response.json({ success: true, message: 'Feedback recorded' });
 }, {
-    roles: ['ALL'],
     audit: { action: 'SUBMIT_AI_FEEDBACK', entity: 'AI' }
 });

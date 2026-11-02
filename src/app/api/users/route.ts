@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { UserService, CreateUserData, UpdateUserData } from '@/services/hr/user.service';
 import { AppError } from '@/lib/error';
@@ -15,13 +15,12 @@ export const GET = apiHandler(async (request) => {
     const result = await UserService.getUsers(page, limit, search);
     return result;
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     rawResponse: true
 });
 
 // POST new user
 export const POST = apiHandler(async (request, _params, body) => {
-    const currentUserId = request.headers.get('x-user-id') || 'system';
+    const currentUserId = getAuthenticatedUserId() || 'system';
 
     try {
         const userWithoutPassword = await UserService.createUser(body as unknown as CreateUserData, currentUserId);
@@ -41,7 +40,6 @@ export const POST = apiHandler(async (request, _params, body) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'USER_CREATE', entity: 'User' }
 });
 
@@ -50,7 +48,7 @@ export const PUT = apiHandler(async (request, _params, body) => {
     const id = body.id as string | undefined;
     if (!id) throw AppError.badRequest('ID required');
 
-    const currentUserId = request.headers.get('x-user-id') || 'system';
+    const currentUserId = getAuthenticatedUserId() || 'system';
 
     try {
         const userWithoutPassword = await UserService.updateUser(id, body as unknown as UpdateUserData, currentUserId);
@@ -72,17 +70,15 @@ export const PUT = apiHandler(async (request, _params, body) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'USER_UPDATE', entity: 'User' }
 });
 
 // PATCH is intentionally NOT supported on /api/users. User updates (including
 // OPMC reassignment) must go through the ADMINS-guarded PUT handler above.
 // This explicit deny-all export keeps the route fail-closed: any future PATCH
-// handler added here inherits `roles: []` (deny everyone) until reviewed.
 export const PATCH = apiHandler(async () => {
     throw AppError.badRequest('PATCH is not supported on /api/users; use PUT');
-}, { roles: [], rawResponse: true });
+}, { rawResponse: true });
 
 // DELETE user
 export const DELETE = apiHandler(async (request) => {
@@ -91,7 +87,7 @@ export const DELETE = apiHandler(async (request) => {
 
     if (!id) throw AppError.badRequest('ID required');
 
-    const currentUserId = request.headers.get('x-user-id') || undefined;
+    const currentUserId = getAuthenticatedUserId() || undefined;
 
     try {
         await UserService.deleteUser(id, currentUserId);
@@ -110,7 +106,6 @@ export const DELETE = apiHandler(async (request) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'USER_DELETE', entity: 'User' },
     rawResponse: true
 });

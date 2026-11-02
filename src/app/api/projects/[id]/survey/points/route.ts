@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { MapApprovalService } from '@/services/gis/map-approval.service';
 import { ProjectSurveyService } from '@/services/project/project-survey.service';
@@ -18,7 +19,7 @@ export const GET = apiHandler(async (request, params) => {
 
 export const POST = apiHandler(async (request, params, body) => {
     const { id: projectId } = params;
-    const userId = request.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
 
     if (!userId) {
         throw AppError.unauthorized('Unauthorized');

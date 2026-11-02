@@ -1,6 +1,7 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { PricingAuditService } from '@/services/sf-audit/pricing-audit.service';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { AppError } from '@/lib/error';
 import { z } from 'zod';
 export const dynamic = 'force-dynamic';
 const approveSchema = z.object({
@@ -8,8 +9,9 @@ const approveSchema = z.object({
     rejectionReason: z.string().optional()
 });
 export const POST = apiHandler(
-    async (req, params, body) => {
-        const userId = req.headers.get('x-user-id') || 'system';
+    async (_req, params, body) => {
+        const userId = params._userId;
+        if (!userId) throw AppError.unauthorized('Authentication required');
         const result = await PricingAuditService.processAmendmentRequest(
             params.id, body.status, userId, body.rejectionReason
         );
@@ -23,7 +25,7 @@ export const POST = apiHandler(
         };
     },
     {
-        roles: ROLE_GROUPS.FINANCE_APPROVERS,
-        schema: approveSchema
+        schema: approveSchema,
+        permissions: [RBAC_PERMISSIONS.FINANCE_APPROVE]
     }
 );

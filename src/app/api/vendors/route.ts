@@ -1,7 +1,6 @@
 import { VendorService } from "@/services/finance/vendor.service";
 import { apiHandler } from "@/lib/api-handler";
 import { AppError } from "@/lib/error";
-import { ROLE_GROUPS } from "@/config/roles";
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +37,6 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'CREATE', entity: 'VENDOR' },
     rawResponse: true
 });

@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { FixedAssetService } from '@/services/finance/fixed-asset.service';
 
@@ -8,7 +7,6 @@ export const GET = apiHandler(async () => {
     const register = await FixedAssetService.getAssetRegister();
     return register;
 }, {
-    roles: ROLE_GROUPS.FINANCE_ALL
 });
 
 export const POST = apiHandler(async (req) => {
@@ -29,6 +27,5 @@ export const POST = apiHandler(async (req) => {
 
     return asset;
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'CREATE', entity: 'FIXED_ASSET' }
 });

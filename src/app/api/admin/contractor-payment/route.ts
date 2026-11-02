@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 export const dynamic = 'force-dynamic';
 
  
@@ -33,17 +33,15 @@ export const GET = apiHandler(async () => {
     const data = await ContractorPaymentService.getConfigs();
     return data;
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS
 });
 
 export const POST = apiHandler(async (req, _params, body) => {
-    const userId = req.headers.get('x-user-id') || undefined;
+    const userId = getAuthenticatedUserId() || undefined;
     const data = createConfigSchema.parse(body);
 
     const config = await ContractorPaymentService.createConfig(data, userId);
     return config;
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'CREATE_PAYMENT_CONFIG', entity: 'Admin' }
 });
 
@@ -53,7 +51,6 @@ export const PUT = apiHandler(async (_req, _params, body) => {
     const config = await ContractorPaymentService.updateConfig(data.id, data);
     return config;
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'UPDATE_PAYMENT_CONFIG', entity: 'Admin' }
 });
 
@@ -68,6 +65,5 @@ export const DELETE = apiHandler(async (req) => {
     await ContractorPaymentService.deleteConfig(id);
     return { success: true, message: 'Configuration deleted successfully' };
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'DELETE_PAYMENT_CONFIG', entity: 'Admin' }
 });

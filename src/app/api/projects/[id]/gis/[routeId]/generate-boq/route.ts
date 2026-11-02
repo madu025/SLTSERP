@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { GISRouteService } from '@/services/gis/GISRouteService';
@@ -9,7 +10,7 @@ import { generateBOQSchema, GenerateBOQSchema } from '@/lib/validations/gis.sche
  */
 export const POST = apiHandler<unknown, GenerateBOQSchema>(
     async (request, params, body) => {
-        const userId = request.headers.get('x-user-id') || 'unknown';
+        const userId = getAuthenticatedUserId() || 'unknown';
 
         const result = await GISRouteService.generateBOQFromRoute(params.id, params.routeId, body, userId);
         return result;

@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
@@ -13,5 +12,4 @@ export const GET = apiHandler(async () => {
         timestamp: new Date().toISOString()
     });
 }, {
-    roles: ROLE_GROUPS.ADMINS
 });

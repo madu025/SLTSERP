@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from "@/lib/api-handler";
@@ -5,12 +6,11 @@ import { AppError } from "@/lib/error";
 import { HelpdeskService } from "@/services/helpdesk/helpdesk.service";
 import { CreateTicketUpdateSchema } from "@/lib/validations/helpdesk.schema";
 
-import { ROLE_GROUPS } from "@/config/roles";
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const GET = apiHandler(async (req, params) => {
   const { id } = await params;
-  const userId = req.headers.get("x-user-id")!;
-  const userRole = req.headers.get("x-user-role") || "ENGINEER";
+  const userId = getAuthenticatedUserId()!;
 
   const ticket = await HelpdeskService.getTicketById(id);
   if (!ticket) {
@@ -18,7 +18,7 @@ export const GET = apiHandler(async (req, params) => {
   }
 
   // Security: Only IT Staff or the owner can view comments
-  const isITStaff = ROLE_GROUPS.IT_ADMINS.includes(userRole);
+  const isITStaff = params._permissions.includes(RBAC_PERMISSIONS.HELPDESK_WRITE);
   if (!isITStaff && ticket.userId !== userId) {
     throw AppError.forbidden("Forbidden");
   }
@@ -29,8 +29,7 @@ export const GET = apiHandler(async (req, params) => {
 export const POST = apiHandler(
   async (req, params, body) => {
     const { id } = await params;
-    const userId = req.headers.get("x-user-id")!;
-    const userRole = req.headers.get("x-user-role") || "ENGINEER";
+    const userId = getAuthenticatedUserId()!;
     const ipAddress = req.headers.get("x-real-ip") || undefined;
     const userAgent = req.headers.get("user-agent") || undefined;
 
@@ -39,7 +38,7 @@ export const POST = apiHandler(
       throw AppError.notFound("Ticket not found");
     }
 
-    const isITStaff = ROLE_GROUPS.IT_ADMINS.includes(userRole);
+    const isITStaff = params._permissions.includes(RBAC_PERMISSIONS.HELPDESK_WRITE);
 
     // Security: Only IT Staff or the owner can add comments
     if (!isITStaff && ticket.userId !== userId) {

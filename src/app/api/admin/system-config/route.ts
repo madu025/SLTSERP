@@ -1,9 +1,9 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 export const dynamic = 'force-dynamic';
 
 import { SystemConfigService } from '@/services/core/system-config.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
 import { z } from 'zod';
 
 const updateConfigSchema = z.object({
@@ -14,14 +14,13 @@ const updateConfigSchema = z.object({
 
 export const GET = apiHandler(async () => {
     return SystemConfigService.getConfigs();
-}, { rawResponse: true, roles: ROLE_GROUPS.ADMINS });
+}, { rawResponse: true });
 
 export const POST = apiHandler(async (request, _params, body) => {
-    const userId = request.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
     const { key, value, description } = updateConfigSchema.parse(body);
     return SystemConfigService.updateConfig(key, String(value), description, userId || 'system');
 }, {
     rawResponse: true,
-    roles: ROLE_GROUPS.SUPER_ADMINS,
     audit: { action: 'UPDATE', entity: 'SYSTEM_CONFIG' }
 });

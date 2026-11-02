@@ -1,9 +1,9 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 export const dynamic = 'force-dynamic';
 
 import { SectionService } from '@/services/core/section.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
 import { z } from 'zod';
 
 const createSectionSchema = z.object({
@@ -19,11 +19,10 @@ export const GET = apiHandler(async () => {
 }, { rawResponse: true });
 
 export const POST = apiHandler(async (_request, _params, body) => {
-    const userId = _request.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
     const data = createSectionSchema.parse(body);
     return SectionService.createSection(data, userId || 'system');
 }, {
     rawResponse: true,
-    roles: ROLE_GROUPS.SUPER_ADMINS,
     audit: { action: 'CREATE', entity: 'SECTION' }
 });

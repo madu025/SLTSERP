@@ -2,7 +2,7 @@ import { apiHandler } from '@/lib/api-handler';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { ROLE_GROUPS, hasRole } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { SLTPortalAuthService } from '@/services/slt/slt-portal-auth.service';
 import { z } from 'zod';
 import { AppError } from '@/lib/error';
@@ -152,7 +152,7 @@ export async function OPTIONS() {
         headers: {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, x-user-id, x-user-role, x-extension-key',
+            'Access-Control-Allow-Headers': 'Content-Type, x-extension-key',
         },
     });
 }
@@ -163,16 +163,15 @@ const postSchema = z.object({
     boms: z.array(z.unknown()).optional()
 });
 
-export const POST = apiHandler(async (req, _params, body) => {
+export const POST = apiHandler(async (req, params, body) => {
     const extensionKey = req.headers.get('x-extension-key');
     // Fail-closed: no hardcoded secret fallback — unset env means extension auth is disabled
     const extensionSecret = process.env.EXTENSION_SECRET;
     const isExtension = !!extensionSecret && extensionKey === extensionSecret;
 
-    const userRole = req.headers.get('x-user-role');
-    const hasAllowedRole = !!userRole && hasRole(userRole, ROLE_GROUPS.SLT_REGISTRY_ADMINS);
+    const hasAllowedPermission = params._permissions.includes(RBAC_PERMISSIONS.FINANCE_APPROVE);
 
-    if (!isExtension && !hasAllowedRole) {
+    if (!isExtension && !hasAllowedPermission) {
         throw AppError.forbidden('Permission Denied: Unauthorized.');
     }
 

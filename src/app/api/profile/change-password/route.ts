@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { UserService } from '@/services/hr/user.service';
 import { AppError } from '@/lib/error';
@@ -9,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export const POST = apiHandler(async (req, _params, body) => {
     const currentPassword = body.currentPassword as string | undefined;
     const newPassword = body.newPassword as string | undefined;
-    const userId = req.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
 
     if (!userId || !currentPassword || !newPassword) {
         throw AppError.badRequest('All fields are required and user must be authenticated');
@@ -35,7 +36,6 @@ export const POST = apiHandler(async (req, _params, body) => {
         message: 'Password changed successfully'
     };
 }, {
-    roles: ['ALL'],
     audit: { action: 'UPDATE_PASSWORD', entity: 'USER_PROFILE' },
     rawResponse: true
 });

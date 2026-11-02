@@ -1,6 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor/contractor.service';
-import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +12,5 @@ export const GET = apiHandler(
         return teams;
     },
     {
-        roles: ROLE_GROUPS.CONTRACTOR_TEAM_READERS
     }
 );

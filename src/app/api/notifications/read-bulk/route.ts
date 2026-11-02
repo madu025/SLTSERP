@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { NotificationService } from '@/services/notification/notification.service';
@@ -11,7 +12,7 @@ const bulkReadSchema = z.object({
 });
 
 export const PATCH = apiHandler(async (req: Request) => {
-    const userId = req.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
     if (!userId) throw AppError.unauthorized('Unauthorized');
 
     const body = await req.json();
@@ -24,4 +25,4 @@ export const PATCH = apiHandler(async (req: Request) => {
         updatedCount,
         unreadCount
     });
-}, { roles: ['ALL'] });
+});

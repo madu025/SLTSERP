@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { MapApprovalService } from '@/services/gis/map-approval.service';
 import { AppError } from '@/lib/error';
@@ -5,7 +6,7 @@ import { AppError } from '@/lib/error';
 export const dynamic = 'force-dynamic';
 
 export const POST = apiHandler(async (request, _params, body) => {
-    const userId = request.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
     if (!userId) {
         throw AppError.unauthorized('Unauthorized');
     }

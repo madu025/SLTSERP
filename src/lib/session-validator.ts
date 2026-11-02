@@ -4,6 +4,8 @@ import { deriveEffectivePermissions } from '@/lib/effective-permissions';
 
 export interface SessionValidity {
     valid: boolean;
+    userName?: string | null;
+    contractorId?: string | null;
     role?: string;
     status?: string;
     permissions?: string[];
@@ -28,6 +30,8 @@ export async function validateSession(
     const user = await prisma.user.findUnique({
         where: { id: userId },
         select: {
+            name: true,
+            contractorId: true,
             tokenVersion: true,
             role: true,
             status: true,
@@ -67,6 +71,8 @@ export async function validateSession(
 
     return {
         valid: true,
+        userName: user.name,
+        contractorId: user.contractorId,
         role: user.role,
         status: user.status,
         permissions: deriveEffectivePermissions(user),

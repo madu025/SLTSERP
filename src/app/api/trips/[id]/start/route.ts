@@ -2,7 +2,6 @@ export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import TripService from '@/services/fleet/TripService';
 import { Trip } from '@/types/fleet/trip.types';
-import { ROLE_GROUPS } from '@/config/roles';
 
 /**
  * PATCH: Start a trip
@@ -23,5 +22,5 @@ export const PATCH = apiHandler<Trip, void>(
         const trip = await TripService.startTrip(params.id, actualStartTime);
         return trip;
     },
-    { roles: ROLE_GROUPS.OFFICE_ADMINS }
+    {}
 );

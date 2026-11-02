@@ -1,12 +1,12 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { QCInspectionService } from '@/services/qc/qc-inspection.service';
+import { getRequestAuth } from '@/lib/request-context';
 
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (req) => {
-    const contractorId = req.headers.get('x-contractor-id') || undefined;
+    const contractorId = getRequestAuth().contractorId || undefined;
     const { searchParams } = new URL(req.url);
     const teamId = searchParams.get('teamId') || undefined;
     const unreadOnly = searchParams.get('unreadOnly') === 'true';
@@ -19,11 +19,10 @@ export const GET = apiHandler(async (req) => {
 
     return result;
 }, {
-    roles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.CONTRACTORS],
 });
 
 export const PATCH = apiHandler(async (req) => {
-    const contractorId = req.headers.get('x-contractor-id') || undefined;
+    const contractorId = getRequestAuth().contractorId || undefined;
     const body = await req.json();
     const { id, markAll, teamId } = body;
 
@@ -42,5 +41,4 @@ export const PATCH = apiHandler(async (req) => {
     const updated = await QCInspectionService.markNotificationAsRead(id);
     return updated;
 }, {
-    roles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.CONTRACTORS],
 });

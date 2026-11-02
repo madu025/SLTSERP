@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { OSPAccountCrudService } from '@/services/finance/osp-account-crud.service';
 import { z } from 'zod';
@@ -13,7 +12,6 @@ export const GET = apiHandler(async () => {
   const deposits = await OSPAccountCrudService.getFuelDeposits();
   return { data: deposits };
 }, {
-  roles: ROLE_GROUPS.PROJECT_MANAGERS
 });
 export const POST = apiHandler(async (request) => {
   const body = await request.json();
@@ -21,6 +19,5 @@ export const POST = apiHandler(async (request) => {
   const result = await OSPAccountCrudService.createFuelDeposit(data);
   return { message: 'Fuel Deposit created successfully', data: result };
 }, {
-  roles: ROLE_GROUPS.PROJECT_MANAGERS,
   audit: { action: 'CREATE', entity: 'OSP_FUEL_DEPOSIT' }
 });

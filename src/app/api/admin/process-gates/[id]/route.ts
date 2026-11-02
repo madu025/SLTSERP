@@ -2,7 +2,6 @@ export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { ProcessGateAdminService } from '@/services/admin/process-gate.service';
 import { z } from 'zod';
-import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 
 const updateGateSchema = z.object({
@@ -30,7 +29,7 @@ export const PUT = apiHandler(async (req, params, body) => {
       message: 'Process Gate Policy updated successfully',
       data: updatedGate
     };
-}, { roles: ROLE_GROUPS.CORE_ADMINS, schema: updateGateSchema, audit: { action: 'UPDATE', entity: 'PROCESS_GATE' } });
+}, { schema: updateGateSchema, audit: { action: 'UPDATE', entity: 'PROCESS_GATE' } });
 
 export const DELETE = apiHandler(async (req, params) => {
     const id = params?.id as string;
@@ -43,4 +42,4 @@ export const DELETE = apiHandler(async (req, params) => {
       id,
       data: { id, success: true }
     };
-}, { roles: ROLE_GROUPS.CORE_ADMINS, audit: { action: 'DELETE', entity: 'PROCESS_GATE' } });
+}, { audit: { action: 'DELETE', entity: 'PROCESS_GATE' } });

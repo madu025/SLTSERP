@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { StockIssue } from '@prisma/client';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
@@ -14,7 +15,7 @@ export const dynamic = 'force-dynamic';
  */
 export const POST = apiHandler<StockIssue, CreateStockIssueSchema>(
     async (request: Request, params: unknown, body) => {
-        const userId = request.headers.get('x-user-id');
+        const userId = getAuthenticatedUserId();
         if (!userId) {
             throw AppError.unauthorized('Unauthorized');
         }
@@ -45,7 +46,7 @@ export const POST = apiHandler<StockIssue, CreateStockIssueSchema>(
  */
 export const GET = apiHandler<unknown[], void>(
     async (request: Request) => {
-        const userId = request.headers.get('x-user-id');
+        const userId = getAuthenticatedUserId();
         if (!userId) {
             throw AppError.unauthorized('Unauthorized');
         }

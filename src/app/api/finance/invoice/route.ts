@@ -1,6 +1,5 @@
 import { InvoiceService } from '@/services/finance/invoice.service';
 import { apiHandler } from '@/lib/api-handler';
-import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,5 +15,4 @@ export const GET = apiHandler(async (req) => {
 
     return data;
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS
 });

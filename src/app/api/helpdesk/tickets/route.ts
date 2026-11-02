@@ -1,13 +1,14 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from "@/lib/api-handler";
 import { HelpdeskService } from "@/services/helpdesk/helpdesk.service";
 import { CreateTicketSchema } from "@/lib/validations/helpdesk.schema";
 import { TicketStatus, TicketPriority, IssueCategory } from "@prisma/client";
 
-import { ROLE_GROUPS } from "@/config/roles";
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = apiHandler(async (req) => {
+export const GET = apiHandler(async (req, params) => {
   const url = new URL(req.url);
   const page = parseInt(url.searchParams.get("page") || "1");
   const limit = parseInt(url.searchParams.get("limit") || "20");
@@ -17,11 +18,9 @@ export const GET = apiHandler(async (req) => {
   const category = url.searchParams.get("category") as IssueCategory || undefined;
   const assignedToId = url.searchParams.get("assignedToId") || undefined;
   
-  const userIdHeader = req.headers.get("x-user-id")!;
-  const userRole = req.headers.get("x-user-role") || "ENGINEER";
-
+  const userIdHeader = getAuthenticatedUserId()!;
   // Security: Check if IT staff. If standard employee, restrict results strictly to their own tickets.
-  const isITStaff = ROLE_GROUPS.IT_ADMINS.includes(userRole);
+  const isITStaff = params._permissions.includes(RBAC_PERMISSIONS.HELPDESK_WRITE);
   const userId = isITStaff ? (url.searchParams.get("userId") || undefined) : userIdHeader;
 
   return await HelpdeskService.getTickets({
@@ -38,7 +37,7 @@ export const GET = apiHandler(async (req) => {
 
 export const POST = apiHandler(
   async (req, _params, body) => {
-    const userId = req.headers.get("x-user-id")!;
+    const userId = getAuthenticatedUserId()!;
     const ipAddress = req.headers.get("x-real-ip") || undefined;
     const userAgent = req.headers.get("user-agent") || undefined;
 

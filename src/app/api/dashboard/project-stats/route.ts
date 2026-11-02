@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { ProjectDashboardService } from '@/services/project/project-dashboard.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
@@ -5,9 +6,9 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = apiHandler(async (request) => {
-    const userId = request.headers.get('x-user-id');
-    const userRole = request.headers.get('x-user-role');
+export const GET = apiHandler(async (request, params) => {
+    const userId = getAuthenticatedUserId();
+    const userRole = params._userRole;
 
     if (!userId || !userRole) {
         throw AppError.unauthorized('Unauthorized');

@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
@@ -14,7 +13,6 @@ export const GET = apiHandler(async (_req, params) => {
     const permissions = await UserService.getUserPermissions(params.userId);
     return Response.json(permissions);
 }, {
-    roles: ROLE_GROUPS.ADMINS
 });
 
 // PATCH - Update user's permissions
@@ -25,6 +23,5 @@ export const PATCH = apiHandler(async (_req, params, body) => {
     return Response.json({ message: 'Permissions updated successfully' });
 }, {
     schema: updatePermissionsSchema,
-    roles: ROLE_GROUPS.SUPER_ADMINS,
     audit: { action: 'UPDATE_USER_PERMISSIONS', entity: 'User' }
 });

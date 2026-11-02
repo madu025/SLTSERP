@@ -1,6 +1,5 @@
 import { apiHandler, castBody } from '@/lib/api-handler';
 import { JobService } from '@/services/project/job.service';
-import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +21,6 @@ export const POST = apiHandler(async (_request, _params, body) => {
     );
     return job;
 }, {
-    roles: ROLE_GROUPS.SERVICE_ASSURANCE,
     audit: { action: 'JOB_CREATE', entity: 'Job' },
     rawResponse: true
 });

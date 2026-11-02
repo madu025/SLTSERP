@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { OSPAccountCrudService } from '@/services/finance/osp-account-crud.service';
 import { z } from 'zod';
@@ -17,7 +16,6 @@ export const GET = apiHandler(async () => {
   const advances = await OSPAccountCrudService.getAdvances();
   return { data: advances };
 }, {
-  roles: ROLE_GROUPS.PROJECT_MANAGERS
 });
 export const POST = apiHandler(async (request) => {
   const body = await request.json();
@@ -25,6 +23,5 @@ export const POST = apiHandler(async (request) => {
   const result = await OSPAccountCrudService.createAdvance(data);
   return { message: 'Project Advance created successfully', data: result };
 }, {
-  roles: ROLE_GROUPS.PROJECT_MANAGERS,
   audit: { action: 'CREATE', entity: 'OSP_ADVANCE' }
 });

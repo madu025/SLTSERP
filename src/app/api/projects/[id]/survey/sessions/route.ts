@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectSurveyService } from '@/services/project/project-survey.service';
 import { AppError } from '@/lib/error';
@@ -13,7 +14,7 @@ export const GET = apiHandler(async (request, params) => {
 }, { rawResponse: true });
 
 export const POST = apiHandler(async (request, params, body) => {
-    const userId = request.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
     const action = body.action as string | undefined;
     const sessionId = body.sessionId as string | undefined;
     const notes = body.notes as string | undefined;
@@ -53,7 +54,7 @@ export const POST = apiHandler(async (request, params, body) => {
 });
 
 export const PATCH = apiHandler(async (request, params, body) => {
-    const userId = request.headers.get('x-user-id');
+    const userId = getAuthenticatedUserId();
     const sessionId = body.sessionId as string | undefined;
     const action = body.action as string | undefined;
     const notes = body.notes as string | undefined;

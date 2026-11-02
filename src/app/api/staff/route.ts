@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { StaffService, CreateStaffInput, UpdateStaffInput } from '@/services/hr/staff.service';
 import { AppError } from '@/lib/error';
@@ -23,7 +22,6 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'STAFF_CREATE', entity: 'Staff' },
     rawResponse: true
 });
@@ -45,7 +43,6 @@ export const PUT = apiHandler(async (_request, _params, body) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'STAFF_UPDATE', entity: 'Staff' },
     rawResponse: true
 });
@@ -74,7 +71,6 @@ export const DELETE = apiHandler(async (request) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'STAFF_DELETE', entity: 'Staff' },
     rawResponse: true
 });

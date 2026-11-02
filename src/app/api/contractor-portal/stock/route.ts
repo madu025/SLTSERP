@@ -1,3 +1,5 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
+import { getRequestAuth } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
@@ -6,8 +8,8 @@ import { ContractorInventoryService } from '@/services/inventory/contractor-inve
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (req: Request) => {
-    const userId = req.headers.get('x-user-id');
-    const contractorId: string | null = req.headers.get('x-contractor-id');
+    const userId = getAuthenticatedUserId();
+    const contractorId: string | null = getRequestAuth().contractorId;
 
     const { searchParams } = new URL(req.url);
     const teamId = searchParams.get('teamId') || undefined;

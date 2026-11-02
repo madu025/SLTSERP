@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { InventoryService } from '@/services/inventory/inventory.service';
 import { AppError } from '@/lib/error';
@@ -23,7 +22,6 @@ export const PUT = apiHandler(async (_request, params, body) => {
     const store = await InventoryService.updateStore(storeId, body);
     return store;
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'STORE_UPDATE', entity: 'Store' },
     rawResponse: true
 });
@@ -42,7 +40,6 @@ export const DELETE = apiHandler(async (_request, params) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'STORE_DELETE', entity: 'Store' },
     rawResponse: true
 });

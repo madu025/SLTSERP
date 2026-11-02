@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from "@/lib/api-handler";
 import { HelpdeskAuditService } from "@/services/helpdesk/helpdesk-audit.service";
 
@@ -10,6 +9,5 @@ export const GET = apiHandler(
     return await HelpdeskAuditService.getAuditGaps();
   },
   {
-    roles: ROLE_GROUPS.OFFICE_ADMINS
   }
 );

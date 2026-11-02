@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
@@ -30,17 +30,15 @@ export const GET = apiHandler(async () => {
     const configs = await SodRevenueService.getConfigs();
     return configs;
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS
 });
 
 export const POST = apiHandler(async (req, _params, body) => {
-    const userId = req.headers.get('x-user-id') || undefined;
+    const userId = getAuthenticatedUserId() || undefined;
     const data = createConfigSchema.parse(body);
 
     const config = await SodRevenueService.createConfig(data, userId);
     return config;
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'CREATE_SOD_REVENUE_CONFIG', entity: 'Admin' }
 });
 
@@ -50,7 +48,6 @@ export const PUT = apiHandler(async (_req, _params, body) => {
     const config = await SodRevenueService.updateConfig(data.id, data);
     return config;
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'UPDATE_SOD_REVENUE_CONFIG', entity: 'Admin' }
 });
 
@@ -65,6 +62,5 @@ export const DELETE = apiHandler(async (req) => {
     await SodRevenueService.deleteConfig(id);
     return { success: true, message: 'Configuration deleted successfully' };
 }, {
-    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'DELETE_SOD_REVENUE_CONFIG', entity: 'Admin' }
 });

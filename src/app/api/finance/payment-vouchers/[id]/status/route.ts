@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 export const dynamic = 'force-dynamic';
 import { AppError } from '@/lib/error';
 import { apiHandler } from "@/lib/api-handler";
@@ -16,7 +17,7 @@ const updateStatusSchema = z.object({
 // PATCH /api/finance/payment-vouchers/[id]/status - Update payment voucher status
 export const PATCH = apiHandler(async (req, params, body) => {
     const { status, rejectionReason, cancelledReason } = body;
-    const userId = req.headers.get("x-user-id");
+    const userId = getAuthenticatedUserId();
 
     if (!userId) throw AppError.unauthorized('Authentication required');
     const voucher = await prisma.paymentVoucher.findUnique({ where: { id: params.id }, select: { projectId: true } });

@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { InvoiceService } from '@/services/invoice/invoice.service';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
@@ -9,7 +10,7 @@ const paramsSchema = z.object({
 export const POST = apiHandler(
     async (req: Request, params: unknown) => {
         const { id: invoiceId } = paramsSchema.parse(params);
-        const userId = req.headers.get('x-user-id') || 'system';
+        const userId = getAuthenticatedUserId() || 'system';
         const { invoice, invoiceNumber } = await InvoiceService.approveBySfAudit(invoiceId, userId);
         return {
             success: true,

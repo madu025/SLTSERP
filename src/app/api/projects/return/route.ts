@@ -1,9 +1,9 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { ProjectMaterialReturn } from '@prisma/client';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { ProjectStockIssueService } from '@/services/project/project-stock-issue.service';
 import { createReturnSchema, CreateReturnSchema } from '@/lib/validations/project-stock.schema';
-import { ROLE_GROUPS } from '@/config/roles';
 import { assertProjectAccess } from '@/lib/project-access';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
  */
 export const POST = apiHandler<ProjectMaterialReturn, CreateReturnSchema>(
     async (request: Request, params: unknown, body) => {
-        const userId = request.headers.get('x-user-id');
+        const userId = getAuthenticatedUserId();
         if (!userId) {
             throw AppError.unauthorized('Unauthorized');
         }
@@ -30,7 +30,7 @@ export const POST = apiHandler<ProjectMaterialReturn, CreateReturnSchema>(
 
         return returnReq;
     },
-    { schema: createReturnSchema, roles: [...ROLE_GROUPS.STORES_ALL, ...ROLE_GROUPS.PROJECT_MANAGERS] }
+    { schema: createReturnSchema }
 );
 
 /**
@@ -38,7 +38,7 @@ export const POST = apiHandler<ProjectMaterialReturn, CreateReturnSchema>(
  */
 export const GET = apiHandler<unknown[], void>(
     async (request: Request) => {
-        const userId = request.headers.get('x-user-id');
+        const userId = getAuthenticatedUserId();
         if (!userId) {
             throw AppError.unauthorized('Unauthorized');
         }

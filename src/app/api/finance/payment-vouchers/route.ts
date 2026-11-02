@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from "@/lib/api-handler";
 import { PaymentVoucherService } from "@/services/finance/payment-voucher.service";
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
@@ -48,7 +49,7 @@ const createPVSchema = z.object({
 // POST /api/finance/payment-vouchers - Create a new payment voucher
 export const POST = apiHandler(async (req, params, body) => {
     await assertProjectAccess(body.projectId, params._userId);
-    const userId = req.headers.get("x-user-id") ?? undefined;
+    const userId = getAuthenticatedUserId() ?? undefined;
     const payload = { ...body, createdById: userId };
     return await PaymentVoucherService.createPaymentVoucher(payload);
 }, {

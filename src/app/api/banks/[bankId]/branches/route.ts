@@ -1,6 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
 import { BankService } from '@/services/finance/bank.service';
-import { ROLE_GROUPS } from '@/config/roles';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +19,6 @@ export const POST = apiHandler(async (uestreq$3: Request, params: Record<string,
     const data = createBranchSchema.parse(body);
     return await BankService.createBranch(bankId, data);
 }, {
-    roles: [...ROLE_GROUPS.CORE_ADMINS, 'CEO', 'FINANCE_MANAGER'],
     audit: { action: 'CREATE', entity: 'BankBranch' },
     rawResponse: true
 });

@@ -1,3 +1,5 @@
+import { getAuthenticatedUserId } from '@/lib/request-context';
+import { getRequestAuth } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor/contractor.service';
 import { ServiceOrderService } from '@/services/service-order/sod.service';
@@ -7,8 +9,8 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (req: Request) => {
-    const userId = req.headers.get('x-user-id');
-    const context = await ContractorService.resolveContractorContext(userId, req.headers.get('x-contractor-id'));
+    const userId = getAuthenticatedUserId();
+    const context = await ContractorService.resolveContractorContext(userId, getRequestAuth().contractorId);
     const contractorId = context.contractorId;
 
     if (!contractorId) {
@@ -38,7 +40,7 @@ export const GET = apiHandler(async (req: Request) => {
  * PATCH: Complete SOD or log field installation details by Contractor
  */
 export const PATCH = apiHandler(async (req: Request) => {
-    const userId = req.headers.get('x-user-id') || undefined;
+    const userId = getAuthenticatedUserId() || undefined;
     const body = await req.json();
     const { id, ...updateData } = body;
 

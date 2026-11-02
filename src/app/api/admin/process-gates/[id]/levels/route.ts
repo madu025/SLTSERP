@@ -2,7 +2,6 @@ export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { ProcessGateAdminService } from '@/services/admin/process-gate.service';
 import { z } from 'zod';
-import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 
 // specificUserId targets a @db.Uuid FK — validate format to avoid P2023 runtime errors
@@ -41,7 +40,7 @@ export const POST = apiHandler(async (req, params, body) => {
       message: 'Approval Level added successfully',
       data: newLevel
     };
-}, { roles: ROLE_GROUPS.CORE_ADMINS, schema: createLevelSchema, audit: { action: 'CREATE', entity: 'PROCESS_GATE_LEVEL' } });
+}, { schema: createLevelSchema, audit: { action: 'CREATE', entity: 'PROCESS_GATE_LEVEL' } });
 
 // Bulk replace ALL levels of a gate (wizard save path) — atomic delete + renumber
 export const PUT = apiHandler(async (req, params, body) => {
@@ -55,4 +54,4 @@ export const PUT = apiHandler(async (req, params, body) => {
       message: 'Approval Levels updated successfully',
       data: result
     };
-}, { roles: ROLE_GROUPS.CORE_ADMINS, schema: replaceLevelsSchema, audit: { action: 'REPLACE_LEVELS', entity: 'PROCESS_GATE_LEVEL' } });
+}, { schema: replaceLevelsSchema, audit: { action: 'REPLACE_LEVELS', entity: 'PROCESS_GATE_LEVEL' } });

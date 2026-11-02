@@ -35,5 +35,5 @@ export const POST = apiHandler(async (request, params, body) => {
         success: true,
         message: 'Logged out successfully'
     });
-}, { roles: ['ALL'] });
+});
 
