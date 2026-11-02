@@ -26,6 +26,7 @@ const createInvoiceSchema = z.object({
     notes: z.string().optional().nullable(),
     taxAmount: z.number().finite().min(0).optional(),
     discountAmount: z.number().finite().min(0).optional(),
+    sodIds: z.array(databaseUuidSchema).max(500).optional(),
     items: z.array(z.object({
         description: z.string().trim().min(1),
         quantity: z.number().finite().positive().optional(),

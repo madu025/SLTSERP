@@ -255,6 +255,7 @@ export class BOMInvoiceService {
             type: 'CLIENT',
             invoiceDate: now,
             referenceNumber: bomPath || null,
+            sodIds: matchedIds,
             items: invoiceItems.map(item => ({
                 description: item.description,
                 quantity: item.quantity,
@@ -262,16 +263,21 @@ export class BOMInvoiceService {
                 itemType: 'SERVICE'
             }))
         });
-        // 6. Update matched ServiceOrders to PAT_PASSED, mark as invoicable, and link to ProjectInvoice
-        // Note: Keep invoiced as false so the actual contractor can invoice SLTS for this work.
+        // 6. Update matched ServiceOrders to record the PAT evidence and
+        // financial eligibility. The ProjectInvoiceService already claimed the
+        // client-billing link atomically; `invoiced` remains false so the
+        // contractor can still submit its separate contractor invoice.
         await prisma.serviceOrder.updateMany({
             where: { id: { in: matchedIds } },
             data: {
                 sltsPatStatus: 'PAT_PASSED',
                 hoPatStatus: 'APPROVED',
-                isInvoicable: true,
+                // A client BOM import is not contractor financial
+                // verification. Do not manufacture the missing OPMC PAT or
+                // invoice capability here; the SOD verification workflow must
+                // still observe all three PAT approvals and the snapshots.
+                isInvoicable: false,
                 sltsPatDate: new Date(),
-                projectInvoiceId: invoice.id
             }
         });
         return {

@@ -29,6 +29,12 @@ interface CreateInvoiceInput {
     discountAmount?: number;
     createdById?: string | null;
     contractorId?: string | null;
+    /**
+     * Optional source SODs for a client/project invoice. A SOD may also have
+     * a separate contractor invoice; `projectInvoiceId` is the client-billing
+     * link and is therefore exclusive only within the ProjectInvoice path.
+     */
+    sodIds?: string[];
     items: InvoiceItemInput[];
 }
 
@@ -61,6 +67,9 @@ export class ProjectInvoiceService {
                     orderBy: { receiptDate: 'desc' },
                 },
                 retentions: true,
+                sods: {
+                    select: { id: true, soNum: true, contractorId: true, invoiceId: true, invoiced: true },
+                },
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -78,7 +87,10 @@ export class ProjectInvoiceService {
                 items: true,
                 project: {
                     select: { projectCode: true, name: true }
-                }
+                },
+                sods: {
+                    select: { id: true, soNum: true, contractorId: true },
+                },
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -93,6 +105,7 @@ export class ProjectInvoiceService {
             projectId, title, description, type, invoiceDate, dueDate,
             referenceNumber, periodFrom, periodTo, currency, notes, items,
             taxAmount, discountAmount, createdById, contractorId,
+            sodIds,
         } = data;
 
         // Verify project exists
@@ -112,6 +125,35 @@ export class ProjectInvoiceService {
             }
         } else if (contractorId) {
             throw AppError.badRequest('ONLY_CONTRACTOR_INVOICES_CAN_HAVE_CONTRACTOR');
+        }
+
+        const uniqueSodIds = [...new Set(sodIds ?? [])];
+        if (uniqueSodIds.length > 0) {
+            const activeAssignments = await prisma.projectContractorAssignment.findMany({
+                where: { projectId, status: 'ACTIVE' },
+                select: { contractorId: true },
+            });
+            const projectContractorIds = new Set([
+                project.contractorId,
+                ...activeAssignments.map((assignment) => assignment.contractorId),
+            ].filter((id): id is string => Boolean(id)));
+
+            const sourceSods = await prisma.serviceOrder.findMany({
+                where: { id: { in: uniqueSodIds } },
+                select: { id: true, contractorId: true, projectInvoiceId: true },
+            });
+            if (sourceSods.length !== uniqueSodIds.length) {
+                throw AppError.badRequest('INVOICE_SOD_NOT_FOUND');
+            }
+            if (sourceSods.some((sod) => sod.projectInvoiceId !== null)) {
+                throw AppError.conflict('One or more SODs are already linked to a client/project invoice');
+            }
+            if (sourceSods.some((sod) => !sod.contractorId || !projectContractorIds.has(sod.contractorId))) {
+                throw AppError.badRequest('INVOICE_SOD_PROJECT_CONTRACTOR_MISMATCH');
+            }
+            if (invoiceType === 'CONTRACTOR' && sourceSods.some((sod) => sod.contractorId !== contractorId)) {
+                throw AppError.badRequest('INVOICE_SOD_CONTRACTOR_MISMATCH');
+            }
         }
 
         if (!items.length) throw AppError.badRequest('INVOICE_ITEMS_REQUIRED');
@@ -182,6 +224,19 @@ export class ProjectInvoiceService {
         }
 
         const invoice = await prisma.$transaction(async (tx) => {
+            for (const sodId of uniqueSodIds.sort()) {
+                await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${sodId}::text, 0))`;
+            }
+
+            if (uniqueSodIds.length > 0) {
+                const claimableSods = await tx.serviceOrder.count({
+                    where: { id: { in: uniqueSodIds }, projectInvoiceId: null },
+                });
+                if (claimableSods !== uniqueSodIds.length) {
+                    throw AppError.conflict('One or more SODs were linked to another client/project invoice');
+                }
+            }
+
             const newInvoice = await tx.projectInvoice.create({
                 data: {
                     invoiceNumber: nextNumber,
@@ -210,6 +265,16 @@ export class ProjectInvoiceService {
                 },
                 include: { items: true },
             });
+
+            if (uniqueSodIds.length > 0) {
+                const linked = await tx.serviceOrder.updateMany({
+                    where: { id: { in: uniqueSodIds }, projectInvoiceId: null },
+                    data: { projectInvoiceId: newInvoice.id },
+                });
+                if (linked.count !== uniqueSodIds.length) {
+                    throw AppError.conflict('The client/project invoice could not claim every source SOD');
+                }
+            }
             return newInvoice;
         });
 

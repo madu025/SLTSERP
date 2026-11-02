@@ -154,6 +154,20 @@ describe('Project Finance route authorization intent', () => {
         assert.match(service, /static async getIRLedgerMeta\(storeIds\?: string\[\], projectIds\?: string\[\]\)/);
         assert.match(service, /static async getIRLedger\(projectId\?: string, storeIds\?: string\[\]\)/);
     });
+
+    it('keeps the Finance dashboard on a lightweight read model with a visible retry contract', () => {
+        const route = source('src/app/api/dashboard/project-stats/route.ts');
+        const service = source('src/services/project/project-dashboard.service.ts');
+        const page = source('src/app/projects/dashboards/financials/page.tsx');
+        assert.match(route, /section === 'financials'/);
+        assert.match(route, /getFinancialStats\(userId, userRole\)/);
+        assert.match(service, /static async getFinancialStats\(userId: string, userRole: string\)/);
+        assert.match(service, /const \[budgetAgg, invoiceAgg, voucherCounts, expenseTypeCounts, recentInvoices, recentPayments\] = await Promise\.all/);
+        assert.match(page, /project-stats\?section=financials/);
+        assert.match(page, /new AbortController\(\)/);
+        assert.match(page, /role="alert"/);
+        assert.match(page, /Retry finance data/);
+    });
 });
 
 describe('Payment voucher transition and posting guards', () => {

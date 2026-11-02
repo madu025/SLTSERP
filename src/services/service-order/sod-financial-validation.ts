@@ -12,6 +12,9 @@ export interface SodFinancialValidationInput {
     completedDate?: Date | null;
     revenueAmount?: unknown;
     contractorAmount?: unknown;
+    sltsPatStatus?: string | null;
+    opmcPatStatus?: string | null;
+    hoPatStatus?: string | null;
     materialUsage?: Array<{
         quantity?: unknown;
         unitPrice?: unknown;
@@ -39,6 +42,11 @@ export function validateSodForInvoicing(input: SodFinancialValidationInput): Sod
     if (revenue === null || revenue <= 0) reasons.push('REVENUE_SNAPSHOT_MISSING_OR_INVALID');
     if (contractorAmount === null || contractorAmount <= 0) {
         reasons.push('CONTRACTOR_COST_SNAPSHOT_MISSING_OR_INVALID');
+    }
+
+    const patStatuses = [input.sltsPatStatus, input.opmcPatStatus, input.hoPatStatus];
+    if (patStatuses.some((status) => status !== 'PAT_PASSED')) {
+        reasons.push('PAT_APPROVALS_INCOMPLETE');
     }
 
     for (const material of input.materialUsage ?? []) {

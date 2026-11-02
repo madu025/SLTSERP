@@ -679,6 +679,9 @@ export class ServiceOrderService {
                 completedDate: true,
                 revenueAmount: true,
                 contractorAmount: true,
+                sltsPatStatus: true,
+                opmcPatStatus: true,
+                hoPatStatus: true,
                 materialUsage: {
                     select: { quantity: true, unitPrice: true, costPrice: true }
                 }
@@ -711,10 +714,10 @@ export class ServiceOrderService {
                 await tx.serviceOrder.update({
                     where: { id: sod.id },
                     data: {
-                        isInvoicable: true,
-                        sltsPatStatus: 'PAT_PASSED',
-                        opmcPatStatus: 'PAT_PASSED',
-                        hoPatStatus: 'PAT_PASSED'
+                        // PAT evidence is written by the relevant approval/sync
+                        // paths. Financial verification may only consume that
+                        // evidence; it must never manufacture approvals.
+                        isInvoicable: true
                     }
                 });
 
@@ -727,6 +730,11 @@ export class ServiceOrderService {
                         newValue: {
                             soNum: sod.soNum,
                             rtom: sod.rtom,
+                            patStatuses: {
+                                slts: sod.sltsPatStatus,
+                                opmc: sod.opmcPatStatus,
+                                ho: sod.hoPatStatus,
+                            },
                             verifiedBy: userId,
                             notes: notes || 'Engineer verification passed'
                         }

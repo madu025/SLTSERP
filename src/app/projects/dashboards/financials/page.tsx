@@ -32,13 +32,42 @@ const txBadge = (s: string) => {
 export default function FinancialsDashboardPage() {
     const [data, setData] = useState<FinancialsData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [retryCount, setRetryCount] = useState(0);
     useEffect(() => {
+        const controller = new AbortController();
+        let active = true;
+        const timeoutId = window.setTimeout(() => controller.abort(), 10_000);
+
         (async () => {
-            try { const r = await fetch("/api/dashboard/project-stats"); if (r.ok) { const j = await r.json(); setData(j.financials); } }
-            catch (e) { console.error(e); }
-            finally { setLoading(false); }
+            try {
+                const r = await fetch("/api/dashboard/project-stats?section=financials", { signal: controller.signal });
+                if (!r.ok) throw new Error(`Finance data request failed (${r.status})`);
+                const j = await r.json();
+                if (!j?.financials) throw new Error("Finance data response was incomplete");
+                if (active) {
+                    setData(j.financials);
+                    setError(null);
+                }
+            } catch (requestError) {
+                if (active) {
+                    console.error(requestError);
+                    setError(controller.signal.aborted
+                        ? "Finance data is taking too long to respond. Check the connection and retry."
+                        : "Finance data could not be loaded. Retry to check again.");
+                }
+            } finally {
+                window.clearTimeout(timeoutId);
+                if (active) setLoading(false);
+            }
         })();
-    }, []);
+
+        return () => {
+            active = false;
+            window.clearTimeout(timeoutId);
+            controller.abort();
+        };
+    }, [retryCount]);
 
     return (
         <div className="min-h-screen flex bg-background text-foreground">
@@ -51,6 +80,12 @@ export default function FinancialsDashboardPage() {
                             <div><h1 className="text-lg font-bold">Financials Dashboard</h1><p className="text-xs text-muted-foreground mt-0.5">Budget tracking, expenses & payment overview</p></div>
                             <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs"><Banknote className="w-3.5 h-3.5" />Updated: Today</Button>
                         </div>
+                        {error && (
+                            <div role="alert" className="mb-4 flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950 sm:flex-row sm:items-center sm:justify-between">
+                                <span>{error}</span>
+                                <Button type="button" variant="outline" size="sm" className="h-7 border-amber-400 bg-white text-amber-950 hover:bg-amber-100" onClick={() => { setLoading(true); setRetryCount((count) => count + 1); }}>Retry finance data</Button>
+                            </div>
+                        )}
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3 mb-4">
                             <Card><CardContent className="flex items-center gap-3 py-3"><div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0"><DollarSign className="w-4 h-4 text-blue-600" /></div><div><p className="text-[10px] font-semibold text-muted-foreground uppercase">Total Budget</p><p className="text-lg font-bold mt-0.5">{data ? fmt(data.totalBudget) : "-"}</p><p className="text-[10px] text-muted-foreground">All projects</p></div></CardContent></Card>
                             <Card><CardContent className="flex items-center gap-3 py-3"><div className="w-9 h-9 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0"><TrendingUp className="w-4 h-4 text-indigo-600" /></div><div><p className="text-[10px] font-semibold text-muted-foreground uppercase">Total Invoiced</p><p className="text-lg font-bold mt-0.5">{data ? fmt(data.totalInvoiced) : "-"}</p><p className="text-[10px] text-muted-foreground">To clients</p></div></CardContent></Card>

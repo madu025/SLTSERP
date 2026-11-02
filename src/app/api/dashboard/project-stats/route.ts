@@ -13,6 +13,9 @@ export const GET = apiHandler(async (request) => {
         throw AppError.unauthorized('Unauthorized');
     }
 
-    const data = await ProjectDashboardService.getProjectStats(userId, userRole);
+    const section = new URL(request.url).searchParams.get('section');
+    const data = section === 'financials'
+        ? { financials: await ProjectDashboardService.getFinancialStats(userId, userRole) }
+        : await ProjectDashboardService.getProjectStats(userId, userRole);
     return data;
 }, { permissions: [RBAC_PERMISSIONS.PROJECT_READ], rawResponse: true });

@@ -5,6 +5,116 @@ import { NIL_UUID, resolveOpmcScope } from '@/lib/opmc-scope';
 
 export class ProjectDashboardService {
 
+    /**
+     * Lightweight finance-only read model. The historical project-stats
+     * endpoint also calculates logistics and QA/QC trend data, so a Finance
+     * dashboard request could wait on many unrelated queries. Keep the
+     * finance tab independent and execute its source reads in parallel.
+     */
+    static async getFinancialStats(userId: string, userRole: string) {
+        const projectWhere = await this.getProjectScope(userId, userRole);
+        const projectIds = await this.getProjectIdsForScope(projectWhere);
+
+        const [budgetAgg, invoiceAgg, voucherCounts, expenseTypeCounts, recentInvoices, recentPayments] = await Promise.all([
+            prisma.project.aggregate({
+                where: projectWhere,
+                _sum: { budget: true, actualCost: true },
+            }),
+            prisma.projectInvoice.aggregate({
+                where: { projectId: { in: projectIds } },
+                _sum: { totalAmount: true, paidAmount: true, balanceAmount: true },
+            }),
+            prisma.paymentVoucher.groupBy({
+                by: ['status'],
+                where: { projectId: { in: projectIds } },
+                _count: { _all: true },
+            }),
+            prisma.projectExpense.groupBy({
+                by: ['type'],
+                where: { projectId: { in: projectIds } },
+                _sum: { amount: true },
+            }),
+            prisma.projectInvoice.findMany({
+                where: { projectId: { in: projectIds } },
+                take: 3,
+                orderBy: { invoiceDate: 'desc' },
+                select: { invoiceDate: true, invoiceNumber: true, totalAmount: true, status: true },
+            }),
+            prisma.paymentVoucher.findMany({
+                where: { projectId: { in: projectIds } },
+                take: 3,
+                orderBy: { paymentDate: 'desc' },
+                select: { paymentDate: true, pvNumber: true, amount: true, status: true, title: true },
+            }),
+        ]);
+
+        interface VoucherStatusEntry { label: string; count: number; color: string; width: string }
+        const totalVouchers = voucherCounts.reduce((sum, voucher) => sum + voucher._count._all, 0) || 1;
+        const voucherStatusMap: Record<string, { label: string; color: string }> = {
+            PAID: { label: 'Paid', color: 'bg-emerald-500' },
+            PENDING: { label: 'Pending', color: 'bg-amber-500' },
+            OVERDUE: { label: 'Overdue', color: 'bg-rose-500' },
+            DRAFT: { label: 'Draft', color: 'bg-slate-400' },
+        };
+        const paymentStatus: VoucherStatusEntry[] = voucherCounts.map((voucher) => {
+            const meta = voucherStatusMap[voucher.status] || { label: voucher.status, color: 'bg-slate-400' };
+            return {
+                label: meta.label,
+                count: voucher._count._all,
+                color: meta.color,
+                width: `${Math.round((voucher._count._all / totalVouchers) * 100)}%`,
+            };
+        });
+        if (paymentStatus.length === 0) {
+            paymentStatus.push(
+                { label: 'Paid', count: 0, color: 'bg-emerald-500', width: '0%' },
+                { label: 'Pending', count: 0, color: 'bg-amber-500', width: '0%' },
+                { label: 'Overdue', count: 0, color: 'bg-rose-500', width: '0%' },
+                { label: 'Draft', count: 0, color: 'bg-slate-400', width: '0%' },
+            );
+        }
+
+        const expensesByType = expenseTypeCounts as unknown as { type: string; _sum: { amount: number | null } }[];
+        const totalExpenseAmount = expensesByType.reduce((sum, expense) => sum + (expense._sum.amount || 0), 0) || 1;
+        const categoryColors = ['bg-blue-500', 'bg-indigo-500', 'bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-slate-400'];
+        const topExpenses = expensesByType
+            .map((expense, index) => ({
+                category: expense.type || 'Uncategorized',
+                amount: expense._sum.amount || 0,
+                percentage: Math.round(((expense._sum.amount || 0) / totalExpenseAmount) * 100),
+                color: categoryColors[index % categoryColors.length],
+            }))
+            .sort((a, b) => b.amount - a.amount)
+            .slice(0, 6);
+
+        const recentTransactions = [
+            ...recentInvoices.map((invoice) => ({
+                date: invoice.invoiceDate ? new Date(invoice.invoiceDate).toISOString().split('T')[0] : '',
+                desc: `Invoice ${invoice.invoiceNumber}`,
+                type: 'Invoice',
+                amount: Number(invoice.totalAmount),
+                status: invoice.status,
+            })),
+            ...recentPayments.map((payment) => ({
+                date: payment.paymentDate ? new Date(payment.paymentDate).toISOString().split('T')[0] : '',
+                desc: payment.title || `PV ${payment.pvNumber}`,
+                type: 'Payment',
+                amount: Number(payment.amount),
+                status: payment.status,
+            })),
+        ].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
+
+        return {
+            totalBudget: budgetAgg._sum.budget || 0,
+            totalInvoiced: invoiceAgg._sum.totalAmount || 0,
+            totalPaid: invoiceAgg._sum.paidAmount || 0,
+            totalOutstanding: invoiceAgg._sum.balanceAmount || 0,
+            topExpenses,
+            paymentStatus,
+            recentTransactions,
+        };
+    }
+
     static async getProjectStats(userId: string, userRole: string) {
         const projectWhere = await this.getProjectScope(userId, userRole);
         const projectIds = await this.getProjectIdsForScope(projectWhere);

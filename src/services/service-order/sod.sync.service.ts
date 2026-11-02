@@ -2733,6 +2733,24 @@ export class SODSyncService {
                     if (updated.revenueAmount) {
                         await LedgerService.logSodRevenue(tx, updated.id, Number(updated.revenueAmount));
                     }
+
+                    // The bridge is another completion writer. Keep its
+                    // contractor cost posting identical to the manual path;
+                    // the ledger idempotency key makes retries/replays safe.
+                    if (isCompleting && updated.contractorAmount) {
+                        const contractor = updated.contractorId
+                            ? await tx.contractor.findUnique({
+                                where: { id: updated.contractorId },
+                                select: { name: true },
+                            })
+                            : null;
+                        await LedgerService.logContractorAccrual(
+                            tx,
+                            updated.id,
+                            Number(updated.contractorAmount),
+                            contractor?.name || 'Unknown Contractor'
+                        );
+                    }
                 }
 
                 return updated;
