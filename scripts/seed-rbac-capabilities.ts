@@ -66,6 +66,7 @@ const bootstrapGrants: Record<string, readonly string[]> = {
     'ai.custody.execute': ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER'],
     'ai.stock.execute': ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'OSP_MANAGER'],
     'admin.rbac': ROLE_GROUPS.CORE_ADMINS,
+    'admin.super': ROLE_GROUPS.SUPER_ADMINS,
 };
 
 function roleCodeFromSystemRole(code: string): string | null {

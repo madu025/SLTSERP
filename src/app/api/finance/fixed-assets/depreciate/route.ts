@@ -1,28 +1,29 @@
-import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 
 import { FixedAssetService } from '@/services/finance/fixed-asset.service';
 import { AppError } from '@/lib/error';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
-export const POST = apiHandler(async (req) => {
-    const body = await req.json();
-    const { year, month } = body;
+const depreciationSchema = z.object({
+    year: z.number().int().min(2000).max(2100),
+    month: z.number().int().min(1).max(12),
+}).strict();
+type DepreciationRequest = z.infer<typeof depreciationSchema>;
 
-    if (!year || !month) {
-        throw AppError.badRequest('year and month are required for depreciation run');
-    }
-
-    const userId = getAuthenticatedUserId() || (req as Request & { user?: { id?: string } }).user?.id || undefined;
+export const POST = apiHandler<unknown, DepreciationRequest>(async (_req, params, body) => {
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
 
     const result = await FixedAssetService.runMonthlyDepreciation(
-        Number(year),
-        Number(month),
+        body.year,
+        body.month,
         userId
     );
 
     return result;
 }, {
+    schema: depreciationSchema,
     audit: { action: 'RUN_DEPRECIATION', entity: 'FIXED_ASSET' }
 });

@@ -3,6 +3,7 @@ import { apiHandler, castBody } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { StoreService } from '@/services/inventory/store.service';
+import { mrnSchema } from '@/lib/validations/inventory.schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,7 @@ export const POST = apiHandler(async (_request, params, body) => {
     });
     return result;
 }, {
+    schema: mrnSchema,
     permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
     audit: { action: 'CREATE', entity: 'MRN' },
     rawResponse: true

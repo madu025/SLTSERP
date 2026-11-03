@@ -54,7 +54,8 @@ import {
 
 
 import { ROLE_GROUPS } from "@/config/roles";
-import { RBAC_PERMISSIONS } from "@/config/rbac-permissions";
+import { RBAC_PERMISSIONS, isCanonicalPermission } from "@/config/rbac-permissions";
+import { resolveLegacyMenuPermission, resolvePageCapability } from "@/config/page-capabilities";
 
 export interface MenuItem {
     title: string;
@@ -1056,43 +1057,24 @@ export const SIDEBAR_MENU: MenuItem[] = [
 
 // Helper function to check if a user has access
 export const hasAccess = (
-    userRole: string,
-    allowedRoles: string[],
+    _userRole: string,
+    _allowedRoles: string[],
     isLoggedIn: boolean = true,
     itemTitle?: string,
     permissionId?: string,
-    userPermissions?: string[]
+    userPermissions?: string[],
+    pathname?: string,
 ) => {
     if (!isLoggedIn) {
         // Only allow public Guest items in sidebar/navigation
         return !!itemTitle && ['IT Help Desk', 'ITMS & IT Help Desk', 'User Dashboard', 'Create Ticket'].includes(itemTitle);
     }
 
-    // Empty allowedRoles is intentional for DB-driven capability entries. It
-    // denies access unless the user's effective DB permissions contain the
-    // item's permissionId.
-    if (!Array.isArray(allowedRoles)) return false;
-
-    // Super Admin & Admin always have full visibility. hasRouteAccess grants the
-    // same bypass so menu visibility and actual page access never diverge.
-    if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') return true;
-    
-    // Strict isolation for Contractor Roles: ONLY allow items where role is explicitly listed
-    if (userRole.startsWith('CONTRACTOR_')) {
-        return allowedRoles.includes(userRole);
-    }
-
-    // Strict isolation for Procurement Officer: ONLY allow items where role is explicitly listed
-    if (userRole === 'PROCUREMENT_OFFICER') {
-        if (userPermissions && permissionId && userPermissions.includes(permissionId)) return true;
-        return allowedRoles.includes(userRole);
-    }
-
-    // Canonical DB permission path. New modules should not add role lists.
-    if (userPermissions && permissionId && userPermissions.includes(permissionId)) return true;
-
-    // Legacy role-list compatibility for modules not yet migrated.
-    if (allowedRoles.includes('ALL') || allowedRoles.includes(userRole)) return true;
-
-    return false;
+    // Role arrays are now presentation/bootstrap metadata only. Resolve a
+    // canonical capability from the explicit menu permission or page path and
+    // make the DB-backed permission the sole visibility decision.
+    const canonicalPermission = (permissionId && isCanonicalPermission(permissionId))
+        ? permissionId
+        : (pathname ? resolvePageCapability(pathname) : undefined) ?? resolveLegacyMenuPermission(permissionId);
+    return !!canonicalPermission && !!userPermissions?.includes(canonicalPermission);
 };

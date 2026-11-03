@@ -43,6 +43,8 @@ export const RBAC_PERMISSIONS = {
     AI_CUSTODY_EXECUTE: 'ai.custody.execute',
     AI_STOCK_EXECUTE: 'ai.stock.execute',
     ADMIN_RBAC: 'admin.rbac',
+    /** Global destructive-administration capability; granted only to SUPER_ADMIN. */
+    ADMIN_SUPER: 'admin.super',
 } as const;
 
 export type RbacPermission = typeof RBAC_PERMISSIONS[keyof typeof RBAC_PERMISSIONS];
@@ -85,6 +87,7 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.AI_CUSTODY_EXECUTE, module: 'AI', action: 'CUSTODY_EXECUTE', scope: 'OPMC', description: 'Execute AI-assisted custody assignments within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.AI_STOCK_EXECUTE, module: 'AI', action: 'STOCK_EXECUTE', scope: 'OPMC', description: 'Execute AI-assisted stock operations within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.ADMIN_RBAC, module: 'ADMIN', action: 'RBAC', scope: 'GLOBAL', description: 'Manage users, roles, permission grants, and scope assignments' },
+    { code: RBAC_PERMISSIONS.ADMIN_SUPER, module: 'ADMIN', action: 'SUPER', scope: 'GLOBAL', description: 'Perform destructive global administration and grant the SUPER_ADMIN identity' },
 ] as const;
 
 export const RBAC_PERMISSION_CODES = RBAC_PERMISSION_DEFINITIONS.map((item) => item.code);

@@ -286,23 +286,34 @@ export class NotificationService {
             const globalRolesRequested = globalRoles.filter(r => validRoles.includes(r));
             const scopedRolesRequested = validRoles.filter(r => !globalRoles.includes(r));
 
+            // User.role is a compatibility/bootstrap field. Notification
+            // routing must follow the active canonical SystemRole assignments
+            // so stale legacy role values cannot silently omit or add users.
+            const canonicalRoleFilter = (requestedRoles: Role[]) => ({
+                OR: [
+                    { systemRole: { code: { in: requestedRoles }, isActive: true } },
+                    { sectionAssignments: { some: { role: { code: { in: requestedRoles }, isActive: true } } } },
+                ],
+            });
+
             const users = await prisma.user.findMany({
                 where: {
+                    status: 'active',
                     OR: [
-                        // Scoped roles: Must meet OPMC filter if provided
+                        // Scoped roles: Must meet OPMC filter if provided.
                         {
-                            role: { in: scopedRolesRequested },
-                            ...(opmcId ? {
-                                OR: [
-                                    { accessibleOpmcs: { some: { id: opmcId } } },
-                                    { assignedStore: { opmcs: { some: { id: opmcId } } } }
-                                ]
-                            } : {})
+                            AND: [
+                                canonicalRoleFilter(scopedRolesRequested),
+                                ...(opmcId ? [{
+                                    OR: [
+                                        { accessibleOpmcs: { some: { id: opmcId } } },
+                                        { assignedStore: { opmcs: { some: { id: opmcId } } } }
+                                    ]
+                                }] : []),
+                            ],
                         },
-                        // Fix #2: Global roles: Requested global roles bypass the OPMC filter entirely
-                        {
-                            role: { in: globalRolesRequested }
-                        }
+                        // Global roles bypass the OPMC filter entirely.
+                        canonicalRoleFilter(globalRolesRequested),
                     ]
                 },
                 select: { id: true }

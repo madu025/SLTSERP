@@ -9,8 +9,10 @@ export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (_request, params) => {
     const { id: projectId } = params;
-    await assertProjectAccess(projectId, params._userId);
-    return await ChangeRequestService.getForProject(projectId);
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
+    await assertProjectAccess(projectId, userId);
+    return await ChangeRequestService.getForProject(projectId, userId);
 }, { permissions: [RBAC_PERMISSIONS.PROJECT_READ], rawResponse: true });
 
 const createChangeRequestSchema = z.object({

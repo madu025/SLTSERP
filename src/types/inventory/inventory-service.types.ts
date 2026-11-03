@@ -59,14 +59,14 @@ export interface GRNItemInput {
 export interface CreateGRNData {
     storeId: string;
     sourceType: string;
-    supplier?: string;
+    supplier?: string | null;
     receivedById: string;
     items: GRNItemInput[];
-    requestId?: string;
-    purchaseOrderId?: string;
-    sltReferenceId?: string;
-    reference?: string;
-    documentUrl?: string;
+    requestId?: string | null;
+    purchaseOrderId?: string | null;
+    sltReferenceId?: string | null;
+    reference?: string | null;
+    documentUrl?: string | null;
 }
 
 export interface StockIssueRequest {

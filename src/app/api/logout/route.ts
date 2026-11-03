@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { PushNotificationService } from '@/services/notification/push/push.service';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const POST = apiHandler(async (request, params, body) => {
     const cookieStore = await cookies();
@@ -35,5 +36,5 @@ export const POST = apiHandler(async (request, params, body) => {
         success: true,
         message: 'Logged out successfully'
     });
-});
+}, { permissions: [RBAC_PERMISSIONS.DASHBOARD_READ] });
 

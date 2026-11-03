@@ -248,4 +248,4 @@ export const GET = apiHandler(async () => {
     //          (status:'degraded', sync.staleFeeds) but must not page anyone via a non-2xx code.
     const httpStatus = (database.state !== 'healthy' || syncDown) ? 503 : 200;
     return Response.json(report, { status: httpStatus });
-}, { rawResponse: true });
+}, { rawResponse: true, publicRoute: true });

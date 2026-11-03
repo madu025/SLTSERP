@@ -12,7 +12,9 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // WebSocket upgrade handler
-export const GET = apiHandler(async (req) => {
+export const GET = apiHandler(async (req, params) => {
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
     const isDeno = typeof (globalThis as any).Deno !== 'undefined';
     const { socket: ws, response } = isDeno
         ? await (globalThis as any).Deno.upgradeWebSocket(req)
@@ -20,13 +22,6 @@ export const GET = apiHandler(async (req) => {
 
     // Deno upgrade
     if (ws) {
-        const url = new URL(req.url);
-        const userId = url.searchParams.get('userId');
-
-        if (!userId) {
-            throw AppError.badRequest('userId required');
-        }
-
         ws.onopen = () => {
             console.log(`[WS] User ${userId} connected`);
             // Send initial connection confirmation
@@ -65,13 +60,6 @@ export const GET = apiHandler(async (req) => {
     }
 
     // Fallback: SSE-based fallback response
-    const url = new URL(req.url);
-    const userId = url.searchParams.get('userId');
-
-    if (!userId) {
-        throw AppError.badRequest('userId required');
-    }
-
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
         start(controller) {

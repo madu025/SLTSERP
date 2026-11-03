@@ -1,9 +1,9 @@
-import { getAuthenticatedUserId } from '@/lib/request-context';
 export const dynamic = 'force-dynamic';
 import { z } from 'zod';
 import { apiHandler } from '@/lib/api-handler';
 import { TrafficService } from '@/services/system/traffic.service';
 import { AuditService } from '@/services/audit/audit.service';
+import { AppError } from '@/lib/error';
 
 const schema = z.object({
     identifier: z.string().min(1),
@@ -11,10 +11,10 @@ const schema = z.object({
 });
 
 export const POST = apiHandler(
-    async (req: Request) => {
-        const body = await req.json();
+    async (_req: Request, params, body) => {
         const { identifier, action } = schema.parse(body);
-        const userId = getAuthenticatedUserId() || 'system';
+        const userId = params._userId;
+        if (!userId) throw AppError.unauthorized('Authentication required');
 
         if (action === 'BLOCK') {
             await TrafficService.blockEntity(identifier);

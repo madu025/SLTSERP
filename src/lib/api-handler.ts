@@ -5,9 +5,8 @@ import { AuditService } from '@/services/audit/audit.service';
 import { SystemMonitoringService } from '@/services/admin/system-monitoring.service';
 import { requestContext } from './request-context';
 import { logger } from './logger';
-import { getMenuAllowedRoles } from '@/config/route-permissions';
 import { validateSession } from '@/lib/session-validator';
-import { getPrefixGuardRoles, getPrefixReadGuardRoles, PASSWORD_CHANGE_EXEMPT_PATHS } from '@/config/route-guard-defaults';
+import { PASSWORD_CHANGE_EXEMPT_PATHS } from '@/config/route-guard-defaults';
 import { assertProjectAccess } from '@/lib/project-access';
 import { isValidUuid } from '@/lib/uuid';
 import { resolveRouteCapability } from '@/lib/route-capabilities';
@@ -75,20 +74,14 @@ export interface ApiHandlerMeta {
 
 export interface ApiHandlerOptions<B> {
     schema?: ZodSchema<B>;
-    roles?: string[];
     /**
      * Database-backed capability guard. Migrated routes should use this
      * instead of hard-coded role lists.
      */
     permissions?: string[];
     permissionMode?: 'any' | 'all';
-    /**
-     * Dynamic RBAC: resolve allowed roles at runtime from the SIDEBAR_MENU
-     * entry at this path (single source of truth). Prefer this over `roles`
-     * whenever the route backs a page declared in the sidebar menu — no
-     * hardcoded role lists to drift.
-     */
-    menuPath?: string;
+    /** Explicit separate authentication boundary (token, agent key, webhook, or auth flow). */
+    publicRoute?: boolean;
     audit?: {
         action: string;
         entity: string;
@@ -291,8 +284,6 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
 
                 // ── 1. RBAC (fail-closed) ──────────────────────────────────
                 const pathname = new URL(req.url).pathname;
-                // declaredGuard is true if `roles` is explicitly set (even if empty)
-                // or if `menuPath` is set — prevents `roles: []` from bypassing RBAC.
                 const hasExplicitPermissionGuard = Array.isArray(options?.permissions) && options.permissions.length > 0;
                 const autoCapability = hasExplicitPermissionGuard ? undefined : resolveRouteCapability(pathname, req.method);
                 // A mapped API namespace is always permission-gated. Do not
@@ -301,62 +292,24 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                 // through after the role-list cleanup.
                 const hasAutoPermissionGuard = !!autoCapability;
                 const hasPermissionGuard = hasExplicitPermissionGuard || hasAutoPermissionGuard;
-                const declaredGuard = Array.isArray(options?.roles) || !!options?.menuPath || hasPermissionGuard;
-                const isMutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
 
-                // Explicit `roles` win (even if empty = deny all); otherwise resolve
-                // dynamically from the sidebar menu config via `menuPath`; undeclared
-                // mutating routes fall back to prefix-based departmental defaults (fail-closed).
-                const effectiveRoles = hasPermissionGuard
-                    ? undefined
-                    : Array.isArray(options?.roles) && options.roles.length > 0
-                    ? options.roles
-                    : options?.menuPath
-                        ? getMenuAllowedRoles(options.menuPath) ?? undefined
-                        : isMutating
-                            ? getPrefixGuardRoles(pathname)
-                            : getPrefixReadGuardRoles(pathname);
+                if (!hasPermissionGuard && !options?.publicRoute) {
+                    throw new AppError(
+                        'Route must declare a canonical permission guard or an explicit public authentication boundary',
+                        ErrorCode.FORBIDDEN,
+                        403,
+                    );
+                }
 
-                if (declaredGuard || effectiveRoles) {
-                    // Allowed logic:
-                    // - `roles: []` (explicit empty) = deny all (no roles permitted)
-                    // - `effectiveRoles = undefined` with `declaredGuard` = fail-closed (misconfigured)
-                    // - `effectiveRoles = ['ALL']` = any authenticated user
-                    // - Otherwise check role membership
-                    let allowed = true;
-                    if (hasPermissionGuard) {
-                        const required = options?.permissions ?? (autoCapability ? [autoCapability] : []);
-                        const mode = options?.permissionMode ?? 'any';
-                        allowed = mode === 'all'
-                            ? required.every((permission) => sessionPermissions.includes(permission))
-                            : required.some((permission) => sessionPermissions.includes(permission));
-                    }
+                if (hasPermissionGuard) {
+                    const required = options?.permissions ?? (autoCapability ? [autoCapability] : []);
+                    const mode = options?.permissionMode ?? 'any';
+                    const allowed = mode === 'all'
+                        ? required.every((permission) => sessionPermissions.includes(permission))
+                        : required.some((permission) => sessionPermissions.includes(permission));
 
-                    const hasExplicitRoleGuard = Array.isArray(options?.roles) || !!options?.menuPath;
-                    // Explicit permission declarations may be combined with a
-                    // role guard intentionally. Auto module capabilities are
-                    // authoritative after DB migration, so legacy role arrays
-                    // are skipped for those requests.
-                    const needsRoleGuard = hasExplicitPermissionGuard
-                        ? hasExplicitRoleGuard
-                        : hasAutoPermissionGuard
-                            ? false
-                            : hasExplicitRoleGuard || !hasPermissionGuard;
-                    let roleAllowed = true;
-                    if (Array.isArray(options?.roles) && options.roles.length === 0) {
-                        // Explicit empty roles array = deny all
-                        roleAllowed = false;
-                    } else if (needsRoleGuard && !effectiveRoles) {
-                        // declaredGuard true but no effectiveRoles = misconfiguration, fail-closed
-                        roleAllowed = false;
-                    } else if (needsRoleGuard && effectiveRoles?.includes('ALL')) {
-                        roleAllowed = !!userRole; // 'ALL' = any authenticated user, never anonymous
-                    } else if (needsRoleGuard && effectiveRoles) {
-                        roleAllowed = !!userRole && effectiveRoles.includes(userRole);
-                    }
-                    allowed = allowed && roleAllowed;
                     if (!allowed) {
-                        // Denial traceability: record who tried to hit what with which role
+                        // Denial traceability: record who tried to hit what with which capability.
                         if (userId) {
                             AuditService.log({
                                 userId,
@@ -364,24 +317,20 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                                 entity: 'API',
                                 entityId: pathname,
                                 oldValue: null,
-                                newValue: { method: req.method, userRole: userRole ?? 'UNKNOWN' },
+                                newValue: { method: req.method, required: options?.permissions ?? (autoCapability ? [autoCapability] : []) },
                                 ipAddress: req.headers.get('x-real-ip') ?? undefined,
                                 userAgent: req.headers.get('user-agent') ?? undefined,
                             }).catch((err: unknown) =>
                                 logger.error('[AUDIT-LOG-FAIL]', { error: err, requestId })
                             );
                         }
-                        logger.warn('[RBAC-DENIED]', { path: pathname, method: req.method, userId, userRole, requestId });
+                        logger.warn('[RBAC-DENIED]', { path: pathname, method: req.method, userId, required: options?.permissions ?? (autoCapability ? [autoCapability] : []), requestId });
                         throw new AppError(
-                            'Forbidden: insufficient role',
+                            'Forbidden: insufficient permission',
                             ErrorCode.FORBIDDEN,
                             403
                         );
                     }
-                } else if (isMutating) {
-                    // No declared guard and no prefix default — surface for the
-                    // hardening backlog instead of failing silently.
-                    logger.warn('[RBAC-UNDECLARED-WRITE]', { path: pathname, method: req.method, userId, userRole, requestId });
                 }
 
                 // ── 2. Financial Write Guard & Redis Idempotency Lock ────────

@@ -174,4 +174,4 @@ export const POST = apiHandler(async (req) => {
         console.error("[UPLOAD-API] Storage service failure:", msg);
         throw AppError.internal("Failed to save file to storage. " + msg);
     }
-}, { rawResponse: true });
+}, { rawResponse: true, publicRoute: true });

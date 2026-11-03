@@ -6,7 +6,7 @@ import { ProjectTaskPlanService } from '@/services/project/project-task-plan.ser
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (_request, params) => {
-    return ProjectTaskPlanService.getPlan(params.id);
+    return ProjectTaskPlanService.getPlan(params.id, params._userId);
 }, {
     permissions: [RBAC_PERMISSIONS.PROJECT_PLAN_READ],
     rawResponse: true,

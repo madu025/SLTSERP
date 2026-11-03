@@ -5,8 +5,12 @@ import { primaryClient } from '@/lib/prisma';
 import { ProjectSurveyService } from '@/services/project/project-survey.service';
 import { type PlannedPole, type PlannedClosure, type PlannedCable } from '@/services/gis/GISAutoPlanService';
 import { safe } from '@/utils/safe-await.util';
+import { assertProjectAccess } from '@/lib/project-access';
+import { AppError } from '@/lib/error';
 // Cache buster to force Next.js module re-evaluation: 1783209330
-export const POST = apiHandler(async (req) => {
+export const POST = apiHandler(async (req, params) => {
+  const userId = params._userId;
+  if (!userId) throw AppError.unauthorized('Authentication required');
   const [jsonErr, body] = await safe<Record<string, unknown>>(req.json());
   if (jsonErr || !body) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
@@ -27,6 +31,7 @@ export const POST = apiHandler(async (req) => {
         { status: 400 }
       );
     }
+    await assertProjectAccess(projectId, userId);
     // Build GeoJSON feature collection for the saved route.
     const geojsonData = {
       type: 'FeatureCollection',
@@ -108,6 +113,7 @@ export const POST = apiHandler(async (req) => {
       const route = await tx.gISRoute.create({
         data: {
           projectId,
+          createdById: userId,
           name: finalRouteName,
           status: 'DRAFT',
           versionType: 'PLANNED',

@@ -1,6 +1,9 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { assertProjectAccess } from '@/lib/project-access';
+import { getUserEffectivePermissions } from '@/lib/user-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export interface CreateChangeRequestInput {
   projectId: string;
@@ -30,6 +33,12 @@ export class ChangeRequestService {
    * Create a change request with dynamic approval chain
    */
   static async create(input: CreateChangeRequestInput) {
+    await assertProjectAccess(input.projectId, input.requestedById);
+    const requesterPermissions = await getUserEffectivePermissions(input.requestedById);
+    if (!requesterPermissions.includes(RBAC_PERMISSIONS.PROJECT_WRITE)) {
+      throw AppError.forbidden('Project write capability is required to create a change request');
+    }
+
     // Generate request number
     const count = await prisma.projectChangeRequest.count();
     const requestNumber = `CR-${new Date().getFullYear()}-${(count + 1).toString().padStart(4, '0')}`;
@@ -93,7 +102,10 @@ export class ChangeRequestService {
       throw AppError.badRequest(`Cannot approve: step is already ${approval.status}`);
     }
 
-    // Update this step
+    await this.assertApprovalActor(approval, userId);
+
+    // Update this step only after the project scope, canonical capability,
+    // workflow role, ordering, and maker-checker checks above have passed.
     await prisma.changeApproval.update({
       where: { id: approvalId },
       data: {
@@ -142,6 +154,13 @@ export class ChangeRequestService {
       throw AppError.badRequest(`Cannot reject: request is ${cr.status}`);
     }
 
+    const pendingStep = await prisma.changeApproval.findFirst({
+      where: { changeRequestId, status: 'PENDING' },
+      orderBy: { stepOrder: 'asc' },
+    });
+    if (!pendingStep) throw AppError.badRequest('No pending approval step found');
+    await this.assertApprovalActor({ ...pendingStep, changeRequest: cr }, userId);
+
     await prisma.projectChangeRequest.update({
       where: { id: changeRequestId },
       data: { status: 'REJECTED' },
@@ -164,7 +183,7 @@ export class ChangeRequestService {
   /**
    * Submit a draft change request for approval
    */
-  static async submit(changeRequestId: string) {
+  static async submit(changeRequestId: string, userId: string) {
     const cr = await prisma.projectChangeRequest.findUnique({
       where: { id: changeRequestId },
     });
@@ -172,6 +191,15 @@ export class ChangeRequestService {
     if (!cr) throw AppError.badRequest('Change request not found');
     if (cr.status !== 'DRAFT') {
       throw AppError.badRequest(`Can only submit DRAFT requests, current: ${cr.status}`);
+    }
+
+    await assertProjectAccess(cr.projectId, userId);
+    const permissions = await getUserEffectivePermissions(userId);
+    if (!permissions.includes(RBAC_PERMISSIONS.PROJECT_WRITE)) {
+      throw AppError.forbidden('Project write capability is required to submit a change request');
+    }
+    if (cr.requestedById && cr.requestedById !== userId) {
+      throw AppError.forbidden('Only the change request owner can submit it');
     }
 
     return prisma.projectChangeRequest.update({
@@ -186,7 +214,8 @@ export class ChangeRequestService {
   /**
    * Get all change requests for a project
    */
-  static async getForProject(projectId: string) {
+  static async getForProject(projectId: string, userId: string) {
+    await assertProjectAccess(projectId, userId);
     return prisma.projectChangeRequest.findMany({
       where: { projectId },
       include: {
@@ -194,5 +223,50 @@ export class ChangeRequestService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  private static async assertApprovalActor(
+    approval: { role: string; stepOrder: number; changeRequest: { projectId: string; requestedById: string | null; approvals?: Array<{ stepOrder: number; status: string }> } },
+    userId: string,
+  ) {
+    await assertProjectAccess(approval.changeRequest.projectId, userId);
+
+    if (approval.changeRequest.requestedById === userId) {
+      throw AppError.forbidden('Segregation of Duties violation: the requester cannot approve or reject the change request');
+    }
+
+    const permissions = await getUserEffectivePermissions(userId);
+    if (!permissions.includes(RBAC_PERMISSIONS.PROJECT_APPROVE)) {
+      throw AppError.forbidden('Project approval capability is required');
+    }
+
+    const actor = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        status: true,
+        systemRole: { select: { code: true, isActive: true } },
+        sectionAssignments: { select: { role: { select: { code: true, isActive: true } } } },
+      },
+    });
+    if (!actor || actor.status !== 'active') {
+      throw AppError.unauthorized('Authenticated approver is not active');
+    }
+
+    const isAdmin = permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC);
+    const actorRoles = [actor.systemRole, ...actor.sectionAssignments.map(assignment => assignment.role)]
+      .filter((role): role is { code: string; isActive: boolean } => Boolean(role?.isActive))
+      .flatMap(role => [role.code, role.code.replace(/_GLOBAL$/, '')]);
+    const requiredRole = approval.role.trim();
+    if (!isAdmin && !actorRoles.includes(requiredRole) && !actorRoles.includes(requiredRole.replace(/_GLOBAL$/, ''))) {
+      throw AppError.forbidden(`User is not authorized for change-request role ${requiredRole}`);
+    }
+
+    const earlierPending = approval.changeRequest.approvals?.some(step =>
+      step.stepOrder < approval.stepOrder && step.status !== 'APPROVED'
+    );
+    if (earlierPending) {
+      throw AppError.badRequest('Previous change-request approval step is not completed');
+    }
   }
 }

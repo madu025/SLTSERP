@@ -35,7 +35,13 @@ export class OpmcService {
             include: {
                 store: { select: { id: true, name: true } },
                 users: {
-                    where: { role: 'AREA_MANAGER' },
+                    where: {
+                        status: 'active',
+                        OR: [
+                            { systemRole: { isActive: true, OR: [{ code: 'AREA_MANAGER' }, { code: { endsWith: '_AREA_MANAGER' } }] } },
+                            { sectionAssignments: { some: { role: { isActive: true, OR: [{ code: 'AREA_MANAGER' }, { code: { endsWith: '_AREA_MANAGER' } }] } } } },
+                        ],
+                    },
                     select: { id: true, name: true }
                 },
                 _count: {

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 interface CommissionAssetInput {
     name: string;
     serialNumber: string;
@@ -7,7 +8,6 @@ interface CommissionAssetInput {
     assetType?: string;
     latitude?: number | null;
     longitude?: number | null;
-    createdById?: string;
 }
 export class ProjectCommissioningService {
     static async getCommissionedAssets(projectId: string) {
@@ -32,7 +32,8 @@ export class ProjectCommissioningService {
             inspections: asset._count.documents
         }));
     }
-    static async commissionAsset(projectId: string, data: CommissionAssetInput) {
+    static async commissionAsset(projectId: string, data: CommissionAssetInput, actorUserId: string) {
+        if (!actorUserId) throw AppError.unauthorized('Authenticated commissioning actor is required');
         const asset = await prisma.projectAsset.create({
             data: {
                 projectId,
@@ -43,7 +44,7 @@ export class ProjectCommissioningService {
                 latitude: data.latitude || null,
                 longitude: data.longitude || null,
                 sourceType: 'MANUAL',
-                createdById: data.createdById || 'system',
+                createdById: actorUserId,
                 installationDate: new Date().toISOString()
             }
         });

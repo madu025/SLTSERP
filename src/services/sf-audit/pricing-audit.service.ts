@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/prisma';
+import { getUserEffectivePermissions } from '@/lib/user-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { AppError } from '@/lib/error';
 import { AuditService } from '@/services/audit/audit.service';
 import { InvoiceCalculatorService } from '@/services/invoice/invoice.calculator.service';
@@ -253,12 +255,17 @@ export class PricingAuditService {
         }
 
         // Segregation of Duties: the user who created the amendment request
-        // cannot approve/reject it. SUPER_ADMIN is the only exempt role.
-        const approver = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+        // cannot approve/reject it. Only the explicit canonical admin
+        // capability is exempt; User.role is compatibility data.
+        const approver = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
         if (!approver) {
             throw AppError.badRequest('APPROVER_NOT_FOUND: The approving account may have been deleted.');
         }
-        if (approver.role !== 'SUPER_ADMIN' && amendmentRequest.requestedById === userId) {
+        const permissions = await getUserEffectivePermissions(userId);
+        if (!permissions.includes(RBAC_PERMISSIONS.FINANCE_AUDIT)) {
+            throw AppError.forbidden(`FINANCE_AUDIT permission is required for amendment approval.`);
+        }
+        if (!permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC) && amendmentRequest.requestedById === userId) {
             throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: The amendment requester cannot approve or reject their own request.');
         }
 

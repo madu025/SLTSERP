@@ -144,7 +144,7 @@ export const GET = apiHandler(async () => {
     }
 
     return Response.json({ success: true, boms: cachedBoms, cookieSaved, source: 'cache' });
-}, { rawResponse: true });
+}, { rawResponse: true, publicRoute: true });
 
 export async function OPTIONS() {
     return new Response(null, {
@@ -203,4 +203,4 @@ export const POST = apiHandler(async (req, params, body) => {
     return Response.json({ success: true, count: listToSave.length }, {
         headers: { 'Access-Control-Allow-Origin': '*' }
     });
-}, { rawResponse: true });
+}, { rawResponse: true, publicRoute: true });

@@ -12,7 +12,7 @@ export const POST = apiHandler(async (_req, params, body) => {
     
     return await InventoryService.createGRN({
         ...body,
-        receivedById: userId || 'SYSTEM'
+        receivedById: userId
     });
 }, { 
     schema: grnSchema,

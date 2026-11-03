@@ -45,5 +45,6 @@ export const POST = apiHandler(async (req, params, body) => {
     });
 }, {
     rawResponse: true, // Needed to preserve CORS headers in response
-    audit: { action: 'IMPORT_BOM_CSV', entity: 'Invoice' }
+    audit: { action: 'IMPORT_BOM_CSV', entity: 'Invoice' },
+    publicRoute: true,
 });

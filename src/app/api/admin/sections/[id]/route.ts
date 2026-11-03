@@ -1,4 +1,3 @@
-import { getAuthenticatedUserId } from '@/lib/request-context';
 export const dynamic = 'force-dynamic';
 import { SectionService } from '@/services/core/section.service';
 import { apiHandler } from '@/lib/api-handler';
@@ -12,22 +11,24 @@ const updateSectionSchema = z.object({
     icon: z.string().max(50).optional().nullable(),
     color: z.string().max(30).optional().nullable(),
     isActive: z.boolean().optional()
-});
+}).strict();
 
-export const PATCH = apiHandler(async (request, params, body) => {
-    const userId = getAuthenticatedUserId();
+export const PATCH = apiHandler(async (_request, params, body) => {
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
     const { id } = await params;
     const data = updateSectionSchema.parse(body);
-    return SectionService.updateSection(id, data, userId || 'system');
+    return SectionService.updateSection(id, data, userId);
 }, {
     rawResponse: true,
     audit: { action: 'UPDATE', entity: 'SECTION' }
 });
 
-export const DELETE = apiHandler(async (request, params) => {
-    const userId = getAuthenticatedUserId();
+export const DELETE = apiHandler(async (_request, params) => {
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
     const { id } = await params;
-    return SectionService.deleteSection(id, userId || 'system');
+    return SectionService.deleteSection(id, userId);
 }, {
     rawResponse: true,
     audit: { action: 'DELETE', entity: 'SECTION' }

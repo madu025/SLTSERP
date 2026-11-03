@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import TripService from '@/services/fleet/TripService';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const GET = apiHandler(async (req, params) => {
     const { id: driverId } = await params;
@@ -18,5 +19,5 @@ export const GET = apiHandler(async (req, params) => {
 
     return trips; // apiHandler will wrap in success: true, data: trips
 }, {
-    // Requires standard auth
+    permissions: [RBAC_PERMISSIONS.FLEET_READ],
 });

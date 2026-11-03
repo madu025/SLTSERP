@@ -6,4 +6,4 @@ import { BankService } from '@/services/finance/bank.service';
 export const GET = apiHandler(async () => {
     const branches = await BankService.getAllBranches();
     return Response.json(branches);
-});
+}, { publicRoute: true });

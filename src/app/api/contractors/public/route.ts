@@ -38,12 +38,13 @@ export const GET = apiHandler(async (req) => {
             }
         }
     });
-});
+}, { publicRoute: true });
 
 export const POST = apiHandler(async (_req, _params, body) => {
     const data = submitDocumentsSchema.parse(body);
     await ContractorService.submitPublicDocuments(data.token, data.documents);
     return Response.json({ success: true });
 }, {
-    audit: { action: 'SUBMIT_PUBLIC_DOCS', entity: 'Contractor' }
+    audit: { action: 'SUBMIT_PUBLIC_DOCS', entity: 'Contractor' },
+    publicRoute: true,
 });

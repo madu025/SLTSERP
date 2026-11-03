@@ -1,5 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/service-order/sod.service';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,4 +11,4 @@ export const GET = apiHandler(async (req) => {
     const result = await ServiceOrderService.fixDates(execute);
 
     return Response.json(result);
-});
+}, { permissions: [RBAC_PERMISSIONS.ADMIN_RBAC] });

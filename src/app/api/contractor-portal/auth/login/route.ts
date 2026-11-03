@@ -53,5 +53,5 @@ export const POST = apiHandler(async (_req, _params, data: z.infer<typeof loginS
     }
 }, {
     schema: loginSchema,
-    rawResponse: true, rateLimit: { max: 10, windowSecs: 60 }
+    rawResponse: true, rateLimit: { max: 10, windowSecs: 60 }, publicRoute: true
 });

@@ -10,6 +10,9 @@ import { AuditLedgerService } from './audit-ledger.service';
 import { StoreService } from './store.service';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { LedgerService } from '../finance/ledger.service';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { getUserEffectivePermissions } from '@/lib/user-permissions';
+import { mrnSchema } from '@/lib/validations/inventory.schema';
 
 export class MRNService {
     static async createMRN(data: {
@@ -22,7 +25,17 @@ export class MRNService {
         returnedById: string;
         items: { itemId: string; quantity: string | number; reason?: string }[];
     }): Promise<MRN> {
-        const { storeId, returnType, returnTo, supplier, reason, grnId, returnedById, items } = data;
+        const { returnedById } = data;
+        const parsed = mrnSchema.safeParse(data);
+        if (!parsed.success) {
+            throw AppError.badRequest('INVALID_MRN_PAYLOAD');
+        }
+
+        const { storeId, returnType, returnTo, supplier, reason, grnId, items } = parsed.data;
+
+        if (!returnedById?.trim()) {
+            throw AppError.badRequest('RETURN_ACTOR_REQUIRED');
+        }
 
         // Store-Scope Enforcement: creator must be authorized for the returning store
         await StoreService.assertStoreWriteAccess(returnedById, storeId);
@@ -45,7 +58,7 @@ export class MRNService {
                     items: {
                         create: items.map((i) => ({
                             itemId: i.itemId,
-                            quantity: parseFloat(i.quantity.toString()),
+                            quantity: i.quantity,
                             reason: i.reason || null
                         }))
                     }
@@ -92,16 +105,20 @@ export class MRNService {
         // Approver identity must be a real authenticated user (session-derived)
         const approver = await prisma.user.findUnique({
             where: { id: approvedById },
-            select: { role: true }
+            select: { id: true }
         });
         if (!approver) {
             throw AppError.unauthorized('USER_NOT_FOUND');
         }
 
+        const permissions = await getUserEffectivePermissions(approvedById);
+        if (!permissions.includes(RBAC_PERMISSIONS.INVENTORY_APPROVE)) {
+            throw AppError.forbidden(`INVENTORY_ACTION_PERMISSION_DENIED: ${RBAC_PERMISSIONS.INVENTORY_APPROVE}`);
+        }
+
         // Segregation of Duties (SoD): MRN creator cannot approve/reject their own
-        // return note. SUPER_ADMIN/ADMIN bypass follows the stock-request precedent
-        // (single-staff stores otherwise deadlock; ADMIN is the operational
-        // escalation role).
+        // return note. Only the explicit canonical admin capability can use the
+        // administrative escalation path; the legacy User.role must not grant it.
         const targetMrn = await prisma.mRN.findUnique({
             where: { id: mrnId },
             select: { returnedById: true, status: true }
@@ -109,7 +126,8 @@ export class MRNService {
         if (!targetMrn) {
             throw AppError.notFound('MRN_NOT_FOUND');
         }
-        if (!ROLE_GROUPS.CORE_ADMINS.includes(approver.role) && targetMrn.returnedById === approvedById) {
+        const isCanonicalAdmin = permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC);
+        if (!isCanonicalAdmin && targetMrn.returnedById === approvedById) {
             throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: MRN creator cannot approve or reject their own material return note.');
         }
         if (targetMrn.status !== 'PENDING') {

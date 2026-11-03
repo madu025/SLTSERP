@@ -1,9 +1,29 @@
-import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
-import { UserService, CreateUserData, UpdateUserData } from '@/services/hr/user.service';
+import { UserService } from '@/services/hr/user.service';
 import { AppError } from '@/lib/error';
+import { isDatabaseRole } from '@/lib/role-validation';
+import { Role } from '@prisma/client';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
+
+const roleSchema = z.custom<Role>(isDatabaseRole, { message: 'Invalid database role' });
+const userFieldsSchema = {
+    username: z.string().trim().min(3).max(100),
+    email: z.string().trim().email().max(254),
+    password: z.string().min(4).max(128).optional(),
+    name: z.string().trim().min(2).max(200).optional(),
+    role: roleSchema,
+    employeeId: z.string().trim().max(100).optional(),
+    opmcIds: z.array(z.string().min(1).max(100)).max(100).optional(),
+    supervisorId: z.string().min(1).max(100).optional(),
+    assignedStoreId: z.string().min(1).max(100).optional(),
+    status: z.enum(['active', 'inactive', 'deleted']).optional(),
+};
+const createUserSchema = z.object(userFieldsSchema).strict();
+const updateUserSchema = z.object({ id: z.string().min(1).max(100), ...userFieldsSchema }).strict();
+type CreateUserRequest = z.infer<typeof createUserSchema>;
+type UpdateUserRequest = z.infer<typeof updateUserSchema>;
 
 // GET all users
 export const GET = apiHandler(async (request) => {
@@ -19,11 +39,12 @@ export const GET = apiHandler(async (request) => {
 });
 
 // POST new user
-export const POST = apiHandler(async (request, _params, body) => {
-    const currentUserId = getAuthenticatedUserId() || 'system';
+export const POST = apiHandler<unknown, CreateUserRequest>(async (request, params, body) => {
+    const currentUserId = params._userId;
+    if (!currentUserId) throw AppError.unauthorized('Authenticated administrator required');
 
     try {
-        const userWithoutPassword = await UserService.createUser(body as unknown as CreateUserData, currentUserId);
+        const userWithoutPassword = await UserService.createUser(body, currentUserId);
         return userWithoutPassword;
     } catch (error: unknown) {
         const errorCode = (error as { code?: string })?.code;
@@ -40,18 +61,20 @@ export const POST = apiHandler(async (request, _params, body) => {
         throw error;
     }
 }, {
+    schema: createUserSchema,
     audit: { action: 'USER_CREATE', entity: 'User' }
 });
 
 // UPDATE user
-export const PUT = apiHandler(async (request, _params, body) => {
-    const id = body.id as string | undefined;
+export const PUT = apiHandler<unknown, UpdateUserRequest>(async (request, params, body) => {
+    const { id, ...userData } = body;
     if (!id) throw AppError.badRequest('ID required');
 
-    const currentUserId = getAuthenticatedUserId() || 'system';
+    const currentUserId = params._userId;
+    if (!currentUserId) throw AppError.unauthorized('Authenticated administrator required');
 
     try {
-        const userWithoutPassword = await UserService.updateUser(id, body as unknown as UpdateUserData, currentUserId);
+        const userWithoutPassword = await UserService.updateUser(id, userData, currentUserId);
         return userWithoutPassword;
     } catch (error: unknown) {
         const errorMsg = error instanceof Error ? error.message : '';
@@ -70,6 +93,7 @@ export const PUT = apiHandler(async (request, _params, body) => {
         throw error;
     }
 }, {
+    schema: updateUserSchema,
     audit: { action: 'USER_UPDATE', entity: 'User' }
 });
 
@@ -81,13 +105,14 @@ export const PATCH = apiHandler(async () => {
 }, { rawResponse: true });
 
 // DELETE user
-export const DELETE = apiHandler(async (request) => {
+export const DELETE = apiHandler(async (request, params) => {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
     if (!id) throw AppError.badRequest('ID required');
 
-    const currentUserId = getAuthenticatedUserId() || undefined;
+    const currentUserId = params._userId;
+    if (!currentUserId) throw AppError.unauthorized('Authenticated administrator required');
 
     try {
         await UserService.deleteUser(id, currentUserId);

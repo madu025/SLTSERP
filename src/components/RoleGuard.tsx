@@ -2,15 +2,17 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { hasAccess } from '@/config/sidebar-menu';
 import { isContractorRole } from '@/config/roles';
+import { resolvePageCapability } from '@/config/page-capabilities';
+import type { RbacPermission } from '@/config/rbac-permissions';
 import { ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface RoleGuardProps {
     children: React.ReactNode;
-    allowedRoles: string[];
-    permissionId?: string;
+    /** Deprecated compatibility prop. It never grants access. */
+    allowedRoles?: string[];
+    permissionId?: RbacPermission;
     fallbackLoginPath?: string;
 }
 
@@ -59,7 +61,13 @@ export default function RoleGuard({ children, allowedRoles, permissionId, fallba
         );
     }
 
-    const isAuthorized = user ? hasAccess(user.role, allowedRoles, true, undefined, permissionId, user.permissions) : false;
+    const pagePermission = permissionId ?? resolvePageCapability(
+        typeof window === 'undefined' ? '' : window.location.pathname,
+    );
+    // `allowedRoles` is intentionally ignored. A page is visible only when its
+    // canonical DB capability is present in the validated session.
+    void allowedRoles;
+    const isAuthorized = !!user && !!pagePermission && !!user.permissions?.includes(pagePermission);
 
     if (!isAuthorized) {
         const contractorRedirect = isContractorRole(user?.role);

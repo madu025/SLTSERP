@@ -11,7 +11,7 @@ const createBankSchema = z.object({
 
 export const GET = apiHandler(async () => {
     return await BankService.getBanks();
-}, { rawResponse: true });
+}, { rawResponse: true, publicRoute: true });
 
 export const POST = apiHandler(async (_request: Request, _params: Record<string, unknown>, body: Record<string, unknown>) => {
     const data = createBankSchema.parse(body);

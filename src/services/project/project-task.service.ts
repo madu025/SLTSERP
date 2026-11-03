@@ -111,11 +111,11 @@ async function getTaskActorAccess(actorId: string) {
         where: { id: actorId },
         select: {
             id: true,
-            role: true,
             status: true,
             permissions: true,
             systemRole: {
                 select: {
+                        code: true,
                     isActive: true,
                     permissions: true,
                     rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } },
@@ -125,6 +125,7 @@ async function getTaskActorAccess(actorId: string) {
                 select: {
                     role: {
                         select: {
+                                code: true,
                             isActive: true,
                             permissions: true,
                             rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } },
@@ -135,7 +136,10 @@ async function getTaskActorAccess(actorId: string) {
         },
     });
 
-    return actor ? { ...actor, effectivePermissions: deriveEffectivePermissions(actor) } : null;
+    if (!actor) return null;
+    const roleCodes = [actor.systemRole, ...actor.sectionAssignments.map(assignment => assignment.role)]
+        .flatMap(role => role && role.isActive ? [role.code, role.code.replace(/_GLOBAL$/, '')] : []);
+    return { ...actor, roleCodes, effectivePermissions: deriveEffectivePermissions(actor) };
 }
 
 async function assertTaskActor(taskId: string, projectId: string | undefined, actorId: string | null | undefined, mode: 'PROGRESS' | 'FULL') {
@@ -203,7 +207,11 @@ export class ProjectTaskService {
         if (viewerId && viewer && !canViewAllTasks) {
             const supervisorAssignment = await prisma.projectSupervisorAssignment.findFirst({ where: { projectId, supervisorId: viewerId, status: 'ASSIGNED' }, select: { id: true } });
             if (!supervisorAssignment) {
-                where.AND = [{ OR: [{ assignedUserId: viewerId }, { planItem: { assignedUserId: viewerId } }, { planItem: { requiredJobRole: viewer.role } }] }];
+                where.AND = [{ OR: [
+                    { assignedUserId: viewerId },
+                    { planItem: { assignedUserId: viewerId } },
+                    ...(viewer.roleCodes.length > 0 ? [{ planItem: { requiredJobRole: { in: viewer.roleCodes } } }] : []),
+                ] }];
             }
         }
 
@@ -230,6 +238,14 @@ export class ProjectTaskService {
      */
     static async createTask(data: CreateTaskInput, actorId?: string | null) {
         const { projectId, parentId, wbsCode, name, description, type, plannedStartDate, plannedEndDate, plannedDuration, priority, estimatedCost, order, assigneeType, assigneeId, contractorId, contractorAssignmentId } = data;
+
+        if (!projectId || !name?.trim()) throw AppError.badRequest('PROJECT_ID_AND_TASK_NAME_REQUIRED');
+        const estimatedCostValue = estimatedCost === null || estimatedCost === undefined || String(estimatedCost).trim() === ''
+            ? null
+            : Number(estimatedCost);
+        if (estimatedCostValue !== null && (!Number.isFinite(estimatedCostValue) || estimatedCostValue < 0)) {
+            throw AppError.badRequest('INVALID_TASK_ESTIMATED_COST');
+        }
 
         await assertProjectAccess(projectId, actorId);
 
@@ -310,7 +326,7 @@ export class ProjectTaskService {
                     plannedStartDate: normalizedSchedule.plannedStartDate,
                     plannedEndDate: normalizedSchedule.plannedEndDate,
                     plannedDuration: normalizedSchedule.plannedDuration,
-                    estimatedCost: estimatedCost !== null && estimatedCost !== undefined && String(estimatedCost).trim() !== '' ? parseFloat(String(estimatedCost)) : null,
+                    estimatedCost: estimatedCostValue,
                     order: order ?? 0,
                     assigneeType: optionalString(assigneeType),
                     assigneeId: optionalString(assigneeId),
@@ -428,7 +444,13 @@ export class ProjectTaskService {
             data.actualEndDate = new Date();
         }
 
-        if (updateData.estimatedCost) data.estimatedCost = parseFloat(String(updateData.estimatedCost));
+        if (updateData.estimatedCost !== undefined && updateData.estimatedCost !== null && String(updateData.estimatedCost).trim() !== '') {
+            const estimatedCost = Number(updateData.estimatedCost);
+            if (!Number.isFinite(estimatedCost) || estimatedCost < 0) {
+                throw AppError.badRequest('INVALID_TASK_ESTIMATED_COST');
+            }
+            data.estimatedCost = estimatedCost;
+        }
 
         if (updateData.assigneeType === 'CONTRACTOR' && updateData.assigneeId) {
             const assignment = await getActiveProjectContractorAssignment(taskProjectId, updateData.assigneeId);

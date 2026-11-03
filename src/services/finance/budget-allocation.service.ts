@@ -113,6 +113,7 @@ export class BudgetAllocationService {
   static async listBudgets(params: BudgetListParams): Promise<BudgetDTO[]> {
     const where = {
       ...(params.opmcId && { opmcId: params.opmcId }),
+      ...(params.opmcIds && { opmcId: { in: params.opmcIds } }),
       ...(params.fiscalYear && { fiscalYear: params.fiscalYear }),
       ...(params.expenditureType && { expenditureType: params.expenditureType }),
       ...(params.status && { status: params.status }),

@@ -9,6 +9,7 @@ import { StockService } from './stock.service';
 import { AuditLedgerService } from './audit-ledger.service';
 import { StoreService } from './store.service';
 import { LedgerService } from '../finance/ledger.service';
+import { grnSchema } from '@/lib/validations/inventory.schema';
 
 export class GRNService {
     static async getGRNs(storeId?: string, allowedStoreIds?: string[]) {
@@ -42,7 +43,17 @@ export class GRNService {
     }
 
     static async createGRN(data: CreateGRNData): Promise<GRN> {
-        const { storeId, sourceType, supplier, receivedById, items, requestId, purchaseOrderId, sltReferenceId, reference, documentUrl } = data;
+        const { receivedById } = data;
+        const parsed = grnSchema.safeParse(data);
+        if (!parsed.success) {
+            throw AppError.badRequest('INVALID_GRN_PAYLOAD');
+        }
+
+        const { storeId, sourceType, supplier, items, requestId, purchaseOrderId, sltReferenceId, reference, documentUrl } = parsed.data;
+
+        if (!receivedById?.trim()) {
+            throw AppError.badRequest('RECEIVER_REQUIRED');
+        }
 
         // Store-Scope Enforcement: caller must be authorized for the receiving store
         await StoreService.assertStoreWriteAccess(receivedById, storeId);
@@ -85,7 +96,7 @@ export class GRNService {
                     items: {
                         create: items.map((i) => ({
                             itemId: i.itemId,
-                            quantity: parseFloat(i.quantity.toString())
+                            quantity: i.quantity
                         }))
                     }
                 },
@@ -105,7 +116,7 @@ export class GRNService {
             let totalGrnCost = 0;
 
             for (const item of items) {
-                const qty = StockService.round(parseFloat(item.quantity.toString()));
+                const qty = StockService.round(item.quantity);
                 
                 const meta = itemMetadata.find((m) => m.id === item.itemId);
                 const costPrice = meta?.costPrice || 0;

@@ -1,7 +1,7 @@
-import { getAuthenticatedUserId } from '@/lib/request-context';
 import { z } from 'zod';
 import { apiHandler } from '@/lib/api-handler';
 import { getQueueProvider } from '@/lib/queue';
+import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,10 +12,10 @@ const schema = z.object({
 });
 
 export const POST = apiHandler(
-    async (req: Request) => {
-        const body = await req.json();
+    async (_req: Request, params, body) => {
         const { contractorId, month, year } = schema.parse(body);
-        const userId = getAuthenticatedUserId() || 'system';
+        const userId = params._userId;
+        if (!userId) throw AppError.unauthorized('Authentication required');
 
         const job = await getQueueProvider().addJob('invoice-generation', 'generate', {
             contractorId,

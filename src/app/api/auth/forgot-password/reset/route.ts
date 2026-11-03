@@ -18,4 +18,4 @@ export const POST = apiHandler(async (_req, _params, body) => {
     });
 }, {
     // Public route, no roles required
-rateLimit: { max: 10, windowSecs: 60 } });
+rateLimit: { max: 10, windowSecs: 60 }, publicRoute: true });

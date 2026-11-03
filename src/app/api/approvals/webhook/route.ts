@@ -61,7 +61,7 @@ export const GET = apiHandler(async (req: Request) => {
             { status: 400, headers: { 'Content-Type': 'text/html' } }
         );
     }
-}, { rawResponse: true });
+}, { rawResponse: true, publicRoute: true });
 
 /**
  * Handle HTTP POST from Microsoft Actionable Messages

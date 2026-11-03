@@ -51,4 +51,4 @@ export const GET = apiHandler(async (req: Request, params) => {
         approveToken,
         rejectToken
     };
-}, { rawResponse: false });
+}, { rawResponse: false, publicRoute: true });

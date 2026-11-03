@@ -38,7 +38,7 @@ export class RetentionService {
   static async releaseRetention(data: {
     retentionId: string;
     releaseAmount: number;
-    approvedById?: string;
+    approvedById: string;
     remarks?: string;
   }) {
     const retention = await prisma.projectRetention.findUnique({
@@ -62,7 +62,7 @@ export class RetentionService {
         data: {
           retentionId: data.retentionId,
           releaseAmount: data.releaseAmount,
-          approvedById: data.approvedById || 'system',
+          approvedById: data.approvedById,
           approvedAt: new Date(),
           remarks: data.remarks || null
         }

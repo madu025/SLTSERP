@@ -1,6 +1,7 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
 import { NotificationService } from './index';
+import { deriveEffectivePermissions } from '@/lib/effective-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export class AppointmentNotificationService {
     static async checkAndNotify(userId?: string) {
@@ -16,7 +17,25 @@ export class AppointmentNotificationService {
                 where: userId ? { id: userId } : {},
                 select: {
                     id: true,
-                    role: true,
+                    permissions: true,
+                    systemRole: {
+                        select: {
+                            isActive: true,
+                            permissions: true,
+                            rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } },
+                        },
+                    },
+                    sectionAssignments: {
+                        select: {
+                            role: {
+                                select: {
+                                    isActive: true,
+                                    permissions: true,
+                                    rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } },
+                                },
+                            },
+                        },
+                    },
                     accessibleOpmcs: {
                         select: { id: true }
                     }
@@ -72,8 +91,7 @@ export class AppointmentNotificationService {
                 
                 // Filter appointments matching user OPMC visibility in-memory
                 const userAppointments = allAppointments.filter(sod => {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    if (ROLE_GROUPS.ADMINS.includes(user.role as any)) {
+                    if (deriveEffectivePermissions(user).includes(RBAC_PERMISSIONS.ADMIN_RBAC)) {
                         return true;
                     }
                     return sod.opmcId && opmcIds.has(sod.opmcId);

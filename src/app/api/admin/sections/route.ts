@@ -1,4 +1,3 @@
-import { getAuthenticatedUserId } from '@/lib/request-context';
 export const dynamic = 'force-dynamic';
 
 import { SectionService } from '@/services/core/section.service';
@@ -12,16 +11,17 @@ const createSectionSchema = z.object({
     description: z.string().max(500).optional(),
     icon: z.string().max(50).optional(),
     color: z.string().max(30).optional()
-});
+}).strict();
 
 export const GET = apiHandler(async () => {
     return SectionService.getSections();
 }, { rawResponse: true });
 
-export const POST = apiHandler(async (_request, _params, body) => {
-    const userId = getAuthenticatedUserId();
+export const POST = apiHandler(async (_request, params, body) => {
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
     const data = createSectionSchema.parse(body);
-    return SectionService.createSection(data, userId || 'system');
+    return SectionService.createSection(data, userId);
 }, {
     rawResponse: true,
     audit: { action: 'CREATE', entity: 'SECTION' }

@@ -9,7 +9,6 @@ export const createGISRouteSchema = z.object({
   sourceFormat: z.string().optional().nullable(),
   geojsonData: z.any().optional().nullable(),
   metadata: z.any().optional().nullable(),
-  createdById: z.string().optional().nullable(),
 });
 
 export const updateGISRouteSchema = z.object({
@@ -24,7 +23,6 @@ export const updateGISRouteSchema = z.object({
 
 export const generateBOQSchema = z.object({
   notes: z.string().optional().nullable(),
-  createdById: z.string().optional().nullable(),
 });
 
 export const qfieldSyncSchema = z.object({

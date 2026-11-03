@@ -41,10 +41,7 @@ export async function updateContractor(id: string, data: ContractorUpdateData) {
 }
 
 export async function deleteContractor(id: string) {
-    const currentUser = await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
-    if (currentUser.role !== 'SUPER_ADMIN') {
-        throw new Error('Forbidden: only a Super Admin can delete contractors');
-    }
+    await requirePermission(RBAC_PERMISSIONS.ADMIN_SUPER);
 
     try {
         await ContractorService.deleteContractor(id);

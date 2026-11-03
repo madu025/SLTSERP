@@ -2,11 +2,12 @@ import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { UserService } from '@/services/hr/user.service';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
 // GET /api/profile - Fetch authenticated user profile details (rawResponse for compatibility)
-export const GET = apiHandler(async (req) => {
+export const GET = apiHandler(async () => {
     const userId = getAuthenticatedUserId();
     if (!userId) {
         throw AppError.unauthorized('Unauthorized');
@@ -14,7 +15,8 @@ export const GET = apiHandler(async (req) => {
 
     return await UserService.getProfile(userId);
 }, {
-    rawResponse: true
+    rawResponse: true,
+    permissions: [RBAC_PERMISSIONS.DASHBOARD_READ],
 });
 
 // PATCH /api/profile - Update user profile details (rawResponse for compatibility)
@@ -30,5 +32,6 @@ export const PATCH = apiHandler(async (req, _params, body) => {
     return await UserService.updateProfile(userId, { name, email });
 }, {
     audit: { action: 'UPDATE_PROFILE', entity: 'USER_PROFILE' },
-    rawResponse: true
+    rawResponse: true,
+    permissions: [RBAC_PERMISSIONS.DASHBOARD_READ],
 });

@@ -4,6 +4,8 @@ import { requireEnv } from '@/lib/env';
 import { DynamicApprovalService } from './dynamic-approval.service';
 import { DomainActionDispatcher } from './domain-dispatcher.service';
 import { Prisma } from '@prisma/client';
+import { deriveEffectivePermissions } from '@/lib/effective-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import crypto from 'crypto';
 
 export interface CreateUniversalApprovalInstancePayload {
@@ -26,6 +28,22 @@ export interface UpdateUniversalApprovalInstancePayload {
     comments?: string;
     payload?: Prisma.InputJsonValue | typeof Prisma.JsonNull;
     signatureHash?: string;
+}
+
+function canonicalApproverWhere(requiredRole: string): Prisma.UserWhereInput {
+    const normalizedRole = requiredRole.trim().replace(/_GLOBAL$/, '');
+    const exactOrSectionRole = [
+        { code: normalizedRole },
+        { code: { endsWith: `_${normalizedRole}` } },
+    ];
+
+    return {
+        status: 'active',
+        OR: [
+            { systemRole: { isActive: true, OR: exactOrSectionRole } },
+            { sectionAssignments: { some: { role: { isActive: true, OR: exactOrSectionRole } } } },
+        ],
+    };
 }
 
 export class ProcessGateEngine {
@@ -128,16 +146,16 @@ export class ProcessGateEngine {
         // Determine approver user
         let approver = null;
         if (firstLevel.specificUserId) {
-            approver = await prisma.user.findUnique({ where: { id: firstLevel.specificUserId, status: 'ACTIVE' } });
+            approver = await prisma.user.findUnique({ where: { id: firstLevel.specificUserId, status: 'active' } });
         } else {
             approver = await prisma.user.findFirst({
-                where: { role: firstLevel.requiredRole as import('@prisma/client').Role, status: 'ACTIVE' }
+                where: canonicalApproverWhere(firstLevel.requiredRole)
             });
         }
 
         // Handle Out-Of-Office (OOO) Auto-Delegation
         if (approver?.isOOO && approver.delegatedUserId) {
-            const delegate = await prisma.user.findUnique({ where: { id: approver.delegatedUserId, status: 'ACTIVE' } });
+            const delegate = await prisma.user.findUnique({ where: { id: approver.delegatedUserId, status: 'active' } });
             if (delegate) {
                 console.log(`[ProcessGateEngine] Approver ${approver.email} was OOO. Auto-delegated approval to ${delegate.email}`);
                 approver = delegate;
@@ -219,12 +237,38 @@ export class ProcessGateEngine {
             if (!instance) throw AppError.notFound('Approval instance not found.');
             if (instance.status !== 'PENDING') throw AppError.badRequest(`This request has already been ${instance.status.toLowerCase()}.`);
 
-            // Verify assigned user / role permissions
-            if (instance.assignedUserId && instance.assignedUserId !== userId) {
-                const user = await tx.user.findUnique({ where: { id: userId } });
-                if (user?.role !== 'SUPER_ADMIN' && user?.role !== instance.requiredRole) {
-                    throw AppError.forbidden('You are not authorized to action this request.');
-                }
+            // Verify the actor against canonical DB role assignments. User.role
+            // is compatibility data and must not authorize an approval action.
+            const user = await tx.user.findUnique({
+                where: { id: userId },
+                select: {
+                    id: true,
+                    status: true,
+                    permissions: true,
+                    systemRole: { select: { code: true, isActive: true, permissions: true, rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } } } },
+                    sectionAssignments: { select: { role: { select: { code: true, isActive: true, permissions: true, rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } } } } } },
+                },
+            });
+            if (!user || user.status !== 'active') {
+                throw AppError.unauthorized('Authenticated approval actor is not active.');
+            }
+
+            const capabilities = deriveEffectivePermissions(user);
+            const isAdmin = capabilities.includes(RBAC_PERMISSIONS.ADMIN_RBAC);
+            const gatePermission = instance.entityType === 'MATERIAL_REQUEST'
+                ? RBAC_PERMISSIONS.INVENTORY_APPROVE
+                : undefined;
+            if (gatePermission && !isAdmin && !capabilities.includes(gatePermission)) {
+                throw AppError.forbidden(`${gatePermission} is required for this approval action.`);
+            }
+            const requiredRole = instance.requiredRole.trim();
+            const actorRoleCodes = [user.systemRole, ...user.sectionAssignments.map(assignment => assignment.role)]
+                .flatMap(role => role && role.isActive ? [role.code, role.code.replace(/_GLOBAL$/, '')] : []);
+            const hasRequiredRole = actorRoleCodes.includes(requiredRole)
+                || actorRoleCodes.includes(requiredRole.replace(/_GLOBAL$/, ''));
+
+            if (!isAdmin && instance.assignedUserId !== userId && !hasRequiredRole) {
+                throw AppError.forbidden('You are not authorized to action this request.');
             }
 
             // Universal Segregation of Duties (Maker != Checker) Security
@@ -299,16 +343,16 @@ export class ProcessGateEngine {
                 // Determine approver for next level
                 let nextApprover = null;
                 if (nextLevel.specificUserId) {
-                    nextApprover = await tx.user.findUnique({ where: { id: nextLevel.specificUserId, status: 'ACTIVE' } });
+                    nextApprover = await tx.user.findUnique({ where: { id: nextLevel.specificUserId, status: 'active' } });
                 } else {
                     nextApprover = await tx.user.findFirst({
-                        where: { role: nextLevel.requiredRole as import('@prisma/client').Role, status: 'ACTIVE' }
+                        where: canonicalApproverWhere(nextLevel.requiredRole)
                     });
                 }
 
                 // Handle OOO Delegation for next approver
                 if (nextApprover?.isOOO && nextApprover.delegatedUserId) {
-                    const delegate = await tx.user.findUnique({ where: { id: nextApprover.delegatedUserId, status: 'ACTIVE' } });
+                    const delegate = await tx.user.findUnique({ where: { id: nextApprover.delegatedUserId, status: 'active' } });
                     if (delegate) nextApprover = delegate;
                 }
 

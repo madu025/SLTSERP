@@ -2,8 +2,11 @@ import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { GISRouteService } from '@/services/gis/GISRouteService';
 import { safe } from '@/utils/safe-await.util';
+import { prisma } from '@/lib/prisma';
+import { assertProjectAccess } from '@/lib/project-access';
+import { AppError } from '@/lib/error';
 export const dynamic = 'force-dynamic';
-export const PATCH = apiHandler(async (req) => {
+export const PATCH = apiHandler(async (req, params) => {
   const [jsonErr, body] = await safe<Record<string, unknown>>(req.json());
   if (jsonErr || !body) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
@@ -12,6 +15,13 @@ export const PATCH = apiHandler(async (req) => {
   if (!segmentId) {
     return NextResponse.json({ error: 'Segment ID is required' }, { status: 400 });
   }
+  if (!params._userId) throw AppError.unauthorized('Authentication required');
+  const segment = await prisma.gISCableSegment.findUnique({
+    where: { id: segmentId },
+    select: { route: { select: { projectId: true } } },
+  });
+  if (!segment) throw AppError.notFound('Cable segment not found');
+  await assertProjectAccess(segment.route.projectId, params._userId);
   if (!coordinates || !Array.isArray(coordinates)) {
     return NextResponse.json({ error: 'Coordinates are required and must be an array of lon/lat points' }, { status: 400 });
   }

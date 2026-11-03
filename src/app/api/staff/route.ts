@@ -1,8 +1,23 @@
 import { apiHandler } from '@/lib/api-handler';
 import { StaffService, CreateStaffInput, UpdateStaffInput } from '@/services/hr/staff.service';
 import { AppError } from '@/lib/error';
+import { Role } from '@prisma/client';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
+
+const staffFields = {
+    name: z.string().trim().min(2).max(200),
+    employeeId: z.string().trim().min(1).max(100),
+    designation: z.nativeEnum(Role),
+    reportsToId: z.string().min(1).max(100).optional().nullable(),
+    opmcId: z.string().min(1).max(100).optional().nullable(),
+    userId: z.string().min(1).max(100).optional().nullable(),
+};
+const createStaffSchema = z.object(staffFields).strict();
+const updateStaffSchema = z.object(staffFields).partial().extend({ id: z.string().min(1).max(100) }).strict();
+type CreateStaffRequest = z.infer<typeof createStaffSchema>;
+type UpdateStaffRequest = z.infer<typeof updateStaffSchema>;
 
 // GET all staff with hierarchy info and linked users
 export const GET = apiHandler(async () => {
@@ -10,9 +25,9 @@ export const GET = apiHandler(async () => {
 }, { rawResponse: true });
 
 // POST create new staff member
-export const POST = apiHandler(async (_request, _params, body) => {
+export const POST = apiHandler<unknown, CreateStaffRequest>(async (_request, _params, body) => {
     try {
-        const staff = await StaffService.createStaff(body as unknown as CreateStaffInput);
+        const staff = await StaffService.createStaff(body as CreateStaffInput);
         return staff;
     } catch (error: unknown) {
         const err = error as { code?: string };
@@ -22,13 +37,14 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw error;
     }
 }, {
+    schema: createStaffSchema,
     audit: { action: 'STAFF_CREATE', entity: 'Staff' },
     rawResponse: true
 });
 
 // PUT to update staff details, hierarchy, or user assignment
-export const PUT = apiHandler(async (_request, _params, body) => {
-    const id = body.id as string | undefined;
+export const PUT = apiHandler<unknown, UpdateStaffRequest>(async (_request, _params, body) => {
+    const id = body.id;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: _id, ...updateFields } = body;
     if (!id) throw AppError.badRequest('Staff ID required');
@@ -43,6 +59,7 @@ export const PUT = apiHandler(async (_request, _params, body) => {
         throw error;
     }
 }, {
+    schema: updateStaffSchema,
     audit: { action: 'STAFF_UPDATE', entity: 'Staff' },
     rawResponse: true
 });

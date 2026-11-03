@@ -1,5 +1,16 @@
 import { z } from 'zod';
 
+/**
+ * Inventory quantities are physical movements, so zero, negative, NaN and
+ * Infinity are never valid at an API boundary. Keep the string form for
+ * existing mobile/browser payloads, but normalize it before the service sees
+ * it.
+ */
+export const inventoryQuantitySchema = z.union([z.string(), z.number()])
+    .transform((value) => typeof value === 'string' ? Number(value.trim()) : value)
+    .refine((value) => Number.isFinite(value), 'Quantity must be a finite number')
+    .refine((value) => value > 0, 'Quantity must be greater than zero');
+
 export const inventoryItemSchema = z.object({
     code: z.string().min(1, "Code is required"),
     name: z.string().min(1, "Name is required"),
@@ -28,17 +39,37 @@ export const materialIssueSchema = z.object({
 
 export const grnSchema = z.object({
     storeId: z.string().min(1),
-    sourceType: z.enum(['SLT', 'SUPPLIER', 'INTERNAL']),
-    supplier: z.string().optional(),
-    sltReferenceId: z.string().optional(),
-    requestId: z.string().optional(),
-    purchaseOrderId: z.string().optional(),
-    documentUrl: z.string().optional(),
-    notes: z.string().optional(),
+    // StockRequest.sourceType is a domain string and includes procurement
+    // routes such as LOCAL_PURCHASE and EMERGENCY_LOCAL.
+    sourceType: z.string().trim().min(1).max(40),
+    supplier: z.string().nullish(),
+    sltReferenceId: z.string().nullish(),
+    requestId: z.string().nullish(),
+    purchaseOrderId: z.string().nullish(),
+    documentUrl: z.string().nullish(),
+    reference: z.string().nullish(),
+    notes: z.string().nullish(),
     items: z.array(z.object({
         itemId: z.string().min(1),
-        quantity: z.union([z.string(), z.number()]).transform(v => typeof v === 'string' ? parseFloat(v) : v)
+        quantity: inventoryQuantitySchema,
+        serials: z.array(z.string()).optional(),
+        expiryDate: z.union([z.string(), z.date()]).optional(),
+        locator: z.string().optional(),
     })).min(1)
+});
+
+export const mrnSchema = z.object({
+    storeId: z.string().min(1),
+    returnType: z.string().trim().min(1).max(40),
+    returnTo: z.string().trim().nullish(),
+    supplier: z.string().trim().nullish(),
+    reason: z.string().trim().nullish(),
+    grnId: z.string().min(1).nullish(),
+    items: z.array(z.object({
+        itemId: z.string().min(1),
+        quantity: inventoryQuantitySchema,
+        reason: z.string().trim().nullish(),
+    })).min(1),
 });
 
 export const materialReturnSchema = z.object({

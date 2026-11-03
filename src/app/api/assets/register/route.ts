@@ -42,5 +42,6 @@ export const POST = apiHandler(async (req, _params, body) => {
     return NextResponse.json(result, { status: 201 });
 }, {
     schema: RegisterAssetSchema,
-    rawResponse: true
+    rawResponse: true,
+    publicRoute: true,
 });

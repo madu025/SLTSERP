@@ -8,9 +8,14 @@ import { GISImportService } from '@/services/gis/GISImportService';
 import { GISRouteService } from '@/services/gis/GISRouteService';
 import { logger } from '@/lib/logger';
 import { safe } from '@/utils/safe-await.util';
+import { AppError } from '@/lib/error';
+import { assertProjectAccess } from '@/lib/project-access';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 export const dynamic = 'force-dynamic';
-export const GET = apiHandler(async (request) => {
+export const GET = apiHandler(async (request, params) => {
   logger.info('[GIS-API] Received GIS status request');
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
     const { searchParams } = new URL(request.url);
     const importId = searchParams.get('importId');
     const projectId = searchParams.get('projectId');
@@ -22,6 +27,11 @@ export const GET = apiHandler(async (request) => {
           { error: `Import session ${importId} not found.` },
           { status: 404 }
         );
+      }
+      if (session.projectId) {
+        await assertProjectAccess(session.projectId, userId);
+      } else if (session.createdById !== userId && !params._permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC)) {
+        throw AppError.forbidden('You are not allowed to view this GIS session');
       }
       // Don't expose file content in status response
       const safeSession = {
@@ -47,6 +57,7 @@ export const GET = apiHandler(async (request) => {
     }
     // Return GIS data for a specific project
     if (projectId) {
+      await assertProjectAccess(projectId, userId);
       const [gisErr, data] = await safe(GISRouteService.getProjectGISData(projectId));
       if (gisErr || !data) {
         logger.error('[GIS-API] Status request failed', {
@@ -63,7 +74,10 @@ export const GET = apiHandler(async (request) => {
       return NextResponse.json(data);
     }
     // List all active sessions
-    const sessions = (await GISImportService.listSessions()).map((s) => ({
+    const canViewAll = params._permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC);
+    const sessions = (await GISImportService.listSessions())
+      .filter((session) => canViewAll || session.createdById === userId)
+      .map((s) => ({
       id: s.id,
       projectName: s.projectName,
       status: s.status,

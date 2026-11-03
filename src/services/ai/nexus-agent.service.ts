@@ -6,6 +6,10 @@ import { StockRequestService } from '../inventory/stock-request.service';
 import { NexusContextService } from '@/services/ai/nexus-context.service';
 import { NexusClassifierService } from '@/services/ai/nexus-classifier.service';
 import type { ChatMessage } from '@/services/ai/nexus-memory.service';
+import { getUserEffectivePermissions } from '@/lib/user-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
+import type { NexusOpmcScope } from '@/services/ai/nexus-context.service';
 
 import { safeJsonParse } from '@/utils/safeJsonParse';
 
@@ -71,12 +75,14 @@ export class NexusAgentService {
     /**
      * Intelligent AI Model Router: Dynamically selects the best model based on Role, Query Complexity, and Data Volume.
      */
-    static selectAIModel(message: string, contextData: Record<string, unknown>, userRole: string): string {
-        // 1. Role Priority Check
+    static selectAIModel(message: string, contextData: Record<string, unknown>, userPermissions: readonly string[] = []): string {
+        // Model routing is based on canonical capabilities, never User.role.
         const isPowerUser = [
-            'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 
-            'FINANCE_MANAGER', 'INVOICE_MANAGER', 'STORES_MANAGER', 'SA_MANAGER'
-        ].includes(userRole);
+            RBAC_PERMISSIONS.ADMIN_RBAC,
+            RBAC_PERMISSIONS.REPORTS_MANAGER_READ,
+            RBAC_PERMISSIONS.FINANCE_READ,
+            RBAC_PERMISSIONS.PROJECT_FINANCE_READ,
+        ].some(permission => userPermissions.includes(permission));
         if (isPowerUser) return 'gemini-3.5-flash';
 
         // 2. Query Complexity Check (Excel export, Audits, Forecasts, Reports)
@@ -201,29 +207,28 @@ export class NexusAgentService {
         console.log("[DEBUG] API KEY Status:", apiKey ? "LOADED" : "MISSING");
         const { NexusMemoryService } = await import('@/services/ai/nexus-memory.service');
 
-        const user = await prisma.user.findUnique({
+        const [user, userPermissions, opmcScope] = await Promise.all([
+            prisma.user.findUnique({
             where: { id: userId },
-            select: { name: true, role: true }
-        });
+                select: { name: true }
+            }),
+            getUserEffectivePermissions(userId),
+            resolveOpmcScope(userId),
+        ]);
         const userName = user?.name || "User";
-        const userRole = user?.role || "ENGINEER";
+        const permissionSet = new Set(userPermissions);
 
         // Predictive Intent Classification for Offline Fallback ONLY
         const intent = NexusClassifierService.predict(message);
         const actions: NexusAction[] = [];
         
-        // Enforce Role-Based Information Hiding
-        const hasFinanceAccess = [
-            'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 
-            'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 
-            'INVOICE_MANAGER', 'INVOICE_ASSISTANT'
-        ].includes(userRole);
-
-        if ((intent === 'FINANCE' || intent === 'BOM_INVOICES' || intent === 'VOUCHERS' || msgLower.includes('finance') || msgLower.includes('invoice')) && !hasFinanceAccess) {
+        // Enforce canonical capability-based information hiding. The route is
+        // authenticated, but each module still needs its own read capability.
+        if (!this.canReadIntent(intent, msgLower, permissionSet)) {
             return {
                 intent,
                 query: message,
-                response: `⚠️ Unauthorized: Your role (${userRole}) is not authorized to access financial or billing reports. This query has been blocked for security.`,
+                response: '⚠️ Unauthorized: you do not have the canonical permission required for this module. This query has been blocked for security.',
                 actions: [],
                 suggestions: ["Show active projects status", "List current low stock items"]
             };
@@ -232,7 +237,7 @@ export class NexusAgentService {
         if (apiKey) {
             try {
                 const history = await NexusMemoryService.getConversation(userId);
-                const result = await this.runAgenticLoop(message, userId, history, userRole, userName, hasFinanceAccess);
+                const result = await this.runAgenticLoop(message, history, userName, permissionSet, opmcScope);
                 if (result) {
                     this.queryCache.set(cacheKey, { response: result, timestamp: Date.now() });
                     return result;
@@ -254,21 +259,21 @@ export class NexusAgentService {
 
         // (Offline fallback logic simplified for brevity, maintaining original intent handling)
         if (intent === 'FINANCE') {
-            const fin = await NexusContextService.getFinanceContext();
+            const fin = await NexusContextService.getFinanceContext(opmcScope);
             response = `පද්ධතියේ දැනට පවතින මුළු හිඟ Contractor Invoices වටිනාකම LKR ${fin.outstandingInvoicesSum.toLocaleString()} කි. පූර්ණ අනුමැතිය ලැබෙන තෙක් බලාපොරොත්තුවෙන් පවතින Payment Vouchers ගණන ${fin.pendingPVsCount} කි.`;
         } else if (intent === 'PROJECTS') {
-            const proj = await NexusContextService.getProjectsContext();
+            const proj = await NexusContextService.getProjectsContext(opmcScope);
             response = `ක්‍රියාත්මක වන ව්‍යාපෘති ගණන ${proj.activeProjectsCount} කි. ඒ අතරින් දැනට නියමිත දින ඉක්මවා ප්‍රමාද වී ඇති Tasks ප්‍රමාණය ${proj.overdueTasksCount} කි.`;
         } else if (intent === 'INVENTORY_LOW') {
-            const low = await NexusContextService.getInventoryLowStockContext();
+            const low = await NexusContextService.getInventoryLowStockContext(opmcScope);
             response = low.lowStock.length > 0 
                 ? `දැනට පද්ධතියේ හඳුනාගත් අවම මට්ටමේ පවතින උපකරණ:\n` + low.lowStock.map(s => `- ${s.itemName} in ${s.storeName}: Current ${s.qty}`).join('\n')
                 : `ගබඩාවේ දැනට අවම සීමාවට වඩා අඩු වූ (Low Stock) කිසිදු උපකරණයක් නොමැත.`;
         } else if (intent === 'PROCUREMENT') {
-            const data = await NexusContextService.getProcurementContext();
+            const data = await NexusContextService.getProcurementContext(opmcScope);
             response = `මිලදී ගැනීමේ (Procurement) සාරාංශය:\n\n- Pending PRs: ${data.pendingPRsCount}\n- Pending POs: ${data.pendingPOsCount}\n- Pending GRNs: ${data.pendingGRNsCount}\n- Completed GRNs: ${data.completedGRNsCount}`;
         } else if (intent === 'SERVICE_ORDER_PROGRESS') {
-            const data = await NexusContextService.getServiceOrderProgressContext();
+            const data = await NexusContextService.getServiceOrderProgressContext(undefined, opmcScope);
             response = `මෙන්න දෛනික සේවා ඇණවුම් (Service Order) ප්‍රගතිය:\n\n- Completed: ${data.totalCompleted}\n- In Hand: ${data.totalInHand}\n- Today's SODs: ${data.totalTodaysSOD}`;
         }
 
@@ -277,10 +282,37 @@ export class NexusAgentService {
         return result;
     }
 
+    private static hasAnyPermission(permissions: ReadonlySet<string>, required: readonly string[]) {
+        return required.some(permission => permissions.has(permission));
+    }
+
+    private static canReadIntent(intent: string, message: string, permissions: ReadonlySet<string>) {
+        if (intent === 'FINANCE' || intent === 'BOM_INVOICES' || intent === 'VOUCHERS' || intent === 'JOB_COSTING'
+            || message.includes('finance') || message.includes('invoice') || message.includes('voucher') || message.includes('job costing')) {
+            return this.hasAnyPermission(permissions, [
+                RBAC_PERMISSIONS.FINANCE_READ,
+                RBAC_PERMISSIONS.PROJECT_FINANCE_READ,
+                RBAC_PERMISSIONS.FINANCE_AUDIT,
+            ]);
+        }
+        if (intent === 'PROJECTS') return permissions.has(RBAC_PERMISSIONS.PROJECT_READ);
+        if (intent === 'INVENTORY_LOW') return permissions.has(RBAC_PERMISSIONS.INVENTORY_READ);
+        if (intent === 'PROCUREMENT') return permissions.has(RBAC_PERMISSIONS.PROCUREMENT_READ);
+        if (intent === 'SERVICE_ORDER_PROGRESS') return permissions.has(RBAC_PERMISSIONS.SOD_READ);
+        if (intent === 'CONTRACTORS') return permissions.has(RBAC_PERMISSIONS.CONTRACTOR_READ);
+        if (intent === 'STORES') return permissions.has(RBAC_PERMISSIONS.INVENTORY_READ);
+        return true;
+    }
+
     /**
      * Fully Dynamic Agentic Loop with Gemini Function Calling
      */
-    private static async runAgenticLoop(message: string, userId: string, history: ChatMessage[], userRole: string, userName: string, hasFinanceAccess: boolean): Promise<NexusResponse | null> {
+    private static async runAgenticLoop(message: string, history: ChatMessage[], userName: string, permissions: ReadonlySet<string>, opmcScope: NexusOpmcScope): Promise<NexusResponse | null> {
+        const hasFinanceAccess = [
+            RBAC_PERMISSIONS.FINANCE_READ,
+            RBAC_PERMISSIONS.PROJECT_FINANCE_READ,
+            RBAC_PERMISSIONS.FINANCE_AUDIT,
+        ].some(permission => permissions.has(permission));
         // Step 1: Pre-flight Local AI Routing
         const { intent, confidence } = NexusClassifierService.predictWithConfidence(message);
         
@@ -292,7 +324,7 @@ export class NexusAgentService {
             
             // Hardcoded zero-cost Local AI static responses for known intents
             if (intent === 'INVENTORY_LOW') {
-                const data = await NexusContextService.getInventoryLowStockContext();
+                const data = await NexusContextService.getInventoryLowStockContext(opmcScope);
                 
                 let chart: NexusChart | undefined;
                 if (wantsChart && data.lowStock.length > 0) {
@@ -317,7 +349,7 @@ export class NexusAgentService {
                 };
             }
             if (intent === 'PROJECTS') {
-                const data = await NexusContextService.getProjectsContext();
+                const data = await NexusContextService.getProjectsContext(opmcScope);
                 
                 let chart: NexusChart | undefined;
                 if (wantsChart) {
@@ -342,7 +374,7 @@ export class NexusAgentService {
                 };
             }
             if (intent === 'PROCUREMENT') {
-                const data = await NexusContextService.getProcurementContext();
+                const data = await NexusContextService.getProcurementContext(opmcScope);
                 
                 return {
                     response: `මිලදී ගැනීමේ (Procurement) සාරාංශය:\n\n- Pending PRs (Purchase Requisitions): ${data.pendingPRsCount}\n- Pending POs (Purchase Orders): ${data.pendingPOsCount}\n- Pending GRNs: ${data.pendingGRNsCount}\n- Completed GRNs: ${data.completedGRNsCount}\n\nඅවසන් වරට සම්පූර්ණ කළ GRN එක: ${data.latestCompletedGRN}`,
@@ -351,7 +383,7 @@ export class NexusAgentService {
                 };
             }
             if (intent === 'SERVICE_ORDER_PROGRESS') {
-                const data = await NexusContextService.getServiceOrderProgressContext();
+                const data = await NexusContextService.getServiceOrderProgressContext(undefined, opmcScope);
                 
                 let chart: NexusChart | undefined;
                 if (wantsChart) {
@@ -377,7 +409,7 @@ export class NexusAgentService {
                 };
             }
             if (intent === 'JOB_COSTING' && hasFinanceAccess) {
-                const data = await NexusContextService.getJobCostingContext();
+                const data = await NexusContextService.getJobCostingContext(undefined, opmcScope);
                 
                 let chart: NexusChart | undefined;
                 if (wantsChart && 'financials' in data && data.financials) {
@@ -403,7 +435,7 @@ export class NexusAgentService {
                 };
             }
             if (intent === 'FINANCE' && hasFinanceAccess) {
-                const data = await NexusContextService.getFinanceContext();
+                const data = await NexusContextService.getFinanceContext(opmcScope);
                 
                 let chart: NexusChart | undefined;
                 if (wantsChart) {
@@ -577,34 +609,34 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
 
                 // Execute local function
                 if (funcName === 'getFinanceContext' && hasFinanceAccess) {
-                    funcResult = await NexusContextService.getFinanceContext();
+                    funcResult = await NexusContextService.getFinanceContext(opmcScope);
                     executedIntent = 'FINANCE';
-                } else if (funcName === 'getProjectsContext') {
-                    funcResult = await NexusContextService.getProjectsContext();
+                } else if (funcName === 'getProjectsContext' && permissions.has(RBAC_PERMISSIONS.PROJECT_READ)) {
+                    funcResult = await NexusContextService.getProjectsContext(opmcScope);
                     executedIntent = 'PROJECTS';
-                } else if (funcName === 'getInventoryLowStockContext') {
+                } else if (funcName === 'getInventoryLowStockContext' && permissions.has(RBAC_PERMISSIONS.INVENTORY_READ)) {
                     didCheckLowStock = true;
-                    funcResult = await NexusContextService.getInventoryLowStockContext();
+                    funcResult = await NexusContextService.getInventoryLowStockContext(opmcScope);
                     executedIntent = 'INVENTORY_LOW';
-                } else if (funcName === 'getContractorsContext') {
-                    funcResult = await NexusContextService.getContractorsContext();
+                } else if (funcName === 'getContractorsContext' && permissions.has(RBAC_PERMISSIONS.CONTRACTOR_READ)) {
+                    funcResult = await NexusContextService.getContractorsContext(opmcScope);
                     executedIntent = 'CONTRACTORS';
-                } else if (funcName === 'getStoresContext') {
-                    funcResult = await NexusContextService.getStoresContext();
+                } else if (funcName === 'getStoresContext' && permissions.has(RBAC_PERMISSIONS.INVENTORY_READ)) {
+                    funcResult = await NexusContextService.getStoresContext(opmcScope);
                     executedIntent = 'STORES';
-                } else if (funcName === 'getProcurementContext') {
-                    funcResult = await NexusContextService.getProcurementContext();
+                } else if (funcName === 'getProcurementContext' && permissions.has(RBAC_PERMISSIONS.PROCUREMENT_READ)) {
+                    funcResult = await NexusContextService.getProcurementContext(opmcScope);
                     executedIntent = 'PROCUREMENT';
                 } else if (funcName === 'getBOMInvoicesContext' && hasFinanceAccess) {
-                    funcResult = await NexusContextService.getBOMInvoicesContext();
+                    funcResult = await NexusContextService.getBOMInvoicesContext(opmcScope);
                     executedIntent = 'BOM_INVOICES';
-                } else if (funcName === 'getServiceOrderProgressContext') {
+                } else if (funcName === 'getServiceOrderProgressContext' && permissions.has(RBAC_PERMISSIONS.SOD_READ)) {
                     const args = fc.args as Record<string, string> | undefined;
-                    funcResult = await NexusContextService.getServiceOrderProgressContext(args?.opmcCode);
+                    funcResult = await NexusContextService.getServiceOrderProgressContext(args?.opmcCode, opmcScope);
                     // Service order maps loosely to projects or a new intent, skipping mapping for simplicity
                 } else if (funcName === 'getJobCostingContext' && hasFinanceAccess) {
                     const args = fc.args as Record<string, string> | undefined;
-                    funcResult = await NexusContextService.getJobCostingContext(args);
+                    funcResult = await NexusContextService.getJobCostingContext(args, opmcScope);
                     executedIntent = 'JOB_COSTING';
                 } else {
                     funcResult = { error: "Unauthorized or unknown function." };

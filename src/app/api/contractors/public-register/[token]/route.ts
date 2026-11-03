@@ -11,7 +11,7 @@ export const GET = apiHandler(async (_req, params) => {
     const { token } = params;
     const contractor = await ContractorService.getContractorByToken(token);
     return Response.json(contractor);
-});
+}, { publicRoute: true });
 
 export const POST = apiHandler(async (_req, params, body) => {
     const data = registrationSchema.parse(body);
@@ -19,7 +19,8 @@ export const POST = apiHandler(async (_req, params, body) => {
     await ContractorService.submitPublicRegistration(token, data);
     return Response.json({ success: true, message: 'Registration submitted for review.' });
 }, {
-    audit: { action: 'SUBMIT_PUBLIC_REGISTRATION', entity: 'Contractor' }
+    audit: { action: 'SUBMIT_PUBLIC_REGISTRATION', entity: 'Contractor' },
+    publicRoute: true,
 });
 
 export const PATCH = apiHandler(async (_req, params, body) => {
@@ -27,4 +28,4 @@ export const PATCH = apiHandler(async (_req, params, body) => {
     const { token } = params;
     await ContractorService.saveRegistrationDraft(token, data);
     return Response.json({ success: true, message: 'Draft saved.' });
-});
+}, { publicRoute: true });

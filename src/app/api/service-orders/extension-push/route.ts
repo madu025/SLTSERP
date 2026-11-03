@@ -127,7 +127,7 @@ export const POST = apiHandler(async (req, _params, body) => {
             }
         }
     }
-}, { rawResponse: true });
+}, { rawResponse: true, publicRoute: true });
 
 export const GET = apiHandler(async () => {
     if (!await checkAdminAuth()) {
@@ -135,7 +135,7 @@ export const GET = apiHandler(async () => {
     }
     const logs = await ServiceOrderService.getExtensionLogs();
     return Response.json({ success: true, logs });
-});
+}, { publicRoute: true });
 
 export const DELETE = apiHandler(async () => {
     if (!await checkAdminAuth()) {
@@ -143,4 +143,4 @@ export const DELETE = apiHandler(async () => {
     }
     await ServiceOrderService.clearExtensionLogs();
     return Response.json({ success: true, message: 'All logs cleared' });
-});
+}, { publicRoute: true });

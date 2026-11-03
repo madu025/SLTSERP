@@ -1,11 +1,31 @@
-import { Prisma, PrismaClient, Role } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { normalizeTaskSchedule } from '@/lib/project-schedule';
+import { userHasPermission } from '@/lib/user-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
 
 const EDITABLE_PLAN_STATUSES = new Set(['DRAFT', 'CHANGES_REQUESTED']);
-const PROJECT_SUPERVISOR_ROLES = ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'OSP_ENGINEER', 'CIVIL_SUPERVISOR'] as Role[];
+const PROJECT_SUPERVISOR_ROLE_CODES = [
+    'CEO', 'HEAD_OF_OSP', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER',
+    'ENGINEER', 'ASSISTANT_ENGINEER', 'OSP_ENGINEER', 'CIVIL_SUPERVISOR',
+];
 const db = prisma as unknown as PrismaClient;
+
+function canonicalRoleCodes(user: {
+    systemRole?: { code: string; isActive: boolean } | null;
+    sectionAssignments?: Array<{ role: { code: string; isActive: boolean } }>;
+}) {
+    return [user.systemRole, ...(user.sectionAssignments || []).map(assignment => assignment.role)]
+        .filter((role): role is { code: string; isActive: boolean } => !!role && role.isActive)
+        .flatMap(role => [role.code, role.code.replace(/_GLOBAL$/, '')]);
+}
+
+function hasCanonicalJobRole(user: Parameters<typeof canonicalRoleCodes>[0], requiredRoles: string[]) {
+    const required = new Set(requiredRoles.flatMap(role => [role, role.replace(/_GLOBAL$/, '')]));
+    return canonicalRoleCodes(user).some(code => required.has(code));
+}
 
 function asOptionalString(value: unknown) {
     if (typeof value !== 'string') return null;
@@ -53,11 +73,18 @@ async function assertAssignedUser(projectId: string, userId: string | null, requ
         db.project.findUnique({ where: { id: projectId }, select: { opmcId: true } }),
         db.user.findUnique({
         where: { id: userId },
-        select: { id: true, name: true, role: true, status: true, accessibleOpmcs: { select: { id: true } } },
+        select: {
+            id: true,
+            name: true,
+            status: true,
+            accessibleOpmcs: { select: { id: true } },
+            systemRole: { select: { code: true, isActive: true } },
+            sectionAssignments: { select: { role: { select: { code: true, isActive: true } } } },
+        },
         }),
     ]);
     if (!user || user.status !== 'active') throw AppError.badRequest('TASK_ASSIGNEE_NOT_ACTIVE');
-    if (requiredJobRole && user.role !== requiredJobRole) {
+    if (requiredJobRole && !hasCanonicalJobRole(user, [requiredJobRole])) {
         throw AppError.badRequest(`TASK_USER_ROLE_MISMATCH:${requiredJobRole}`);
     }
     if (project?.opmcId && !user.accessibleOpmcs.some(opmc => opmc.id === project.opmcId)) {
@@ -79,13 +106,15 @@ async function assertAssignedContractor(projectId: string, contractorId: string 
 async function assertPlanDesigner(projectId: string, actorId: string) {
     const assignment = await db.projectSupervisorAssignment.findFirst({ where: { projectId, supervisorId: actorId, status: 'ASSIGNED' }, select: { id: true } });
     if (assignment) return;
-    const actor = await db.user.findUnique({ where: { id: actorId }, select: { role: true, status: true } });
-    const managementRoles = new Set(['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER']);
-    if (!actor || actor.status !== 'active' || !managementRoles.has(actor.role)) throw AppError.forbidden('Only the assigned project supervisor or project management can configure this task plan');
+    const actor = await db.user.findUnique({ where: { id: actorId }, select: { status: true } });
+    const canConfigurePlan = (await userHasPermission(actorId, RBAC_PERMISSIONS.PROJECT_PLAN_WRITE))
+        || (await userHasPermission(actorId, RBAC_PERMISSIONS.PROJECT_PLAN_APPROVE));
+    if (!actor || actor.status !== 'active' || !canConfigurePlan) throw AppError.forbidden('Only the assigned project supervisor or project management can configure this task plan');
 }
 
 export class ProjectTaskPlanService {
-    static async getPlan(projectId: string) {
+    static async getPlan(projectId: string, viewerId?: string | null) {
+        if (viewerId) await assertProjectAccess(projectId, viewerId);
         const project = await getProject(projectId);
         const plan = await db.projectTaskPlan.findUnique({
                 where: { projectId },
@@ -121,21 +150,33 @@ export class ProjectTaskPlanService {
         const users = await db.user.findMany({
             where: {
                 status: 'active',
-                ...(candidateRoles.length ? { role: { in: candidateRoles as Role[] } } : {}),
                 ...(project.opmcId ? { accessibleOpmcs: { some: { id: project.opmcId } } } : {}),
             },
-            select: { id: true, name: true, username: true, role: true },
-            orderBy: [{ role: 'asc' }, { name: 'asc' }],
-        });
+            select: {
+                id: true,
+                name: true,
+                username: true,
+                role: true,
+                systemRole: { select: { code: true, isActive: true } },
+                sectionAssignments: { select: { role: { select: { code: true, isActive: true } } } },
+            },
+            orderBy: [{ name: 'asc' }],
+        }).then(rows => candidateRoles.length ? rows.filter(user => hasCanonicalJobRole(user, candidateRoles)) : rows);
         const supervisorCandidates = await db.user.findMany({
             where: {
                 status: 'active',
-                role: { in: PROJECT_SUPERVISOR_ROLES },
                 ...(project.opmcId ? { accessibleOpmcs: { some: { id: project.opmcId } } } : {}),
             },
-            select: { id: true, name: true, username: true, role: true },
-            orderBy: [{ role: 'asc' }, { name: 'asc' }],
-        });
+            select: {
+                id: true,
+                name: true,
+                username: true,
+                role: true,
+                systemRole: { select: { code: true, isActive: true } },
+                sectionAssignments: { select: { role: { select: { code: true, isActive: true } } } },
+            },
+            orderBy: [{ name: 'asc' }],
+        }).then(rows => rows.filter(user => hasCanonicalJobRole(user, PROJECT_SUPERVISOR_ROLE_CODES)));
         const contractors = await db.projectContractorAssignment.findMany({
             where: { projectId, status: 'ACTIVE' },
             select: { contractorId: true, contractor: { select: { id: true, name: true } } },

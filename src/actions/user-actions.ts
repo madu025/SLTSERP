@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/server-utils';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import bcrypt from 'bcryptjs';
 import { SystemService } from '@/services/core/system.service';
 import { revalidatePath } from 'next/cache';
@@ -29,8 +30,9 @@ export async function createUser(data: UserActionInput) {
     try {
         const { username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId, permissions } = data;
 
-        // Privilege escalation guard: only SUPER_ADMIN may grant SUPER_ADMIN
-        if (role === 'SUPER_ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
+        // Privilege escalation guard: only the canonical global-super
+        // capability may grant the SUPER_ADMIN identity.
+        if (role === 'SUPER_ADMIN' && !currentUser.permissions.includes(RBAC_PERMISSIONS.ADMIN_SUPER)) {
             return { success: false, error: 'Only a Super Admin can assign the SUPER_ADMIN role' };
         }
 
@@ -180,13 +182,15 @@ export async function updateUser(data: UpdateUserActionData) {
         const existingUser = await prisma.user.findUnique({ where: { id }, include: { staff: true } });
         if (!existingUser) return { success: false, error: 'User not found' };
 
-        if (existingUser.role === 'SUPER_ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
+        const targetPermissions = await getUserEffectivePermissions(existingUser.id);
+        const targetHasSuperCapability = targetPermissions.includes(RBAC_PERMISSIONS.ADMIN_SUPER);
+        if (targetHasSuperCapability && !currentUser.permissions.includes(RBAC_PERMISSIONS.ADMIN_SUPER)) {
             return { success: false, error: 'Only a Super Admin can modify a Super Admin account' };
         }
-        if (role === 'SUPER_ADMIN' && existingUser.role !== 'SUPER_ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
+        if (role === 'SUPER_ADMIN' && !currentUser.permissions.includes(RBAC_PERMISSIONS.ADMIN_SUPER)) {
             return { success: false, error: 'Only a Super Admin can assign the SUPER_ADMIN role' };
         }
-        if (existingUser.role === 'SUPER_ADMIN' && role && role !== 'SUPER_ADMIN') {
+        if (targetHasSuperCapability && role && role !== 'SUPER_ADMIN') {
             return { success: false, error: 'Cannot demote Super Admin' };
         }
 
@@ -300,10 +304,6 @@ export async function deleteUser(id: string) {
 
         const user = await prisma.user.findUnique({ where: { id } });
         if (!user) return { success: false, error: 'User not found' };
-
-        if (user.role === 'SUPER_ADMIN') {
-            return { success: false, error: 'Cannot delete Super Admin account' };
-        }
 
         await UserService.deleteUser(id, currentUser.id);
 

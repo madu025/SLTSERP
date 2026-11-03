@@ -53,5 +53,6 @@ export const POST = apiHandler(async (req, _params, body) => {
     return result;
 }, {
     schema: SyncAssetSchema,
-    rawResponse: true
+    rawResponse: true,
+    publicRoute: true,
 });

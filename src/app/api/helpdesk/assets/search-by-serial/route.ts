@@ -27,4 +27,4 @@ export const GET = apiHandler(async (req) => {
   }
 
   return await HelpdeskService.searchAssetBySerial(serial);
-});
+}, { publicRoute: true });

@@ -62,7 +62,7 @@ export const GET = apiHandler(async (request: Request) => {
         forensicAudit: scraped?.forensicAudit || [],
         lastSynced: rawData.updatedAt
     };
-});
+}, { publicRoute: true });
 
 export const POST = apiHandler(async (_req, _params, payload: z.infer<typeof bridgeSyncSchema>) => {
     const soNum = payload.soNum;
@@ -95,5 +95,6 @@ export const POST = apiHandler(async (_req, _params, payload: z.infer<typeof bri
     }
 }, { 
     schema: bridgeSyncSchema,
-    audit: { action: 'BRIDGE_SYNC', entity: 'ServiceOrder' }
+    audit: { action: 'BRIDGE_SYNC', entity: 'ServiceOrder' },
+    publicRoute: true,
 });

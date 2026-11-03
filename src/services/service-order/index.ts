@@ -46,14 +46,11 @@ export class ServiceOrderService {
      * Get all service orders with filtering and sorting
      */
     static async getServiceOrders(_userId: string, params: GetServiceOrdersParams) {
-        if (_userId) {
-            const user = await prisma.user.findUnique({
-                where: { id: _userId },
-                include: { accessibleOpmcs: { select: { id: true } } }
-            });
-            if (user && user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN') {
-                params.accessibleOpmcs = user.accessibleOpmcs.map(o => o.id);
-            }
+        // OPMC scope is capability-based. User.role is compatibility data and
+        // must never decide whether a caller receives global SOD visibility.
+        const accessibleOpmcs = await resolveOpmcScope(_userId);
+        if (accessibleOpmcs !== undefined) {
+            params.accessibleOpmcs = accessibleOpmcs;
         }
         return SODQueryService.getServiceOrders(params);
     }

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 interface HSEAttendeeInput {
     name: string;
     designation?: string;
@@ -26,8 +27,9 @@ export class ProjectHSEService {
             orderBy: { date: 'desc' }
         });
     }
-    static async createSafetyLog(projectId: string, data: CreateHSELogInput) {
-        const { logType, title, description, severity, location, recordedById, attendees } = data;
+    static async createSafetyLog(projectId: string, data: CreateHSELogInput, actorUserId: string) {
+        const { logType, title, description, severity, location, attendees } = data;
+        if (!actorUserId) throw AppError.unauthorized('Authenticated HSE actor is required');
         return await prisma.hSESafetyLog.create({
             data: {
                 projectId,
@@ -36,7 +38,7 @@ export class ProjectHSEService {
                 description: description || null,
                 severity: severity || null,
                 location: location || null,
-                recordedById,
+                recordedById: actorUserId,
                 attendees: attendees?.length ? {
                     create: attendees.map(a => ({
                         name: a.name,
@@ -49,14 +51,17 @@ export class ProjectHSEService {
             include: { attendees: true }
         });
     }
-    static async updateSafetyLog(logId: string, data: UpdateHSELogInput) {
-        const { status, correctiveAction, closedById } = data;
+    static async updateSafetyLog(logId: string, data: UpdateHSELogInput, actorUserId: string) {
+        const { status, correctiveAction } = data;
+        if (status === 'CLOSED' && !actorUserId) {
+            throw AppError.unauthorized('Authenticated HSE closer is required');
+        }
         return await prisma.hSESafetyLog.update({
             where: { id: logId },
             data: {
                 status: status ?? undefined,
                 correctiveAction: correctiveAction ?? undefined,
-                closedById: closedById ?? undefined,
+                closedById: status === 'CLOSED' ? actorUserId : undefined,
                 closedAt: status === 'CLOSED' ? new Date() : undefined
             },
             include: { attendees: true }

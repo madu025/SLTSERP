@@ -1,4 +1,3 @@
-import { getAuthenticatedUserId } from '@/lib/request-context';
 import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { serviceOrderCreateSchema, serviceOrderPatchSchema, serviceOrderUpdateSchema } from '@/lib/validations/service-order.schema';
 import { apiHandler } from '@/lib/api-handler';
@@ -11,7 +10,7 @@ import type { z } from 'zod';
 export const dynamic = 'force-dynamic';
 
 // GET service orders with pagination and summary metrics
-export const GET = apiHandler(async (request) => {
+export const GET = apiHandler(async (request, params) => {
     const { searchParams } = new URL(request.url);
     // Normalize "ALL" sentinel to empty string — rtomId is a UUID column and
     // passing the literal "ALL" to Prisma causes a 500 UUID parse error.
@@ -28,7 +27,7 @@ export const GET = apiHandler(async (request) => {
         }
     }
     
-    const params = {
+    const queryParams = {
         rtomId: rawRtomId && rawRtomId !== 'ALL' ? rawRtomId : '',
         filter: searchParams.get('filter') || 'pending',
         search: searchParams.get('search') || undefined,
@@ -48,15 +47,17 @@ export const GET = apiHandler(async (request) => {
 
     // rtomId is optional (allows fetching cross-OPMC completed/invoicable SODs)
 
-    const userId = getAuthenticatedUserId() || 'SYSTEM';
-    const result = await ServiceOrderService.getServiceOrders(userId, params);
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
+    const result = await ServiceOrderService.getServiceOrders(userId, queryParams);
     return result;
 }, { permissions: [RBAC_PERMISSIONS.SOD_READ], rawResponse: true });
 
 // POST - Create manual service order
 export const POST = apiHandler(
-    async (req, _params, body: z.infer<typeof serviceOrderCreateSchema>) => {
-        const userId = getAuthenticatedUserId() || undefined;
+    async (_req, params, body: z.infer<typeof serviceOrderCreateSchema>) => {
+        const userId = params._userId;
+        if (!userId) throw AppError.unauthorized('Authentication required');
 
         // Resolve OPMC from rtomId
         const opmc = await prisma.oPMC.findUnique({
@@ -149,7 +150,8 @@ export const PUT = apiHandler(
             throw AppError.badRequest('Service Order ID required');
         }
         
-        const userId = getAuthenticatedUserId() || undefined;
+        const userId = params._userId;
+        if (!userId) throw AppError.unauthorized('Authentication required');
         const serviceOrder = await ServiceOrderService.updateServiceOrder(id, updateData, userId);
         return serviceOrder;
     },
@@ -164,7 +166,8 @@ export const PATCH = apiHandler(
             throw AppError.badRequest('Service Order ID required');
         }
 
-        const userId = getAuthenticatedUserId() || undefined;
+        const userId = params._userId;
+        if (!userId) throw AppError.unauthorized('Authentication required');
         const serviceOrder = await ServiceOrderService.updateServiceOrder(id, updateData, userId);
         return serviceOrder;
     },

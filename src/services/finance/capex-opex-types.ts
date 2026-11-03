@@ -188,6 +188,7 @@ export interface LedgerListParams {
 
 export interface BudgetListParams {
   opmcId?: string;
+  opmcIds?: string[];
   fiscalYear?: number;
   expenditureType?: ExpenditureType;
   status?: BudgetStatus;

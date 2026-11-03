@@ -11,10 +11,15 @@ const APPOINTMENT_CHECK_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
 
 export const GET = apiHandler(async (request) => {
     const { searchParams } = new URL(request.url);
-    const userId = getAuthenticatedUserId() || searchParams.get('userId');
+    // Notifications are private user data. Never allow a query-string userId
+    // to turn this endpoint into an IDOR/read-as-another-user primitive.
+    const userId = getAuthenticatedUserId();
     if (!userId) throw AppError.unauthorized('Unauthorized');
 
-    const limit = parseInt(searchParams.get('limit') || '50', 10);
+    const parsedLimit = Number(searchParams.get('limit') || '50');
+    const limit = Number.isFinite(parsedLimit)
+        ? Math.min(100, Math.max(1, Math.trunc(parsedLimit)))
+        : 50;
 
     // Throttle appointment reminder checks (at most once every 15 minutes per user)
     const now = Date.now();
@@ -67,7 +72,7 @@ export const PATCH = apiHandler(async (request) => {
     return { success: true };
 });
 
-export const DELETE = apiHandler(async (request) => {
+export const DELETE = apiHandler(async () => {
     const userId = getAuthenticatedUserId();
     if (!userId) throw AppError.unauthorized('Unauthorized');
 

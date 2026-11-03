@@ -5,4 +5,4 @@ export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async () => {
   return await InventoryService.getPublicSiteOffices();
-});
+}, { publicRoute: true });

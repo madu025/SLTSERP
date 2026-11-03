@@ -59,5 +59,6 @@ export const POST = apiHandler(async (req, params, body) => {
 
     return Response.json(result);
 }, {
-    audit: { action: 'DOWNLOAD_SYNC_BOM_INVOICES', entity: 'Invoice' }
+    audit: { action: 'DOWNLOAD_SYNC_BOM_INVOICES', entity: 'Invoice' },
+    publicRoute: true,
 });

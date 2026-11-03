@@ -24,4 +24,4 @@ export const GET = apiHandler(async (req) => {
   }
 
   return await StaffService.findPublicStaffByEmployeeId(employeeNo);
-});
+}, { publicRoute: true });

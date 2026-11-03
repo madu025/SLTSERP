@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { AppError } from '@/lib/error';
 interface CreateInspectionInput {
     title: string;
     category: string;
@@ -19,15 +20,16 @@ export class ProjectInspectionService {
             orderBy: { createdAt: 'desc' }
         });
     }
-    static async createInspection(projectId: string, data: CreateInspectionInput) {
-        const { title, category, checklist, inspectorId } = data;
+    static async createInspection(projectId: string, data: CreateInspectionInput, actorUserId: string) {
+        const { title, category, checklist } = data;
+        if (!actorUserId) throw AppError.unauthorized('Authenticated inspection actor is required');
         return await prisma.projectInspection.create({
             data: {
                 projectId,
                 title,
                 category,
                 checklist,
-                inspectorId,
+                inspectorId: actorUserId,
                 status: 'PENDING'
             }
         });

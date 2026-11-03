@@ -35,3 +35,9 @@ test('invoice generation accepts the approval transaction client', () => {
     assert.match(invoiceGenerator, /const db: InvoiceDbClient = transaction \|\| prisma/);
     assert.match(invoiceGenerator, /return transaction \? create\(transaction\) : prisma\.\$transaction\(create\)/);
 });
+
+test('process gates use canonical capabilities and DB role assignments', () => {
+    assert.doesNotMatch(gateEngine, /user\?\.role|user\.role\s*[!=]=/);
+    assert.match(gateEngine, /deriveEffectivePermissions\(user\)/);
+    assert.match(gateEngine, /RBAC_PERMISSIONS\.INVENTORY_APPROVE/);
+});

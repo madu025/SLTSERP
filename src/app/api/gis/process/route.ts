@@ -11,13 +11,20 @@ import { GISImportService } from '@/services/gis/GISImportService';
 import { logger } from '@/lib/logger';
 import { safe } from '@/utils/safe-await.util';
 import { AppError } from '@/lib/error';
-export const POST = apiHandler(async (request) => {
+import { assertProjectAccess } from '@/lib/project-access';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+export const POST = apiHandler(async (request, params) => {
   logger.info('[GIS-PROCESS] Received GIS processing request');
+  const userId = params._userId;
+  if (!userId) throw AppError.unauthorized('Authentication required');
   const [jsonErr, body] = await safe<Record<string, unknown>>(request.json());
   if (jsonErr || !body) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
-  const { importId } = body as { importId: string };
+  const { importId } = body as { importId?: unknown };
+    if (typeof importId !== 'string' || !importId.trim() || importId.length > 120) {
+      return NextResponse.json({ error: 'A valid importId is required.' }, { status: 400 });
+    }
     if (!importId) {
       return NextResponse.json(
         { error: 'importId is required.' },
@@ -31,6 +38,13 @@ export const POST = apiHandler(async (request) => {
         { error: `Import session ${importId} not found.` },
         { status: 404 }
       );
+    }
+    if (session.projectId) {
+      await assertProjectAccess(session.projectId, userId);
+    } else if (session.createdById !== userId && !params._permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC)) {
+      // Standalone imports are not attached to a project yet, so only their
+      // creator or canonical global admin may start processing them.
+      throw AppError.forbidden('Only the import owner or global administrator may process this GIS session');
     }
     if (session.status === 'COMPLETED') {
       return NextResponse.json(

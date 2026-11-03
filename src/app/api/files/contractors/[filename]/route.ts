@@ -6,6 +6,7 @@ import { readFile } from 'fs/promises';
 import path from 'path';
 import { existsSync } from 'fs';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const GET = apiHandler(async (_req, params) => {
     const { filename } = await params;
@@ -44,5 +45,6 @@ export const GET = apiHandler(async (_req, params) => {
         },
     });
 }, {
-    rawResponse: true
+    rawResponse: true,
+    permissions: [RBAC_PERMISSIONS.CONTRACTOR_READ],
 });

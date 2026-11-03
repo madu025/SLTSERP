@@ -25,7 +25,7 @@ export const GET = apiHandler(async (request) => {
         }
         throw error;
     }
-}, { rawResponse: true });
+}, { rawResponse: true, publicRoute: true });
 
 export const POST = apiHandler(async (_request, _params, body) => {
     const token = body.token as string | undefined;
@@ -48,4 +48,4 @@ export const POST = apiHandler(async (_request, _params, body) => {
         }
         throw error;
     }
-}, { rawResponse: true });
+}, { rawResponse: true, publicRoute: true });

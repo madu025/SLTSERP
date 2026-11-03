@@ -6,7 +6,7 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (_request, params) => {
-    return await ProjectSupervisorService.getAssignments(params.id);
+    return await ProjectSupervisorService.getAssignments(params.id, params._userId);
 }, { permissions: [RBAC_PERMISSIONS.PROJECT_READ], rawResponse: true });
 
 export const POST = apiHandler(async (_request, params, body) => {

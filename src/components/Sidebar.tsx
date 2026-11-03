@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { hasAccess } from '@/config/sidebar-menu';
 import { isContractorRole } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import SyncStatus from './SyncStatus';
 import { ChevronLeft, ChevronRight, LogOut, Bell } from 'lucide-react';
 import { toast } from 'sonner';
@@ -248,7 +249,7 @@ function SidebarContent() {
                     </div>
                 )}
 
-                {mounted && hasAccess(userRole, ['SUPER_ADMIN', 'ADMIN'], !!user, 'SyncStatus', undefined, user?.permissions) && (
+                {mounted && hasAccess(userRole, ['SUPER_ADMIN', 'ADMIN'], !!user, 'SyncStatus', RBAC_PERMISSIONS.ADMIN_RBAC, user?.permissions, '/admin/monitoring') && (
                     <SyncStatus isCollapsed={isCollapsed} />
                 )}
 

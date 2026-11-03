@@ -1,8 +1,9 @@
-import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { BudgetAllocationService } from '@/services/finance/budget-allocation.service';
 import { type ExpenditureType, type BudgetStatus } from '@/services/finance/capex-opex-types';
+import { assertOpmcAccess } from '@/lib/project-record-access';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -24,11 +25,18 @@ const CreateBudgetSchema = z.object({
 
 // ── GET — List budget allocations ─────────────────────────────────────────────
 
-export const GET = apiHandler(async (request) => {
+export const GET = apiHandler(async (request, ctx) => {
   const { searchParams } = new URL(request.url);
+  const requestedOpmcId = searchParams.get('opmcId') ?? undefined;
+  if (requestedOpmcId) await assertOpmcAccess(requestedOpmcId, ctx._userId);
+  const scope = await resolveOpmcScope(ctx._userId);
+  if (scope !== undefined && scope.length === 0) {
+    throw AppError.forbidden('You are not assigned to any OPMC scope');
+  }
 
   const params = {
-    opmcId: searchParams.get('opmcId') ?? undefined,
+    opmcId: requestedOpmcId ?? (scope?.length === 1 ? scope[0] : undefined),
+    opmcIds: scope !== undefined && !requestedOpmcId && scope.length > 1 ? scope : undefined,
     fiscalYear: searchParams.get('fiscalYear') ? Number(searchParams.get('fiscalYear')) : undefined,
     expenditureType: (searchParams.get('expenditureType') as ExpenditureType) ?? undefined,
     status: (searchParams.get('status') as BudgetStatus) ?? undefined,
@@ -41,9 +49,10 @@ export const GET = apiHandler(async (request) => {
 
 // ── POST — Create a new budget allocation ─────────────────────────────────────
 
-export const POST = apiHandler(async (req, _params, body) => {
-  const userId = getAuthenticatedUserId();
+export const POST = apiHandler(async (_req, ctx, body) => {
+  const userId = ctx._userId;
   if (!userId) throw AppError.unauthorized('Authentication required');
+  await assertOpmcAccess(body.opmcId, userId);
 
   const budget = await BudgetAllocationService.createBudget({
     ...body,

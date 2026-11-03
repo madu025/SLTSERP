@@ -88,7 +88,7 @@ export const GET = apiHandler(async (req) => {
     // rawResponse skips the { success, data } envelope, so wrap manually —
     // the telemetry dashboard page expects json.success + json.data.devices.
     return NextResponse.json({ success: true, data: await TelemetryService.getRegisteredDevices() });
-}, { rawResponse: true });
+}, { rawResponse: true, publicRoute: true });
 
 export const POST = apiHandler(async (req, _params, body) => {
     const denied = await guardAgent(req);
@@ -99,4 +99,4 @@ export const POST = apiHandler(async (req, _params, body) => {
     await TelemetryService.ingestTelemetry(data);
 
     return { success: true, timestamp: Date.now() };
-}, { rawResponse: true });
+}, { rawResponse: true, publicRoute: true });

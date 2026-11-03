@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { BankService } from '@/services/finance/bank.service';
 import { z } from 'zod';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,7 @@ const createBranchSchema = z.object({
 export const GET = apiHandler(async (uestreq$3: Request, params: Record<string, string>) => {
     const { bankId } = params;
     return await BankService.getBranches(bankId);
-}, { rawResponse: true });
+}, { rawResponse: true, publicRoute: true });
 
 export const POST = apiHandler(async (uestreq$3: Request, params: Record<string, string>, body: import("@prisma/client").Prisma.JsonObject) => {
     const { bankId } = params;
@@ -20,5 +21,6 @@ export const POST = apiHandler(async (uestreq$3: Request, params: Record<string,
     return await BankService.createBranch(bankId, data);
 }, {
     audit: { action: 'CREATE', entity: 'BankBranch' },
-    rawResponse: true
+    rawResponse: true,
+    permissions: [RBAC_PERMISSIONS.FINANCE_WRITE],
 });

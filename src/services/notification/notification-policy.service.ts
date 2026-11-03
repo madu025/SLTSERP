@@ -1,4 +1,3 @@
-import { Role } from '@prisma/client';
 import { ROLE_GROUPS } from '@/config/roles';
 import { NotificationService, NotificationPriority } from '@/services/notification/notification.service';
 import { EmailService } from './email.service';
@@ -11,14 +10,29 @@ import { getSriLankaDayKey } from '@/lib/timezone';
  * Kept in sync with the in-app notification roles used in notifyLowStock.
  * Declared once here so in-app and email recipients never drift apart again (fixes Issue #8).
  */
-const INVENTORY_ALERT_EMAIL_ROLES: Role[] = [
-    Role.SUPER_ADMIN,
-    Role.ADMIN,
-    Role.CEO,
-    Role.HEAD_OF_OSP,
-    Role.STORES_MANAGER,
-    Role.OSP_MANAGER,
+const INVENTORY_ALERT_EMAIL_ROLES: string[] = [
+    ...ROLE_GROUPS.ADMINS,
+    'STORES_MANAGER',
+    'OSP_MANAGER',
 ];
+
+async function getCanonicalRoleEmails(roles: string[]) {
+    const rolePredicates = [...new Set(roles)].flatMap(role => [
+        { code: role },
+        { code: { endsWith: `_${role}` } },
+    ]);
+    const users = await prisma.user.findMany({
+        where: {
+            status: 'active',
+            OR: [
+                { systemRole: { isActive: true, OR: rolePredicates } },
+                { sectionAssignments: { some: { role: { isActive: true, OR: rolePredicates } } } },
+            ],
+        },
+        select: { email: true },
+    });
+    return users.map(user => user.email).filter(Boolean) as string[];
+}
 
 /**
  * Shared helper: fetch emails for a set of roles and send a single digest email.
@@ -34,7 +48,7 @@ async function sendAlertEmail({
     templateCode,
     templateVars,
 }: {
-    roles: Role[];
+    roles: string[];
     subject: string;
     text: string;
     html: string;
@@ -42,12 +56,7 @@ async function sendAlertEmail({
     templateCode?: string;
     templateVars?: Record<string, string>;
 }): Promise<void> {
-    const admins = await prisma.user.findMany({
-        where: { role: { in: roles } },
-        select: { email: true }
-    });
-
-    const emails = admins.map(a => a.email).filter(Boolean) as string[];
+    const emails = await getCanonicalRoleEmails(roles);
     if (emails.length === 0) return;
 
     // Try DB template first, fallback to hardcoded HTML
@@ -344,12 +353,7 @@ export class NotificationPolicyService {
         if (expiringBatches.length === 0) return [];
 
         // Fix #2: fetch admin emails ONCE outside the loop
-        const adminEmailRecords = await prisma.user.findMany({
-            where: { role: { in: INVENTORY_ALERT_EMAIL_ROLES } },  // ✅ Fix #3: typed enum, no `as any`
-            select: { email: true }
-        });
-        const adminEmails = adminEmailRecords.map(a => a.email).filter(Boolean) as string[];
-
+        const adminEmails = await getCanonicalRoleEmails(INVENTORY_ALERT_EMAIL_ROLES);
         const results = [];
         for (const batch of expiringBatches) {
             for (const bs of batch.storeStocks) {

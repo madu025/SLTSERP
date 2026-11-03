@@ -11,6 +11,8 @@ const CLIENT_ROOTS = [
     path.resolve(process.cwd(), 'src/components'),
     path.resolve(process.cwd(), 'src/hooks'),
 ];
+const API_HANDLER_SOURCE = readFileSync(path.resolve(process.cwd(), 'src/lib/api-handler.ts'), 'utf8');
+const ROLE_GUARD_SOURCE = readFileSync(path.resolve(process.cwd(), 'src/components/RoleGuard.tsx'), 'utf8');
 
 function routeFiles(directory: string): string[] {
     return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -48,6 +50,16 @@ test('browser code does not send spoofable identity headers', () => {
     assert.deepEqual(violations, [], `spoofable client identity headers remain: ${violations.join(', ')}`);
 });
 
+test('API routes do not accept client-supplied audit or approval identities', () => {
+    const forbidden = /(?:body|formData)\s*(?:\.|\.get\(['"])(?:createdById|approvedById|requestedById|recordedById|closedById|inspectorId|identifiedById|reviewerUserId|assignedById|leviedById|paidById|issuedById|loggedById)/;
+    const violations = routeFiles(API_ROOT).flatMap((filePath) => {
+        const source = readFileSync(filePath, 'utf8');
+        return forbidden.test(source) ? [path.relative(process.cwd(), filePath)] : [];
+    });
+
+    assert.deepEqual(violations, [], `client identity fields remain in API routes: ${violations.join(', ')}`);
+});
+
 test('all migrated API namespaces resolve to canonical capabilities', () => {
     assert.equal(resolveRouteCapability('/api/helpdesk/tickets', 'GET'), RBAC_PERMISSIONS.HELPDESK_READ);
     assert.equal(resolveRouteCapability('/api/helpdesk/disposal', 'PUT'), RBAC_PERMISSIONS.HELPDESK_APPROVE);
@@ -66,4 +78,16 @@ test('leaves scoped public and agent-auth routes to their own boundary', () => {
     assert.equal(resolveRouteCapability('/api/contractors/public-register/token', 'POST'), undefined);
     assert.equal(resolveRouteCapability('/api/helpdesk/assets/audits', 'POST'), undefined);
     assert.equal(resolveRouteCapability('/api/helpdesk/agent/telemetry', 'POST'), undefined);
+});
+
+test('API handler has no legacy role fallback and requires an explicit boundary', () => {
+    assert.doesNotMatch(API_HANDLER_SOURCE, /getPrefixGuardRoles|getPrefixReadGuardRoles|options\?\.roles|options\?\.menuPath/);
+    assert.match(API_HANDLER_SOURCE, /publicRoute\?: boolean/);
+    assert.match(API_HANDLER_SOURCE, /Route must declare a canonical permission guard/);
+});
+
+test('RoleGuard never authorizes from allowed role arrays', () => {
+    assert.doesNotMatch(ROLE_GUARD_SOURCE, /hasAccess\(/);
+    assert.match(ROLE_GUARD_SOURCE, /resolvePageCapability/);
+    assert.match(ROLE_GUARD_SOURCE, /user\.permissions/);
 });

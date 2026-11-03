@@ -6,6 +6,7 @@ import { AppError } from '@/lib/error';
 import { StorageService } from '@/services/storage/storage.service';
 import path from 'path';
 import type { NextRequest } from 'next/server';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 function contentTypeFor(key: string): string {
     switch (path.extname(key).toLowerCase()) {
@@ -48,7 +49,7 @@ const storageGetHandler = apiHandler(async (_request, params) => {
             'X-Content-Type-Options': 'nosniff',
         },
     });
-}, { rawResponse: true });
+}, { rawResponse: true, permissions: [RBAC_PERMISSIONS.DASHBOARD_READ] });
 
 // apiHandler's generic route metadata is string-keyed, while Next's catch-all
 // route correctly exposes `key` as string[]. Keep the adapter typed at the

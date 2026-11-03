@@ -46,5 +46,6 @@ export const GET = apiHandler(async (req, _params) => {
         mandatory: true
     };
 }, {
-    rawResponse: true
+    rawResponse: true,
+    publicRoute: true,
 });

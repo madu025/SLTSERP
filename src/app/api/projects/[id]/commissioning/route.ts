@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectCommissioningService } from '@/services/project/project-commissioning.service';
 import { z } from 'zod';
+import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,13 +18,13 @@ const commissionAssetSchema = z.object({
     assetType: z.string().optional(),
     latitude: z.number().optional(),
     longitude: z.number().optional(),
-    createdById: z.string().optional(),
-});
+}).strict();
 
 export const POST = apiHandler(async (_request, params, body) => {
     const { id: projectId } = params;
     const data = commissionAssetSchema.parse(body);
-    const result = await ProjectCommissioningService.commissionAsset(projectId, data);
+    if (!params._userId) throw AppError.unauthorized('Authentication required');
+    const result = await ProjectCommissioningService.commissionAsset(projectId, data, params._userId);
     return Response.json(result, { status: 201 });
 }, {
     audit: { action: 'CREATE', entity: 'ASSET_COMMISSIONING' },

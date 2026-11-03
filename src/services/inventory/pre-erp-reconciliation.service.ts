@@ -16,6 +16,7 @@ import type { PreErpMaterialBalance, MaterialVarianceAdjustment } from '@prisma/
 
 export interface BalanceFilterParams {
   opmcId?: string | null;
+  opmcIds?: string[];
   year?: number;
   month?: string;
   itemId?: string;
@@ -42,7 +43,7 @@ export interface ManualBalanceInput {
   wastageQuantity?: number;
   faultyQuantity?: number;
   unitCostLkr?: number;
-  createdById?: string;
+  createdById: string;
 }
 
 const ITEM_WASTAGE_PCT_MAP: Record<string, number> = {
@@ -69,6 +70,7 @@ export class PreErpReconciliationService {
 
     const where = {
       ...(params.opmcId && { opmcId: params.opmcId }),
+      ...(params.opmcIds && { opmcId: { in: params.opmcIds } }),
       ...(params.year && { year: params.year }),
       ...(params.month && { month: params.month.toUpperCase() }),
       ...(params.itemId && { itemId: params.itemId }),
@@ -148,7 +150,7 @@ export class PreErpReconciliationService {
         totalUsageQuantity: totalUsage,
         closingBalanceQuantity: closingBalance,
         unitCostLkr: round2(input.unitCostLkr ?? 0),
-        createdById: input.createdById ?? 'SYSTEM',
+        createdById: input.createdById,
       },
     });
   }

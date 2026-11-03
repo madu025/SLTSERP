@@ -19,7 +19,6 @@ export interface CreateGISRouteDTO {
     geojsonData?: any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     metadata?: any;
-    createdById?: string | null;
 }
 
 export class GISRouteService {
@@ -49,7 +48,7 @@ export class GISRouteService {
     static async createGISRoute(projectId: UUID, data: CreateGISRouteDTO, userId: string) {
         const {
             name, description, routeLength, poleSpacing, sourceFile,
-            sourceFormat, geojsonData, metadata, createdById
+            sourceFormat, geojsonData, metadata
         } = data;
 
         const calculatedPoles = routeLength && poleSpacing
@@ -68,7 +67,7 @@ export class GISRouteService {
                 sourceFormat: sourceFormat || null,
                 geojsonData: geojsonData || null,
                 metadata: metadata || null,
-                createdById: createdById || null,
+                createdById: userId,
                 status: 'DRAFT'
             },
             include: {
@@ -84,13 +83,12 @@ export class GISRouteService {
         });
 
         // Write audit log
-        const performedById = createdById || userId || 'unknown';
         await GISAuditService.logChange({
             projectId,
             entityType: 'GISRoute',
             entityId: gisRoute.id,
             action: 'ROUTE_CREATED',
-            performedById,
+            performedById: userId,
             routeVersion: gisRoute.version,
             source: 'WEB_PORTAL'
         }).catch((e) => console.error('Audit log failed on route create:', e));
@@ -104,7 +102,7 @@ export class GISRouteService {
     static async generateBOQFromRoute(
         projectId: UUID,
         routeId: UUID,
-        data: { notes?: string | null; createdById?: string | null },
+        data: { notes?: string | null },
         userId: string
     ) {
         // Fetch GIS route with all related elements
@@ -125,7 +123,7 @@ export class GISRouteService {
             throw AppError.notFound('GIS_ROUTE_NOT_FOUND');
         }
 
-        const { notes, createdById } = data;
+        const { notes } = data;
 
         // Auto-calculate quantities
         const poleCount = gisRoute.poles.length;
@@ -320,7 +318,7 @@ export class GISRouteService {
                 status: 'DRAFT',
                 totalEstimated,
                 notes: notes || null,
-                createdById: createdById || userId || null,
+              createdById: userId,
                 items: {
                     create: gisItems
                 }
@@ -1312,7 +1310,7 @@ export class GISRouteService {
                     projectId,
                     status: 'DRAFT',
                     totalEstimated: boq.totalEstimatedCost,
-                    createdById: userId || 'system',
+                    createdById: userId,
                 },
             });
 

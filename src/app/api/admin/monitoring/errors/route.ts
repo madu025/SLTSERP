@@ -1,5 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { SystemMonitoringService } from '@/services/admin/system-monitoring.service';
+import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +29,8 @@ export const GET = apiHandler(async (req) => {
 
 // PATCH /api/admin/monitoring/errors - Bulk resolve all unresolved error logs
 export const PATCH = apiHandler(async (req, params) => {
-    const userId = params._userId || 'system-admin';
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
     return await SystemMonitoringService.resolveAllUnresolved(userId);
 }, {
     audit: { action: 'BULK_RESOLVE_ERROR_LOGS', entity: 'SystemErrorLog' }

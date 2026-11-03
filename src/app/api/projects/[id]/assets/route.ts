@@ -1,12 +1,14 @@
-import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectAssetService } from '@/services/project/project-asset.service';
+import { assertProjectAccess } from '@/lib/project-access';
+import { AppError } from '@/lib/error';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (_request, params) => {
     const { id: projectId } = params;
+    await assertProjectAccess(projectId, params._userId);
     return await ProjectAssetService.getAssets(projectId);
 }, { rawResponse: true });
 
@@ -25,7 +27,9 @@ export const POST = apiHandler(async (request, params, body) => {
     const { id: projectId } = params;
     const data = createAssetSchema.parse(body);
 
-    const userId = getAuthenticatedUserId() || 'system';
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
+    await assertProjectAccess(projectId, userId);
 
     const asset = await ProjectAssetService.createAsset(projectId, {
         assetType: data.assetType,

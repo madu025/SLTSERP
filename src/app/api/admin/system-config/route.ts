@@ -1,4 +1,3 @@
-import { getAuthenticatedUserId } from '@/lib/request-context';
 export const dynamic = 'force-dynamic';
 
 import { SystemConfigService } from '@/services/core/system-config.service';
@@ -10,16 +9,17 @@ const updateConfigSchema = z.object({
     key: z.string().min(1).max(100),
     value: z.union([z.string(), z.number(), z.boolean()]),
     description: z.string().max(500).optional()
-});
+}).strict();
 
 export const GET = apiHandler(async () => {
     return SystemConfigService.getConfigs();
 }, { rawResponse: true });
 
-export const POST = apiHandler(async (request, _params, body) => {
-    const userId = getAuthenticatedUserId();
+export const POST = apiHandler(async (_request, params, body) => {
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
     const { key, value, description } = updateConfigSchema.parse(body);
-    return SystemConfigService.updateConfig(key, String(value), description, userId || 'system');
+    return SystemConfigService.updateConfig(key, String(value), description, userId);
 }, {
     rawResponse: true,
     audit: { action: 'UPDATE', entity: 'SYSTEM_CONFIG' }

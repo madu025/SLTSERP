@@ -9,10 +9,14 @@ import { apiHandler } from '@/lib/api-handler';
 import { GISImportService } from '@/services/gis/GISImportService';
 import { logger } from '@/lib/logger';
 import { AppError } from '@/lib/error';
+import { assertProjectAccess } from '@/lib/project-access';
 import type { GISUploadRequest, GISLayerType } from '@/types/gis';
 import { safe, safeSync } from '@/utils/safe-await.util';
-export const POST = apiHandler(async (request) => {
+export const POST = apiHandler(async (request, params) => {
   logger.info('[GIS-UPLOAD] Received GIS file upload request');
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
+
     const contentType = request.headers.get('content-type') || '';
     let body: GISUploadRequest;
     if (contentType.includes('multipart/form-data')) {
@@ -55,7 +59,9 @@ export const POST = apiHandler(async (request) => {
         projectName: (formData.get('projectName') as string) || undefined,
         region: (formData.get('region') as string) || undefined,
         district: (formData.get('district') as string) || undefined,
-        createdById: (formData.get('createdById') as string) || 'system',
+        // Actor identity is always taken from the validated session. A
+        // multipart field must never be allowed to forge audit ownership.
+        createdById: userId,
         useRegionMultiplier: formData.get('useRegionMultiplier') === 'true',
         isCompletedProject: formData.get('isCompletedProject') === 'true',
         lea: (formData.get('lea') as string) || undefined,
@@ -69,8 +75,14 @@ export const POST = apiHandler(async (request) => {
           { status: 400 }
         );
       }
-      body = jsonBody;
+      const { createdById: _ignoredClientCreatedById, ...clientBody } = jsonBody as GISUploadRequest & {
+        createdById?: string;
+      };
+      // Explicitly discard any client-provided createdById.
+      void _ignoredClientCreatedById;
+      body = { ...clientBody, createdById: userId };
     }
+    if (body.projectId) await assertProjectAccess(body.projectId, userId);
     if (!body.files || body.files.length === 0) {
       return NextResponse.json(
         { error: 'No files provided. At least one GIS file is required.' },

@@ -48,4 +48,4 @@ export const GET = apiHandler(async (req) => {
         duration: `${duration}s`,
         timestamp: new Date().toISOString(),
     }, { status });
-}, { rawResponse: true });
+}, { rawResponse: true, publicRoute: true });

@@ -5,8 +5,15 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { prisma } from '@/lib/prisma';
 import { assertProjectAccess } from '@/lib/project-access';
 import { getAccessibleProjectIds } from '@/lib/project-record-access';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
+
+const releaseRetentionSchema = z.object({
+    retentionId: z.string().trim().min(1).max(100),
+    releaseAmount: z.coerce.number().finite().positive(),
+    remarks: z.string().trim().max(1000).optional().nullable(),
+}).strict();
 
 // GET /api/finance/retention - List all project retentions (rawResponse for compatibility)
 export const GET = apiHandler(async (req, params) => {
@@ -28,26 +35,22 @@ export const GET = apiHandler(async (req, params) => {
 
 // POST /api/finance/retention - Release an amount from a project's retention balance
 export const POST = apiHandler(async (_req, params, body) => {
-    const retentionId = body.retentionId as string | undefined;
-    const releaseAmount = body.releaseAmount as string | number | undefined;
-    const remarks = body.remarks as string | undefined;
-    const userId = params._userId ?? undefined;
-
-    if (!retentionId || releaseAmount === undefined) {
-        throw AppError.badRequest('retentionId and releaseAmount are required fields');
-    }
+    const { retentionId, releaseAmount, remarks } = body;
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
 
     const retention = await prisma.projectRetention.findUnique({ where: { id: retentionId }, select: { projectId: true } });
     if (!retention) throw AppError.notFound('Retention not found');
-    await assertProjectAccess(retention.projectId, params._userId);
+    await assertProjectAccess(retention.projectId, userId);
 
     return await RetentionService.releaseRetention({
         retentionId,
-        releaseAmount: Number(releaseAmount),
+        releaseAmount,
         approvedById: userId,
-        remarks
+        remarks: remarks ?? undefined
     });
 }, {
+    schema: releaseRetentionSchema,
     permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE, RBAC_PERMISSIONS.FINANCE_APPROVE],
     audit: { action: 'RELEASE', entity: 'PROJECT_RETENTION' },
     rawResponse: true

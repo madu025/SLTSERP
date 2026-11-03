@@ -127,7 +127,7 @@ export default function MobileNav() {
                         Menu
                     </div>
 
-                    {mounted && SIDEBAR_MENU.filter(item => hasAccess(userRole, item.allowedRoles, !!user, item.title, item.permissionId, user?.permissions)).map((item) => {
+                    {mounted && SIDEBAR_MENU.filter(item => hasAccess(userRole, item.allowedRoles, !!user, item.title, item.permissionId, user?.permissions, item.path)).map((item) => {
                         const Icon = item.icon;
                         const hasSubmenu = Array.isArray(item.submenu) && item.submenu.length > 0;
                         const isExpanded = expandedMenus.includes(item.title);
@@ -155,7 +155,7 @@ export default function MobileNav() {
 
                                     {isExpanded && (
                                         <div className="pl-4 space-y-1">
-                                            {item.submenu!.filter(sub => hasAccess(userRole, sub.allowedRoles, !!user, sub.title, sub.permissionId || item.permissionId, user?.permissions)).map((sub) => {
+                                            {item.submenu!.filter(sub => hasAccess(userRole, sub.allowedRoles, !!user, sub.title, sub.permissionId || item.permissionId, user?.permissions, sub.path)).map((sub) => {
                                                 const isSubActive = pathname === sub.path;
                                                 const SubIcon = sub.icon;
                                                 return (

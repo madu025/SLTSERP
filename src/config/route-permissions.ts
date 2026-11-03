@@ -1,18 +1,12 @@
 /**
- * Route-level RBAC enforcement for middleware.
- * DYNAMICALLY extracts path -> allowedRoles from the SIDEBAR_MENU config.
- * No separate hardcoded mapping -- the sidebar IS the single source of truth.
- *
- * Paths not present in the sidebar menu remain legacy-authenticated paths until
- * their module is migrated to a canonical capability.
+ * Route-level RBAC enforcement for middleware. Sidebar metadata may provide a
+ * direct canonical permission, while page capability rules cover unmigrated
+ * menu entries. Legacy role arrays are never an allow decision.
  */
 
 import { SIDEBAR_MENU, MenuItem } from './sidebar-menu';
-
-interface RoutePermission {
-    prefix: string;
-    allowedRoles: string[];
-}
+import { resolveLegacyMenuPermission, resolvePageCapability } from './page-capabilities';
+import { isCanonicalPermission } from './rbac-permissions';
 
 /**
  * Recursively extract path -> allowedRoles pairs from the FULL menu tree
@@ -20,35 +14,6 @@ interface RoutePermission {
  * submenu restrictions are preserved — longest-prefix match at lookup time
  * picks the most specific rule.
  */
-function extractRoutePermissions(items: MenuItem[]): Map<string, string[]> {
-    const map = new Map<string, string[]>();
-
-    const add = (path: string, roles: string[]) => {
-        if (!path || path === '/') return;
-        const existing = map.get(path);
-        // MERGE roles when multiple menu items declare the same path
-        map.set(path, existing ? [...new Set([...existing, ...roles])] : [...roles]);
-    };
-
-    const walk = (list: MenuItem[]) => {
-        for (const item of list) {
-            add(item.path, item.allowedRoles);
-            if (item.submenu) walk(item.submenu);
-        }
-    };
-    walk(items);
-
-    return map;
-}
-
-// Build the permission map once at module load (singleton)
-const permissionMap = extractRoutePermissions(SIDEBAR_MENU);
-
-// Pre-sorted by path length descending so the first prefix hit is the most specific
-const sortedPrefixes: RoutePermission[] = [...permissionMap.entries()]
-    .map(([prefix, allowedRoles]) => ({ prefix, allowedRoles }))
-    .sort((a, b) => b.prefix.length - a.prefix.length);
-
 /**
  * Resolve the allowedRoles of an EXACT menu path (including submenu items).
  * Lets server actions derive their authorization from the same sidebar config
@@ -70,70 +35,37 @@ export function getMenuAllowedRoles(path: string): string[] | null {
 }
 
 /**
- * Check if a given role has access to a specific pathname.
+ * Check if a given session has a canonical capability for a specific pathname.
  * Returns true if access is allowed, false otherwise.
  * Paths not in the sidebar menu are allowed for any authenticated user.
  *
  * @param pathname - The page path to check
- * @param userRole - The user's primary role
+ * @param _userRole - Retained for session compatibility; never grants access.
  * @param userPermissions - Effective canonical/legacy permissions from DB.
  *   Canonical permission IDs are authoritative for migrated menu entries.
  */
-export function hasRouteAccess(pathname: string, userRole: string, userPermissions?: string[]): boolean {
-    // Super Admin & Admin always have access to everything. Mirrors the
-    // hasAccess sidebar bypass so visible items are never blocked on click.
-    if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') return true;
-
+export function hasRouteAccess(pathname: string, _userRole: string, userPermissions?: string[]): boolean {
     const normalized = pathname.split('?')[0].replace(/\/+$/, '') || '/';
-
-    // LONGEST-prefix match over the full menu path map so submenu-level
-    // restrictions win over their parent section's broader rule
-    const rule = sortedPrefixes.find(
-        (p) => normalized === p.prefix || normalized.startsWith(p.prefix + '/')
-    );
-
-    // No permission rule found -> allow any authenticated user
-    if (!rule) return true;
-
     const menuPermission = getMenuPermissionForPath(normalized);
-
-    // Empty allowedRoles is intentional for DB-driven capability entries.
-    // It denies access unless the canonical permission is present.
-    if (rule.allowedRoles.length === 0) {
-        return !!menuPermission && !!userPermissions?.includes(menuPermission);
-    }
-
-    // 'ALL' wildcard = every authenticated role
-    if (rule.allowedRoles.includes('ALL')) return true;
-
-    // Role-based check (hardcoded default)
-    if (rule.allowedRoles.includes(userRole)) return true;
-
-    // Dynamic permission check (admin-configured via /admin/roles).
-    // Find the permissionId for this route by matching the most specific
-    // menu item's permissionId. If the user has that permission, grant access.
-    if (userPermissions && userPermissions.length > 0) {
-        if (menuPermission && userPermissions.includes(menuPermission)) return true;
-    }
-
-    return false;
+    const canonicalPermission = menuPermission && isCanonicalPermission(menuPermission)
+        ? menuPermission
+        : resolvePageCapability(normalized) ?? menuPermission;
+    return !!canonicalPermission && !!userPermissions?.includes(canonicalPermission);
 }
 
 /**
  * Resolve the permissionId for a given path by finding the most specific
  * menu item that matches. Returns undefined if no permissionId is found.
  */
-function getMenuPermissionForPath(pathname: string): string | undefined {
+export function getMenuPermissionForPath(pathname: string): string | undefined {
     const findPermissionId = (
         items: import('./sidebar-menu').MenuItem[],
         targetPath: string,
-        inheritedPermission?: string
     ): string | undefined => {
         for (const item of items) {
-            const permission = item.permissionId || inheritedPermission;
-            if (item.path === targetPath) return permission;
+            if (item.path === targetPath) return resolveLegacyMenuPermission(item.permissionId);
             if (item.submenu) {
-                const found = findPermissionId(item.submenu, targetPath, permission);
+                const found = findPermissionId(item.submenu, targetPath);
                 if (found) return found;
             }
         }

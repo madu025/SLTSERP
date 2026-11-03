@@ -5,8 +5,23 @@ import { AppError } from '@/lib/error';
 import { z } from 'zod';
 
 const attendeesSchema = z.array(z.object({
-    name: z.string(), designation: z.string().optional(), signatureUrl: z.string().optional()
-})).optional();
+    name: z.string().trim().min(1).max(200),
+    designation: z.string().trim().max(200).optional(),
+    signatureUrl: z.string().url().max(2048).optional()
+}).strict()).max(500).optional();
+const createHseSchema = z.object({
+    logType: z.string().trim().min(1).max(50),
+    title: z.string().trim().min(1).max(300),
+    description: z.string().max(5000).optional(),
+    severity: z.string().trim().max(32).optional(),
+    location: z.string().trim().max(300).optional(),
+    attendees: attendeesSchema,
+}).strict();
+const updateHseSchema = z.object({
+    logId: z.string().min(1),
+    status: z.string().trim().max(32).optional(),
+    correctiveAction: z.string().max(5000).optional(),
+}).strict();
 
 export const dynamic = 'force-dynamic';
 
@@ -18,29 +33,32 @@ export const GET = apiHandler(async (_request, params) => {
 
 export const POST = apiHandler(async (_request, params, body) => {
     const { id: projectId } = params;
-    const { logType, title, recordedById } = body || {};
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
+    const { logType, title } = body;
 
-    if (!logType || !title || !recordedById) {
-        throw AppError.badRequest('Missing required fields: logType, title, recordedById');
-    }
+    const { description, severity, location, attendees } = body;
 
     const safetyLog = await ProjectHSEService.createSafetyLog(projectId, {
-        logType: logType as string,
-        title: title as string,
-        description: body.description as string | undefined,
-        severity: body.severity as string | undefined,
-        location: body.location as string | undefined,
-        recordedById: recordedById as string,
-        attendees: attendeesSchema.parse(body.attendees)
-    });
+        logType,
+        title,
+        description,
+        severity,
+        location,
+        recordedById: userId,
+        attendees,
+    }, userId);
     return Response.json(safetyLog, { status: 201 });
 }, {
+    schema: createHseSchema,
     audit: { action: 'LOG_HSE_ENTRY', entity: 'PROJECT_HSE' },
     rawResponse: true
 });
 
 export const PATCH = apiHandler(async (_request, params, body) => {
-    const { logId, status, correctiveAction, closedById } = body || {};
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
+    const { logId, status, correctiveAction } = body;
 
     if (!logId) {
         throw AppError.badRequest('Log ID is required');
@@ -48,11 +66,12 @@ export const PATCH = apiHandler(async (_request, params, body) => {
 
     await assertRecordInProject('hseLog', logId as string, params.id);
     return await ProjectHSEService.updateSafetyLog(logId as string, { 
-        status: status as string | undefined, 
-        correctiveAction: correctiveAction as string | undefined, 
-        closedById: closedById as string | undefined 
-    });
+        status,
+        correctiveAction,
+        closedById: status === 'CLOSED' ? userId : undefined,
+    }, userId);
 }, {
+    schema: updateHseSchema,
     audit: { action: 'UPDATE_HSE_LOG', entity: 'PROJECT_HSE' },
     rawResponse: true
 });

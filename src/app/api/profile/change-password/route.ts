@@ -3,6 +3,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { UserService } from '@/services/hr/user.service';
 import { AppError } from '@/lib/error';
 import { cookies } from 'next/headers';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,5 +38,6 @@ export const POST = apiHandler(async (req, _params, body) => {
     };
 }, {
     audit: { action: 'UPDATE_PASSWORD', entity: 'USER_PROFILE' },
-    rawResponse: true
+    rawResponse: true,
+    permissions: [RBAC_PERMISSIONS.DASHBOARD_READ],
 });

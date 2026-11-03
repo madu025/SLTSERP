@@ -10,7 +10,7 @@ interface CreateAssetInput {
     latitude?: number;
     longitude?: number;
     status?: string;
-    createdById?: string;
+    createdById: string;
 }
 
 export class ProjectAssetService {
@@ -40,7 +40,7 @@ export class ProjectAssetService {
                 latitude: latitude || null,
                 longitude: longitude || null,
                 status: status || 'ACTIVE',
-                createdById: createdById || 'system'
+                createdById
             },
             include: {
                 cables: true,

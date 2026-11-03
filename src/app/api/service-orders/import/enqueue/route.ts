@@ -1,12 +1,12 @@
-import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { sodImportQueue, addJob } from '@/lib/queue';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
-export const POST = apiHandler(async (request, _params, body) => {
-    const userId = getAuthenticatedUserId() || 'SYSTEM';
+export const POST = apiHandler(async (_request, params, body) => {
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
     const { rows, skipMaterials = false } = body || {};
 
     if (!rows || !Array.isArray(rows) || rows.length === 0) {

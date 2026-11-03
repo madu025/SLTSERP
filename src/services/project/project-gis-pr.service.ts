@@ -2,7 +2,6 @@ import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 
 interface GenerateGISPRInput {
-    requestedById: string;
     priority?: string;
     requiredDate?: string;
     deliveryLocation?: string;
@@ -10,8 +9,9 @@ interface GenerateGISPRInput {
 }
 
 export class ProjectGISPRService {
-    static async generatePR(projectId: string, routeId: string, data: GenerateGISPRInput) {
-        const { requestedById, priority, requiredDate, deliveryLocation, remarks } = data;
+    static async generatePR(projectId: string, routeId: string, data: GenerateGISPRInput, actorUserId: string) {
+        const { priority, requiredDate, deliveryLocation, remarks } = data;
+        if (!actorUserId) throw AppError.unauthorized('Authenticated requisition actor is required');
 
         const gisRoute = await prisma.gISRoute.findFirst({
             where: { id: routeId, projectId },
@@ -52,7 +52,7 @@ export class ProjectGISPRService {
                 priority: priority || "MEDIUM",
                 requiredDate: requiredDate ? new Date(requiredDate) : null,
                 deliveryLocation: deliveryLocation || null,
-                requestedById,
+                requestedById: actorUserId,
                 estimatedTotal,
                 remarks: remarks ||
                     `Auto-generated from GIS route "${gisRoute.name}" (${routeId}). ${boqItems.length} items to procure.`,

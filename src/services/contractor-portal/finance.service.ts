@@ -6,11 +6,13 @@ export class ContractorFinanceService {
         const currentUser = userId
             ? await prisma.user.findUnique({
                 where: { id: userId },
-                select: { contractorId: true, role: true }
+                select: { contractorId: true }
             })
             : null;
 
-        const isContractorUser = currentUser?.role?.startsWith('CONTRACTOR_') === true;
+        // Contractor identity is the relational contractorId, not the legacy
+        // User.role label. A role string must never widen or change portal scope.
+        const isContractorUser = Boolean(currentUser?.contractorId);
         if (isContractorUser) {
             if (contractorId && contractorId !== currentUser?.contractorId) {
                 throw AppError.forbidden('Contractor finance access is limited to the signed-in contractor');

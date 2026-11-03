@@ -4,6 +4,8 @@ import { LedgerService } from '../finance/ledger.service';
 import { AuditLedgerService } from './audit-ledger.service';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { Prisma } from '@prisma/client';
+import { getUserEffectivePermissions } from '@/lib/user-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export interface CreateCycleCountInput {
     storeId: string;
@@ -199,12 +201,16 @@ export class CycleCountService {
         // SUPER_ADMIN bypass follows the stock-request precedent.
         const approver = await prisma.user.findUnique({
             where: { id: approvedById },
-            select: { role: true }
+            select: { id: true }
         });
         if (!approver) {
             throw AppError.unauthorized('USER_NOT_FOUND');
         }
-        if (approver.role !== 'SUPER_ADMIN' && approver.role !== 'ADMIN' && header.countedById === approvedById) {
+        const permissions = await getUserEffectivePermissions(approvedById);
+        if (!permissions.includes(RBAC_PERMISSIONS.INVENTORY_APPROVE)) {
+            throw AppError.forbidden(`INVENTORY_ACTION_PERMISSION_DENIED: ${RBAC_PERMISSIONS.INVENTORY_APPROVE}`);
+        }
+        if (!permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC) && header.countedById === approvedById) {
             throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: The cycle counter cannot approve their own count.');
         }
 

@@ -2,6 +2,24 @@ import { primaryClient as prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { ProjectAIService } from '../project/project-ai.service';
 
+export type NexusOpmcScope = readonly string[] | undefined;
+
+function projectScope(opmcScope: NexusOpmcScope): Record<string, unknown> {
+  return opmcScope === undefined ? {} : { opmcId: { in: [...opmcScope] } };
+}
+
+function projectRelationScope(opmcScope: NexusOpmcScope): Record<string, unknown> {
+  return opmcScope === undefined ? {} : { project: { opmcId: { in: [...opmcScope] } } };
+}
+
+function storeScope(opmcScope: NexusOpmcScope): Record<string, unknown> {
+  return opmcScope === undefined ? {} : { opmcs: { some: { id: { in: [...opmcScope] } } } };
+}
+
+function serviceOrderRelationScope(opmcScope: NexusOpmcScope): Record<string, unknown> {
+  return opmcScope === undefined ? {} : { opmcId: { in: [...opmcScope] } };
+}
+
 export class NexusContextService {
   /**
    * Generates a unified, multi-module context object for the Gemini model prompt.
@@ -133,13 +151,13 @@ export class NexusContextService {
 
   // --- MODULAR INTENT-DRIVEN QUERY FUNCTIONS ---
 
-  static async getFinanceContext() {
+  static async getFinanceContext(opmcScope: NexusOpmcScope = undefined) {
     const [outstandingInvoices, pendingPVs, releasableInvoices, outstandingInvoicesList] = await Promise.all([
       prisma.invoice.aggregate({
         _sum: { totalAmount: true },
-        where: { status: { notIn: ['PAID', 'CANCELLED', 'REJECTED'] } }
+        where: { status: { notIn: ['PAID', 'CANCELLED', 'REJECTED'] }, ...projectRelationScope(opmcScope) }
       }),
-      prisma.paymentVoucher.count({ where: { status: 'PENDING_APPROVAL' } }),
+      prisma.paymentVoucher.count({ where: { status: 'PENDING_APPROVAL', ...projectRelationScope(opmcScope) } }),
       prisma.invoice.findMany({
         where: {
           statusB: 'HOLD',
@@ -147,7 +165,8 @@ export class NexusContextService {
             every: {
               hoPatStatus: 'PAT_PASSED'
             }
-          }
+          },
+          ...projectRelationScope(opmcScope)
         },
         select: {
           id: true,
@@ -156,7 +175,7 @@ export class NexusContextService {
         }
       }),
       prisma.invoice.findMany({
-        where: { status: { notIn: ['PAID', 'CANCELLED', 'REJECTED'] } },
+        where: { status: { notIn: ['PAID', 'CANCELLED', 'REJECTED'] }, ...projectRelationScope(opmcScope) },
         select: { invoiceNumber: true, totalAmount: true, status: true },
         take: 10,
         orderBy: { createdAt: 'desc' }
@@ -179,15 +198,15 @@ export class NexusContextService {
     };
   }
 
-  static async getProjectsContext() {
+  static async getProjectsContext(opmcScope: NexusOpmcScope = undefined) {
     const today = new Date();
     const [activeProjectsCount, overdueTasksCount, activeProjects] = await Promise.all([
-      prisma.project.count({ where: { status: 'IN_PROGRESS' } }),
+      prisma.project.count({ where: { status: 'IN_PROGRESS', ...projectScope(opmcScope) } }),
       prisma.projectTask.count({
-        where: { status: { in: ['PENDING', 'IN_PROGRESS'] }, plannedEndDate: { lt: today } }
+        where: { status: { in: ['PENDING', 'IN_PROGRESS'] }, plannedEndDate: { lt: today }, ...projectRelationScope(opmcScope) }
       }),
       prisma.project.findMany({
-        where: { status: 'IN_PROGRESS' },
+        where: { status: 'IN_PROGRESS', ...projectScope(opmcScope) },
         select: { id: true, name: true, projectCode: true, progress: true },
         take: 10
       })
@@ -214,9 +233,9 @@ export class NexusContextService {
     };
   }
 
-  static async getInventoryLowStockContext() {
+  static async getInventoryLowStockContext(opmcScope: NexusOpmcScope = undefined) {
     const lowStockItems = await prisma.inventoryStock.findMany({
-      where: { quantity: { lte: 10 } }, // Alternatively, use minLevel checks if available
+      where: { quantity: { lte: 10 }, store: storeScope(opmcScope) }, // Alternatively, use minLevel checks if available
       include: { item: true, store: true },
       take: 20
     });
@@ -233,10 +252,10 @@ export class NexusContextService {
     };
   }
 
-  static async getContractorsContext() {
+  static async getContractorsContext(opmcScope: NexusOpmcScope = undefined) {
     const [contractorsCount, contractors] = await Promise.all([
-      prisma.contractor.count(),
-      prisma.contractor.findMany({ select: { id: true, name: true, type: true }, take: 20, orderBy: { name: 'asc' } })
+      prisma.contractor.count({ where: opmcScope === undefined ? undefined : { opmcId: { in: [...opmcScope] } } }),
+      prisma.contractor.findMany({ where: opmcScope === undefined ? undefined : { opmcId: { in: [...opmcScope] } }, select: { id: true, name: true, type: true }, take: 20, orderBy: { name: 'asc' } })
     ]);
     return {
       contractorsCount,
@@ -245,10 +264,11 @@ export class NexusContextService {
     };
   }
 
-  static async getStoresContext() {
+  static async getStoresContext(opmcScope: NexusOpmcScope = undefined) {
     const [storesCount, stores] = await Promise.all([
-      prisma.inventoryStore.count(),
+      prisma.inventoryStore.count({ where: storeScope(opmcScope) }),
       prisma.inventoryStore.findMany({ 
+        where: storeScope(opmcScope),
         select: { name: true, type: true, location: true } 
       })
     ]);
@@ -270,17 +290,18 @@ export class NexusContextService {
     };
   }
 
-  static async getProcurementContext() {
+  static async getProcurementContext(opmcScope: NexusOpmcScope = undefined) {
     const [pendingPRs, pendingPOs, pendingGRNs, completedGRNs] = await Promise.all([
-      prisma.projectRequisition.count({ where: { status: 'DRAFT' } }),
-      prisma.projectPurchaseOrder.count({ where: { status: 'PENDING_APPROVAL' } }),
+      prisma.projectRequisition.count({ where: { status: 'DRAFT', ...projectRelationScope(opmcScope) } }),
+      prisma.projectPurchaseOrder.count({ where: { status: 'PENDING_APPROVAL', ...projectRelationScope(opmcScope) } }),
       prisma.stockRequest.findMany({
-        where: { workflowStage: 'GRN_PENDING' },
+        where: { workflowStage: 'GRN_PENDING', ...(opmcScope === undefined ? {} : { toStore: storeScope(opmcScope) }) },
         select: { requestNr: true, status: true, purpose: true, sourceType: true, createdAt: true },
         take: 10,
         orderBy: { createdAt: 'desc' }
       }),
       prisma.gRN.findMany({
+        where: { ...(opmcScope === undefined ? {} : { store: storeScope(opmcScope) }) },
         select: { grnNumber: true, sourceType: true, supplier: true, createdAt: true, purchaseOrder: { select: { vendor: true } } },
         take: 10,
         orderBy: { createdAt: 'desc' }
@@ -326,15 +347,21 @@ export class NexusContextService {
     };
   }
 
-  static async getBOMInvoicesContext() {
+  static async getBOMInvoicesContext(opmcScope: NexusOpmcScope = undefined) {
+    const scopedInvoice = opmcScope === undefined ? {} : {
+      OR: [
+        { project: { opmcId: { in: [...opmcScope] } } },
+        { sods: { some: { opmcId: { in: [...opmcScope] } } } },
+      ],
+    };
     const [bomInvoicesCount, bomRevenue, recentBOMInvoices, syncedSODsCount, rtomMismatches] = await Promise.all([
-      prisma.invoice.count({ where: { bomNumber: { not: null } } }),
+      prisma.invoice.count({ where: { bomNumber: { not: null }, ...scopedInvoice } }),
       prisma.invoice.aggregate({
         _sum: { totalAmount: true },
-        where: { bomNumber: { not: null } }
+        where: { bomNumber: { not: null }, ...scopedInvoice }
       }),
       prisma.invoice.findMany({
-        where: { bomNumber: { not: null } },
+        where: { bomNumber: { not: null }, ...scopedInvoice },
         select: {
           id: true,
           invoiceNumber: true,
@@ -349,9 +376,9 @@ export class NexusContextService {
         take: 5
       }),
       prisma.serviceOrder.count({
-        where: { invoice: { bomNumber: { not: null } } }
+        where: { invoice: { bomNumber: { not: null } }, ...serviceOrderRelationScope(opmcScope) }
       }),
-      this.getRTOMMismatchesContext()
+      this.getRTOMMismatchesContext(opmcScope)
     ]);
 
     return {
@@ -363,10 +390,11 @@ export class NexusContextService {
     };
   }
 
-  static async getRTOMMismatchesContext() {
+  static async getRTOMMismatchesContext(opmcScope: NexusOpmcScope = undefined) {
     const sods = await prisma.serviceOrder.findMany({
         where: {
-            invoice: { bomNumber: { not: null } }
+            invoice: { bomNumber: { not: null } },
+            ...serviceOrderRelationScope(opmcScope)
         },
         select: {
             rtom: true,
@@ -490,13 +518,16 @@ export class NexusContextService {
     };
   }
 
-  static async getServiceOrderProgressContext(opmcCode?: string) {
+  static async getServiceOrderProgressContext(opmcCode?: string, opmcScope: NexusOpmcScope = undefined) {
     const today = new Date();
     today.setHours(0,0,0,0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     const whereClause: Record<string, unknown> = {};
+    if (opmcScope !== undefined) {
+        whereClause.id = { in: [...opmcScope] };
+    }
     if (opmcCode && opmcCode.trim() !== '') {
         whereClause.OR = [
             { rtom: { contains: opmcCode, mode: 'insensitive' } },
@@ -541,8 +572,11 @@ export class NexusContextService {
   /**
    * Retrieves Job Costing, Revenue, and Profitability context logically derived across multiple tables.
    */
-  static async getJobCostingContext(args?: { rtom?: string, monthYYYYMM?: string, status?: string }) {
+  static async getJobCostingContext(args?: { rtom?: string, monthYYYYMM?: string, status?: string }, opmcScope: NexusOpmcScope = undefined) {
     const filters: Prisma.ServiceOrderWhereInput = {};
+    if (opmcScope !== undefined) {
+        filters.opmcId = { in: [...opmcScope] };
+    }
     if (args?.rtom) {
         filters.rtom = { equals: args.rtom, mode: 'insensitive' };
     }

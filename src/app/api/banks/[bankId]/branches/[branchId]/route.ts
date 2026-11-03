@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { BankService } from '@/services/finance/bank.service';
 import { z } from 'zod';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +16,8 @@ export const PUT = apiHandler(async (uestreq$3: Request, params: Record<string, 
     return await BankService.updateBranch(bankId, branchId, data);
 }, {
     audit: { action: 'UPDATE', entity: 'BankBranch' },
-    rawResponse: true
+    rawResponse: true,
+    permissions: [RBAC_PERMISSIONS.FINANCE_WRITE],
 });
 
 export const DELETE = apiHandler(async (uestreq$3: Request, params: Record<string, string>) => {
@@ -24,5 +26,6 @@ export const DELETE = apiHandler(async (uestreq$3: Request, params: Record<strin
     return { message: "Branch deleted successfully" };
 }, {
     audit: { action: 'DELETE', entity: 'BankBranch' },
-    rawResponse: true
+    rawResponse: true,
+    permissions: [RBAC_PERMISSIONS.FINANCE_WRITE],
 });

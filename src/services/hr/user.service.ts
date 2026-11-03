@@ -9,6 +9,8 @@ import { safe, safeSync } from '@/utils/safe-await.util';
 import { requireEnv } from '@/lib/env';
 import { assertDatabaseRole } from '@/lib/role-validation';
 import { deriveEffectivePermissions } from '@/lib/effective-permissions';
+import { getUserEffectivePermissions } from '@/lib/user-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 /** Fail-closed: JWT signing must never run on a hardcoded default secret */
 function getJwtSecret(): string {
@@ -216,11 +218,11 @@ export class UserService {
         // SystemRole.name; authorization uses the DB Role enum capability.
         assertDatabaseRole(role);
 
-        // Privilege escalation guard: only an existing SUPER_ADMIN may grant the
-        // SUPER_ADMIN role (the /api/users guard also allows CEO/HEAD_OF_OSP).
+        // Privilege escalation guard: only the canonical global-super capability
+        // may grant the SUPER_ADMIN identity. User.role is compatibility data.
         if (role === 'SUPER_ADMIN') {
-            const caller = await prisma.user.findUnique({ where: { id: currentUserId }, select: { role: true } });
-            if (caller?.role !== 'SUPER_ADMIN') {
+            const callerPermissions = await getUserEffectivePermissions(currentUserId);
+            if (!callerPermissions.includes(RBAC_PERMISSIONS.ADMIN_SUPER)) {
                 throw AppError.forbidden('CANNOT_ASSIGN_SUPER_ADMIN');
             }
         }
@@ -333,7 +335,7 @@ export class UserService {
 
         // Log creation and Notify
         await SystemService.logEvent({
-            userId: currentUserId || 'system',
+            userId: currentUserId,
             action: 'USER_CREATE',
             entity: 'User',
             entityId: result.id as string,
@@ -361,17 +363,26 @@ export class UserService {
         if (!existingUser) throw AppError.notFound('USER_NOT_FOUND');
 
         // Privilege escalation guards (fail-closed when caller can't be resolved)
-        const caller = await prisma.user.findUnique({ where: { id: currentUserId }, select: { role: true } });
-        const callerRole = caller?.role ?? null;
+        const callerPermissions = await getUserEffectivePermissions(currentUserId);
+        const canManageRbac = callerPermissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC);
+        const canManageSuperAdmin = callerPermissions.includes(RBAC_PERMISSIONS.ADMIN_SUPER);
+        const targetPermissions = await getUserEffectivePermissions(existingUser.id);
+        const targetHasAdminCapability = targetPermissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC);
+        const targetHasSuperCapability = targetPermissions.includes(RBAC_PERMISSIONS.ADMIN_SUPER);
 
-        if (existingUser.role === 'SUPER_ADMIN' && callerRole !== 'SUPER_ADMIN') {
+        // Target protection is capability-based. User.role is retained as a
+        // compatibility/display field, but must not decide who is protected.
+        if (targetHasAdminCapability && !canManageRbac) {
             throw AppError.forbidden('CANNOT_MODIFY_SUPER_ADMIN');
         }
-        if (role === 'SUPER_ADMIN' && existingUser.role !== 'SUPER_ADMIN' && callerRole !== 'SUPER_ADMIN') {
+        if (targetHasSuperCapability && !canManageSuperAdmin) {
+            throw AppError.forbidden('CANNOT_MODIFY_SUPER_ADMIN');
+        }
+        if (role === 'SUPER_ADMIN' && !canManageSuperAdmin) {
             throw AppError.forbidden('CANNOT_ASSIGN_SUPER_ADMIN');
         }
 
-        if (existingUser.role === 'SUPER_ADMIN' && role !== 'SUPER_ADMIN') {
+        if (targetHasSuperCapability && role !== 'SUPER_ADMIN') {
             throw AppError.forbidden('CANNOT_DEMOTE_SUPER_ADMIN');
         }
 
@@ -492,7 +503,7 @@ export class UserService {
         delete userWithoutPassword.password;
 
         await SystemService.logEvent({
-            userId: currentUserId || 'system',
+            userId: currentUserId,
             action: 'USER_UPDATE',
             entity: 'User',
             entityId: result.id as string,
@@ -509,8 +520,13 @@ export class UserService {
         return userWithoutPassword;
     }
 
-    static async deleteUser(id: string, currentUserId?: string) {
-        if (currentUserId && currentUserId === id) {
+    static async deleteUser(id: string, currentUserId: string) {
+        const callerPermissions = await getUserEffectivePermissions(currentUserId);
+        if (!callerPermissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC)) {
+            throw AppError.forbidden('Admin RBAC capability is required');
+        }
+
+        if (currentUserId === id) {
             throw AppError.badRequest('CANNOT_DELETE_OWN_ACCOUNT');
         }
 
@@ -527,7 +543,8 @@ export class UserService {
         });
         if (!user) throw AppError.notFound('USER_NOT_FOUND');
 
-        if (user.role === 'SUPER_ADMIN') {
+        const targetPermissions = await getUserEffectivePermissions(user.id);
+        if (targetPermissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC)) {
             throw AppError.forbidden('CANNOT_DELETE_SUPER_ADMIN');
         }
 
@@ -562,7 +579,7 @@ export class UserService {
 
         // 4. Log the audit event to the AuditLog table for administrative compliance
         await SystemService.logEvent({
-            userId: currentUserId || 'system',
+            userId: currentUserId,
             action: 'USER_DELETE',
             entity: 'User',
             entityId: id,

@@ -15,7 +15,7 @@ export interface ProposePenaltyInput {
   referenceId?: string | null;
   referenceDesc?: string | null;
   remarks?: string | null;
-  leviedById?: string | null;
+  leviedById: string;
 }
 
 export class LDPenaltyService {
@@ -62,7 +62,7 @@ export class LDPenaltyService {
         waivedAmount: 0,
         netAmount: data.amount,
         status: 'PROPOSED',
-        leviedById: data.leviedById || 'system',
+        leviedById: data.leviedById,
         remarks: data.remarks || null
       }
     });

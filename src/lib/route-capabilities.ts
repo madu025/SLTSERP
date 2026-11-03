@@ -47,6 +47,8 @@ export function resolveRouteCapability(pathname: string, method: string): RbacPe
     if (path.startsWith('/api/ai')) return RBAC_PERMISSIONS.DASHBOARD_READ;
     if (path.startsWith('/api/notifications')) return RBAC_PERMISSIONS.DASHBOARD_READ;
     if (path.startsWith('/api/reports')) return RBAC_PERMISSIONS.REPORTS_READ;
+    if (path.startsWith('/api/maintenance')) return RBAC_PERMISSIONS.ADMIN_RBAC;
+    if (path.startsWith('/api/profile')) return RBAC_PERMISSIONS.DASHBOARD_READ;
 
     if (path.startsWith('/api/service-orders')) {
         if (path.startsWith('/api/service-orders/extension-push') || path.startsWith('/api/service-orders/bridge-sync')) {
@@ -96,6 +98,9 @@ export function resolveRouteCapability(pathname: string, method: string): RbacPe
     if (path.startsWith('/api/inventory')) {
         return actionPermission(verb, RBAC_PERMISSIONS.INVENTORY_READ, RBAC_PERMISSIONS.INVENTORY_WRITE, RBAC_PERMISSIONS.INVENTORY_APPROVE, /(approve|status)/.test(path));
     }
+    if (path.startsWith('/api/stores')) {
+        return actionPermission(verb, RBAC_PERMISSIONS.INVENTORY_READ, RBAC_PERMISSIONS.INVENTORY_WRITE);
+    }
     if (path.startsWith('/api/procurement')) {
         return actionPermission(verb, RBAC_PERMISSIONS.PROCUREMENT_READ, RBAC_PERMISSIONS.PROCUREMENT_WRITE);
     }
@@ -125,6 +130,9 @@ export function resolveRouteCapability(pathname: string, method: string): RbacPe
     if (path.startsWith('/api/trips') || path.startsWith('/api/vehicles')) {
         return actionPermission(verb, RBAC_PERMISSIONS.FLEET_READ, RBAC_PERMISSIONS.FLEET_WRITE);
     }
+    if (path.startsWith('/api/drivers')) return RBAC_PERMISSIONS.FLEET_READ;
+    if (path.startsWith('/api/files/contractors')) return RBAC_PERMISSIONS.CONTRACTOR_READ;
+    if (path.startsWith('/api/storage')) return RBAC_PERMISSIONS.DASHBOARD_READ;
 
     if (path.startsWith('/api/contracts')) {
         return actionPermission(verb, RBAC_PERMISSIONS.FINANCE_READ, RBAC_PERMISSIONS.FINANCE_WRITE);

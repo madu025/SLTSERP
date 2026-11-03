@@ -1,8 +1,8 @@
-import { getAuthenticatedUserId } from '@/lib/request-context';
 import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { HelpdeskService } from '@/services/helpdesk/helpdesk.service';
 import { CreateAssetHandoverSchema } from '@/lib/validations/helpdesk.schema';
+import { AppError } from '@/lib/error';
 
 
 export const dynamic = 'force-dynamic';
@@ -11,7 +11,8 @@ export const POST = apiHandler(async (req, params) => {
   const body = await req.json();
   const parsed = CreateAssetHandoverSchema.parse(body);
 
-  const userId = getAuthenticatedUserId() || 'unknown';
+  const userId = params._userId;
+  if (!userId) throw AppError.unauthorized('Authentication required');
   const ipAddress = req.headers.get('x-forwarded-for') || 'unknown';
   const userAgent = req.headers.get('user-agent') || 'unknown';
 

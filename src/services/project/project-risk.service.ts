@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 interface CreateRiskInput {
     title: string;
     description: string;
@@ -18,10 +19,14 @@ export class ProjectRiskService {
             orderBy: { score: 'desc' } // Prioritize high score risks
         });
     }
-    static async createRisk(projectId: string, data: CreateRiskInput) {
-        const { title, description, probability, impact, mitigationPlan, identifiedById } = data;
+    static async createRisk(projectId: string, data: CreateRiskInput, actorUserId: string) {
+        const { title, description, probability, impact, mitigationPlan } = data;
         const prob = Number(probability);
         const imp = Number(impact);
+        if (!actorUserId) throw AppError.unauthorized('Authenticated risk actor is required');
+        if (!Number.isInteger(prob) || prob < 1 || prob > 5 || !Number.isInteger(imp) || imp < 1 || imp > 5) {
+            throw AppError.badRequest('Risk probability and impact must be integers from 1 to 5');
+        }
         return await prisma.projectRisk.create({
             data: {
                 projectId,
@@ -31,7 +36,7 @@ export class ProjectRiskService {
                 impact: imp,
                 score: prob * imp,
                 mitigationPlan: mitigationPlan || null,
-                identifiedById,
+                identifiedById: actorUserId,
                 status: 'OPEN'
             }
         });

@@ -5,8 +5,6 @@ import { requirePermission } from '@/lib/server-utils';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { revalidatePath } from 'next/cache';
 
-const OPMC_CACHE_KEY = 'opmcs:all';
-
 export async function createOPMC(data: {
     name: string;
     rtom: string;
@@ -29,8 +27,8 @@ export async function createOPMC(data: {
 
         revalidatePath('/admin/opmcs');
         return { success: true, data: opmc };
-    } catch (error: any) {
-        if (error.code === 'P2002') {
+    } catch (error: unknown) {
+        if ((error as { code?: string }).code === 'P2002') {
             return { success: false, error: 'OPMC RTOM already exists' };
         }
         return { success: false, error: 'Error creating OPMC' };
@@ -61,8 +59,8 @@ export async function updateOPMC(data: {
 
         revalidatePath('/admin/opmcs');
         return { success: true, data: opmc };
-    } catch (error: any) {
-        if (error.code === 'P2002') {
+    } catch (error: unknown) {
+        if ((error as { code?: string }).code === 'P2002') {
             return { success: false, error: 'RTOM already exists' };
         }
         return { success: false, error: 'Error updating OPMC' };
@@ -70,10 +68,7 @@ export async function updateOPMC(data: {
 }
 
 export async function deleteOPMC(id: string) {
-    const currentUser = await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
-    if (currentUser.role !== 'SUPER_ADMIN') {
-        throw new Error('Forbidden: only a Super Admin can delete OPMCs');
-    }
+    await requirePermission(RBAC_PERMISSIONS.ADMIN_SUPER);
 
     try {
         await prisma.oPMC.delete({
@@ -82,7 +77,7 @@ export async function deleteOPMC(id: string) {
 
         revalidatePath('/admin/opmcs');
         return { success: true, message: 'OPMC deleted successfully' };
-    } catch (error: any) {
+    } catch {
         return { success: false, error: 'Error deleting OPMC' };
     }
 }
