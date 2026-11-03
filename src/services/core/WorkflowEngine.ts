@@ -4,6 +4,7 @@ import { updateProjectProgressOnStageChange } from '@/lib/project-progress';
 import { isCanonicalPermission, RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { assertProjectAccess } from '@/lib/project-access';
+import { WorkflowNotificationService } from '@/services/project/workflow-notification.service';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { getStageTransitionError, WORKFLOW_TASK_STATUSES } from '@/services/core/workflow-transitions';
@@ -409,6 +410,7 @@ export class WorkflowEngine {
         throw AppError.badRequest(`Gate validation failed:\n- ${validation.errors.join('\n- ')}`);
       }
 
+      let startedStage: { id: string; name: string; assignedRole: string | null; assignedUserId: string | null } | null = null;
       await prisma.$transaction(async (tx) => {
         // Guard against concurrent completion: only flip a stage that is still IN_PROGRESS.
         const claimed = await tx.projectStageInstance.updateMany({
@@ -463,8 +465,19 @@ export class WorkflowEngine {
               details: { stageName: nextStage.name },
             },
           });
+          startedStage = {
+            id: nextStage.id,
+            name: nextStage.name,
+            assignedRole: nextStage.assignedRole,
+            assignedUserId: nextStage.assignedUserId,
+          };
         }
       });
+
+      // The next owner is told automatically instead of being phoned.
+      if (startedStage) {
+        void WorkflowNotificationService.notifyStageStarted(stage.projectWorkflowInstance.projectId, startedStage, userId);
+      }
 
       // Auto-update project progress after stage completion
       if (stage.projectWorkflowInstance.projectId) {
@@ -668,7 +681,13 @@ export class WorkflowEngine {
       throw AppError.badRequest('Previous approval levels must be completed first');
     }
 
-    return prisma.$transaction(async (tx) => {
+    type ApprovalFollowUp =
+      | { kind: 'REJECTED' }
+      | { kind: 'ALL_APPROVED' }
+      | { kind: 'NEXT_LEVEL' };
+    let followUp: ApprovalFollowUp | null = null;
+
+    const result = await prisma.$transaction(async (tx) => {
       const updated = await tx.projectApprovalInstance.update({
         where: { id: approvalId },
         data: {
@@ -684,6 +703,7 @@ export class WorkflowEngine {
           where: { id: approval.stageId },
           data: { status: 'CHANGES_REQUESTED', reviewStatus: 'CHANGES_REQUESTED', reworkCount: { increment: 1 } },
         });
+        followUp = { kind: 'REJECTED' };
       } else {
         const remaining = await tx.projectApprovalInstance.count({
           where: { stageId: approval.stageId, status: { not: 'APPROVED' } },
@@ -693,10 +713,22 @@ export class WorkflowEngine {
             where: { id: approval.stageId },
             data: { reviewStatus: 'APPROVED' },
           });
+          followUp = { kind: 'ALL_APPROVED' };
+        } else {
+          followUp = { kind: 'NEXT_LEVEL' };
         }
       }
 
       return updated;
     });
+
+    const approvalProjectId = approval.stage.projectWorkflowInstance.projectId;
+    const outcome = followUp as ApprovalFollowUp | null;
+    if (outcome?.kind === 'NEXT_LEVEL') {
+      void WorkflowNotificationService.notifyNextApprovalLevel(approvalProjectId, approval.stageId, approval.stage.name, actor.id);
+    } else if (outcome) {
+      void WorkflowNotificationService.notifyApprovalOutcome(approvalProjectId, approval.stage, outcome.kind, actor.id);
+    }
+    return result;
   }
 }

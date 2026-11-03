@@ -13,7 +13,7 @@
 import { prisma } from '@/lib/prisma';
 import { NotificationService } from './index';
 import { DomainNotificationPolicies } from './domain-policies.service';
-import { NotificationRetryService } from './retry.service';
+import { ProjectFinanceNotificationService } from '@/services/project/project-finance-notification.service';
 
 interface SchedulerResult {
     name: string;
@@ -32,6 +32,7 @@ export class ReminderSchedulerService {
 
         results.push(await this.checkAppointmentReminders());
         results.push(await this.checkTaskDueDates());
+        results.push(await this.checkProjectInvoiceFollowUps());
         results.push(await this.checkMilestoneDueDates());
         results.push(await this.checkBatchExpirations());
         results.push(await this.checkNotificationEscalations());
@@ -182,45 +183,70 @@ export class ReminderSchedulerService {
             const now = new Date();
             const fortyEightHoursFromNow = new Date(now.getTime() + 48 * 60 * 60 * 1000);
 
-            // Find project tasks due in next 48 hours
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const dueTasks = await (prisma as any).projectTask.findMany({
+            // Project tasks due in the next 48 hours that have an assigned user.
+            const dueTasks = await prisma.projectTask.findMany({
                 where: {
-                    dueDate: {
+                    plannedEndDate: {
                         gte: now,
                         lte: fortyEightHoursFromNow,
                     },
                     status: { notIn: ['COMPLETED', 'CANCELLED'] },
+                    assignedUserId: { not: null },
                 },
-                include: {
-                    project: {
-                        select: { id: true, name: true, code: true },
-                    },
-                    assignedTo: {
-                        select: { id: true },
-                    },
+                select: {
+                    id: true,
+                    name: true,
+                    priority: true,
+                    plannedEndDate: true,
+                    assignedUserId: true,
+                    project: { select: { id: true, name: true, projectCode: true } },
                 },
                 take: 50,
             });
 
             for (const task of dueTasks) {
-                if (!task.dueDate || !task.assignedTo?.id) continue;
+                if (!task.plannedEndDate || !task.assignedUserId) continue;
                 result.itemsProcessed++;
 
-                await NotificationRetryService.enqueue({
-                    userId: task.assignedTo.id,
+                // One reminder per task per day: this job runs every 15 minutes.
+                await NotificationService.send({
+                    userId: task.assignedUserId,
                     title: 'Task Due Reminder',
-                    message: `Task "${task.title}" in project "${task.project?.name || 'Unknown'}" is due on ${new Date(task.dueDate).toLocaleDateString()}. Priority: ${task.priority || 'MEDIUM'}`,
+                    message: `Task "${task.name}" in project "${task.project.name}" is due on ${task.plannedEndDate.toLocaleDateString()}. Priority: ${task.priority || 'MEDIUM'}`,
                     type: 'PROJECT',
                     priority: 'HIGH',
-                    link: `/projects/${task.project?.id}/tasks`,
-                    metadata: { taskId: task.id, projectCode: task.project?.code },
-                    channels: ['IN_APP', 'PUSH'],
+                    link: '/projects/my-tasks',
+                    metadata: { taskId: task.id, projectCode: task.project.projectCode },
+                    dedupKey: `project-task-due:${task.id}:${now.toISOString().slice(0, 10)}`,
                 });
                 result.notificationsCreated++;
             }
         } catch (error) {
             console.error('[Scheduler] Task due date check failed:', error);
+            result.errors++;
+        }
+
+        return result;
+    }
+
+    /**
+     * Remind the assigned project finance roles about submitted client invoices that are overdue.
+     * Notification only: it never changes the invoice state.
+     */
+    static async checkProjectInvoiceFollowUps(): Promise<SchedulerResult> {
+        const result: SchedulerResult = {
+            name: 'project-invoice-follow-ups',
+            itemsProcessed: 0,
+            notificationsCreated: 0,
+            errors: 0,
+        };
+
+        try {
+            const { processed, notified } = await ProjectFinanceNotificationService.remindOverdueInvoices();
+            result.itemsProcessed = processed;
+            result.notificationsCreated = notified;
+        } catch (error) {
+            console.error('[Scheduler] Project invoice follow-up check failed:', error);
             result.errors++;
         }
 

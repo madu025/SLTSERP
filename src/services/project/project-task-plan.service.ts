@@ -5,6 +5,7 @@ import { normalizeTaskSchedule } from '@/lib/project-schedule';
 import { userHasPermission } from '@/lib/user-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { assertProjectAccess } from '@/lib/project-access';
+import { ProjectTaskNotificationService } from '@/services/project/project-task-notification.service';
 
 const EDITABLE_PLAN_STATUSES = new Set(['DRAFT', 'CHANGES_REQUESTED']);
 const PROJECT_SUPERVISOR_ROLE_CODES = [
@@ -473,6 +474,14 @@ export class ProjectTaskPlanService {
             }
             await tx.projectTaskPlan.update({ where: { id: plan.id }, data: { status: 'APPROVED', version: { increment: 1 }, approvedById: actorId, approvedAt: new Date(), generatedAt: new Date() } });
         });
+        // Tasks exist (and are visible to assignees) only now, so this is when assignees are told.
+        void ProjectTaskNotificationService.notifyAssigned(
+            projectId,
+            enabled
+                .filter((item): item is typeof item & { assignedUserId: string } => Boolean(item.assignedUserId))
+                .map(item => ({ userId: item.assignedUserId, taskName: item.name })),
+            actorId,
+        );
         return this.getPlan(projectId);
     }
 }

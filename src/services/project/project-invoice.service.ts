@@ -2,6 +2,15 @@ import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { applyInvoiceTransition, InvoiceTransition } from './project-invoice-lifecycle';
+import { InvoiceHandOff, ProjectFinanceNotificationService } from './project-finance-notification.service';
+
+/** Lifecycle transitions that pass the invoice to the next finance role. */
+const INVOICE_HAND_OFFS: Partial<Record<InvoiceTransition, InvoiceHandOff>> = {
+    ISSUED: 'ISSUED',
+    SUBMIT_TO_SLT: 'SUBMITTED',
+    MARK_OVERDUE: 'OVERDUE',
+    COMPLETED: 'COMPLETED',
+};
 
 interface InvoiceItemInput {
     description: string;
@@ -278,6 +287,7 @@ export class ProjectInvoiceService {
             return newInvoice;
         });
 
+        void ProjectFinanceNotificationService.notifyHandOff(invoice, 'DRAFT_CREATED', createdById || null);
         return invoice;
     }
 
@@ -348,6 +358,8 @@ export class ProjectInvoiceService {
             });
         });
 
+        const handOff = updateFields.status ? INVOICE_HAND_OFFS[updateFields.status] : undefined;
+        if (handOff) void ProjectFinanceNotificationService.notifyHandOff(invoice, handOff, actorUserId);
         return invoice;
     }
 

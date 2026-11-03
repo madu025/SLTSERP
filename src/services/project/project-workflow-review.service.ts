@@ -4,6 +4,7 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { assertProjectAccess } from '@/lib/project-access';
 import { hasActiveWorkflowRole } from '@/lib/project-workflow-role';
+import { WorkflowNotificationService } from '@/services/project/workflow-notification.service';
 
 const ACTIVE_REVIEW_STATUSES = ['DRAFT', 'IN_REVIEW'];
 const REVIEW_DECISIONS = ['APPROVED', 'CHANGES_REQUESTED', 'REJECTED'] as const;
@@ -63,7 +64,7 @@ export class ProjectWorkflowReviewService {
     const revision = (latest?.revision ?? 0) + 1;
     const reviewerRole = stage.assignedRole || stage.approvals[0]?.role || null;
 
-    return prisma.$transaction(async (tx) => {
+    const submitted = await prisma.$transaction(async (tx) => {
       const review = await tx.workflowReviewCycle.create({
         data: {
           projectId: input.projectId,
@@ -100,6 +101,9 @@ export class ProjectWorkflowReviewService {
 
       return review;
     });
+
+    void WorkflowNotificationService.notifyReviewSubmitted(input.projectId, submitted, stage.name, input.submittedById);
+    return submitted;
   }
 
   static async decide(input: {
@@ -139,7 +143,8 @@ export class ProjectWorkflowReviewService {
     const nextStageStatus = input.decision === 'CHANGES_REQUESTED' ? 'CHANGES_REQUESTED' : 'IN_PROGRESS';
     const nextReviewStatus = input.decision === 'APPROVED' ? 'APPROVED' : 'CHANGES_REQUESTED';
 
-    return prisma.$transaction(async (tx) => {
+    let handoffTarget: { id: string; name: string; assignedRole: string | null; assignedUserId: string | null } | null = null;
+    const decided = await prisma.$transaction(async (tx) => {
       const updated = await tx.workflowReviewCycle.update({
         where: { id: review.id },
         data: {
@@ -166,9 +171,10 @@ export class ProjectWorkflowReviewService {
       if (input.decision === 'APPROVED') {
         const nextStage = await tx.projectStageInstance.findFirst({
           where: { projectWorkflowInstanceId: review.stage.projectWorkflowInstanceId, sequence: review.stage.sequence + 1 },
-          select: { id: true, name: true },
+          select: { id: true, name: true, assignedRole: true, assignedUserId: true },
         });
         if (nextStage) {
+          handoffTarget = nextStage;
           await tx.workflowHandoff.create({
             data: {
               projectId: input.projectId,
@@ -195,6 +201,16 @@ export class ProjectWorkflowReviewService {
 
       return updated;
     });
+
+    void WorkflowNotificationService.notifyReviewDecision(
+      input.projectId,
+      { id: review.id, submittedById: review.submittedById, revision: review.revision },
+      input.decision,
+      review.stage,
+      handoffTarget,
+      input.reviewerUserId,
+    );
+    return decided;
   }
 
   static async listHandoffs(projectId: string) {

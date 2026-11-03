@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { userHasPermission } from '@/lib/user-permissions';
+import { ProjectTaskNotificationService } from '@/services/project/project-task-notification.service';
 
 export const PROJECT_FINANCE_ASSIGNMENT_ROLES = [
   'LEAD_CONTROLLER',
@@ -181,7 +182,7 @@ export class ProjectFinanceAssignmentService {
     const startsAt = input.startsAt ? new Date(input.startsAt) : new Date();
     if (Number.isNaN(startsAt.getTime())) throw AppError.badRequest('startsAt must be a valid date');
 
-    return prisma.$transaction(async (tx) => {
+    const saved = await prisma.$transaction(async (tx) => {
       if (input.isPrimary) {
         await tx.projectFinanceAssignment.updateMany({
           where: { projectId: input.projectId, status: 'ACTIVE', isPrimary: true },
@@ -221,6 +222,14 @@ export class ProjectFinanceAssignmentService {
         },
       });
     });
+
+    void ProjectTaskNotificationService.notifyRoleAssigned(
+      input.projectId,
+      input.userId,
+      `project finance ${input.assignmentRole.toLowerCase().replace(/_/g, ' ')}`,
+      input.assignedById,
+    );
+    return saved;
   }
 
   static async update(input: {

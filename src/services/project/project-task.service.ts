@@ -157,6 +157,10 @@ async function assertTaskActor(taskId: string, projectId: string | undefined, ac
         || actor.effectivePermissions.includes(RBAC_PERMISSIONS.PROJECT_PLAN_APPROVE);
     const isAssigned = task.assignedUserId === actorId || task.planItem?.assignedUserId === actorId;
     if (!isManager && !supervisorAssignment && !isAssigned) throw AppError.forbidden('Task is not assigned to this user');
+    // projectId reaches the flat /api/projects/tasks routes through the body or query, so the
+    // central path-segment guard never runs. A manager's permission must not cross the OPMC
+    // boundary; the direct assignee keeps the right to work on their own task.
+    if (!isAssigned) await assertProjectAccess(task.projectId, actorId);
     if (mode === 'FULL' && !isManager && !supervisorAssignment) throw AppError.forbidden('Only the project supervisor or project management can edit task configuration');
     return { task, actor };
 }

@@ -1,6 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { assertProjectAccess } from '@/lib/project-access';
+import { ProjectTaskNotificationService } from '@/services/project/project-task-notification.service';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
@@ -105,6 +106,8 @@ export class ProjectSupervisorService {
         data: { status: 'SURVEY_IN_PROGRESS' },
       });
     }
+
+    void ProjectTaskNotificationService.notifyRoleAssigned(projectId, supervisorId, `${(role || 'PRIMARY').toLowerCase()} supervisor`, actorId);
 
     return {
       ...assignment,

@@ -188,6 +188,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 permissionId: RBAC_PERMISSIONS.PROJECT_READ
             },
             {
+                title: 'My Tasks',
+                path: '/projects/my-tasks',
+                icon: ClipboardList,
+                permissionId: RBAC_PERMISSIONS.PROJECT_READ
+            },
+            {
                 title: 'PM Dashboard',
                 path: '/projects/dashboards/pm',
                 icon: BarChart2,

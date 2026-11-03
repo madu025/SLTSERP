@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
+import { ProjectTaskNotificationService } from '@/services/project/project-task-notification.service';
 
 export interface CreateFieldTaskInput {
     title: string;
@@ -71,7 +72,7 @@ export class FieldTaskService {
     }
 
     static async createFieldTask(projectId: string, data: CreateFieldTaskInput) {
-        return await prisma.fieldTask.create({
+        const fieldTask = await prisma.fieldTask.create({
             data: {
                 projectId,
                 title: data.title,
@@ -90,6 +91,14 @@ export class FieldTaskService {
                 signatures: true,
             },
         });
+        if (fieldTask.assignedUserId) {
+            void ProjectTaskNotificationService.notifyAssigned(
+                projectId,
+                [{ userId: fieldTask.assignedUserId, taskName: fieldTask.title }],
+                '',
+            );
+        }
+        return fieldTask;
     }
 
     static async updateFieldTask(projectId: string, taskId: string, data: UpdateFieldTaskInput) {
