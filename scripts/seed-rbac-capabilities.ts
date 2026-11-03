@@ -1,6 +1,6 @@
 import { PrismaClient, PermissionScope, Role } from '@prisma/client';
 import { RBAC_PERMISSION_DEFINITIONS } from '../src/config/rbac-permissions';
-import { ROLE_GROUPS } from '../src/config/roles';
+import { CANONICAL_BOOTSTRAP_ROLE_GRANTS } from '../src/config/rbac-bootstrap';
 
 const prisma = new PrismaClient();
 
@@ -20,54 +20,12 @@ function parseStoredPermissions(value: string | null): string[] {
 /**
  * One-time/bootstrap DB migration for the capability model.
  *
- * This is the only place where legacy enum-role defaults are translated into
- * capabilities. Runtime authorization reads RolePermission rows, not
- * ROLE_GROUPS. After this is deployed, administrators can change grants in
- * the database without a code deployment.
+ * This is the only place where initial role defaults are translated into
+ * capabilities. Runtime authorization reads RolePermission rows, not this
+ * catalog. After this is deployed, administrators can change grants in the
+ * database without a code deployment.
  */
-const bootstrapGrants: Record<string, readonly string[]> = {
-    'dashboard.read': Object.values(Role),
-    'sod.read': ROLE_GROUPS.SOD_MODULE_USERS,
-    'sod.write': [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.INVOICE_GENERATORS])],
-    'sod.invoice': ROLE_GROUPS.INVOICE_GENERATORS,
-    'project.read': ROLE_GROUPS.PROJECT_READERS,
-    'project.write': ROLE_GROUPS.PROJECT_MANAGERS,
-    'project.approve': ROLE_GROUPS.PROJECT_WORKFLOW_APPROVERS,
-    'project.plan.read': ROLE_GROUPS.PROJECT_READERS,
-    'project.plan.write': [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, 'OSP_ENGINEER', 'CIVIL_SUPERVISOR', 'CABLE_SPLICER'])],
-    'project.plan.approve': ROLE_GROUPS.PROJECT_WORKFLOW_APPROVERS,
-    'finance.read': [...new Set([...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.SF_AUDITING])],
-    'finance.write': ROLE_GROUPS.FINANCE,
-    'finance.approve': ROLE_GROUPS.FINANCE_APPROVERS,
-    'finance.audit': ROLE_GROUPS.SF_AUDITORS,
-    'project.finance.read': [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.SF_AUDITING])],
-    'project.finance.write': ROLE_GROUPS.FINANCE,
-    'project.finance.approve': ROLE_GROUPS.FINANCE_APPROVERS,
-    'project.finance.assign': [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.FINANCE_APPROVERS])],
-    'inventory.read': [...new Set([...ROLE_GROUPS.STORES, ...ROLE_GROUPS.OPS, 'MANAGER'])],
-    'inventory.cost.read': ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'MANAGER', 'FINANCE_MANAGER', 'STORES_MANAGER'],
-    'inventory.write': ROLE_GROUPS.STORES_ALL,
-    // Material-request approvals are performed by stores managers and the
-    // OPMC/area management tier. Runtime checks use this capability, never
-    // the legacy role-name groups directly.
-    'inventory.approve': [...new Set([...ROLE_GROUPS.STORES_MANAGERS, ...ROLE_GROUPS.AREA_MANAGERS])],
-    'procurement.read': ROLE_GROUPS.PROCUREMENT,
-    'procurement.write': ROLE_GROUPS.PROCUREMENT,
-    'contractor.read': ROLE_GROUPS.CONTRACTOR_READERS,
-    'contractor.write': ROLE_GROUPS.CONTRACTORS,
-    'helpdesk.read': [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.OFFICE_ADMINS, ...ROLE_GROUPS.IT_ADMINS])],
-    'helpdesk.write': [...new Set([...ROLE_GROUPS.OFFICE_ADMINS, ...ROLE_GROUPS.EAM_ASSET_MANAGERS, ...ROLE_GROUPS.IT_ADMINS])],
-    'helpdesk.approve': [...new Set([...ROLE_GROUPS.EAM_ASSET_MANAGERS, ...ROLE_GROUPS.FINANCE_APPROVERS])],
-    'fleet.read': [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.OFFICE_ADMINS])],
-    'fleet.write': ROLE_GROUPS.OFFICE_ADMINS,
-    'reports.read': ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', 'AREA_MANAGER', 'HEAD_OF_SECTION'],
-    'reports.manager.read': ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', 'HEAD_OF_SECTION'],
-    'reports.area.read': ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', 'AREA_MANAGER', 'HEAD_OF_SECTION'],
-    'ai.custody.execute': ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER'],
-    'ai.stock.execute': ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'OSP_MANAGER'],
-    'admin.rbac': ROLE_GROUPS.CORE_ADMINS,
-    'admin.super': ROLE_GROUPS.SUPER_ADMINS,
-};
+const bootstrapGrants: Record<string, readonly string[]> = CANONICAL_BOOTSTRAP_ROLE_GRANTS;
 
 function roleCodeFromSystemRole(code: string): string | null {
     const normalized = code.endsWith('_GLOBAL') ? code.slice(0, -'_GLOBAL'.length) : code;

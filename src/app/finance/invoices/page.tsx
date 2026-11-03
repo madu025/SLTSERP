@@ -95,7 +95,7 @@ export default function InvoiceApprovalPage() {
     };
 
     return (
-        <RoleGuard allowedRoles={[]} permissionId={RBAC_PERMISSIONS.FINANCE_READ}>
+        <RoleGuard permissionId={RBAC_PERMISSIONS.FINANCE_READ}>
             <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

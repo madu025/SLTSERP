@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
@@ -66,8 +65,8 @@ export class MRNService {
             });
         });
 
-        const [nErr] = await safe(NotificationService.notifyByRole({
-            roles: ROLE_GROUPS.STORES_MANAGERS,
+        const [nErr] = await safe(NotificationService.notifyByAudience({
+            audience: 'STORES_MANAGERS',
             title: 'New MRN Created',
             message: `New Material Return Note ${mrn.mrnNumber} has been created and requires approval.`,
             type: 'INVENTORY',

@@ -38,6 +38,8 @@ function actor(options: { permissions?: string[]; roleCode?: string; sectionRole
 function pendingApproval(priorApprovedById?: string) {
   db.projectApprovalInstance.findUnique = async () => ({
     id: 'approval-2', stageId: 'stage-1', level: 2, role: 'AREA_MANAGER', status: 'PENDING',
+    requiredPermission: RBAC_PERMISSIONS.PROJECT_APPROVE,
+    eligibleRoles: ['AREA_MANAGER', 'PROJECT_AREA_MANAGER'],
     stage: {
       status: 'IN_PROGRESS', projectWorkflowInstance: { projectId: 'project-1', currentStageId: 'stage-1' },
       approvals: [
@@ -85,7 +87,7 @@ test('direct permission override can deny inherited approval capability', async 
   actor({ permissions: [], roleCode: 'AREA_MANAGER' });
   pendingApproval();
   db.$transaction = async () => { throw new Error('write reached'); };
-  await assert.rejects(() => WorkflowEngine.submitApproval('approval-2', 'APPROVED', 'actor-1', undefined, 'project-1'), /capability is required/);
+  await assert.rejects(() => WorkflowEngine.submitApproval('approval-2', 'APPROVED', 'actor-1', undefined, 'project-1'), /capability is required|project\.approve is required/);
 });
 
 test('project approval capability does not expand OPMC access', async () => {

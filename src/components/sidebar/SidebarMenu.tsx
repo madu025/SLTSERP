@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
-import { SIDEBAR_MENU, hasAccess } from '@/config/sidebar-menu';
+import { SIDEBAR_MENU, canAccessMenuItem } from '@/config/sidebar-menu';
 
 interface SidebarMenuProps {
     userRole: string;
@@ -12,7 +12,7 @@ interface SidebarMenuProps {
     menuCounts: Record<string, number>;
 }
 
-export function SidebarMenu({ userRole, user, isCollapsed, mounted, menuCounts }: SidebarMenuProps) {
+export function SidebarMenu({ user, isCollapsed, mounted, menuCounts }: SidebarMenuProps) {
     const pathname = usePathname();
     const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
     const [expandedSubMenus, setExpandedSubMenus] = useState<string[]>([]);
@@ -101,7 +101,13 @@ export function SidebarMenu({ userRole, user, isCollapsed, mounted, menuCounts }
 
     return (
         <div className="px-1.5 space-y-0">
-            {SIDEBAR_MENU.filter(item => hasAccess(userRole, item.allowedRoles, !!user, item.title, item.permissionId, user?.permissions, item.path)).map((item) => {
+            {SIDEBAR_MENU.filter(item => canAccessMenuItem({
+                isLoggedIn: !!user,
+                itemTitle: item.title,
+                permissionId: item.permissionId,
+                userPermissions: user?.permissions,
+                pathname: item.path,
+            })).map((item) => {
                 const Icon = item.icon;
                 const hasSubmenu = item.submenu && item.submenu.length > 0;
                 const isChildActive = hasSubmenu && item.submenu?.some(sub => 
@@ -241,7 +247,13 @@ export function SidebarMenu({ userRole, user, isCollapsed, mounted, menuCounts }
                                 className="mt-0 ml-3 pl-2 space-y-0"
                                 style={{ borderLeft: '1px solid rgba(0,114,187,0.15)' }}
                             >
-                                {item.submenu!.filter(sub => hasAccess(userRole, sub.allowedRoles, !!user, sub.title, sub.permissionId || item.permissionId, user?.permissions, sub.path)).map(sub => {
+                                {item.submenu!.filter(sub => canAccessMenuItem({
+                                    isLoggedIn: !!user,
+                                    itemTitle: sub.title,
+                                    permissionId: sub.permissionId || item.permissionId,
+                                    userPermissions: user?.permissions,
+                                    pathname: sub.path,
+                                })).map(sub => {
                                     const hasSubSubmenu = sub.submenu && sub.submenu.length > 0;
                                     const isSubSubExpanded = expandedSubMenus.includes(sub.title);
                                     
@@ -320,7 +332,13 @@ export function SidebarMenu({ userRole, user, isCollapsed, mounted, menuCounts }
                                                     className="mt-0 ml-3.5 pl-2.5 space-y-0.5"
                                                     style={{ borderLeft: '1px solid rgba(0,114,187,0.1)' }}
                                                 >
-                                                    {sub.submenu!.filter(child => hasAccess(userRole, child.allowedRoles, !!user, child.title, child.permissionId || sub.permissionId || item.permissionId, user?.permissions, child.path)).map(child => {
+                                                    {sub.submenu!.filter(child => canAccessMenuItem({
+                                                        isLoggedIn: !!user,
+                                                        itemTitle: child.title,
+                                                        permissionId: child.permissionId || sub.permissionId || item.permissionId,
+                                                        userPermissions: user?.permissions,
+                                                        pathname: child.path,
+                                                    })).map(child => {
                                                         const isChildItemActive = pathname === child.path;
                                                         return (
                                                             <Link

@@ -4,7 +4,6 @@ import {  useState, useEffect, useCallback  } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from '@/config/roles';
 import { 
     Activity, 
     AlertTriangle, 
@@ -409,7 +408,7 @@ ${log.stackTrace || 'No stack trace recorded'}
     };
 
     return (
-        <RoleGuard allowedRoles={ROLE_GROUPS.CORE_ADMINS}>
+        <RoleGuard>
             <div className="h-screen flex bg-slate-950 overflow-hidden text-xs text-slate-100">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0">

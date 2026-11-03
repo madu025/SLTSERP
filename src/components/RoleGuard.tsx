@@ -10,8 +10,6 @@ import { Button } from '@/components/ui/button';
 
 interface RoleGuardProps {
     children: React.ReactNode;
-    /** Deprecated compatibility prop. It never grants access. */
-    allowedRoles?: string[];
     permissionId?: RbacPermission;
     fallbackLoginPath?: string;
 }
@@ -21,7 +19,7 @@ interface GuardUser {
     permissions?: string[];
 }
 
-export default function RoleGuard({ children, allowedRoles, permissionId, fallbackLoginPath = '/login' }: RoleGuardProps) {
+export default function RoleGuard({ children, permissionId, fallbackLoginPath = '/login' }: RoleGuardProps) {
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
     const [user, setUser] = useState<GuardUser | null>(null);
@@ -64,9 +62,6 @@ export default function RoleGuard({ children, allowedRoles, permissionId, fallba
     const pagePermission = permissionId ?? resolvePageCapability(
         typeof window === 'undefined' ? '' : window.location.pathname,
     );
-    // `allowedRoles` is intentionally ignored. A page is visible only when its
-    // canonical DB capability is present in the validated session.
-    void allowedRoles;
     const isAuthorized = !!user && !!pagePermission && !!user.permissions?.includes(pagePermission);
 
     if (!isAuthorized) {

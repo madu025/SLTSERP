@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { UUID } from '@/types/common';
 
 /**
@@ -44,8 +43,8 @@ export class DomainNotificationPolicies {
 
         // Notify helpdesk managers about new unassigned tickets
         if (!ticket.assignedToId) {
-            await NotificationService.notifyByRole({
-                roles: ROLE_GROUPS.ADMINS,
+            await NotificationService.notifyByAudience({
+                audience: 'ADMINISTRATORS',
                 title: 'New Unassigned Ticket',
                 message: `Ticket #${ticket.ticketNumber}: "${ticket.title}" is awaiting assignment.`,
                 type: 'HELPDESK',
@@ -179,8 +178,8 @@ export class DomainNotificationPolicies {
     }) {
         const statusLabel = order.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
-        await NotificationService.notifyByRole({
-            roles: ROLE_GROUPS.OPS,
+        await NotificationService.notifyByAudience({
+            audience: 'OPERATIONS',
             title: 'Service Order Status Updated',
             message: `SO #${order.soNum} for ${order.customerName || 'customer'} changed from ${order.previousStatus} to ${statusLabel}.`,
             type: 'PROJECT',
@@ -207,8 +206,8 @@ export class DomainNotificationPolicies {
         if (order.cpeCount) details.push(`${order.cpeCount} CPE devices collected`);
         const detailStr = details.length > 0 ? ` (${details.join(', ')})` : '';
 
-        await NotificationService.notifyByRole({
-            roles: ROLE_GROUPS.OPS,
+        await NotificationService.notifyByAudience({
+            audience: 'OPERATIONS',
             title: 'Service Order Completed',
             message: `SO #${order.soNum} for ${order.customerName || 'customer'} has been completed${detailStr}.`,
             type: 'PROJECT',
@@ -235,8 +234,8 @@ export class DomainNotificationPolicies {
     }) {
         const assignee = order.teamName || order.contractorName || 'a team';
 
-        await NotificationService.notifyByRole({
-            roles: ROLE_GROUPS.PROJECT_MANAGERS,
+        await NotificationService.notifyByAudience({
+            audience: 'PROJECT_MANAGERS',
             title: 'Service Order Assigned',
             message: `SO #${order.soNum} for ${order.customerName || 'customer'} assigned to ${assignee}.`,
             type: 'PROJECT',
@@ -277,8 +276,8 @@ export class DomainNotificationPolicies {
     }) {
         const urgency = project.daysRemaining <= 1 ? 'CRITICAL' : project.daysRemaining <= 3 ? 'HIGH' : 'MEDIUM';
 
-        await NotificationService.notifyByRole({
-            roles: ROLE_GROUPS.PROJECT_MANAGERS,
+        await NotificationService.notifyByAudience({
+            audience: 'PROJECT_MANAGERS',
             title: 'Milestone Due Soon',
             message: `Project "${project.name}" (${project.code}): Milestone "${project.milestoneName}" is due in ${project.daysRemaining} day(s) (${project.dueDate.toLocaleDateString()}).`,
             type: 'PROJECT',
@@ -321,8 +320,8 @@ export class DomainNotificationPolicies {
     }) {
         const urgency: NotificationPriority = project.budgetUtilization >= 95 ? 'CRITICAL' : project.budgetUtilization >= 80 ? 'HIGH' : 'MEDIUM';
 
-        await NotificationService.notifyByRole({
-            roles: ROLE_GROUPS.FINANCE_APPROVERS,
+        await NotificationService.notifyByAudience({
+            audience: 'FINANCE_APPROVERS',
             title: 'Project Budget Alert',
             message: `Project "${project.name}" (${project.code}) has utilized ${project.budgetUtilization}% of budget (${project.spent.toLocaleString()} / ${project.totalBudget.toLocaleString()}).`,
             type: 'FINANCE',
@@ -341,8 +340,8 @@ export class DomainNotificationPolicies {
         reason: string;
         status: string;
     }) {
-        await NotificationService.notifyByRole({
-            roles: ROLE_GROUPS.FINANCE_APPROVERS,
+        await NotificationService.notifyByAudience({
+            audience: 'FINANCE_APPROVERS',
             title: 'New Variation Order',
             message: `VO #${vo.voNumber} created for "${vo.projectName}" (${vo.projectCode}): Amount ${vo.amount.toLocaleString()} LKR. Reason: ${vo.reason}`,
             type: 'FINANCE',
@@ -360,8 +359,8 @@ export class DomainNotificationPolicies {
         required: number;
         available: number;
     }) {
-        await NotificationService.notifyByRole({
-            roles: ROLE_GROUPS.ADMINS,
+        await NotificationService.notifyByAudience({
+            audience: 'ADMINISTRATORS',
             title: 'Resource Shortage',
             message: `Project "${project.name}" (${project.code}): ${project.resourceType} shortage (Required: ${project.required}, Available: ${project.available}).`,
             type: 'PROJECT',
@@ -385,8 +384,8 @@ export class DomainNotificationPolicies {
     }) {
         const projectRef = payment.projectName ? ` for ${payment.projectName}` : '';
 
-        await NotificationService.notifyByRole({
-            roles: ROLE_GROUPS.FINANCE_ALL,
+        await NotificationService.notifyByAudience({
+            audience: 'FINANCE_ALL',
             title: 'Payment Received',
             message: `Payment of ${payment.amount.toLocaleString()} LKR received from ${payment.payer}${projectRef} (Invoice: ${payment.invoiceNumber}).`,
             type: 'FINANCE',
@@ -406,8 +405,8 @@ export class DomainNotificationPolicies {
     }) {
         const urgency: NotificationPriority = invoice.daysOverdue > 7 ? 'CRITICAL' : invoice.daysOverdue > 3 ? 'HIGH' : 'MEDIUM';
 
-        await NotificationService.notifyByRole({
-            roles: ROLE_GROUPS.FINANCE_ALL,
+        await NotificationService.notifyByAudience({
+            audience: 'FINANCE_ALL',
             title: 'Invoice Overdue',
             message: `Invoice #${invoice.invoiceNumber} for ${invoice.amount.toLocaleString()} LKR from ${invoice.clientName} is ${invoice.daysOverdue} day(s) overdue (Due: ${invoice.dueDate.toLocaleDateString()}).`,
             type: 'FINANCE',
@@ -427,8 +426,8 @@ export class DomainNotificationPolicies {
     }) {
         const projectRef = expense.projectName ? ` for ${expense.projectName}` : '';
 
-        await NotificationService.notifyByRole({
-            roles: ROLE_GROUPS.FINANCE_APPROVERS,
+        await NotificationService.notifyByAudience({
+            audience: 'FINANCE_APPROVERS',
             title: 'Expense Requires Approval',
             message: `${expense.submittedByName} submitted ${expense.category} expense of ${expense.amount.toLocaleString()} LKR${projectRef} (Ref: ${expense.expenseNumber}).`,
             type: 'FINANCE',
@@ -474,8 +473,8 @@ export class DomainNotificationPolicies {
         }
 
         // Notify relevant managers
-        await NotificationService.notifyByRole({
-            roles: ROLE_GROUPS.PROJECT_MANAGERS,
+        await NotificationService.notifyByAudience({
+            audience: 'PROJECT_MANAGERS',
             title: `Upcoming Appointment (${appointment.interval || 'Upcoming'})`,
             message: `Appointment for SO #${appointment.soNum} (${appointment.customerName}) is scheduled${intervalLabel} at ${appointment.time}${appointment.contactNumber ? ` | Contact: ${appointment.contactNumber}` : ''}.`,
             type: 'PROJECT',
@@ -575,8 +574,8 @@ export class DomainNotificationPolicies {
 
         for (const notification of escalated) {
             // Escalate to admins
-            await NotificationService.notifyByRole({
-                roles: ROLE_GROUPS.ADMINS,
+            await NotificationService.notifyByAudience({
+                audience: 'ADMINISTRATORS',
                 title: 'Escalated: Unread Notification',
                 message: `CRITICAL notification "${notification.title}" for user ${notification.userId} remains unread after ${notification.priority === 'CRITICAL' ? '1 hour' : '24 hours'}.`,
                 type: 'SYSTEM',

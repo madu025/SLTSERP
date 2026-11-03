@@ -15,6 +15,8 @@ const notificationPolicy = readFileSync('src/services/notification/notification-
 const processGate = readFileSync('src/services/approval/process-gate-engine.ts', 'utf8');
 const opmcService = readFileSync('src/services/slt/opmc.service.ts', 'utf8');
 const changeRequests = readFileSync('src/services/project/change-request.service.ts', 'utf8');
+const boqApproval = readFileSync('src/services/project/project-boq-approval.service.ts', 'utf8');
+const boqApprovalRoute = readFileSync('src/app/api/projects/[id]/boq/approve/route.ts', 'utf8');
 
 test('service-order reads derive global scope from canonical OPMC capability', () => {
     assert.match(serviceOrder, /resolveOpmcScope\(_userId\)/);
@@ -54,28 +56,44 @@ test('Nexus AI uses canonical permissions and OPMC-scoped context tools', () => 
     assert.match(nexusContext, /opmcId: \{ in: \[\.\.\.opmcScope\] \}/);
 });
 
-test('notification routing resolves active canonical role assignments', () => {
-    assert.match(notifications, /canonicalRoleFilter/);
-    assert.match(notifications, /systemRole: \{ code: \{ in: requestedRoles \}/);
-    assert.match(notifications, /sectionAssignments: \{ some:/);
+test('notification routing resolves active canonical audience capabilities', () => {
+    assert.match(notifications, /getAudienceRecipients/);
+    assert.match(notifications, /permissionDefinition: \{[\s\S]*?isActive: true/);
+    assert.match(notifications, /directOverride/);
+    assert.match(notifications, /NOTIFICATION_GLOBAL/);
+    assert.match(notifications, /assignedStore: \{ select: \{ opmcs/);
     assert.match(notifications, /status: 'active'/);
-    assert.doesNotMatch(notifications, /role: \{ in: scopedRolesRequested \}/);
+    assert.doesNotMatch(notifications, /notifyByRole|ROLE_GROUPS|user\.role/);
 });
 
 test('change-request approval is scoped, permissioned, ordered, and maker-checker safe', () => {
     assert.match(changeRequests, /assertProjectAccess\(approval\.changeRequest\.projectId, userId\)/);
-    assert.match(changeRequests, /RBAC_PERMISSIONS\.PROJECT_APPROVE/);
+    assert.match(changeRequests, /approval\.requiredPermission/);
+    assert.match(changeRequests, /isCanonicalPermission\(requiredPermission\)/);
+    assert.match(changeRequests, /hasEligiblePolicyRole\(actorRoles, approval\.eligibleRoles\)/);
     assert.match(changeRequests, /Segregation of Duties violation/);
     assert.match(changeRequests, /Previous change-request approval step is not completed/);
     assert.doesNotMatch(changeRequests, /user\.role|actor\.role/);
 });
 
+test('BOQ service mutations enforce project scope independently of the route', () => {
+    assert.match(boqApproval, /static async submitForApproval\(projectId: string, actorUserId: string/);
+    assert.match(boqApproval, /submitForApproval\(projectId: string, actorUserId: string[\s\S]*?await assertProjectAccess\(projectId, actorUserId\)/);
+    assert.match(boqApproval, /private static async assertApprovalActor\(projectId: string, step: string, userId: string/);
+    assert.match(boqApproval, /assertApprovalActor\(projectId, step, userId(?:,|\))/);
+    assert.match(boqApproval, /assertProjectAccess\(projectId, userId\)/);
+    assert.match(boqApprovalRoute, /ProjectBOQApprovalService\.submitForApproval\(projectId, userId, notes\)/);
+});
+
 test('approval and notification dispatch do not resolve recipients from User.role', () => {
-    assert.match(processGate, /canonicalApproverWhere/);
-    assert.match(processGate, /systemRole: \{ isActive: true/);
+    assert.match(processGate, /findCanonicalApprover/);
+    assert.match(processGate, /systemRole: \{/);
+    assert.match(processGate, /requiredPermission/);
     assert.doesNotMatch(processGate, /where: \{ role:/);
     assert.match(opmcService, /systemRole: \{ isActive: true/);
     assert.doesNotMatch(opmcService, /where: \{ role: 'AREA_MANAGER'/);
-    assert.match(notificationPolicy, /getCanonicalRoleEmails/);
+    assert.match(notificationPolicy, /getAudienceEmails/);
+    assert.match(notificationPolicy, /notifyByAudience/);
+    assert.doesNotMatch(notificationPolicy, /ROLE_GROUPS|notifyByRole/);
     assert.doesNotMatch(notificationPolicy, /where: \{ role: \{ in: INVENTORY_ALERT_EMAIL_ROLES \}/);
 });

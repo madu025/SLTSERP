@@ -1,10 +1,9 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { updateProjectProgressOnStageChange } from '@/lib/project-progress';
-import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { isCanonicalPermission, RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { assertProjectAccess } from '@/lib/project-access';
-import { hasActiveWorkflowRole } from '@/lib/project-workflow-role';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { getStageTransitionError, WORKFLOW_TASK_STATUSES } from '@/services/core/workflow-transitions';
@@ -13,6 +12,23 @@ import { getStageTransitionError, WORKFLOW_TASK_STATUSES } from '@/services/core
 // expose Prisma's base transaction client.  Both have the same model operations at runtime;
 // using the base contract here keeps the initializer usable inside an atomic transaction.
 type WorkflowDatabase = Prisma.TransactionClient;
+
+function parseApprovalEligibleRoles(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((role): role is string => typeof role === 'string' && role.trim().length > 0)
+      .map((role) => role.trim().replace(/_GLOBAL$/, ''))
+    : [];
+}
+
+function hasApprovalEligibleRole(
+  roles: Array<{ code: string; isActive: boolean } | null | undefined>,
+  eligibleRoles: readonly string[],
+) {
+  return roles.some((role) => role?.isActive && eligibleRoles.some((eligible) => {
+    const code = role.code.replace(/_GLOBAL$/, '');
+    return code === eligible || code.endsWith(`_${eligible}`);
+  }));
+}
 
 export class WorkflowEngine {
   /**
@@ -152,6 +168,8 @@ export class WorkflowEngine {
           stageId,
           level: a.level,
           role: a.role,
+          requiredPermission: a.requiredPermission,
+          eligibleRoles: a.eligibleRoles,
           status: 'PENDING',
         })));
       }
@@ -613,8 +631,11 @@ export class WorkflowEngine {
     if (!approval) throw AppError.notFound('Workflow approval not found');
     if (projectId && approval.stage.projectWorkflowInstance.projectId !== projectId) throw AppError.forbidden('Workflow approval does not belong to this project');
     const capabilities = await getUserEffectivePermissions(userId);
-    if (!capabilities.includes(RBAC_PERMISSIONS.PROJECT_APPROVE)) {
-      throw AppError.forbidden('Project approval capability is required');
+    if (!approval.requiredPermission || !isCanonicalPermission(approval.requiredPermission)) {
+      throw AppError.badRequest('Workflow approval is missing a canonical permission policy');
+    }
+    if (!capabilities.includes(approval.requiredPermission)) {
+      throw AppError.forbidden(`${approval.requiredPermission} is required`);
     }
     await assertProjectAccess(approval.stage.projectWorkflowInstance.projectId, userId);
     if (approval.status !== 'PENDING') {
@@ -629,7 +650,11 @@ export class WorkflowEngine {
 
     const isAdmin = capabilities.includes(RBAC_PERMISSIONS.ADMIN_RBAC);
     const actorRoles = [actor.systemRole, ...actor.sectionAssignments.map((assignment) => assignment.role)];
-    if (!isAdmin && !hasActiveWorkflowRole(approval.role, actorRoles)) {
+    const eligibleRoles = parseApprovalEligibleRoles(approval.eligibleRoles);
+    if (eligibleRoles.length === 0) {
+      throw AppError.badRequest('Workflow approval is missing canonical eligible role assignments');
+    }
+    if (!isAdmin && !hasApprovalEligibleRole(actorRoles, eligibleRoles)) {
       throw AppError.forbidden('User is not eligible for this approval level');
     }
     if (approval.stage.approvals.some((item) => item.id !== approval.id && item.approvedById === actor.id)) {

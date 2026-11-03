@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from "@/config/roles";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Scale, CheckCircle2, AlertTriangle, ArrowRight } from "lucide-react";
@@ -43,7 +42,7 @@ export default function TrialBalancePage() {
     const activeAccounts = accounts.filter(a => a.totalDebit > 0 || a.totalCredit > 0);
 
     return (
-        <RoleGuard allowedRoles={ROLE_GROUPS.FINANCE}>
+        <RoleGuard>
             <div className="flex h-screen bg-slate-50 overflow-hidden">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

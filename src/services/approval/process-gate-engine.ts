@@ -5,7 +5,7 @@ import { DynamicApprovalService } from './dynamic-approval.service';
 import { DomainActionDispatcher } from './domain-dispatcher.service';
 import { Prisma } from '@prisma/client';
 import { deriveEffectivePermissions } from '@/lib/effective-permissions';
-import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { isCanonicalPermission, RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import crypto from 'crypto';
 
 export interface CreateUniversalApprovalInstancePayload {
@@ -15,6 +15,9 @@ export interface CreateUniversalApprovalInstancePayload {
     levelIndex?: number;
     level: number;
     requiredRole: string;
+    requiredPermission?: string;
+    eligibleRoles?: string[];
+    policyVariant?: string;
     assignedUserId?: string | null;
     makerId?: string; // New field for generic SoD checks
     status?: string;
@@ -30,20 +33,90 @@ export interface UpdateUniversalApprovalInstancePayload {
     signatureHash?: string;
 }
 
-function canonicalApproverWhere(requiredRole: string): Prisma.UserWhereInput {
-    const normalizedRole = requiredRole.trim().replace(/_GLOBAL$/, '');
-    const exactOrSectionRole = [
-        { code: normalizedRole },
-        { code: { endsWith: `_${normalizedRole}` } },
-    ];
+type ApprovalPolicyLevel = {
+    level: number;
+    requiredRole: string;
+    requiredPermission: string | null;
+    eligibleRoles: Prisma.JsonValue | null;
+    specificUserId: string | null;
+    description?: string | null;
+};
 
-    return {
-        status: 'active',
-        OR: [
-            { systemRole: { isActive: true, OR: exactOrSectionRole } },
-            { sectionAssignments: { some: { role: { isActive: true, OR: exactOrSectionRole } } } },
-        ],
-    };
+function parseEligibleRoles(value: Prisma.JsonValue | null | undefined): string[] {
+    if (!Array.isArray(value)) return [];
+    return value.filter((role): role is string => typeof role === 'string' && role.trim().length > 0)
+        .map((role) => role.trim().replace(/_GLOBAL$/, ''));
+}
+
+function assertCanonicalLevel(level: ApprovalPolicyLevel, context: string) {
+    if (!level.requiredPermission || !isCanonicalPermission(level.requiredPermission)) {
+        throw AppError.badRequest(`Workflow policy is incomplete: ${context} requires a valid canonical approval permission.`);
+    }
+    const eligibleRoles = parseEligibleRoles(level.eligibleRoles);
+    if (!level.specificUserId && eligibleRoles.length === 0) {
+        throw AppError.badRequest(`Workflow policy is incomplete: ${context} requires canonical eligible role assignments.`);
+    }
+    return { requiredPermission: level.requiredPermission, eligibleRoles };
+}
+
+function hasEligibleCanonicalRole(
+    user: { systemRole?: { code: string; isActive: boolean } | null; sectionAssignments: Array<{ role: { code: string; isActive: boolean } }> },
+    eligibleRoles: readonly string[],
+) {
+    if (eligibleRoles.length === 0) return false;
+    const activeRoles = [
+        user.systemRole,
+        ...user.sectionAssignments.map((assignment) => assignment.role),
+    ].filter((role): role is { code: string; isActive: boolean } => Boolean(role?.isActive));
+    return activeRoles.some((role) => eligibleRoles.some((eligible) => {
+        const code = role.code.replace(/_GLOBAL$/, '');
+        return code === eligible || code.endsWith(`_${eligible}`);
+    }));
+}
+
+async function findCanonicalApprover(
+    client: Prisma.TransactionClient,
+    level: ApprovalPolicyLevel,
+) {
+    const { requiredPermission, eligibleRoles } = assertCanonicalLevel(level, `level ${level.level}`);
+    const users = await client.user.findMany({
+        where: { status: 'active' },
+        select: {
+            id: true,
+            email: true,
+            isOOO: true,
+            delegatedUserId: true,
+            permissions: true,
+            systemRole: {
+                select: {
+                    code: true,
+                    isActive: true,
+                    permissions: true,
+                    rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true, isActive: true } } } },
+                },
+            },
+            sectionAssignments: {
+                select: {
+                    role: {
+                        select: {
+                            code: true,
+                            isActive: true,
+                            permissions: true,
+                            rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true, isActive: true } } } },
+                        },
+                    },
+                },
+            },
+        },
+    });
+
+    return users.find((user) => {
+        if (level.specificUserId && user.id !== level.specificUserId) return false;
+        const capabilities = deriveEffectivePermissions(user);
+        if (!capabilities.includes(requiredPermission)) return false;
+        return hasEligibleCanonicalRole(user, eligibleRoles)
+            || capabilities.includes(RBAC_PERMISSIONS.ADMIN_RBAC);
+    }) ?? null;
 }
 
 export class ProcessGateEngine {
@@ -124,10 +197,19 @@ export class ProcessGateEngine {
             return RuleEngine.evaluate(conditions, entityPayload);
         });
 
-        if (!policy || policy.approvalLevels.length === 0) {
-            // No policy or no levels found, automatically pass the gate
+        if (!policy) {
+            // No configured policy means this transition has no approval gate.
             return { status: 'GATE_PASSED', policyToStatus: undefined };
         }
+        if (policy.approvalLevels.length === 0) {
+            throw AppError.badRequest(`Workflow policy ${policy.label} is enabled but has no approval levels; refusing to bypass the gate.`);
+        }
+
+        const policyLevels = policy.approvalLevels.filter((level) => level.policyVariant === 'DEFAULT');
+        if (policyLevels.length === 0) {
+            throw AppError.badRequest(`Workflow policy ${policy.label} has no DEFAULT approval configuration; refusing to bypass the gate.`);
+        }
+        policyLevels.forEach((level) => assertCanonicalLevel(level, `${policy.entityType} level ${level.level}`));
 
         // Dynamic Evidence Gating
         if (policy.reqPhotoProof && (!entityPayload.photoUrls || (Array.isArray(entityPayload.photoUrls) && entityPayload.photoUrls.length === 0))) {
@@ -141,37 +223,29 @@ export class ProcessGateEngine {
         }
 
         // 2. Start at Level 1 (Index 0)
-        const firstLevel = policy.approvalLevels[0];
+        const firstLevel = policyLevels[0];
+        const firstLevelPolicy = assertCanonicalLevel(firstLevel, `${policy.entityType} level ${firstLevel.level}`);
 
         // Determine approver user
-        let approver = null;
-        if (firstLevel.specificUserId) {
-            approver = await prisma.user.findUnique({ where: { id: firstLevel.specificUserId, status: 'active' } });
-        } else {
-            approver = await prisma.user.findFirst({
-                where: canonicalApproverWhere(firstLevel.requiredRole)
-            });
-        }
+        const approver = await findCanonicalApprover(prisma as unknown as Prisma.TransactionClient, firstLevel);
+        let approverId = approver?.id;
+        let approverEmail = approver?.email;
 
         // Handle Out-Of-Office (OOO) Auto-Delegation
         if (approver?.isOOO && approver.delegatedUserId) {
-            const delegate = await prisma.user.findUnique({ where: { id: approver.delegatedUserId, status: 'active' } });
+            const delegate = await findCanonicalApprover(
+                prisma as unknown as Prisma.TransactionClient,
+                { ...firstLevel, specificUserId: approver.delegatedUserId },
+            );
             if (delegate) {
                 console.log(`[ProcessGateEngine] Approver ${approver.email} was OOO. Auto-delegated approval to ${delegate.email}`);
-                approver = delegate;
+                approverId = delegate.id;
+                approverEmail = delegate.email;
             }
         }
 
-        const approverEmail = approver?.email; 
-        const approverId = approver?.id;
-
-        if (!approverEmail) {
-             const fallbackEmail = process.env.NEXT_PUBLIC_DEV_EMAIL || process.env.DEV_FALLBACK_EMAIL;
-             if (fallbackEmail) {
-                  console.warn(`[ProcessGateEngine] Approver has no email. Using fallback: ${fallbackEmail}`);
-             } else {
-                  throw AppError.badRequest(`Cannot dispatch approval: Approver for role ${firstLevel.requiredRole} has no valid email address.`);
-             }
+        if (!approverId || !approverEmail) {
+             throw AppError.badRequest(`Cannot dispatch approval: no active canonical approver is configured for ${firstLevel.requiredRole}.`);
         }
 
         // 3. Create UniversalApprovalInstance for Level 1
@@ -182,6 +256,9 @@ export class ProcessGateEngine {
             levelIndex: 0,
             level: firstLevel.level,
             requiredRole: firstLevel.requiredRole,
+            requiredPermission: firstLevelPolicy.requiredPermission,
+            eligibleRoles: firstLevelPolicy.eligibleRoles,
+            policyVariant: 'DEFAULT',
             assignedUserId: approverId,
             makerId: makerId, // Assign Maker for SoD checks later
             status: 'PENDING'
@@ -195,17 +272,14 @@ export class ProcessGateEngine {
         // Instead of hardcoding email sends, we emit an event or return dispatch details.
         // We will keep a generic email dispatch here, but remove the hardcoded check.
         try {
-            if (approverEmail || process.env.NEXT_PUBLIC_DEV_EMAIL) {
-                const targetEmail = approverEmail || process.env.NEXT_PUBLIC_DEV_EMAIL || process.env.DEV_FALLBACK_EMAIL;
-                if (targetEmail) {
-                    await DynamicApprovalService.sendMaterialRequestEmail(
-                        instance.id,
-                        entityId,
-                        targetEmail,
-                        approverId || '',
-                        firstLevel.requiredRole
-                    );
-                }
+            if (approverEmail) {
+                await DynamicApprovalService.sendMaterialRequestEmail(
+                    instance.id,
+                    entityId,
+                    approverEmail,
+                    approverId,
+                    firstLevel.requiredRole
+                );
             }
             console.log(`[ProcessGateEngine] Dispatched Level ${firstLevel.level} Approval for Policy ${policy.label}`);
         } catch (emailErr) {
@@ -237,6 +311,26 @@ export class ProcessGateEngine {
             if (!instance) throw AppError.notFound('Approval instance not found.');
             if (instance.status !== 'PENDING') throw AppError.badRequest(`This request has already been ${instance.status.toLowerCase()}.`);
 
+            const policy = instance.policyId
+                ? await tx.processGatePolicy.findUnique({
+                    where: { id: instance.policyId },
+                    include: { approvalLevels: { orderBy: { level: 'asc' } } },
+                })
+                : null;
+            const currentPolicyLevel = policy?.approvalLevels.find((level) =>
+                level.policyVariant === instance.policyVariant && level.level === instance.level
+            );
+            const requiredPermission = instance.requiredPermission ?? currentPolicyLevel?.requiredPermission ?? null;
+            const eligibleRoles = instance.eligibleRoles ?? currentPolicyLevel?.eligibleRoles ?? null;
+            const effectiveLevel = currentPolicyLevel ?? {
+                level: instance.level,
+                requiredRole: instance.requiredRole,
+                requiredPermission,
+                eligibleRoles,
+                specificUserId: instance.assignedUserId,
+            };
+            const canonicalPolicy = assertCanonicalLevel(effectiveLevel, `${instance.entityType} level ${instance.level}`);
+
             // Verify the actor against canonical DB role assignments. User.role
             // is compatibility data and must not authorize an approval action.
             const user = await tx.user.findUnique({
@@ -255,17 +349,10 @@ export class ProcessGateEngine {
 
             const capabilities = deriveEffectivePermissions(user);
             const isAdmin = capabilities.includes(RBAC_PERMISSIONS.ADMIN_RBAC);
-            const gatePermission = instance.entityType === 'MATERIAL_REQUEST'
-                ? RBAC_PERMISSIONS.INVENTORY_APPROVE
-                : undefined;
-            if (gatePermission && !isAdmin && !capabilities.includes(gatePermission)) {
-                throw AppError.forbidden(`${gatePermission} is required for this approval action.`);
+            if (!capabilities.includes(canonicalPolicy.requiredPermission)) {
+                throw AppError.forbidden(`${canonicalPolicy.requiredPermission} is required for this approval action.`);
             }
-            const requiredRole = instance.requiredRole.trim();
-            const actorRoleCodes = [user.systemRole, ...user.sectionAssignments.map(assignment => assignment.role)]
-                .flatMap(role => role && role.isActive ? [role.code, role.code.replace(/_GLOBAL$/, '')] : []);
-            const hasRequiredRole = actorRoleCodes.includes(requiredRole)
-                || actorRoleCodes.includes(requiredRole.replace(/_GLOBAL$/, ''));
+            const hasRequiredRole = hasEligibleCanonicalRole(user, canonicalPolicy.eligibleRoles);
 
             if (!isAdmin && instance.assignedUserId !== userId && !hasRequiredRole) {
                 throw AppError.forbidden('You are not authorized to action this request.');
@@ -325,35 +412,34 @@ export class ProcessGateEngine {
                 };
             }
 
-            // 2. Fetch associated ProcessGatePolicy and multi-level chain
-            let policy = null;
-            if (typedInstance.policyId) {
-                policy = await tx.processGatePolicy.findUnique({
-                    where: { id: typedInstance.policyId },
-                    include: { approvalLevels: { orderBy: { level: 'asc' } } }
-                });
-            }
-
             // If policy found and has multiple levels, check if there is a next level
             const currentLevelIndex = typedInstance.levelIndex ?? 0;
-            if (policy && policy.approvalLevels.length > currentLevelIndex + 1) {
+            const policyLevels = policy?.approvalLevels.filter((level) => level.policyVariant === instance.policyVariant) ?? [];
+            policyLevels.forEach((level) => assertCanonicalLevel(level, `${instance.entityType} level ${level.level}`));
+            if (policy && policyLevels.length > currentLevelIndex + 1) {
                 const nextLevelIndex = currentLevelIndex + 1;
-                const nextLevel = policy.approvalLevels[nextLevelIndex];
+                const nextLevel = policyLevels[nextLevelIndex];
+                const nextLevelPolicy = assertCanonicalLevel(nextLevel, `${instance.entityType} level ${nextLevel.level}`);
 
                 // Determine approver for next level
-                let nextApprover = null;
-                if (nextLevel.specificUserId) {
-                    nextApprover = await tx.user.findUnique({ where: { id: nextLevel.specificUserId, status: 'active' } });
-                } else {
-                    nextApprover = await tx.user.findFirst({
-                        where: canonicalApproverWhere(nextLevel.requiredRole)
-                    });
+                const nextApprover = await findCanonicalApprover(tx as unknown as Prisma.TransactionClient, nextLevel);
+                let nextApproverId = nextApprover?.id;
+                let nextApproverEmail = nextApprover?.email;
+
+                if (!nextApproverId || !nextApproverEmail) {
+                    throw AppError.badRequest(`Cannot advance approval: no active canonical approver is configured for ${nextLevel.requiredRole}.`);
                 }
 
                 // Handle OOO Delegation for next approver
                 if (nextApprover?.isOOO && nextApprover.delegatedUserId) {
-                    const delegate = await tx.user.findUnique({ where: { id: nextApprover.delegatedUserId, status: 'active' } });
-                    if (delegate) nextApprover = delegate;
+                    const delegate = await findCanonicalApprover(
+                        tx as unknown as Prisma.TransactionClient,
+                        { ...nextLevel, specificUserId: nextApprover.delegatedUserId },
+                    );
+                    if (delegate?.email) {
+                        nextApproverId = delegate.id;
+                        nextApproverEmail = delegate.email;
+                    }
                 }
 
                 const nextInstanceData: CreateUniversalApprovalInstancePayload = {
@@ -363,7 +449,10 @@ export class ProcessGateEngine {
                     levelIndex: nextLevelIndex,
                     level: nextLevel.level,
                     requiredRole: nextLevel.requiredRole,
-                    assignedUserId: nextApprover?.id,
+                    requiredPermission: nextLevelPolicy.requiredPermission,
+                    eligibleRoles: nextLevelPolicy.eligibleRoles,
+                    policyVariant: instance.policyVariant,
+                    assignedUserId: nextApproverId,
                     status: 'PENDING'
                 };
 
@@ -371,7 +460,7 @@ export class ProcessGateEngine {
                     data: nextInstanceData as unknown as Prisma.UniversalApprovalInstanceUncheckedCreateInput
                 });
 
-                console.log(`[ProcessGateEngine] Gate Advanced: Level ${instance.level} APPROVED -> Created Level ${nextLevel.level} for ${nextApprover?.email || nextLevel.requiredRole}`);
+                console.log(`[ProcessGateEngine] Gate Advanced: Level ${instance.level} APPROVED -> Created Level ${nextLevel.level} for ${nextApproverEmail || nextLevel.requiredRole}`);
 
                 return {
                     status: 'GATE_ADVANCED',

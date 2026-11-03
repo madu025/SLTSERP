@@ -55,12 +55,14 @@ identity from a display role name.
 ## Request enforcement
 
 - API routes: use `apiHandler({ permissions: [RBAC_PERMISSIONS.X] })`.
-- Routes still carrying a legacy `roles:` option receive a module capability
-  from `src/lib/route-capabilities.ts` once the session has canonical DB
-  permissions; the legacy role list is then only a compatibility fallback.
-- Dynamic pages: use `RoleGuard allowedRoles={[]} permissionId={...}`.
-- Sidebar and middleware: use `permissionId` with an empty legacy role list
-  for migrated modules.
+- API routes that are public, token-authenticated, or cron-authenticated must
+  declare that boundary explicitly with `publicRoute: true`; an undeclared
+  internal route fails closed.
+- Dynamic pages: use `RoleGuard permissionId={...}`. No role-array prop is
+  accepted by the guard.
+- Sidebar and middleware resolve a canonical `permissionId` and check the
+  session's database-backed effective permissions. Legacy role arrays are not
+  an authorization fallback.
 - Resource endpoints must additionally call `assertProjectAccess` or the
   appropriate OPMC scope helper.
 - Frontend visibility is convenience only; API/service authorization is
@@ -68,10 +70,31 @@ identity from a display role name.
 
 ## Migration rule
 
-`ROLE_GROUPS` is a legacy compatibility/bootstrap mechanism only. It may be
-used by modules that have not migrated yet, but new routes, pages, menu items,
-and services must not add role names. Add a permission definition, seed the
-DB grant, and guard with the permission code instead.
+The old role-group catalog is no longer imported by runtime or RBAC seed code.
+Initial grants are preserved exactly in the explicit
+`src/config/rbac-bootstrap.ts` catalog, then persisted to `RolePermission`.
+`User.role` remains only a validated display/navigation compatibility value;
+it must never grant access.
+
+Workflow and notification records are migrated in phases so old rows are not
+deleted or invalidated:
+
+1. New policy rows write canonical `requiredPermission`, `eligibleRoles`,
+   `policyVariant`, and `notificationAudience` fields.
+2. The migration backfills those fields without overwriting existing policy
+   choices. `requiredRole` remains an immutable audit/display snapshot for
+   approval history; it is not an authorization input.
+3. The cleanup migration backfills historical ChangeApproval canonical
+   snapshots, normalizes the known `HOS` notification alias, verifies that no
+   unresolved notification snapshot remains, and only then drops the obsolete
+   `rolesToNotify` column. It never deletes workflow or notification rows.
+4. Runtime reads canonical fields only. Unknown or incomplete workflow
+   snapshots fail closed and stop deployment until an administrator repairs
+   the data.
+
+Every route, page, service, and approval decision must resolve a canonical
+permission from the database. Add a permission definition, seed the DB grant,
+and guard with the permission code instead.
 
 Direct `User.permissions` is an explicit administrator override. When it is
 non-null it intentionally replaces inherited role permissions, so it must be
@@ -100,6 +123,15 @@ Submitting a workflow review requires `project.write`; deciding it requires
 `project.approve`, Project OPMC access, and the configured active DB reviewer
 role. The reviewer role is taken from the persisted stage, never the request.
 The submitter cannot decide the same review, including with `admin.rbac`.
+
+Project BOQ and change-request approval routing is persisted in
+`ProcessGatePolicy` and `ProcessApprovalLevel`. BOQ levels store the canonical
+`project.approve` capability plus their eligible active `SystemRole.code`
+values; change-request levels use DB policy variants for the amount bands.
+The migration seeds the former default role lists as data, while services fail
+closed when the policy is missing or incomplete. Existing approval records keep
+their role/policy snapshot, so changing a policy does not silently rewrite an
+in-flight maker-checker chain.
 
 ### Project finance controls
 

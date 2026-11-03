@@ -316,7 +316,7 @@ function FinanceDashboardContent() {
 
 export default function FinanceDashboardPage() {
     return (
-        <RoleGuard allowedRoles={[]} permissionId={RBAC_PERMISSIONS.FINANCE_READ}>
+        <RoleGuard permissionId={RBAC_PERMISSIONS.FINANCE_READ}>
             <FinanceDashboardContent />
         </RoleGuard>
     );

@@ -14,7 +14,8 @@ export function isDatabaseRole(value: unknown): value is Role {
 /**
  * Validate a role before it is persisted or placed in a session.
  * Organization-specific human-readable titles belong to SystemRole.name;
- * User.role remains the stable authorization capability key.
+ * User.role remains a validated compatibility/display role. Runtime access
+ * decisions come from canonical PermissionDefinition/RolePermission grants.
  */
 export function assertDatabaseRole(value: unknown): asserts value is Role {
     if (!isDatabaseRole(value)) {

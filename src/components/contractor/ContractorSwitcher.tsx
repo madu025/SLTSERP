@@ -3,6 +3,7 @@
 import {  useState, useEffect  } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Building2, ChevronDown } from 'lucide-react';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 interface ContractorRecord {
     id: string;
@@ -22,16 +23,15 @@ export default function ContractorSwitcher() {
             if (contractorUser) {
                 try {
                     const u = JSON.parse(contractorUser);
-                    // Only show switcher if user is Admin, CEO, or Manager (NOT regular field contractor)
-                    const allowedRoles = ['SUPER_ADMIN', 'ADMIN', 'CEO', 'OSP_MANAGER', 'AREA_MANAGER', 'MANAGER'];
-                    if (u.role && allowedRoles.includes(u.role)) {
-                        setIsAllowedUser(true);
-                    }
+                    // The switcher calls the contractor-read API, so its
+                    // visibility follows the same canonical capability.
+                    const canReadContractors = u.permissions?.includes(RBAC_PERMISSIONS.CONTRACTOR_READ) === true;
+                    window.setTimeout(() => setIsAllowedUser(canReadContractors), 0);
                 } catch {}
             }
 
             const savedId = localStorage.getItem('selected_contractor_id') || '';
-            setSelectedId(savedId);
+            window.setTimeout(() => setSelectedId(savedId), 0);
         }
     }, []);
 

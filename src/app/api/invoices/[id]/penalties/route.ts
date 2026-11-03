@@ -41,7 +41,11 @@ export const POST = apiHandler(async (req, params, body) => {
 export const PATCH = apiHandler(async (req, params, body) => {
     const { id } = params;
     const data = updatePenaltySchema.parse(body);
-    const penalty = await InvoiceService.updatePenaltyStatus(id, data.penaltyId, data.status);
+    const actorUserId = getAuthenticatedUserId();
+    if (!actorUserId) {
+        throw AppError.unauthorized('Authentication required');
+    }
+    const penalty = await InvoiceService.updatePenaltyStatus(id, data.penaltyId, data.status, actorUserId);
     return Response.json({ success: true, penalty });
 }, {
     permissions: [RBAC_PERMISSIONS.SOD_INVOICE],

@@ -4,7 +4,7 @@ import {  useState, useEffect  } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { X, Menu } from 'lucide-react';
-import { SIDEBAR_MENU, hasAccess } from '@/config/sidebar-menu';
+import { SIDEBAR_MENU, canAccessMenuItem } from '@/config/sidebar-menu';
 import { NexusLogoIcon } from '@/components/ui/NexusLogo';
 
 interface User {
@@ -127,7 +127,13 @@ export default function MobileNav() {
                         Menu
                     </div>
 
-                    {mounted && SIDEBAR_MENU.filter(item => hasAccess(userRole, item.allowedRoles, !!user, item.title, item.permissionId, user?.permissions, item.path)).map((item) => {
+                    {mounted && SIDEBAR_MENU.filter(item => canAccessMenuItem({
+                        isLoggedIn: !!user,
+                        itemTitle: item.title,
+                        permissionId: item.permissionId,
+                        userPermissions: user?.permissions,
+                        pathname: item.path,
+                    })).map((item) => {
                         const Icon = item.icon;
                         const hasSubmenu = Array.isArray(item.submenu) && item.submenu.length > 0;
                         const isExpanded = expandedMenus.includes(item.title);
@@ -155,7 +161,13 @@ export default function MobileNav() {
 
                                     {isExpanded && (
                                         <div className="pl-4 space-y-1">
-                                            {item.submenu!.filter(sub => hasAccess(userRole, sub.allowedRoles, !!user, sub.title, sub.permissionId || item.permissionId, user?.permissions, sub.path)).map((sub) => {
+                                            {item.submenu!.filter(sub => canAccessMenuItem({
+                                                isLoggedIn: !!user,
+                                                itemTitle: sub.title,
+                                                permissionId: sub.permissionId || item.permissionId,
+                                                userPermissions: user?.permissions,
+                                                pathname: sub.path,
+                                            })).map((sub) => {
                                                 const isSubActive = pathname === sub.path;
                                                 const SubIcon = sub.icon;
                                                 return (

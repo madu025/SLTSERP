@@ -25,6 +25,7 @@ import { useSODTable } from "./hooks/useSODTable";
 import { SODSummary } from "./components/SODSummary";
 import { SODSheetTable } from "./components/SODSheetTable";
 import { useTableColumnSettings } from "@/hooks/useTableColumnSettings";
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 const ManualEntryModal = dynamic(() => import("@/components/modals/ManualEntryModal"), { ssr: false });
 const ScheduleModal = dynamic(() => import("@/components/modals/ScheduleModal"), { ssr: false });
@@ -135,16 +136,25 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
              const allOpmcs = (await res.json()) as OPMC[];
 
              const storedUser = localStorage.getItem('user') || localStorage.getItem('erp_user');
-             if (!storedUser) return allOpmcs;
+             if (!storedUser) return [];
              
              try {
-                 const user = JSON.parse(storedUser) as { role: string; username: string; accessibleOpmcs?: OPMC[] };
-                 const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
-                 if (isAdmin) {
+                const user = JSON.parse(storedUser) as {
+                    permissions?: string[];
+                    username: string;
+                    accessibleOpmcs?: OPMC[];
+                };
+                  const globalViewPermissions: string[] = [
+                    RBAC_PERMISSIONS.ADMIN_RBAC,
+                    RBAC_PERMISSIONS.REPORTS_MANAGER_READ,
+                  ];
+                  const canFilterGlobally = user.permissions?.some((permission) => globalViewPermissions.includes(permission)) ?? false;
+                if (canFilterGlobally) {
                      return allOpmcs;
                  }
 
-                 // Non-admin: filter by accessible OPMCs if available
+                // Non-global users use the server-issued OPMC scope carried
+                // by the validated session. Missing scope fails closed.
                  if (Array.isArray(user.accessibleOpmcs) && user.accessibleOpmcs.length > 0) {
                      const assignedIds = user.accessibleOpmcs.map((o) => o.id);
                      const filtered = allOpmcs.filter((o) => assignedIds.includes(o.id));
@@ -154,14 +164,12 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                  // FIX: Non-admin with ZERO accessible OPMCs → show no OPMC options.
                  // Previously fell through to `return allOpmcs` which leaked all
                  // regional OPMCs in the dropdown even though the API blocks access.
-                 if (Array.isArray(user.accessibleOpmcs)) {
-                     return []; // Empty accessible list = no OPMC access
-                 }
+                return [];
              } catch (e) {
                  console.error("Error parsing user from localStorage:", e);
              }
              
-             return allOpmcs;
+            return [];
         }
     });
 

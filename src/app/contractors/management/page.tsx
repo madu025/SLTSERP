@@ -214,25 +214,8 @@ export default function ContractorsPage() {
         }
     };
 
-    const ALLOWED_ROLES = [
-        'SUPER_ADMIN',
-        'ADMIN',
-        'OFFICE_ADMIN',
-        'OFFICE_ADMIN_ASSISTANT',
-        'OSP_MANAGER',
-        'AREA_MANAGER',
-        'FINANCE_MANAGER',
-        'FINANCE_ASSISTANT',
-        'SITE_OFFICE_STAFF',
-        'ENGINEER',
-        'ASSISTANT_ENGINEER',
-        'AREA_COORDINATOR',
-        'MANAGER',
-        'QC_OFFICER'
-    ];
-
     return (
-        <RoleGuard allowedRoles={ALLOWED_ROLES}>
+        <RoleGuard>
             <div className="erp-page-wrapper flex-row overflow-hidden">
                 <Sidebar />
                 <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">

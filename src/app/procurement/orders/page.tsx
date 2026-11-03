@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from '@/config/roles';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -278,7 +277,7 @@ export default function ProcurementOrdersPage() {
         return matchesSearch && matchesPriority && matchesType;
     });
     return (
-        <RoleGuard allowedRoles={ROLE_GROUPS.PROCUREMENT}>
+        <RoleGuard>
             <div className="erp-page-wrapper flex-row overflow-hidden">
                 <Sidebar />
             <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">

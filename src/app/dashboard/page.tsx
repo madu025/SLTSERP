@@ -13,26 +13,26 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardFilters, StatsCardGrid, DashboardError, FinanceSection, InventorySection, ProjectsSection, ProcurementSection } from './components';
 import type { DashboardFilterMetadata, Stats } from './components';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS, hasRole, isContractorRole } from '@/config/roles';
-import { hasAccess } from '@/config/sidebar-menu';
+import { isContractorRole } from '@/config/roles';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
-import { getMenuAllowedRoles } from '@/config/route-permissions';
 import ExecutiveControlTower from './components/ExecutiveControlTower';
 
-const DASHBOARD_ALLOWED_ROLES = getMenuAllowedRoles('/dashboard') || [];
 const DASHBOARD_STATS_REQUEST_TIMEOUT_MS = 12_000;
 
-const getDefaultTabForRole = (role?: string) => {
-    if (!role) return 'overview';
-    if (hasRole(role, [...ROLE_GROUPS.EXECUTIVES, 'MANAGER', 'SA_MANAGER', 'AREA_MANAGER', 'OSP_MANAGER', 'HEAD_OF_SECTION'])) return 'overview';
-    if (role === 'PROCUREMENT_OFFICER') return 'procurement';
-    if (['STORES_MANAGER', 'STORES_ASSISTANT'].includes(role)) return 'inventory';
-    if ([
-        'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER',
-        'INVOICE_MANAGER', 'INVOICE_ASSISTANT', 'AR_OFFICER',
-        'SF_AUDIT_MANAGER', 'SF_AUDIT_OFFICER', 'RATE_AUDITOR'
-    ].includes(role)) return 'finance';
-    if (['SA_MANAGER', 'SA_ASSISTANT', 'ENGINEER', 'OSP_ENGINEER', 'CIVIL_SUPERVISOR', 'CABLE_SPLICER'].includes(role)) return 'projects';
+export const getDefaultTabForPermissions = (permissions: readonly string[] = []) => {
+    const hasPermission = (permission: string) => permissions.includes(permission);
+
+    // Manager/area reporting capabilities retain the former executive default.
+    if (
+        hasPermission(RBAC_PERMISSIONS.ADMIN_RBAC)
+        || hasPermission(RBAC_PERMISSIONS.ADMIN_SUPER)
+        || hasPermission(RBAC_PERMISSIONS.REPORTS_MANAGER_READ)
+        || hasPermission(RBAC_PERMISSIONS.REPORTS_AREA_READ)
+    ) return 'overview';
+    if (hasPermission(RBAC_PERMISSIONS.PROCUREMENT_READ)) return 'procurement';
+    if (hasPermission(RBAC_PERMISSIONS.INVENTORY_READ)) return 'inventory';
+    if (hasPermission(RBAC_PERMISSIONS.FINANCE_READ)) return 'finance';
+    if (hasPermission(RBAC_PERMISSIONS.PROJECT_READ)) return 'projects';
     return 'operations';
 };
 
@@ -121,20 +121,22 @@ export default function DashboardPage() {
         }
     }, [user, router]);
 
-    const isAreaCoordinator = user?.role === 'AREA_COORDINATOR';
-    const isHigherManagement = hasRole(user?.role, [...ROLE_GROUPS.EXECUTIVES, 'MANAGER', 'SA_MANAGER', 'AREA_MANAGER', 'OSP_MANAGER', 'HEAD_OF_SECTION']);
-    const canFilterGlobally = hasRole(user?.role, [...ROLE_GROUPS.EXECUTIVES, 'MANAGER', 'SA_MANAGER', 'OSP_MANAGER', 'HEAD_OF_SECTION']);
+    const hasPermission = (permission: string) => !!user?.permissions?.includes(permission);
+    const canFilterGlobally = hasPermission(RBAC_PERMISSIONS.ADMIN_RBAC)
+        || hasPermission(RBAC_PERMISSIONS.REPORTS_MANAGER_READ);
+    const isAreaCoordinator = hasPermission(RBAC_PERMISSIONS.REPORTS_AREA_READ) && !canFilterGlobally;
+    const isHigherManagement = canFilterGlobally;
 
-    // Dynamic role-gated tab visibility
-    const canViewFinance = hasAccess(user?.role || '', [], !!user, undefined, RBAC_PERMISSIONS.FINANCE_READ, user?.permissions);
-    const canViewInventory = hasAccess(user?.role || '', [], !!user, undefined, RBAC_PERMISSIONS.INVENTORY_READ, user?.permissions);
-    const canViewProcurement = hasAccess(user?.role || '', [], !!user, undefined, RBAC_PERMISSIONS.PROCUREMENT_READ, user?.permissions);
-    const canViewProjects = hasAccess(user?.role || '', [], !!user, undefined, RBAC_PERMISSIONS.PROJECT_READ, user?.permissions);
-    const canViewOperations = hasAccess(user?.role || '', [], !!user, undefined, RBAC_PERMISSIONS.SOD_READ, user?.permissions);
+    // Dynamic tab visibility is driven only by canonical DB capabilities.
+    const canViewFinance = hasPermission(RBAC_PERMISSIONS.FINANCE_READ);
+    const canViewInventory = hasPermission(RBAC_PERMISSIONS.INVENTORY_READ);
+    const canViewProcurement = hasPermission(RBAC_PERMISSIONS.PROCUREMENT_READ);
+    const canViewProjects = hasPermission(RBAC_PERMISSIONS.PROJECT_READ);
+    const canViewOperations = hasPermission(RBAC_PERMISSIONS.SOD_READ);
 
     // Keep the effective default mapped to a tab the current user can actually see.
     const effectiveDefaultTab = useMemo(() => {
-        const defaultTab = getDefaultTabForRole(user?.role);
+        const defaultTab = getDefaultTabForPermissions(user?.permissions);
         const tabVisibility: Record<string, boolean> = {
             overview: canViewOperations,
             operations: canViewOperations,
@@ -146,7 +148,7 @@ export default function DashboardPage() {
         if (tabVisibility[defaultTab]) return defaultTab;
         const priority = ['overview', 'operations', 'projects', 'procurement', 'finance', 'inventory'];
         return priority.find(t => tabVisibility[t]) || 'operations';
-    }, [user?.role, canViewOperations, canViewProjects, canViewProcurement, canViewFinance, canViewInventory]);
+    }, [user?.permissions, canViewOperations, canViewProjects, canViewProcurement, canViewFinance, canViewInventory]);
 
     const [activeTab, setActiveTab] = useState(() => effectiveDefaultTab);
 
@@ -331,7 +333,7 @@ export default function DashboardPage() {
     }
 
     return (
-        <RoleGuard allowedRoles={DASHBOARD_ALLOWED_ROLES} permissionId={RBAC_PERMISSIONS.DASHBOARD_READ}>
+        <RoleGuard permissionId={RBAC_PERMISSIONS.DASHBOARD_READ}>
             <div className="min-h-screen flex bg-background text-foreground">
                 <Sidebar />
                 <main className="flex-1 flex flex-col min-w-0 h-full">

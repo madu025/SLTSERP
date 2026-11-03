@@ -120,7 +120,11 @@ model WorkflowChecklistTemplate {
 model WorkflowApprovalTemplate {
   id              String                @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   level           Int                   @default(1)
+  /// Compatibility/display snapshot only. Runtime approval authorization uses
+  /// requiredPermission and active canonical role assignments.
   role            String
+  requiredPermission String?
+  eligibleRoles   Json?
   stageTemplateId String                @db.Uuid
   stageTemplate   WorkflowStageTemplate @relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)
 
@@ -303,6 +307,8 @@ model ProjectApprovalInstance {
   id           String               @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   level        Int
   role         String
+  requiredPermission String?
+  eligibleRoles Json?
   status       String               @default("PENDING")
   approvedById String?              @db.Uuid
   approvedAt   DateTime?

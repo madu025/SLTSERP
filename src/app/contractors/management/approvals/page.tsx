@@ -7,15 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { updateContractor } from "@/actions/contractor-actions";
+import { approveContractorRegistration, rejectContractorRegistration } from "@/actions/contractor-actions";
 import { CheckCircle, XCircle, Loader2, Users, FileText, Banknote, Calendar, ShieldCheck, Pencil, Image as ImageIcon, Eye, Info } from "lucide-react";
-import { ContractorUpdateData } from "@/services/contractor/contractor.service";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { cn } from "@/lib/utils";
-import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import TeamManager from "../TeamManager";
@@ -73,9 +70,6 @@ function ContractorApprovals() {
     const queryClient = useQueryClient();
     const [selectedContractor, setSelectedContractor] = useState<Contractor | null>(null);
 
-    const user = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
-    const userRole = user.role || '';
-
     const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
     const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
     const [rejectionReason, setRejectionReason] = useState("");
@@ -97,24 +91,9 @@ function ContractorApprovals() {
         }
     });
 
-    const { data: opmcs = [] } = useQuery({
-        queryKey: ['opmcs'],
-        queryFn: async () => {
-            const res = await fetch('/api/opmcs');
-            if (!res.ok) return [];
-            return res.json();
-        }
-    });
-
     const approveMutation = useMutation({
-        mutationFn: async ({ id, status, approverId, teams }: { id: string; status: string; approverId: string; teams?: Team[] }) => {
-            const data: ContractorUpdateData = {
-                status: status as ContractorStatus,
-                teams,
-                ...(userRole === 'AREA_MANAGER' ? { armApprovedById: approverId, armApprovedAt: new Date() } : {}),
-                ...(userRole === 'OSP_MANAGER' ? { ospApprovedById: approverId, ospApprovedAt: new Date() } : {})
-            };
-            return await updateContractor(id, data);
+        mutationFn: async ({ id, teamCodes }: { id: string; teamCodes?: Record<string, string> }) => {
+            return await approveContractorRegistration(id, teamCodes);
         },
         onSuccess: (result) => {
             if (result.success) {
@@ -128,14 +107,8 @@ function ContractorApprovals() {
     });
 
     const rejectMutation = useMutation({
-        mutationFn: async ({ id, reason, userId }: { id: string; reason: string; userId: string }) => {
-            const data: ContractorUpdateData = {
-                status: 'REJECTED',
-                rejectionReason: reason,
-                rejectionById: userId,
-                rejectedAt: new Date()
-            };
-            return await updateContractor(id, data);
+        mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+            return await rejectContractorRegistration(id, reason);
         },
         onSuccess: (result) => {
             if (result.success) {
@@ -151,29 +124,17 @@ function ContractorApprovals() {
     });
 
     const handleApprove = (contractor: Contractor) => {
-        let nextStatus = '';
-        const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(userRole);
-
-        if (contractor.status === 'ARM_PENDING' && (userRole === 'AREA_MANAGER' || isAdmin)) {
-            nextStatus = 'OSP_PENDING';
-        } else if ((contractor.status === 'OSP_PENDING' || contractor.status === 'ARM_PENDING') && (userRole === 'OSP_MANAGER' || isAdmin)) {
-            nextStatus = 'ACTIVE';
-        }
-
-        if (!nextStatus) {
-            toast.error("You don't have permission to approve at this stage");
-            return;
-        }
-
-        if (nextStatus === 'ACTIVE') {
+        if (contractor.status === 'OSP_PENDING') {
             const initialCodes: Record<string, string> = {};
             (contractor.teams || []).forEach((t: Team) => {
                 initialCodes[t.id] = t.sltCode || '';
             });
             setTeamCodes(initialCodes);
             setIsApproveDialogOpen(true);
-        } else if (nextStatus) {
-            approveMutation.mutate({ id: contractor.id, status: nextStatus, approverId: user.id });
+        } else if (contractor.status === 'ARM_PENDING') {
+            approveMutation.mutate({ id: contractor.id });
+        } else {
+            toast.error('This contractor is not awaiting an approval decision');
         }
     };
 
@@ -194,9 +155,7 @@ function ContractorApprovals() {
 
         approveMutation.mutate({
             id: selectedContractor.id,
-            status: 'ACTIVE',
-            approverId: user.id,
-            teams: teamsToUpdate
+            teamCodes: Object.fromEntries(teamsToUpdate.map((team) => [team.id, team.sltCode || ''])),
         });
         setIsApproveDialogOpen(false);
     };
@@ -207,11 +166,7 @@ function ContractorApprovals() {
             toast.error("Please provide a reason for rejection");
             return;
         }
-        rejectMutation.mutate({
-            id: selectedContractor.id,
-            reason: rejectionReason,
-            userId: user.id
-        });
+        rejectMutation.mutate({ id: selectedContractor.id, reason: rejectionReason });
     };
 
     if (isLoading) {
@@ -242,7 +197,7 @@ function ContractorApprovals() {
                             <div className="flex items-center gap-2">
                                 <Badge className="bg-blue-50 text-blue-700 border border-blue-200 font-black px-2.5 py-0.5 text-[10px] uppercase tracking-wide">
                                     <ShieldCheck className="w-3.5 h-3.5 mr-1" />
-                                    {userRole.replace('_', ' ')}
+                                    SERVER-AUTHORIZED REVIEW
                                 </Badge>
                             </div>
                         </div>

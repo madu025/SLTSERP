@@ -31,8 +31,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     OFFICE_ADMIN: ['dashboard', 'contractors', 'administration'],
     OFFICE_ADMIN_ASSISTANT: ['dashboard', 'contractors', 'administration'],
     SITE_OFFICE_STAFF: ['dashboard', 'contractors'],
-    // Read-only reporting role (QA audit): dashboard + reports visibility is
-    // granted via sidebar allowedRoles; no operational section permissions
+    // Read-only reporting role (QA audit): dashboard visibility is retained
+    // for bootstrap compatibility; reports require canonical capabilities.
     HEAD_OF_SECTION: ['dashboard']
 };
 

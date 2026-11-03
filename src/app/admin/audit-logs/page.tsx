@@ -21,7 +21,6 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from "@/config/roles";
 import { toast } from "sonner";
 
 interface AuditLog {
@@ -260,7 +259,7 @@ export default function AuditLogPage() {
     };
 
     return (
-        <RoleGuard allowedRoles={ROLE_GROUPS.ADMINS}>
+        <RoleGuard>
             <div className="h-screen flex bg-slate-50 overflow-hidden text-xs">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0">

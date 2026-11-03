@@ -62,7 +62,7 @@ export default function GeneralLedgerPage() {
   const totalCredit = flatLines.reduce((acc, curr) => acc + curr.creditAmount, 0);
 
   return (
-    <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER']}>
+    <RoleGuard>
       <div className="flex h-screen bg-slate-50 overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ProcessGatePolicy, ProcessApprovalLevel } from '@prisma/client';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 type GatePolicyWithLevels = ProcessGatePolicy & {
   approvalLevels: ProcessApprovalLevel[];
@@ -41,7 +42,7 @@ export function StepByStepGateWizard({
   const [saving, setSaving] = useState(false);
   const [domainActions, setDomainActions] = useState<{label: string; value: string; entityType: string; description?: string}[]>([]);
   const [dynamicStatuses, setDynamicStatuses] = useState<Record<string, Array<{ label: string; value: string }>>>({});
-  const [usersList, setUsersList] = useState<Array<{ id: string; name: string; role: string; username?: string; employeeId?: string }>>([]);
+  const [usersList, setUsersList] = useState<Array<{ id: string; name: string; username?: string; employeeId?: string }>>([]);
   // Dynamic role list — source of truth is the Postgres Role enum (AGENTS.md Rule 4: no hardcoded role lists)
   const [roleOptions, setRoleOptions] = useState<string[]>([]);
 
@@ -100,19 +101,22 @@ export function StepByStepGateWizard({
     writeAuditLedger: gate ? gate.writeAuditLedger : true,
     generateIssueNote: gate?.generateIssueNote || false,
     domainAction: gate?.domainAction || '',
+    notificationAudience: gate?.notificationAudience || '',
   });
 
   // Form State for Approval Levels
-  const [levels, setLevels] = useState<Array<{ level: number; requiredRole: string; specificUserId?: string; description?: string }>>(
+  const [levels, setLevels] = useState<Array<{ level: number; requiredRole?: string; requiredPermission: string; eligibleRoles: string[]; specificUserId?: string; description?: string }>>(
     gate?.approvalLevels && gate.approvalLevels.length > 0
       ? gate.approvalLevels.map(l => ({
           level: l.level,
           requiredRole: l.requiredRole,
+          requiredPermission: l.requiredPermission || RBAC_PERMISSIONS.PROJECT_APPROVE,
+          eligibleRoles: Array.isArray(l.eligibleRoles) ? l.eligibleRoles.filter((role): role is string => typeof role === 'string') : [],
           specificUserId: l.specificUserId || undefined,
           description: l.description || ''
         }))
       : [
-          { level: 1, requiredRole: 'OSP_MANAGER', description: 'Level 1 Operational Verification' }
+          { level: 1, requiredRole: 'OSP_MANAGER', requiredPermission: RBAC_PERMISSIONS.PROJECT_APPROVE, eligibleRoles: ['OSP_MANAGER'], description: 'Level 1 Operational Verification' }
         ]
   );
 
@@ -144,7 +148,7 @@ export function StepByStepGateWizard({
     const defaultRole = nextLevelNum === 2 ? 'STORES_MANAGER' : nextLevelNum === 3 ? 'FINANCE_MANAGER' : 'ADMIN';
     setLevels(prev => [
       ...prev,
-      { level: nextLevelNum, requiredRole: defaultRole, description: `Level ${nextLevelNum} Verification` }
+      { level: nextLevelNum, requiredRole: defaultRole, requiredPermission: RBAC_PERMISSIONS.PROJECT_APPROVE, eligibleRoles: [defaultRole], description: `Level ${nextLevelNum} Verification` }
     ]);
   };
 
@@ -160,6 +164,7 @@ export function StepByStepGateWizard({
   const updateLevelRole = (index: number, role: string) => {
     const updated = [...levels];
     updated[index].requiredRole = role;
+    updated[index].eligibleRoles = [role];
     setLevels(updated);
   };
 
@@ -505,13 +510,27 @@ export function StepByStepGateWizard({
 
                     <div className="grid md:grid-cols-3 gap-3">
                       <div className="space-y-1">
-                        <label className="block text-xs font-bold text-slate-700">Required Role:</label>
+                        <label className="block text-xs font-bold text-slate-700">Canonical Approval Capability:</label>
                         <select
-                          value={lvl.requiredRole}
+                          value={lvl.requiredPermission}
+                          onChange={(e) => {
+                            const updated = [...levels];
+                            updated[index].requiredPermission = e.target.value;
+                            setLevels(updated);
+                          }}
+                          className="w-full h-10 text-xs border border-slate-200 rounded-xl px-3 bg-slate-50 font-semibold text-slate-800"
+                        >
+                          {[RBAC_PERMISSIONS.PROJECT_APPROVE, RBAC_PERMISSIONS.INVENTORY_APPROVE, RBAC_PERMISSIONS.PROCUREMENT_WRITE, RBAC_PERMISSIONS.SOD_WRITE, RBAC_PERMISSIONS.CONTRACTOR_WRITE, RBAC_PERMISSIONS.FINANCE_APPROVE].map(permission => (
+                            <option key={permission} value={permission}>{permission}</option>
+                          ))}
+                        </select>
+                        <label className="block text-xs font-bold text-slate-700 mt-2">Eligible SystemRole:</label>
+                        <select
+                          value={lvl.requiredRole || ''}
                           onChange={(e) => updateLevelRole(index, e.target.value)}
                           className="w-full h-10 text-xs border border-slate-200 rounded-xl px-3 bg-slate-50 font-semibold text-slate-800"
                         >
-                          {(roleOptions.length > 0 ? roleOptions : [lvl.requiredRole]).map(role => (
+                          {(roleOptions.length > 0 ? roleOptions : [lvl.requiredRole].filter((role): role is string => Boolean(role))).map(role => (
                             <option key={role} value={role}>{role.replace(/_/g, ' ')}</option>
                           ))}
                         </select>
@@ -529,9 +548,7 @@ export function StepByStepGateWizard({
                           className="w-full h-10 text-xs border border-slate-200 rounded-xl px-3 bg-slate-50 font-semibold text-slate-800"
                         >
                           <option value="">Any User with Role (Dynamic OPMC Scope)</option>
-                          {usersList
-                            .filter(u => u.role === lvl.requiredRole || lvl.requiredRole === 'ADMIN')
-                            .map(u => (
+                          {usersList.map(u => (
                               <option key={u.id} value={u.id}>
                                 👤 {u.name} ({u.username || u.employeeId || u.id})
                               </option>

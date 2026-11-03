@@ -1,6 +1,4 @@
 "use client";
-import { ROLE_GROUPS } from '@/config/roles';
-
 import {  useEffect, useState, useCallback  } from 'react';
 import { Staff, InventoryStore as SiteOffice } from "@prisma/client";
 import { ITAsset } from "@/components/helpdesk/AssetList";
@@ -14,11 +12,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import RoleGuard from "@/components/RoleGuard";
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export default function HelpdeskAssetManagementPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [user, setUser] = useState<{ id: string; name: string; role: string } | null>(null);
+  const [user, setUser] = useState<{ id: string; name: string; role: string; permissions?: string[] } | null>(null);
   const [assets, setAssets] = useState<ITAsset[]>([]);
   const [usersList, setUsersList] = useState<Staff[]>([]);
   const [siteOfficesList, setSiteOfficesList] = useState<SiteOffice[]>([]);
@@ -59,10 +58,9 @@ export default function HelpdeskAssetManagementPage() {
     setMounted(true);
     const stored = localStorage.getItem("user");
     if (stored) {
-      const parsedUser = JSON.parse(stored);
+      const parsedUser = JSON.parse(stored) as { id: string; name: string; role: string; permissions?: string[] };
       setUser(parsedUser);
-      const allowedRoles = ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"];
-      if (!parsedUser.role || !allowedRoles.includes(parsedUser.role)) {
+      if (!parsedUser.permissions?.includes(RBAC_PERMISSIONS.HELPDESK_WRITE)) {
         toast.error("Unauthorized access.");
         router.push("/login");
       }
@@ -261,7 +259,7 @@ export default function HelpdeskAssetManagementPage() {
     }
   };
 
-  const isITStaff = !!(user?.role && ROLE_GROUPS.IT_ADMINS.includes(user.role));
+  const isITStaff = !!user?.permissions?.includes(RBAC_PERMISSIONS.HELPDESK_WRITE);
 
   if (!mounted || !user || !isITStaff) {
     return (
@@ -272,7 +270,7 @@ export default function HelpdeskAssetManagementPage() {
   }
 
   return (
-    <RoleGuard allowedRoles={ROLE_GROUPS.IT_ADMINS}>
+    <RoleGuard permissionId={RBAC_PERMISSIONS.HELPDESK_WRITE}>
       <div className="flex h-screen bg-slate-50 overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

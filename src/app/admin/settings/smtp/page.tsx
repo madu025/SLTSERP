@@ -7,7 +7,6 @@ import { z } from 'zod';
 import RoleGuard from '@/components/RoleGuard';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import { ROLE_GROUPS } from '@/config/roles';
 import { Save, Mail, Server, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -89,7 +88,7 @@ export default function SmtpSettingsPage() {
   };
 
   return (
-    <RoleGuard allowedRoles={ROLE_GROUPS.ADMINS as unknown as string[]}>
+    <RoleGuard>
       <div className="flex h-screen bg-slate-50 overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

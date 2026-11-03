@@ -3,11 +3,14 @@ import { prisma } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
 import { ContractorType, ContractorStatus } from '@prisma/client';
 import { emitSystemEvent } from '@/lib/events';
-import { ContractorUpdateData, TeamInput, TeamMemberInput } from '@/types/contractor/contractor.types';
+import { ContractorApprovalInput, ContractorRejectionInput, ContractorUpdateData, TeamInput, TeamMemberInput } from '@/types/contractor/contractor.types';
 import { ContractorQueryService } from './contractor.query.service';
 import { ContractorRepository } from '@/repositories/contractor.repository';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { eventBus } from '@/lib/events/event-bus';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { getUserEffectivePermissions } from '@/lib/user-permissions';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
 
 export class ContractorLifecycleService {
     /**
@@ -155,17 +158,10 @@ export class ContractorLifecycleService {
                 kycVerified: contractorData.kycVerified,
                 whtHoldStatus: contractorData.whtHoldStatus,
                 registrationFeeSlipUrl: contractorData.registrationFeeSlipUrl,
-                armApprovedAt: contractorData.armApprovedAt,
-                armApprovedById: contractorData.armApprovedById,
-                ospApprovedAt: contractorData.ospApprovedAt,
-                ospApprovedById: contractorData.ospApprovedById,
-                rejectionReason: contractorData.rejectionReason,
-                rejectionById: contractorData.rejectionById,
-                rejectedAt: contractorData.rejectedAt
             }, tx);
 
             if (contractorData.status) {
-                await this.handleStatusChangeNotifications(updated, contractorData);
+                await this.handleStatusChangeNotifications(updated, contractorData.status);
             }
 
             if (teams) {
@@ -178,13 +174,190 @@ export class ContractorLifecycleService {
     }
 
     /**
+     * Advance the ARM/OSP contractor approval workflow.
+     *
+     * The request can provide only safe workflow data (team reference codes).
+     * Actor identity, required stage, status, approver relation, and timestamp
+     * are all derived from the authenticated user and the current database row.
+     */
+    static async approveContractor(id: string, actorUserId: string, input: ContractorApprovalInput = {}) {
+        const actor = await this.getApprovalActor(actorUserId);
+        const permissions = await getUserEffectivePermissions(actorUserId);
+        const isAdmin = permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC);
+        const contractor = await prisma.contractor.findUnique({
+            where: { id },
+            select: {
+                id: true,
+                name: true,
+                type: true,
+                status: true,
+                opmcId: true,
+                siteOfficeStaffId: true,
+                armApprovedAt: true,
+                ospApprovedAt: true,
+                teams: { select: { id: true, sltCode: true, opmcId: true } },
+            },
+        });
+        if (!contractor) throw AppError.notFound('CONTRACTOR_NOT_FOUND');
+
+        await this.assertApprovalScope(actorUserId, contractor.opmcId, contractor.teams.map((team) => team.opmcId));
+
+        const approvalRole = contractor.status === 'ARM_PENDING'
+            ? 'AREA_MANAGER'
+            : contractor.status === 'OSP_PENDING'
+                ? 'OSP_MANAGER'
+                : null;
+        if (!approvalRole) {
+            throw AppError.conflict('CONTRACTOR_APPROVAL_STAGE_INVALID');
+        }
+        if (!isAdmin && !this.hasActiveRole(actor, approvalRole)) {
+            throw AppError.forbidden(`Active ${approvalRole} assignment is required for this approval stage`);
+        }
+
+        const now = new Date();
+        const nextStatus = approvalRole === 'AREA_MANAGER' ? 'OSP_PENDING' : 'ACTIVE';
+        const approvalData = approvalRole === 'AREA_MANAGER'
+            ? { status: nextStatus as ContractorStatus, armApprovedAt: now, armApprovedById: actorUserId }
+            : { status: nextStatus as ContractorStatus, ospApprovedAt: now, ospApprovedById: actorUserId };
+
+        return await prisma.$transaction(async (tx: TransactionClient) => {
+            const current = await tx.contractor.findUnique({
+                where: { id },
+                select: { status: true, type: true, teams: { select: { id: true, sltCode: true } } },
+            });
+            if (!current || current.status !== contractor.status) {
+                throw AppError.conflict('CONTRACTOR_APPROVAL_STAGE_CHANGED');
+            }
+
+            if (approvalRole === 'OSP_MANAGER') {
+                await this.applyApprovalTeamCodes(tx, id, current.type, current.teams, input.teamCodes);
+            }
+
+            const updated = await ContractorRepository.update(id, approvalData, tx);
+            await this.handleStatusChangeNotifications(updated, nextStatus);
+            emitSystemEvent('CONTRACTOR_UPDATE');
+            return updated;
+        });
+    }
+
+    /** Reject a contractor in its current approval stage using the authenticated actor. */
+    static async rejectContractor(id: string, actorUserId: string, input: ContractorRejectionInput) {
+        const reason = input.reason.trim();
+        if (!reason) throw AppError.badRequest('REJECTION_REASON_REQUIRED');
+        if (reason.length > 2000) throw AppError.badRequest('REJECTION_REASON_TOO_LONG');
+
+        const actor = await this.getApprovalActor(actorUserId);
+        const permissions = await getUserEffectivePermissions(actorUserId);
+        const isAdmin = permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC);
+        const contractor = await prisma.contractor.findUnique({
+            where: { id },
+            select: { id: true, name: true, status: true, opmcId: true, siteOfficeStaffId: true, teams: { select: { opmcId: true } } },
+        });
+        if (!contractor) throw AppError.notFound('CONTRACTOR_NOT_FOUND');
+
+        await this.assertApprovalScope(actorUserId, contractor.opmcId, contractor.teams.map((team) => team.opmcId));
+        const stageRole = contractor.status === 'ARM_PENDING'
+            ? 'AREA_MANAGER'
+            : contractor.status === 'OSP_PENDING'
+                ? 'OSP_MANAGER'
+                : null;
+        if (!stageRole) throw AppError.conflict('CONTRACTOR_APPROVAL_STAGE_INVALID');
+        if (!isAdmin && !this.hasActiveRole(actor, stageRole)) {
+            throw AppError.forbidden(`Active ${stageRole} assignment is required for this approval stage`);
+        }
+
+        return await prisma.$transaction(async (tx: TransactionClient) => {
+            const current = await tx.contractor.findUnique({ where: { id }, select: { status: true } });
+            if (!current || current.status !== contractor.status) {
+                throw AppError.conflict('CONTRACTOR_APPROVAL_STAGE_CHANGED');
+            }
+            const updated = await ContractorRepository.update(id, {
+                status: 'REJECTED',
+                rejectionReason: reason,
+                rejectionById: actorUserId,
+                rejectedAt: new Date(),
+            }, tx);
+            await this.handleStatusChangeNotifications(updated, 'REJECTED', reason);
+            emitSystemEvent('CONTRACTOR_UPDATE');
+            return updated;
+        });
+    }
+
+    private static async getApprovalActor(actorUserId: string) {
+        if (!actorUserId) throw AppError.unauthorized('Authentication required');
+        const actor = await prisma.user.findUnique({
+            where: { id: actorUserId },
+            select: {
+                id: true,
+                status: true,
+                systemRole: { select: { code: true, isActive: true } },
+                sectionAssignments: { select: { role: { select: { code: true, isActive: true } } } },
+            },
+        });
+        if (!actor || actor.status !== 'active') {
+            throw AppError.unauthorized('Authenticated approval actor is not active');
+        }
+        return actor;
+    }
+
+    private static hasActiveRole(
+        actor: Awaited<ReturnType<typeof ContractorLifecycleService.getApprovalActor>>,
+        requiredRole: 'AREA_MANAGER' | 'OSP_MANAGER',
+    ) {
+        const roles = [
+            actor.systemRole,
+            ...actor.sectionAssignments.map((assignment) => assignment.role),
+        ];
+        return roles.some((role) => role?.isActive && (
+            role.code === requiredRole || role.code.endsWith(`_${requiredRole}`)
+        ));
+    }
+
+    private static async assertApprovalScope(actorUserId: string, contractorOpmcId: string | null, teamOpmcIds: Array<string | null>) {
+        const scope = await resolveOpmcScope(actorUserId);
+        if (scope === undefined) return;
+        const visibleOpmcIds = [contractorOpmcId, ...teamOpmcIds].filter((value): value is string => Boolean(value));
+        if (!visibleOpmcIds.some((opmcId) => scope.includes(opmcId))) {
+            throw AppError.forbidden('Contractor is outside the authenticated OPMC scope');
+        }
+    }
+
+    private static async applyApprovalTeamCodes(
+        tx: TransactionClient,
+        contractorId: string,
+        contractorType: ContractorType,
+        teams: Array<{ id: string; sltCode: string | null }>,
+        teamCodes?: Record<string, string>,
+    ) {
+        const codes = teamCodes ?? {};
+        const teamIds = new Set(teams.map((team) => team.id));
+        for (const [teamId, rawCode] of Object.entries(codes)) {
+            if (!teamIds.has(teamId)) throw AppError.badRequest('TEAM_NOT_ASSIGNED_TO_CONTRACTOR');
+            const sltCode = rawCode.trim();
+            if (sltCode.length > 100) throw AppError.badRequest('TEAM_CODE_TOO_LONG');
+            await tx.contractorTeam.update({ where: { id: teamId }, data: { sltCode: sltCode || null } });
+        }
+
+        if (contractorType === 'SOD') {
+            const finalCodes = teams.map((team) => codes[team.id]?.trim() || team.sltCode || '');
+            if (finalCodes.some((code) => !code)) {
+                throw AppError.badRequest('ALL_TEAMS_REQUIRE_SLT_CODE');
+            }
+        }
+    }
+
+    /**
      * Handle notifications on status changes
      */
-    private static async handleStatusChangeNotifications(contractor: { id: string; name: string; siteOfficeStaffId: string | null; opmcId: string | null }, data: ContractorUpdateData) {
+    private static async handleStatusChangeNotifications(
+        contractor: { id: string; name: string; siteOfficeStaffId: string | null; opmcId: string | null },
+        status: string,
+        rejectionReason?: string,
+    ) {
         const [err] = await safe(eventBus.publish('contractor.status_changed', {
             contractor,
-            status: data.status as string,
-            rejectionReason: data.rejectionReason
+            status,
+            rejectionReason,
         }));
         if (err) {
             console.error("[LIFECYCLE] Event Publish Failed:", err);

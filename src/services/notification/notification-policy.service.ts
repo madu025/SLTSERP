@@ -1,5 +1,5 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { NotificationService, NotificationPriority } from '@/services/notification/notification.service';
+import type { NotificationAudienceId } from './notification-audiences';
 import { EmailService } from './email.service';
 import { NotificationTemplateEngineService } from './template-engine.service';
 import { prisma } from '@/lib/prisma';
@@ -10,29 +10,7 @@ import { getSriLankaDayKey } from '@/lib/timezone';
  * Kept in sync with the in-app notification roles used in notifyLowStock.
  * Declared once here so in-app and email recipients never drift apart again (fixes Issue #8).
  */
-const INVENTORY_ALERT_EMAIL_ROLES: string[] = [
-    ...ROLE_GROUPS.ADMINS,
-    'STORES_MANAGER',
-    'OSP_MANAGER',
-];
-
-async function getCanonicalRoleEmails(roles: string[]) {
-    const rolePredicates = [...new Set(roles)].flatMap(role => [
-        { code: role },
-        { code: { endsWith: `_${role}` } },
-    ]);
-    const users = await prisma.user.findMany({
-        where: {
-            status: 'active',
-            OR: [
-                { systemRole: { isActive: true, OR: rolePredicates } },
-                { sectionAssignments: { some: { role: { isActive: true, OR: rolePredicates } } } },
-            ],
-        },
-        select: { email: true },
-    });
-    return users.map(user => user.email).filter(Boolean) as string[];
-}
+const INVENTORY_ALERT_EMAIL_AUDIENCE: NotificationAudienceId = 'INVENTORY_ALERT_EMAIL';
 
 /**
  * Shared helper: fetch emails for a set of roles and send a single digest email.
@@ -40,7 +18,8 @@ async function getCanonicalRoleEmails(roles: string[]) {
  * Errors are logged with structured context; a retry can be added via BullMQ if needed.
  */
 async function sendAlertEmail({
-    roles,
+    audience,
+    opmcId,
     subject,
     text,
     html,
@@ -48,7 +27,8 @@ async function sendAlertEmail({
     templateCode,
     templateVars,
 }: {
-    roles: string[];
+    audience: NotificationAudienceId;
+    opmcId?: string;
     subject: string;
     text: string;
     html: string;
@@ -56,7 +36,7 @@ async function sendAlertEmail({
     templateCode?: string;
     templateVars?: Record<string, string>;
 }): Promise<void> {
-    const emails = await getCanonicalRoleEmails(roles);
+    const emails = await NotificationService.getAudienceEmails({ audience, opmcId });
     if (emails.length === 0) return;
 
     // Try DB template first, fallback to hardcoded HTML
@@ -99,8 +79,8 @@ export class NotificationPolicyService {
             });
         }
 
-        await NotificationService.notifyByRole({
-            roles: ROLE_GROUPS.OFFICE_ADMINS,
+        await NotificationService.notifyByAudience({
+            audience: 'OFFICE_ADMINS',
             title: "Contractor Pending Review",
             message,
             type: 'CONTRACTOR',
@@ -127,8 +107,8 @@ export class NotificationPolicyService {
                 type: 'CONTRACTOR',
                 priority: 'MEDIUM'
             });
-            await NotificationService.notifyByRole({
-                roles: ROLE_GROUPS.PROJECT_MANAGERS,
+            await NotificationService.notifyByAudience({
+                audience: 'PROJECT_MANAGERS',
                 title: "New Contractor Pending Authorization",
                 message: `Contractor "${contractor.name}" is waiting for final authorization.`,
                 type: 'CONTRACTOR',
@@ -158,8 +138,8 @@ export class NotificationPolicyService {
     // --- SOD POLICIES ---
 
     static async notifySODReturn(sod: { id: string; soNum: string; opmcId: string; returnReason: string | null }) {
-        await NotificationService.notifyByRole({
-            roles: ROLE_GROUPS.OPS,
+        await NotificationService.notifyByAudience({
+            audience: 'OPERATIONS',
             title: 'SOD Returned/Rejected',
             message: `Service Order ${sod.soNum} has been marked as RETURN. Reason: ${sod.returnReason || 'No reason provided'}.`,
             type: 'PROJECT',
@@ -176,12 +156,11 @@ export class NotificationPolicyService {
     // --- INVENTORY POLICIES ---
 
     static async notifyLowStock(storeName: string, itemName: string, currentQty: number, minLevel: number) {
-        const inAppRoles = [...ROLE_GROUPS.STORES_MANAGERS, 'OSP_MANAGER', 'HEAD_OF_OSP'];
         const alertMessage = `Item "${itemName}" in ${storeName} is below minimum level. Current: ${currentQty}, Min: ${minLevel}`;
 
         // In-app notification
-        await NotificationService.notifyByRole({
-            roles: inAppRoles,
+        await NotificationService.notifyByAudience({
+            audience: 'INVENTORY_LOW_STOCK',
             title: 'Low Stock Alert',
             message: alertMessage,
             type: 'INVENTORY',
@@ -189,9 +168,9 @@ export class NotificationPolicyService {
             link: '/inventory/stock'
         });
 
-        // Email notification — same role set as in-app (Fix #8: aligned recipients)
+        // Email notification keeps its existing audience semantics.
         await sendAlertEmail({
-            roles: INVENTORY_ALERT_EMAIL_ROLES,
+            audience: INVENTORY_ALERT_EMAIL_AUDIENCE,
             subject: `[SLTS NEXUS Alert] Critical Low Stock: ${itemName} in ${storeName}`,
             text: `Low stock detected for item: ${itemName} in ${storeName}.\nCurrent stock level: ${currentQty}\nMinimum safety stock level: ${minLevel}\n\nPlease take immediate replenishment action.`,
             html: `<div style="font-family:sans-serif;padding:20px;border:1px solid #e2e8f0;border-radius:8px;">
@@ -219,16 +198,15 @@ export class NotificationPolicyService {
         req: { id: string; requestNr: string; fromStoreName: string; opmcId?: string; type: string },
         stage: string
     ) {
-        // Fix #4: use ROLE_GROUPS constants instead of hardcoded strings
         const isArmStage = stage === 'ARM_APPROVAL';
-        const roles = isArmStage
-            ? [...ROLE_GROUPS.AREA_MANAGERS, ...ROLE_GROUPS.OFFICE_ADMINS]
-            : ['OSP_MANAGER', 'HEAD_OF_OSP', 'PROCUREMENT_OFFICER', 'STORES_MANAGER', ...ROLE_GROUPS.ADMINS];
+        const audience: NotificationAudienceId = isArmStage
+            ? 'STOCK_REQUEST_ARM'
+            : 'STOCK_REQUEST_PROCUREMENT';
 
         const stageName = isArmStage ? 'ARM approval' : 'OSP Manager / Procurement approval';
 
-        await NotificationService.notifyByRole({
-            roles,
+        await NotificationService.notifyByAudience({
+            audience,
             title: isArmStage ? 'New Material Request' : 'New Procurement Requisition',
             message: `New Material Request ${req.requestNr} from ${req.fromStoreName} requires your ${stageName}.`,
             type: 'INVENTORY',
@@ -239,7 +217,11 @@ export class NotificationPolicyService {
         });
     }
 
-    static async notifyStockRequestStageChange(req: { id: string; requestNr: string }, stage: string, receiverRoles: string[]) {
+    static async notifyStockRequestStageChange(
+        req: { id: string; requestNr: string },
+        stage: string,
+        receiverAudience: NotificationAudienceId | null,
+    ) {
         let title: string;
         let message: string;
 
@@ -266,8 +248,13 @@ export class NotificationPolicyService {
                 return;
         }
 
-        await NotificationService.notifyByRole({
-            roles: receiverRoles,
+        if (!receiverAudience) {
+            console.warn(`[NotificationPolicy] no canonical notification audience configured for process gate stage "${stage}". Skipping notification.`);
+            return;
+        }
+
+        await NotificationService.notifyByAudience({
+            audience: receiverAudience,
             title,
             message,
             type: 'INVENTORY',
@@ -353,15 +340,15 @@ export class NotificationPolicyService {
         if (expiringBatches.length === 0) return [];
 
         // Fix #2: fetch admin emails ONCE outside the loop
-        const adminEmails = await getCanonicalRoleEmails(INVENTORY_ALERT_EMAIL_ROLES);
+        const adminEmails = await NotificationService.getAudienceEmails({ audience: INVENTORY_ALERT_EMAIL_AUDIENCE });
         const results = [];
         for (const batch of expiringBatches) {
             for (const bs of batch.storeStocks) {
                 const batchMessage = `Batch "${batch.batchNumber}" of item "${batch.item.name}" in store "${bs.store.name}" is expiring on ${batch.expiryDate?.toLocaleDateString()}! Quantity remaining: ${bs.quantity}.`;
 
                 // In-app notifications per batch/store pair (deduplication handled inside NotificationService)
-                await NotificationService.notifyByRole({
-                    roles: ROLE_GROUPS.STORES_MANAGERS,
+                await NotificationService.notifyByAudience({
+                    audience: 'STORES_MANAGERS',
                     title: 'Batch Expiry Warning (FEFO)',
                     message: batchMessage,
                     type: 'INVENTORY',

@@ -39,5 +39,6 @@ test('invoice generation accepts the approval transaction client', () => {
 test('process gates use canonical capabilities and DB role assignments', () => {
     assert.doesNotMatch(gateEngine, /user\?\.role|user\.role\s*[!=]=/);
     assert.match(gateEngine, /deriveEffectivePermissions\(user\)/);
-    assert.match(gateEngine, /RBAC_PERMISSIONS\.INVENTORY_APPROVE/);
+    assert.match(gateEngine, /assertCanonicalLevel/);
+    assert.match(gateEngine, /requiredPermission/);
 });

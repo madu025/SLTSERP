@@ -1,5 +1,4 @@
 "use client";
-import { ROLE_GROUPS } from '@/config/roles';
 
 import React, { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
@@ -148,7 +147,7 @@ export default function HelpdeskUserDashboard() {
   if (!mounted) return null;
 
   return (
-    <RoleGuard allowedRoles={['ALL']}>
+    <RoleGuard>
       <div className="flex h-screen bg-slate-50 overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

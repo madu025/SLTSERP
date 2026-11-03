@@ -53,7 +53,6 @@ import {
 } from 'lucide-react';
 
 
-import { ROLE_GROUPS } from "@/config/roles";
 import { RBAC_PERMISSIONS, isCanonicalPermission } from "@/config/rbac-permissions";
 import { resolveLegacyMenuPermission, resolvePageCapability } from "@/config/page-capabilities";
 
@@ -61,7 +60,6 @@ export interface MenuItem {
     title: string;
     path: string;
     icon: React.ComponentType<{ className?: string }>;
-    allowedRoles: string[]; // List of roles allowed to see this item
     permissionId?: string; // Dynamic permission ID
     submenu?: MenuItem[];
 }
@@ -71,32 +69,27 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Contractor Field Portal',
         path: '/contractor/dashboard',
         icon: Truck,
-        allowedRoles: ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE'],
         permissionId: 'contractor-portal',
         submenu: [
             {
                 title: 'Overview',
                 path: '/contractor/dashboard',
                 icon: LayoutDashboard,
-                allowedRoles: ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE']
             },
             {
                 title: 'My In-Hand Stock',
                 path: '/contractor/inventory',
                 icon: Package,
-                allowedRoles: ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE']
             },
             {
                 title: 'Field SODs',
                 path: '/contractor/sods',
                 icon: ClipboardList,
-                allowedRoles: ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE']
             },
             {
                 title: 'Claims & Payments',
                 path: '/contractor/finance',
                 icon: Banknote,
-                allowedRoles: ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE']
             }
         ]
     },
@@ -104,7 +97,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Dashboard',
         path: '/dashboard',
         icon: LayoutDashboard,
-        allowedRoles: [],
         permissionId: RBAC_PERMISSIONS.DASHBOARD_READ
     },
     {
@@ -112,63 +104,54 @@ export const SIDEBAR_MENU: MenuItem[] = [
         path: '/service-orders/work-order',
         icon: FileText,
         // Service Orders are main work for New Connection & Ops
-        allowedRoles: [],
         permissionId: RBAC_PERMISSIONS.SOD_READ,
         submenu: [
             {
                 title: 'Pending SOD',
                 path: '/service-orders/work-order',
                 icon: FileText,
-                allowedRoles: [],
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
                 title: 'Install Closed SOD',
                 path: '/service-orders/work-order/install-closed',
                 icon: CheckCircle2,
-                allowedRoles: [],
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
                 title: 'Return SOD',
                 path: '/service-orders/work-order/return',
                 icon: FileText,
-                allowedRoles: [],
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
                 title: 'Disappeared SODs',
                 path: '/service-orders/work-order/disappeared',
                 icon: EyeOff,
-                allowedRoles: [],
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
                 title: 'Completed SOD',
                 path: '/service-orders/work-order/completed',
                 icon: FileCheck2,
-                allowedRoles: [],
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
                 title: 'Invoicable SODs',
                 path: '/service-orders/invoicable',
                 icon: Receipt,
-                allowedRoles: [],
                 permissionId: RBAC_PERMISSIONS.SOD_INVOICE
             },
             {
                 title: 'PAT Status Monitor',
                 path: '/service-orders/work-order/pat',
                 icon: ClipboardCheck,
-                allowedRoles: [],
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
                 title: 'Offline Work Orders',
                 path: '/service-orders/work-order/offline-work-orders',
                 icon: Tag,
-                allowedRoles: [],
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             }
         ]
@@ -177,20 +160,17 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Contractors',
         path: '/contractors/management',
         icon: HardHat,
-        allowedRoles: [...ROLE_GROUPS.OSP_PROJECTS, ...ROLE_GROUPS.NEW_CONNECTION, ...ROLE_GROUPS.OFFICE_ADMINS],
         permissionId: 'contractors',
         submenu: [
             {
                 title: 'All Contractors',
                 path: '/contractors/management',
                 icon: HardHat,
-                allowedRoles: [...ROLE_GROUPS.OSP_PROJECTS, ...ROLE_GROUPS.NEW_CONNECTION, ...ROLE_GROUPS.OFFICE_ADMINS]
             },
             {
                 title: 'Bulk Import',
                 path: '/contractors/management/import',
                 icon: Upload,
-                allowedRoles: ROLE_GROUPS.ADMINS
             }
         ]
     },
@@ -199,64 +179,54 @@ export const SIDEBAR_MENU: MenuItem[] = [
         path: '/projects',
         icon: FolderKanban,
         // QA audit: removed SOD_PROJECT (ASSISTANT_ENGINEER, AREA_COORDINATOR, QC_OFFICER have no submenu access)
-        // Parent roles = union of all submenu allowedRoles
-        allowedRoles: [],
         permissionId: RBAC_PERMISSIONS.PROJECT_READ,
         submenu: [
             {
                 title: 'All Projects',
                 path: '/projects',
                 icon: List,
-                allowedRoles: [],
                 permissionId: RBAC_PERMISSIONS.PROJECT_READ
             },
             {
                 title: 'PM Dashboard',
                 path: '/projects/dashboards/pm',
                 icon: BarChart2,
-                allowedRoles: [],
                 permissionId: RBAC_PERMISSIONS.PROJECT_READ
             },
             {
                 title: 'Finance Dashboard',
                 path: '/projects/dashboards/financials',
                 icon: LineChart,
-                allowedRoles: [],
                 permissionId: RBAC_PERMISSIONS.FINANCE_READ
             },
             {
                 title: 'QA/QC Dashboard',
                 path: '/projects/dashboards/qaqc',
                 icon: ClipboardList,
-                allowedRoles: [],
                 permissionId: RBAC_PERMISSIONS.PROJECT_READ
             },
             {
                 title: 'Logistics Dashboard',
                 path: '/projects/dashboards/logistics',
                 icon: Truck,
-                allowedRoles: [],
                 permissionId: RBAC_PERMISSIONS.PROJECT_READ
             },
             {
                 title: 'IR Material Audit',
                 path: '/projects/dashboards/ir-audit',
                 icon: FileText,
-                allowedRoles: [],
                 permissionId: RBAC_PERMISSIONS.INVENTORY_READ
             },
             {
                 title: 'National GIS Map',
                 path: '/gis/map',
                 icon: Route,
-                allowedRoles: [],
                 permissionId: RBAC_PERMISSIONS.PROJECT_READ
             },
             {
                 title: 'GIS File Import',
                 path: '/gis/upload',
                 icon: Upload,
-                allowedRoles: [],
                 permissionId: RBAC_PERMISSIONS.PROJECT_WRITE
             },
         ]
@@ -266,32 +236,27 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'SF Audit Division',
         path: '/finance/sf-audit/governance',
         icon: ShieldCheck,
-        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.SF_AUDITING],
         permissionId: 'sf-audit',
         submenu: [
             {
                 title: 'SF Audit Governance',
                 path: '/finance/sf-audit/governance',
                 icon: ShieldCheck,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.SF_AUDITING]
             },
             {
                 title: 'Contractor Invoice Pricing Audit',
                 path: '/finance/sf-audit/pricing-audit',
                 icon: Calculator,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.SF_AUDITING]
             },
             {
                 title: 'Header & Material Mapping Config',
                 path: '/finance/sf-audit/header-mapping',
                 icon: Settings,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.ALL_OPS, ...ROLE_GROUPS.SF_AUDITING]
             },
             {
                 title: 'Payment Split Rules Configurator',
                 path: '/finance/sf-audit/payment-split-config',
                 icon: Calculator,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.ALL_OPS, ...ROLE_GROUPS.SF_AUDITING]
             }
         ]
     },
@@ -300,45 +265,36 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Inventory / Stores',
         path: '/inventory',
         icon: Warehouse,
-        // QA audit: ROLE_GROUPS.STORES includes CEO/HEAD_OF_OSP but no inventory submenu
-        // grants them access — they saw a phantom parent with 100% 403 submenus.
-        // Explicit list excludes CEO/HEAD_OF_OSP while keeping SECTION_HEADS for Cardex.
-        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'OSP_MANAGER', 'AREA_MANAGER', ...ROLE_GROUPS.SECTION_HEADS],
+        // Visibility is resolved from the canonical inventory capability.
         permissionId: 'inventory',
         submenu: [
             {
                 title: 'Dashboard Overview',
                 path: '/inventory',
                 icon: LayoutDashboard,
-                // QA audit: ROLE_GROUPS.STORES includes CEO/HEAD_OF_OSP — use explicit list.
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'OSP_MANAGER', 'AREA_MANAGER']
             },
             // 1. Setup & Master Data
             {
                 title: 'Item Master Data', // Merged Material Registration + Bulk Import
                 path: '/inventory/items',
                 icon: FileText,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
             },
             // 2. Stock Inflow
             {
                 title: 'Goods Receipt (GRN)',
                 path: '/inventory/grn',
                 icon: Receipt,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'PROCUREMENT_OFFICER']
             },
             {
                 // Single Unified Hub: Stock Requests + Material Requests + Approvals
                 title: 'Material Requisitions',
                 path: '/inventory/requests',
                 icon: ClipboardList,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER']
             },
             {
                 title: 'Project Material Control',
                 path: '/inventory/project-materials',
                 icon: Package,
-                allowedRoles: [],
                 permissionId: RBAC_PERMISSIONS.INVENTORY_READ
             },
             // 3. Stock Outflow
@@ -346,58 +302,48 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Inventory Balance',
                 path: '/inventory/stock',
                 icon: BarChart3,
-                // QA audit: ROLE_GROUPS.STORES includes CEO/HEAD_OF_OSP who have no inventory access.
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
             },
             {
                 title: 'Goods Issue (MIN)',
                 path: '/inventory/issues',
                 icon: PackageMinus,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
             },
             {
                 title: 'Office Assets (EAM)',
                 path: '/eam/assets',
                 icon: HardHat,
-                allowedRoles: ROLE_GROUPS.EAM_ASSET_MANAGERS
             },
             {
                 title: 'Inventory Adjustments (Wastage)',
                 path: '/inventory/admin/wastage',
                 icon: ClipboardCheck,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER']
             },
             // 4. Returns & Reconciliation
             {
                 title: 'Material Returns (MRN)',
                 path: '/inventory/admin/mrns',
                 icon: RefreshCw,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
             },
             {
                 title: 'Physical Stock Take & Recon', // Merged Material Reconciliation, Contractor Balance Sheet, Material Audit, Inventory Audit
                 path: '/inventory/audit',
                 icon: ShieldCheck,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'FINANCE_MANAGER']
             },
             {
                 title: 'Pre-ERP Legacy Recon',
                 path: '/inventory/admin/pre-erp-reconciliation',
                 icon: HistoryIcon,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'FINANCE_MANAGER']
             },
             // 5. Analytics & History
             {
                 title: 'Stock Ledger (Cardex)',
                 path: '/inventory/reports/cardex',
                 icon: HistoryIcon,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', ...ROLE_GROUPS.SECTION_HEADS]
             },
             {
                 title: 'Material Consumption Report',
                 path: '/inventory/reports/material-summary',
                 icon: BarChart3,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'MANAGER', 'FINANCE_MANAGER', 'ENGINEER']
             }
         ]
     },
@@ -405,26 +351,22 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Approvals',
         path: '/procurement/approvals',
         icon: FileSignature,
-        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', ...ROLE_GROUPS.ALL_OPS],
         permissionId: 'restore_requests',
         submenu: [
             {
                 title: 'Material Requests & Approvals',
                 path: '/inventory/requests',
                 icon: ClipboardList,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER']
             },
             {
                 title: 'Procurement Approvals',
                 path: '/procurement/approvals',
                 icon: FileSignature,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', 'PROCUREMENT_OFFICER']
             },
             {
                 title: 'Contractor Registration Approvals',
                 path: '/contractors/management/approvals',
                 icon: FileSignature,
-                allowedRoles: ROLE_GROUPS.ALL_OPS
             }
         ]
     },
@@ -432,26 +374,22 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Procurement',
         path: '/procurement',
         icon: ShoppingCart,
-        allowedRoles: [...ROLE_GROUPS.PROCUREMENT],
         permissionId: 'procurement',
         submenu: [
             {
                 title: 'Overview',
                 path: '/procurement',
                 icon: LayoutDashboard,
-                allowedRoles: [...ROLE_GROUPS.PROCUREMENT]
             },
             {
                 title: 'Purchase Orders',
                 path: '/procurement/orders',
                 icon: FileText,
-                allowedRoles: [...ROLE_GROUPS.PROCUREMENT]
             },
             {
                 title: 'AI Forecast & PO Builder',
                 path: '/procurement/forecast',
                 icon: FileText,
-                allowedRoles: [...ROLE_GROUPS.PROCUREMENT]
             }
         ]
     },
@@ -459,98 +397,78 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Finance & Accounting',
         path: '/finance/chart-of-accounts',
         icon: Calculator,
-        allowedRoles: [
-            ...ROLE_GROUPS.FINANCE,
-            ...ROLE_GROUPS.INVOICE,
-            ...ROLE_GROUPS.OFFICE_ADMINS,
-            'OSP_MANAGER', 'MANAGER', 'AREA_MANAGER'
-        ],
         permissionId: 'corporate-finance',
         submenu: [
             {
                 title: 'Finance Setup & Ops',
                 path: '#',
                 icon: Banknote,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.OFFICE_ADMINS, 'OSP_MANAGER'],
                 permissionId: 'finance-ops',
                 submenu: [
                     {
                         title: 'SLT SLA Agreements',
                         path: '/finance/slt-contracts',
                         icon: FileCheck2,
-                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER', 'MANAGER']
                     },
                     {
                         title: 'Vendor Registry',
                         path: '/finance/vendors',
                         icon: Building,
-                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
                     },
                     {
                         title: 'Bank Registry',
                         path: '/finance/banks',
                         icon: Landmark,
-                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
                     },
                     {
                         title: 'Payment Vouchers',
                         path: '/finance/payments',
                         icon: Receipt,
-                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
                     },
                     {
                         title: 'Petty Cash',
                         path: '/finance/petty-cash',
                         icon: Banknote,
-                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.OFFICE_ADMINS]
                     },
                     {
                         title: 'Retention Management',
                         path: '/finance/retention',
                         icon: Shield,
-                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
                     },
                     {
                         title: 'LD Penalties',
                         path: '/finance/ld-penalties',
                         icon: ShieldAlert,
-                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
                     },
                     {
                         title: 'Rate Matrix Config',
                         path: '/finance/rate-matrix',
                         icon: Calculator,
-                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER']
                     },
                     {
                         title: 'CAPEX / OPEX Dashboard',
                         path: '/finance/capex-opex',
                         icon: TrendingUp,
-                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER', 'AREA_MANAGER']
                     },
                     {
                         title: 'WIP Revenue & Billing Pipeline',
                         path: '/finance/wip-revenue',
                         icon: TrendingUp,
-                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER']
                     },
                     {
                         title: 'Budget Allocations',
                         path: '/finance/budget',
                         icon: PieChart,
-                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
                     },
                     {
                         title: 'Vendor Upload (HO)',
                         path: '/finance/vendors/import',
                         icon: Upload,
-                        allowedRoles: ROLE_GROUPS.ADMINS
                     },
                     {
                         title: 'Bank Upload (HO)',
                         path: '/finance/banks/import',
                         icon: Upload,
-                        allowedRoles: ROLE_GROUPS.ADMINS
                     }
                 ]
             },
@@ -558,42 +476,27 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Billing & Invoices',
                 path: '#',
                 icon: FileSignature,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE, 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
                 permissionId: 'billing',
                 submenu: [
                     {
                         title: 'Submit Invoices (SLT)',
                         path: '/invoices',
                         icon: Receipt,
-                        allowedRoles: [
-                            ...ROLE_GROUPS.ADMINS,
-                            ...ROLE_GROUPS.INVOICE,
-                            ...ROLE_GROUPS.FINANCE,
-                            'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'
-                        ]
                     },
                     {
                         title: 'BOM Sheets (Imports)',
                         path: '/invoices/bom-sheets',
                         icon: Upload,
-                        allowedRoles: [
-                            ...ROLE_GROUPS.ADMINS,
-                            ...ROLE_GROUPS.INVOICE,
-                            ...ROLE_GROUPS.FINANCE,
-                            'MANAGER', 'OSP_MANAGER'
-                        ]
                     },
                     {
                         title: 'Cost Allocation',
                         path: '/finance/cost-allocation',
                         icon: FileSignature,
-                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER']
                     },
                     {
                         title: 'SOD Revenue Config',
                         path: '/finance/sod-revenue',
                         icon: Receipt,
-                        allowedRoles: ROLE_GROUPS.ADMINS
                     }
                 ]
             },
@@ -601,39 +504,32 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'OSP Accounts',
                 path: '#',
                 icon: Landmark,
-                // Keep the OSP account section restricted to its existing roles.
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER'],
                 permissionId: 'osp-account',
                 submenu: [
                     {
                         title: 'OSP Dashboard',
                         path: '/finance/osp-account-reports',
                         icon: Receipt,
-                        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
                     },
                     {
                         title: 'Petty Cash IOUs',
                         path: '/finance/osp-account/ious',
                         icon: Receipt,
-                        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
                     },
                     {
                         title: 'Project Advances',
                         path: '/finance/osp-account/advances',
                         icon: Receipt,
-                        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
                     },
                     {
                         title: 'Property Rents',
                         path: '/finance/osp-account/rents',
                         icon: Receipt,
-                        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
                     },
                     {
                         title: 'Fleet Ledger',
                         path: '/finance/osp-account/fleet',
                         icon: Receipt,
-                        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
                     }
                 ]
             },
@@ -641,51 +537,43 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Accounting & Reporting',
                 path: '#',
                 icon: Layers,
-                allowedRoles: ROLE_GROUPS.FINANCE,
                 submenu: [
             // — General Ledger —
             {
                 title: 'General Ledger',
                 path: '/finance/general-ledger',
                 icon: Layers,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER']
             },
             // — Financial Reporting —
             {
                 title: 'Chart of Accounts',
                 path: '/finance/chart-of-accounts',
                 icon: List,
-                allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'Trial Balance',
                 path: '/finance/reports/trial-balance',
                 icon: Scale,
-                allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'Profit & Loss Statement',
                 path: '/finance/reports/pnl',
                 icon: TrendingUp,
-                allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'Balance Sheet',
                 path: '/finance/reports/balance-sheet',
                 icon: Landmark,
-                allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'GL Account Drill-down',
                 path: '/finance/reports/gl-viewer',
                 icon: Layers,
-                allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'FP&A Variance Dashboard',
                 path: '/finance/fpa-dashboard',
                 icon: Activity,
-                allowedRoles: ROLE_GROUPS.FINANCE_APPROVERS
             },
             // — Tax & Compliance —
                 ]
@@ -694,38 +582,32 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Tax, AR & AP',
                 path: '#',
                 icon: Receipt,
-                allowedRoles: ROLE_GROUPS.FINANCE,
                 submenu: [
             {
                 title: 'VAT Return & Tax Register',
                 path: '/finance/tax/vat-return',
                 icon: Receipt,
-                allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'WHT Certificates & Register',
                 path: '/finance/tax/wht-register',
                 icon: FileCheck2,
-                allowedRoles: ROLE_GROUPS.FINANCE
             },
             // — Receivables & Payables —
             {
                 title: 'AR Aging & Collections',
                 path: '/finance/ar/aging',
                 icon: Users,
-                allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'AP Aging & Payables',
                 path: '/finance/ap/aging',
                 icon: Building2,
-                allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'Credit & Debit Notes',
                 path: '/finance/credit-notes',
                 icon: FileText,
-                allowedRoles: ROLE_GROUPS.FINANCE
             },
             // — Banking & Cash —
                 ]
@@ -734,25 +616,21 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Treasury & Reconciliation',
                 path: '#',
                 icon: Landmark,
-                allowedRoles: ROLE_GROUPS.FINANCE,
                 submenu: [
             {
                 title: 'Bank Reconciliation',
                 path: '/finance/bank/reconciliation',
                 icon: CheckCircle2,
-                allowedRoles: ROLE_GROUPS.FINANCE_APPROVERS
             },
             {
                 title: 'Cash Book & Bank Ledger',
                 path: '/finance/bank/cash-book',
                 icon: Landmark,
-                allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'Multi-Currency FX Rates',
                 path: '/finance/exchange-rates',
                 icon: Globe,
-                allowedRoles: ROLE_GROUPS.FINANCE_APPROVERS
             },
             // — Assets & Payroll —
                 ]
@@ -761,19 +639,16 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Assets & Payroll',
                 path: '#',
                 icon: Package,
-                allowedRoles: ROLE_GROUPS.FINANCE_APPROVERS,
                 submenu: [
             {
                 title: 'Fixed Asset Register & Depreciation',
                 path: '/finance/fixed-assets',
                 icon: Package,
-                allowedRoles: ROLE_GROUPS.FINANCE_APPROVERS
             },
             {
                 title: 'HO Payroll Expense Allocation',
                 path: '/finance/payroll',
                 icon: Users,
-                allowedRoles: ROLE_GROUPS.FINANCE_APPROVERS
             },
             // — Period Close & Approvals —
                 ]
@@ -782,25 +657,21 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Billing & Period Controls',
                 path: '#',
                 icon: Lock,
-                allowedRoles: ROLE_GROUPS.FINANCE,
                 submenu: [
             {
                 title: 'Financial Period Close & Year-End',
                 path: '/finance/period-close',
                 icon: Lock,
-                allowedRoles: ROLE_GROUPS.FINANCE_APPROVERS
             },
             {
                 title: 'Contractor Billing',
                 path: '/finance/billing',
                 icon: FileText,
-                allowedRoles: ['SUPER_ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
             },
             {
                 title: 'Invoice Approvals',
                 path: '/finance/invoices',
                 icon: CheckCircle2,
-                allowedRoles: ['SUPER_ADMIN', 'FINANCE_MANAGER']
                 }
                 ]
             }
@@ -811,25 +682,21 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Reports & Analytics',
         path: '/reports',
         icon: FileText,
-        allowedRoles: ['ALL'], // Open to all, but submenus are restricted
         submenu: [
             {
                 title: 'Executive Overview',
                 path: '/reports/manager',
                 icon: LayoutDashboard,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', ...ROLE_GROUPS.SECTION_HEADS]
             },
             {
                 title: 'Area Performance',
                 path: '/reports/arm',
                 icon: Building2,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', 'AREA_MANAGER', ...ROLE_GROUPS.SECTION_HEADS]
             },
             {
                 title: 'Daily Operational',
                 path: '/reports/daily-operational',
                 icon: FileText,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', 'AREA_MANAGER', ...ROLE_GROUPS.SECTION_HEADS]
             }
         ]
     },
@@ -838,38 +705,32 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Vehicle & Fleet Management',
         path: '/fleet/vehicles',
         icon: Car,
-        allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT'],
         permissionId: 'administration',
         submenu: [
             {
                 title: 'All Vehicles',
                 path: '/fleet/vehicles',
                 icon: Car,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
             },
             {
                 title: 'Drivers Directory',
                 path: '/fleet/drivers',
                 icon: Users,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
             },
             {
                 title: 'Fleet Payments',
                 path: '/fleet/payments',
                 icon: Banknote,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
             },
             {
                 title: 'Trip Management',
                 path: '/fleet/trips',
                 icon: Truck,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
             },
             {
                 title: 'Fleet Reports',
                 path: '/reports/fleet',
                 icon: BarChart3,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
             }
         ]
     },
@@ -877,48 +738,38 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Administration',
         path: '/admin',
         icon: UserCog,
-        // QA audit: ROLE_GROUPS.ADMINS includes CEO/HEAD_OF_OSP but all submenus are
-        // SUPER_ADMIN/ADMIN only — they saw a phantom parent with 100% 403 submenus.
-        // ROLE_GROUPS.OFFICE_ADMINS also included CEO + OFFICE_ADMIN who only see Settings.
-        // Fix: restrict to CORE_ADMINS (SUPER_ADMIN + ADMIN) — the only roles with real access.
-        allowedRoles: ROLE_GROUPS.CORE_ADMINS,
+        // Visibility is resolved from the page capability and database grants.
         permissionId: 'administration',
         submenu: [
             {
                 title: 'User Guide & Docs',
                 path: '/admin/guide',
                 icon: FileText,
-                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'User Management',
                 path: '/admin/users',
                 icon: Users,
-                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'Bulk User Import',
                 path: '/admin/users/import',
                 icon: Upload,
-                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'Section Role Permissions',
                 path: '/admin/roles',
                 icon: ShieldCheck,
-                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'Department Sections',
                 path: '/admin/sections',
                 icon: Layers,
-                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'Staff Hierarchy Master',
                 path: '/admin/staff',
                 icon: Users,
-                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
 
 
@@ -926,56 +777,47 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'System Audit Log',
                 path: '/admin/audit-logs',
                 icon: HistoryIcon,
-                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'System Health & Monitoring',
                 path: '/admin/monitoring',
                 icon: Activity,
-                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'RTOM Management',
                 path: '/projects/opmcs',
                 icon: Building2,
-                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'Store Management',
                 path: '/inventory/stores',
                 icon: Warehouse,
-                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
 
             {
                 title: 'Settings',
                 path: '/admin/settings',
                 icon: Settings,
-                allowedRoles: [...ROLE_GROUPS.CORE_ADMINS, ...ROLE_GROUPS.OFFICE_ADMINS]
             },
             {
                 title: 'Process Gates Engine',
                 path: '/admin/settings/process-gates',
                 icon: ShieldCheck,
-                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'SMTP Email Config',
                 path: '/admin/settings/smtp',
                 icon: Mail,
-                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'SOD Import',
                 path: '/service-orders/import',
                 icon: Upload,
-                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'Bridge Monitor',
                 path: '/admin/test-extension',
                 icon: Terminal,
-                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             }
         ]
     },
@@ -983,96 +825,90 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'ITMS & IT Help Desk',
         path: '/helpdesk',
         icon: LifeBuoy,
-        allowedRoles: ['ALL'],
         submenu: [
             {
                 title: 'User Portal',
                 path: '/helpdesk',
                 icon: LifeBuoy,
-                allowedRoles: ['ALL']
             },
             {
                 title: 'New Support Ticket',
                 path: '/helpdesk/tickets/new',
                 icon: FileText,
-                allowedRoles: ['ALL']
             },
             {
                 title: 'IT Admin Queue',
                 path: '/helpdesk/admin',
                 icon: ClipboardList,
-                allowedRoles: ROLE_GROUPS.IT_ADMINS
             },
             {
                 title: 'IT Asset Management',
                 path: '/helpdesk/assets',
                 icon: Laptop,
-                allowedRoles: ROLE_GROUPS.IT_ADMINS
             },
             {
                 title: 'Asset Disposals (Maker-Checker)',
                 path: '/helpdesk/disposals',
                 icon: Trash2,
-                allowedRoles: [...ROLE_GROUPS.IT_ADMINS, 'FINANCE_MANAGER']
             },
             {
                 title: 'Asset Depreciation & GL',
                 path: '/helpdesk/depreciation',
                 icon: Calculator,
-                allowedRoles: [...ROLE_GROUPS.IT_ADMINS, 'FINANCE_MANAGER']
             },
             {
                 title: 'Live Device Telemetry',
                 path: '/helpdesk/telemetry',
                 icon: Activity,
-                allowedRoles: ROLE_GROUPS.IT_ADMINS
             },
             {
                 title: 'SLA Breach Monitor',
                 path: '/helpdesk/sla-monitor',
                 icon: Clock,
-                allowedRoles: ROLE_GROUPS.IT_ADMINS
             },
             {
                 title: 'Physical Asset Audits',
                 path: '/helpdesk/assets/audits',
                 icon: ClipboardCheck,
-                allowedRoles: ROLE_GROUPS.IT_ADMINS
             },
             {
                 title: 'Software Licenses (SAM)',
                 path: '/helpdesk/software-licenses',
                 icon: Tag,
-                allowedRoles: ROLE_GROUPS.IT_ADMINS
             },
             {
                 title: 'ITSM Reports & Analytics',
                 path: '/helpdesk/reports',
                 icon: BarChart3,
-                allowedRoles: ROLE_GROUPS.IT_ADMINS
             }
         ]
     }
 ];
 
-// Helper function to check if a user has access
-export const hasAccess = (
-    _userRole: string,
-    _allowedRoles: string[],
-    isLoggedIn: boolean = true,
-    itemTitle?: string,
-    permissionId?: string,
-    userPermissions?: string[],
-    pathname?: string,
-) => {
+export interface MenuAccessOptions {
+    isLoggedIn?: boolean;
+    itemTitle?: string;
+    permissionId?: string;
+    userPermissions?: string[];
+    pathname?: string;
+}
+
+/**
+ * Resolve sidebar visibility from the session's canonical capabilities.
+ * Role labels and menu metadata are deliberately not part of this decision.
+ */
+export const canAccessMenuItem = ({
+    isLoggedIn = true,
+    itemTitle,
+    permissionId,
+    userPermissions,
+    pathname,
+}: MenuAccessOptions) => {
     if (!isLoggedIn) {
         // Only allow public Guest items in sidebar/navigation
         return !!itemTitle && ['IT Help Desk', 'ITMS & IT Help Desk', 'User Dashboard', 'Create Ticket'].includes(itemTitle);
     }
 
-    // Role arrays are now presentation/bootstrap metadata only. Resolve a
-    // canonical capability from the explicit menu permission or page path and
-    // make the DB-backed permission the sole visibility decision.
     const canonicalPermission = (permissionId && isCanonicalPermission(permissionId))
         ? permissionId
         : (pathname ? resolvePageCapability(pathname) : undefined) ?? resolveLegacyMenuPermission(permissionId);

@@ -5,7 +5,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from "@/config/roles";
 import { Badge } from "@/components/ui/badge";
 import { Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -83,7 +82,7 @@ export default function ArAgingPage() {
     };
 
     return (
-        <RoleGuard allowedRoles={ROLE_GROUPS.FINANCE}>
+        <RoleGuard>
             <div className="flex h-screen bg-slate-50 overflow-hidden">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

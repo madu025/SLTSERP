@@ -1,14 +1,14 @@
 /**
  * RBAC vs Sidebar Menu Duplication & Drift Audit
- * Cross-references SIDEBAR_MENU allowedRoles with:
+ * Cross-references SIDEBAR_MENU permissionId values with:
  *   1. route-permissions.ts hasRouteAccess (middleware page-level RBAC)
  *   2. apiHandler role guards (API-level RBAC)
  *   3. hasAccess() in sidebar-menu.ts (client-side visibility)
  *
  * Finds:
  *   - MISMATCH: sidebar shows but middleware blocks (or vice versa)
- *   - DRIFT: API route roles differ from sidebar menu roles for same path
- *   - DUPLICATE: same role list defined in multiple places (maintenance risk)
+ *   - DRIFT: API route permissions differ from sidebar menu permissions for same path
+ *   - DUPLICATE: same permission list defined in multiple places (maintenance risk)
  *   - ORPHAN: sidebar path has no corresponding API route guard
  */
 
@@ -20,7 +20,7 @@ const sidebarFile = path.join(__dirname, '..', 'src', 'config', 'sidebar-menu.ts
 const sidebarSrc = fs.readFileSync(sidebarFile, 'utf8');
 
 // ─── 1. Extract sidebar menu items ─────────────────────────────────────────
-// Parse by splitting on title: and extracting path + allowedRoles
+// Parse by splitting on title: and extracting path + permissionId
 const menuItems = [];
 
 // Split into blocks by finding each "title:" occurrence
@@ -37,13 +37,13 @@ for (let i = 0; i < titlePositions.length; i++) {
     const block = sidebarSrc.substring(current.start, next ? next.start : sidebarSrc.length);
     
     const pathMatch = block.match(/path:\s*['"]([^'"]+)['"]/);
-    const rolesMatch = block.match(/allowedRoles:\s*(\[[\s\S]*?\]|ROLE_GROUPS\.\w+|\.\.\.ROLE_GROUPS\.\w+(?:[\s\S]*?)(?=\n\s*(?:title|path|icon|submenu|permissionId|\}|\{)))/);
+    const permissionMatch = block.match(/permissionId:\s*['"]([^'"]+)['"]/);
     
     if (pathMatch) {
         menuItems.push({
             title: current.title,
             path: pathMatch[1],
-            rolesRaw: rolesMatch ? rolesMatch[1].trim().replace(/\s+/g, ' ') : 'UNKNOWN'
+            permissionRaw: permissionMatch ? permissionMatch[1].trim() : 'RESOLVED_BY_PATH'
         });
     }
 }
@@ -58,8 +58,8 @@ for (const item of menuItems) {
 
 console.log(`\n=== SIDEBAR MENU ENTRIES: ${menuItems.length} (${uniquePaths.size} unique paths) ===\n`);
 for (const item of menuItems) {
-    const rolesDisplay = item.rolesRaw.length > 70 ? item.rolesRaw.substring(0, 70) + '...' : item.rolesRaw;
-    console.log(`  ${item.path.padEnd(45)} ${item.title.padEnd(35)} ${rolesDisplay}`);
+    const permissionDisplay = item.permissionRaw.length > 70 ? item.permissionRaw.substring(0, 70) + '...' : item.permissionRaw;
+    console.log(`  ${item.path.padEnd(45)} ${item.title.padEnd(35)} ${permissionDisplay}`);
 }
 
 // ─── 2. Extract API route role guards ───────────────────────────────────────
@@ -73,14 +73,14 @@ function walk(dir) {
             const src = fs.readFileSync(full, 'utf8');
             const apiPath = '/' + path.relative(apiRoot, full).split(path.sep).slice(0, -1).join('/').replace(/\\/g, '/');
             
-            // Extract roles declarations - handle multi-line arrays
-            const roleMatches = [...src.matchAll(/roles:\s*(\[[\s\S]*?\]|ROLE_GROUPS\.\w+|\.\.\.ROLE_GROUPS\.\w+(?:[\s\S]*?)(?=\s*[,}]))/g)];
+            // Extract canonical permission declarations - handle multi-line arrays
+            const permissionMatches = [...src.matchAll(/permissions:\s*(\[[\s\S]*?\]|[A-Za-z_$][\w$]*)/g)];
             const menuPathMatches = [...src.matchAll(/menuPath:\s*['"]([^'"]+)['"]/g)];
             
-            if (roleMatches.length > 0 || menuPathMatches.length > 0) {
+            if (permissionMatches.length > 0 || menuPathMatches.length > 0) {
                 apiRoutes.push({
                     apiPath,
-                    roles: roleMatches.map(m => m[1].trim().replace(/\s+/g, ' ')),
+                    permissions: permissionMatches.map(m => m[1].trim().replace(/\s+/g, ' ')),
                     menuPaths: menuPathMatches.map(m => m[1])
                 });
             }
@@ -92,8 +92,8 @@ walk(apiRoot);
 
 console.log(`\n=== API ROUTES WITH ROLE GUARDS: ${apiRoutes.length} ===\n`);
 for (const route of apiRoutes) {
-    const rolesDisplay = route.roles.join(' | ');
-    console.log(`  ${route.apiPath.padEnd(50)} roles: ${rolesDisplay.substring(0, 60)}  menuPath: ${route.menuPaths.join(', ')}`);
+    const permissionsDisplay = route.permissions.join(' | ');
+    console.log(`  ${route.apiPath.padEnd(50)} permissions: ${permissionsDisplay.substring(0, 60)}  menuPath: ${route.menuPaths.join(', ')}`);
 }
 
 // ─── 3. Cross-reference: Sidebar path vs API route guard ────────────────────
@@ -153,15 +153,15 @@ console.log(`    - Status: CONSISTENT (no drift)`);
 // ─── 5. Duplication Analysis ────────────────────────────────────────────────
 console.log(`\n=== DUPLICATION ANALYSIS ===\n`);
 
-const roleListOccurrences = {};
+const permissionListOccurrences = {};
 
 for (const item of menuItems) {
-    const key = item.rolesRaw.substring(0, 80);
-    if (!roleListOccurrences[key]) roleListOccurrences[key] = [];
-    roleListOccurrences[key].push(item.path);
+    const key = item.permissionRaw.substring(0, 80);
+    if (!permissionListOccurrences[key]) permissionListOccurrences[key] = [];
+    permissionListOccurrences[key].push(item.path);
 }
 
-const duplicates = Object.entries(roleListOccurrences).filter(([_, paths]) => paths.length > 1);
+const duplicates = Object.entries(permissionListOccurrences).filter(([_, paths]) => paths.length > 1);
 console.log(`  Duplicate role list definitions: ${duplicates.length}`);
 for (const [roles, paths] of duplicates) {
     console.log(`    Roles: ${roles.substring(0, 60)}...`);

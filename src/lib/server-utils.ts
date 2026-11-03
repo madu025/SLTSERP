@@ -79,20 +79,6 @@ export async function getCurrentUser() {
     };
 }
 
-export async function requireAuth(roles?: string[]) {
-    const user = await getCurrentUser();
-
-    if (!user) {
-        throw AppError.unauthorized('Authentication required');
-    }
-
-    if (roles && !roles.includes('ALL') && !roles.includes(user.role)) {
-        throw AppError.forbidden('Forbidden: Insufficient permissions');
-    }
-
-    return user;
-}
-
 /**
  * Server-action authorization boundary. Capability codes come from the
  * database-backed session, never from a client role label.

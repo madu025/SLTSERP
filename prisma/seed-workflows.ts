@@ -3,8 +3,39 @@ import {
   GENERIC_WORKFLOW_STAGES,
   PROJECT_TYPE_CATALOG,
 } from '../src/config/project-type-catalog';
+import { workflowEligibleRoles, workflowPermissionForRole } from '../src/config/workflow-policy';
+import { seedProjectApprovalPolicies } from './seed-project-approval-policies';
 
 const prisma = new PrismaClient();
+
+async function seedCanonicalWorkflowApprovalSnapshots() {
+  const templates = await prisma.workflowApprovalTemplate.findMany({
+    select: { id: true, role: true, requiredPermission: true, eligibleRoles: true },
+  });
+
+  for (const template of templates) {
+    const requiredPermission = template.requiredPermission ?? workflowPermissionForRole(template.role, 'PROJECT');
+    const storedEligibleRoles = template.eligibleRoles === null || template.eligibleRoles === undefined
+      ? null
+      : Array.isArray(template.eligibleRoles)
+        ? template.eligibleRoles.filter((role): role is string => typeof role === 'string')
+        : [];
+    if (storedEligibleRoles !== null && storedEligibleRoles.length === 0) {
+      throw new Error(`Workflow approval template ${template.id} has invalid eligible role configuration`);
+    }
+    const eligibleRoles = storedEligibleRoles ?? workflowEligibleRoles(template.role);
+    if (!requiredPermission || eligibleRoles.length === 0) {
+      throw new Error(`Workflow approval template ${template.id} has no canonical permission/eligibility configuration`);
+    }
+    await prisma.workflowApprovalTemplate.update({
+      where: { id: template.id },
+      data: {
+        ...(template.requiredPermission ? {} : { requiredPermission }),
+        ...(template.eligibleRoles ? {} : { eligibleRoles }),
+      },
+    });
+  }
+}
 
 async function main() {
   console.log('Seeding workflow templates...');
@@ -538,6 +569,10 @@ async function main() {
     });
   }
   console.log('Cross-domain project workflows created');
+
+  await seedCanonicalWorkflowApprovalSnapshots();
+  await seedProjectApprovalPolicies(prisma);
+  console.log('Project approval policies seeded');
 
   // Fail loudly if a deployment has a project type without a usable workflow.
   // This keeps a partial/failed seed from presenting an empty workflow selector.

@@ -33,7 +33,7 @@ export default function AuditReconciliationHub() {
     const summary = auditReport?.data?.summary;
 
     return (
-        <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'FINANCE_MANAGER']}>
+        <RoleGuard>
             <div className="flex h-screen bg-slate-50 dark:bg-slate-900 overflow-hidden font-sans">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

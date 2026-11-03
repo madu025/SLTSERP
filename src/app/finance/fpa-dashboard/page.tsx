@@ -7,7 +7,6 @@ import Header from '@/components/Header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Loader2, TrendingUp, TrendingDown, DollarSign, Activity } from 'lucide-react';
-import { ROLE_GROUPS } from "@/config/roles";
 
 interface FPAMetrics {
   period: string;
@@ -59,7 +58,7 @@ export default function FPADashboardPage() {
   };
 
   return (
-    <RoleGuard allowedRoles={ROLE_GROUPS.FINANCE_APPROVERS}>
+    <RoleGuard>
       <div className="flex h-screen bg-slate-50 overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

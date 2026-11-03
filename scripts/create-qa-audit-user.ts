@@ -7,9 +7,9 @@
  *   scope    : all store/area REPORTS visible; NO store/inventory operational access
  *
  * Access model:
- *  - Sidebar visibility granted via ROLE_GROUPS.SECTION_HEADS in sidebar-menu.ts
+ *  - Sidebar visibility is granted through the canonical reports capability
  *    (Reports & Analytics submenus + Stock Ledger Cardex only)
- *  - Deliberately NOT in any stores/inventory operational ROLE_GROUPS
+ *  - Deliberately NOT granted stores/inventory operational capabilities
  *  - getAccessibleStores() returns an empty set for this user (no assigned
  *    store, no OPMCs, non-admin role)
  *

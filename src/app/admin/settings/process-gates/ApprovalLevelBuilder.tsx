@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, Trash2, Plus, GitMerge, DollarSign, Users, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { ProcessGatePolicy, ProcessApprovalLevel } from '@prisma/client';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 type GatePolicyWithLevels = ProcessGatePolicy & {
   approvalLevels: ProcessApprovalLevel[];
@@ -19,6 +20,7 @@ export function ApprovalLevelBuilder({
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     requiredRole: '',
+    requiredPermission: RBAC_PERMISSIONS.PROJECT_APPROVE,
     description: '',
     minAmount: '',
     maxAmount: '',
@@ -39,6 +41,8 @@ export function ApprovalLevelBuilder({
     try {
       const payload = {
         requiredRole: formData.requiredRole,
+        requiredPermission: formData.requiredPermission,
+        eligibleRoles: [formData.requiredRole],
         description: formData.description || null,
         minAmount: formData.minAmount ? parseFloat(formData.minAmount) : null,
         maxAmount: formData.maxAmount ? parseFloat(formData.maxAmount) : null,
@@ -53,7 +57,7 @@ export function ApprovalLevelBuilder({
       if (!res.ok) throw new Error('Failed to add level');
 
       toast.success('Approval level added');
-      setFormData({ requiredRole: '', description: '', minAmount: '', maxAmount: '' });
+      setFormData({ requiredRole: '', requiredPermission: RBAC_PERMISSIONS.PROJECT_APPROVE, description: '', minAmount: '', maxAmount: '' });
       onSuccess();
     } catch {
       toast.error('Error adding approval level');
@@ -169,6 +173,20 @@ export function ApprovalLevelBuilder({
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 border-b pb-2">Add Next Step</h3>
                 
                 <form onSubmit={handleAddLevel} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Canonical Permission *</label>
+                    <select
+                      name="requiredPermission"
+                      value={formData.requiredPermission}
+                      onChange={handleChange}
+                      className="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    >
+                      {[RBAC_PERMISSIONS.PROJECT_APPROVE, RBAC_PERMISSIONS.INVENTORY_APPROVE, RBAC_PERMISSIONS.PROCUREMENT_WRITE, RBAC_PERMISSIONS.SOD_WRITE, RBAC_PERMISSIONS.CONTRACTOR_WRITE, RBAC_PERMISSIONS.FINANCE_APPROVE].map(permission => (
+                        <option key={permission} value={permission}>{permission}</option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Required Role *</label>
                     <select

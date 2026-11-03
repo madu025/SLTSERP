@@ -58,25 +58,53 @@ export async function deleteContractor(id: string) {
 }
 
 export async function approveContractor(id: string) {
-    await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
+    const actor = await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
     try {
-        const updated = await ContractorService.updateContractor(id, { status: 'ACTIVE' });
+        const updated = await ContractorService.approveContractor(id, actor.id);
         revalidatePath('/admin/contractors');
         revalidatePath('/contractors');
+        revalidatePath('/contractors/management/approvals');
         return { success: true, data: updated };
-    } catch {
-        return { success: false, error: 'Error approving contractor' };
+    } catch (error: unknown) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error approving contractor' };
     }
 }
 
-export async function rejectContractor(id: string) {
-    await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
+export async function approveContractorRegistration(id: string, teamCodes?: Record<string, string>) {
+    const actor = await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
     try {
-        const updated = await ContractorService.updateContractor(id, { status: 'REJECTED' });
+        const updated = await ContractorService.approveContractor(id, actor.id, { teamCodes });
         revalidatePath('/admin/contractors');
         revalidatePath('/contractors');
+        revalidatePath('/contractors/management/approvals');
         return { success: true, data: updated };
-    } catch {
-        return { success: false, error: 'Error rejecting contractor' };
+    } catch (error: unknown) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error approving contractor' };
+    }
+}
+
+export async function rejectContractor(id: string, reason = 'Rejected by authorized reviewer') {
+    const actor = await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
+    try {
+        const updated = await ContractorService.rejectContractor(id, actor.id, { reason });
+        revalidatePath('/admin/contractors');
+        revalidatePath('/contractors');
+        revalidatePath('/contractors/management/approvals');
+        return { success: true, data: updated };
+    } catch (error: unknown) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error rejecting contractor' };
+    }
+}
+
+export async function rejectContractorRegistration(id: string, reason: string) {
+    const actor = await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
+    try {
+        const updated = await ContractorService.rejectContractor(id, actor.id, { reason });
+        revalidatePath('/admin/contractors');
+        revalidatePath('/contractors');
+        revalidatePath('/contractors/management/approvals');
+        return { success: true, data: updated };
+    } catch (error: unknown) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error rejecting contractor' };
     }
 }

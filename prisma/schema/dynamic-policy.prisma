@@ -22,12 +22,15 @@ model ProcessGatePolicy {
   rejectionBehavior String @default("PERMANENT_CANCEL") // "PERMANENT_CANCEL", "REWORK_TO_CREATOR", "STEP_BACK_ONE_LEVEL"
   approvalStrategy  String @default("ANY_CAN_APPROVE") // "ANY_CAN_APPROVE", "ALL_MUST_APPROVE", "PERCENTAGE_THRESHOLD"
 
-  rolesToNotify Json? // e.g. ["STORES_MANAGER", "OSP_MANAGER"]
+  /// Canonical notification audience capability identifier.
+  notificationAudience String?
   domainAction  String? // e.g. "RESERVE_STOCK_MAIN"
   conditions    Json? // e.g. {"field": "totalValue", "operator": ">=", "value": 500000}
 
   approvalLevels ProcessApprovalLevel[]
   instances      UniversalApprovalInstance[]
+  boqApprovals   BOQApproval[] @relation("ProcessGateBOQApproval")
+  changeApprovals ChangeApproval[] @relation("ProcessGateChangeApproval")
 
   updatedAt DateTime @updatedAt
 
@@ -38,7 +41,17 @@ model ProcessApprovalLevel {
   id             String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   gatePolicyId   String   @db.Uuid
   level          Int // 1, 2, 3...
+  /// Compatibility/display snapshot only. Runtime approval authorization uses
+  /// requiredPermission plus the active SystemRole/section assignment below.
   requiredRole   String // e.g. "ENGINEER", "AREA_MANAGER", "FINANCE_MANAGER"
+  /// A named branch of a policy. Existing gates use DEFAULT; project change
+  /// requests use amount bands without creating another approval table.
+  policyVariant  String   @default("DEFAULT")
+  /// Canonical capability required before the workflow role is evaluated.
+  requiredPermission String?
+  /// Optional list of active SystemRole.code values eligible for this level.
+  /// This is persisted policy data, not a runtime role-group fallback.
+  eligibleRoles Json?
   specificUserId String?  @db.Uuid // Optional specific user assignment
   description    String? // Instructions for approver
   minAmount      Decimal? // Condition: Only apply if amount >= X
@@ -49,8 +62,9 @@ model ProcessApprovalLevel {
   specificUser User?             @relation(fields: [specificUserId], references: [id])
 
   // Unique level numbers per gate — defense-in-depth against concurrent level inserts
-  @@unique([gatePolicyId, level])
+  @@unique([gatePolicyId, policyVariant, level])
   @@index([specificUserId])
+  @@index([gatePolicyId, policyVariant, level])
 }
 
 model UniversalApprovalInstance {
@@ -61,6 +75,10 @@ model UniversalApprovalInstance {
   levelIndex     Int       @default(0) // Current Level Index in policy
   level          Int
   requiredRole   String
+  /// Frozen canonical authorization policy for this approval instance.
+  requiredPermission String?
+  eligibleRoles Json?
+  policyVariant String @default("DEFAULT")
   assignedUserId String?   @db.Uuid
   makerId        String?   @db.Uuid // The ID of the original creator/requester of the entity
   status         String    @default("PENDING") // "PENDING", "APPROVED", "REJECTED"

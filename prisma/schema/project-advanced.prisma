@@ -211,7 +211,13 @@ model ChangeApproval {
   id              String               @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   changeRequestId String               @db.Uuid
   stepOrder       Int                  @default(1)
+  /// Display/audit snapshot only. Runtime authorization uses the canonical
+  /// permission and eligible role snapshot below.
   role            String
+  policyId        String?              @db.Uuid
+  policyVariant   String               @default("DEFAULT")
+  requiredPermission String?
+  eligibleRoles   Json?
   status          String               @default("PENDING")
   approverId      String?              @db.Uuid
   approvedById    String?              @db.Uuid
@@ -220,11 +226,13 @@ model ChangeApproval {
   comment         String?
   createdAt       DateTime             @default(now())
   changeRequest   ProjectChangeRequest @relation(fields: [changeRequestId], references: [id], onDelete: Cascade)
+  policy          ProcessGatePolicy?   @relation("ProcessGateChangeApproval", fields: [policyId], references: [id], onDelete: SetNull)
 
   @@index([changeRequestId])
   @@index([status])
   @@index([approverId])
   @@index([approvedById])
+  @@index([policyId])
 }
 
 model AiPrediction {

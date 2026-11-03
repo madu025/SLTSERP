@@ -15,7 +15,7 @@ export function registerOtherEventHandlers() {
     eventBus.subscribe('inventory.stock_request_stage_changed', async (payload) => {
         try {
             const { NotificationPolicyService } = await import('../../services/notification/notification-policy.service');
-            await NotificationPolicyService.notifyStockRequestStageChange(payload.request, payload.stage, payload.roles);
+            await NotificationPolicyService.notifyStockRequestStageChange(payload.request, payload.stage, payload.audience);
         } catch (err) {
             console.error('[EVENT-HANDLER-ERROR] notifyStockRequestStageChange failed:', err);
         }

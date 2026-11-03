@@ -16,6 +16,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 interface PATOrder {
     id: string;
@@ -35,7 +36,7 @@ interface PATOrder {
 }
 
 export default function PATStatusPage() {
-    const [user] = useState<{ id: string; name: string; role: string } | null>(() => {
+    const [user] = useState<{ id: string; name: string; role: string; permissions?: string[] } | null>(() => {
         if (typeof window !== 'undefined') {
             const storedUser = localStorage.getItem('user');
             return storedUser ? JSON.parse(storedUser) : null;
@@ -54,7 +55,11 @@ export default function PATStatusPage() {
         { id: 'ACCEPTED', label: 'SLT HQ PAT ACCEPTED' }
     ];
 
-    const canFilterGlobally = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SA_MANAGER', 'OSP_MANAGER'].includes(user.role);
+    const globalViewPermissions: string[] = [
+        RBAC_PERMISSIONS.ADMIN_RBAC,
+        RBAC_PERMISSIONS.REPORTS_MANAGER_READ,
+    ];
+    const canFilterGlobally = !!user?.permissions?.some((permission) => globalViewPermissions.includes(permission));
 
     const { data, isLoading } = useQuery({
         queryKey: ['pat-orders-v7', page, search, view, rtom, selectedRegion],

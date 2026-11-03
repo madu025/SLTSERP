@@ -1,9 +1,10 @@
 "use client";
 
-import {  useState, useEffect, useCallback  } from 'react';
+import {  useState, useCallback  } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useRouter } from 'next/navigation';
+import RoleGuard from '@/components/RoleGuard';
 import { Button } from "@/components/ui/button";
 import {
     Settings,
@@ -26,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { TABLE_LABELS } from '@/config/table-columns';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 // TODO: Re-enable when Table Column Layout Builder is complete
 // import { TABLE_GROUPS } from '@/config/table-columns';
 // import { ColumnLayoutBuilder } from '@/components/ColumnLayoutBuilder';
@@ -43,26 +45,8 @@ interface TableSettings {
 }
 
 const AdminDashboard = () => {
-    const router = useRouter();
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState('finance');
-
-    // --- ACCESS CHECK ---
-    useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            try {
-                const user = JSON.parse(storedUser);
-                if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
-                    router.push('/dashboard');
-                }
-            } catch {
-                router.push('/login');
-            }
-        } else {
-            router.push('/login');
-        }
-    }, [router]);
 
     // --- QUERIES ---
     const { data: settings = {}, isLoading } = useQuery<Record<string, TableSettings>>({
@@ -96,28 +80,31 @@ const AdminDashboard = () => {
 
     if (isLoading) {
         return (
-            <div className="h-screen flex bg-slate-50 overflow-hidden">
-                <Sidebar />
-                <main className="flex-1 flex flex-col min-w-0 h-full">
-                    <Header />
-                    <div className="flex-1 flex items-center justify-center">
-                        <div className="flex flex-col items-center gap-2 text-slate-500">
-                            <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-                            <span className="text-xs font-semibold">Loading system governance settings...</span>
+            <RoleGuard permissionId={RBAC_PERMISSIONS.ADMIN_RBAC}>
+                <div className="h-screen flex bg-slate-50 overflow-hidden">
+                    <Sidebar />
+                    <main className="flex-1 flex flex-col min-w-0 h-full">
+                        <Header />
+                        <div className="flex-1 flex items-center justify-center">
+                            <div className="flex flex-col items-center gap-2 text-slate-500">
+                                <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+                                <span className="text-xs font-semibold">Loading system governance settings...</span>
+                            </div>
                         </div>
-                    </div>
-                </main>
-            </div>
+                    </main>
+                </div>
+            </RoleGuard>
         );
     }
 
     return (
-        <div className="fixed inset-0 flex bg-slate-50 overflow-hidden">
-            <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0 h-full">
-                <Header />
-                <div className="flex-1 overflow-y-auto p-4 md:p-8">
-                    <div className="max-w-7xl mx-auto space-y-6">
+        <RoleGuard permissionId={RBAC_PERMISSIONS.ADMIN_RBAC}>
+            <div className="fixed inset-0 flex bg-slate-50 overflow-hidden">
+                <Sidebar />
+                <main className="flex-1 flex flex-col min-w-0 h-full">
+                    <Header />
+                    <div className="flex-1 overflow-y-auto p-4 md:p-8">
+                        <div className="max-w-7xl mx-auto space-y-6">
                         {/* Header Header */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                             <div>
@@ -207,10 +194,11 @@ const AdminDashboard = () => {
 
                             {/* TODO: Table Column Layout Builder - under development */}
                         </Tabs>
+                        </div>
                     </div>
-                </div>
-            </main>
-        </div>
+                </main>
+            </div>
+        </RoleGuard>
     );
 };
 

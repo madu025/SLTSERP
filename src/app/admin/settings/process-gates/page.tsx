@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import RoleGuard from '@/components/RoleGuard';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import { ROLE_GROUPS } from '@/config/roles';
 import { Settings2, Trash2, ShieldAlert, GitMerge, Sparkles } from 'lucide-react';
 import { StepByStepGateWizard } from './StepByStepGateWizard';
 import { VisualWorkflowPipeline } from './VisualWorkflowPipeline';
@@ -85,7 +84,7 @@ export default function ProcessGatesAdminPage() {
   );
 
   return (
-    <RoleGuard allowedRoles={ROLE_GROUPS.ADMINS as unknown as string[]}>
+    <RoleGuard>
       <div className="flex h-screen bg-slate-50 overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

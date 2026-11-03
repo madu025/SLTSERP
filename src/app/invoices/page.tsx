@@ -749,7 +749,6 @@ export default function InvoicesPage() {
 
     return (
         <RoleGuard 
-            allowedRoles={[]}
             permissionId={RBAC_PERMISSIONS.SOD_INVOICE}
         >
             <div className="erp-page-wrapper flex-row overflow-hidden">

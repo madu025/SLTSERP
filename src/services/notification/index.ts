@@ -2,13 +2,15 @@ import { NotificationRepository } from '@/repositories/notification.repository';
 import { emitNotification } from '@/lib/events';
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
-import { Prisma, Role } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { redis } from '@/lib/redis';
 import { notificationsQueue } from '@/lib/queue';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { NIL_UUID, resolveOpmcScope } from '@/lib/opmc-scope';
 import { StoreService } from '@/services/inventory/store.service';
+import { parsePermissionList } from '@/lib/effective-permissions';
+import { NOTIFICATION_AUDIENCES, type NotificationAudienceId } from './notification-audiences';
 
 export type NotificationPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type NotificationType = 'SYSTEM' | 'INVENTORY' | 'CONTRACTOR' | 'PROJECT' | 'FINANCE' | 'HELPDESK';
@@ -248,10 +250,145 @@ export class NotificationService {
     }
 
     /**
-     * Send notification to all users with specific roles
+     * Resolve active, capability-backed recipients for a notification
+     * audience. Explicit User.permissions values replace inherited role
+     * grants, including an explicit empty list. OPMC filtering is preserved:
+     * users with the canonical global notification capability bypass the
+     * supplied OPMC, while all other recipients need an accessible OPMC or a
+     * store assigned to that OPMC.
      */
-    static async notifyByRole({
-        roles,
+    static async getAudienceRecipients({
+        audience,
+        opmcId,
+    }: {
+        audience: NotificationAudienceId;
+        opmcId?: string;
+    }): Promise<Array<{ id: string; email: string | null }>> {
+        const audiencePermission = NOTIFICATION_AUDIENCES[audience]?.permission;
+        if (!audiencePermission) return [];
+
+        const requiredCodes = [audiencePermission, RBAC_PERMISSIONS.NOTIFICATION_GLOBAL];
+        const activeDefinitions = await prisma.permissionDefinition.findMany({
+            where: { code: { in: requiredCodes }, isActive: true },
+            select: { code: true },
+        });
+        const activeCodes = new Set(activeDefinitions.map((definition) => definition.code));
+        if (!activeCodes.has(audiencePermission)) return [];
+
+        const users = await prisma.user.findMany({
+            where: {
+                status: 'active',
+                OR: [
+                    // Explicit overrides cannot be filtered by a relational
+                    // grant, so they are parsed and checked below.
+                    { permissions: { not: null } },
+                    {
+                        systemRole: {
+                            isActive: true,
+                            rolePermissions: {
+                                some: {
+                                    permissionDefinition: {
+                                        code: audiencePermission,
+                                        isActive: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    {
+                        sectionAssignments: {
+                            some: {
+                                role: {
+                                    isActive: true,
+                                    rolePermissions: {
+                                        some: {
+                                            permissionDefinition: {
+                                                code: audiencePermission,
+                                                isActive: true,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+            select: {
+                id: true,
+                email: true,
+                permissions: true,
+                accessibleOpmcs: { select: { id: true } },
+                assignedStore: { select: { opmcs: { select: { id: true } } } },
+                systemRole: {
+                    select: {
+                        isActive: true,
+                        rolePermissions: {
+                            where: { permissionDefinition: { code: { in: requiredCodes }, isActive: true } },
+                            select: { permissionDefinition: { select: { code: true } } },
+                        },
+                    },
+                },
+                sectionAssignments: {
+                    select: {
+                        role: {
+                            select: {
+                                isActive: true,
+                                rolePermissions: {
+                                    where: { permissionDefinition: { code: { in: requiredCodes }, isActive: true } },
+                                    select: { permissionDefinition: { select: { code: true } } },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        return users.filter((user) => {
+            const directOverride = user.permissions !== null && user.permissions !== undefined;
+            const directPermissions = directOverride ? new Set(parsePermissionList(user.permissions)) : null;
+            const inheritedPermissions = new Set<string>();
+
+            if (!directOverride) {
+                if (user.systemRole?.isActive) {
+                    user.systemRole.rolePermissions.forEach((grant) => {
+                        if (grant.permissionDefinition?.code) inheritedPermissions.add(grant.permissionDefinition.code);
+                    });
+                }
+                user.sectionAssignments.forEach((assignment) => {
+                    if (!assignment.role?.isActive) return;
+                    assignment.role.rolePermissions.forEach((grant) => {
+                        if (grant.permissionDefinition?.code) inheritedPermissions.add(grant.permissionDefinition.code);
+                    });
+                });
+            }
+
+            const effectivePermissions = directPermissions ?? inheritedPermissions;
+            if (!effectivePermissions.has(audiencePermission)) return false;
+            if (!opmcId) return true;
+            if (activeCodes.has(RBAC_PERMISSIONS.NOTIFICATION_GLOBAL) && effectivePermissions.has(RBAC_PERMISSIONS.NOTIFICATION_GLOBAL)) {
+                return true;
+            }
+
+            return user.accessibleOpmcs.some((opmc) => opmc.id === opmcId)
+                || user.assignedStore?.opmcs.some((opmc) => opmc.id === opmcId) === true;
+        });
+    }
+
+    static async getAudienceEmails({ audience, opmcId }: { audience: NotificationAudienceId; opmcId?: string }) {
+        const recipients = await this.getAudienceRecipients({ audience, opmcId });
+        return recipients.map((recipient) => recipient.email).filter((email): email is string => Boolean(email));
+    }
+
+    /**
+     * Send notification to a canonical capability-backed audience.
+     * The broadcast path is unchanged, so preference filtering, Redis
+     * deduplication, grouped rows, SSE emission, and BullMQ delivery remain
+     * identical to the previous role-based implementation.
+     */
+    static async notifyByAudience({
+        audience,
         title,
         message,
         type = 'SYSTEM',
@@ -261,7 +398,7 @@ export class NotificationService {
         opmcId, // Optional filter by OPMC
         dedupKey  // Business identity: one row per recipient per key, repeats bump groupedCount
     }: {
-        roles: string[];
+        audience: NotificationAudienceId;
         title: string;
         message: string;
         type?: NotificationType;
@@ -272,57 +409,11 @@ export class NotificationService {
         dedupKey?: string;
     }) {
         try {
-            // Fix #8: Strict validation of roles array against Prisma Role enum
-            const validRoles = roles.filter((role): role is Role => Object.values(Role).includes(role as Role));
-            if (validRoles.length === 0) {
-                console.warn('[NotificationService] notifyByRole: No valid roles provided. Skipping.', roles);
-                return null;
-            }
-
-            // Global executives always receive cross-OPMC alerts
-            const globalRoles: Role[] = ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP'];
-            
-            // Validate that we only query with roles the caller requested (global or not)
-            const globalRolesRequested = globalRoles.filter(r => validRoles.includes(r));
-            const scopedRolesRequested = validRoles.filter(r => !globalRoles.includes(r));
-
-            // User.role is a compatibility/bootstrap field. Notification
-            // routing must follow the active canonical SystemRole assignments
-            // so stale legacy role values cannot silently omit or add users.
-            const canonicalRoleFilter = (requestedRoles: Role[]) => ({
-                OR: [
-                    { systemRole: { code: { in: requestedRoles }, isActive: true } },
-                    { sectionAssignments: { some: { role: { code: { in: requestedRoles }, isActive: true } } } },
-                ],
-            });
-
-            const users = await prisma.user.findMany({
-                where: {
-                    status: 'active',
-                    OR: [
-                        // Scoped roles: Must meet OPMC filter if provided.
-                        {
-                            AND: [
-                                canonicalRoleFilter(scopedRolesRequested),
-                                ...(opmcId ? [{
-                                    OR: [
-                                        { accessibleOpmcs: { some: { id: opmcId } } },
-                                        { assignedStore: { opmcs: { some: { id: opmcId } } } }
-                                    ]
-                                }] : []),
-                            ],
-                        },
-                        // Global roles bypass the OPMC filter entirely.
-                        canonicalRoleFilter(globalRolesRequested),
-                    ]
-                },
-                select: { id: true }
-            });
-
+            const users = await this.getAudienceRecipients({ audience, opmcId });
             if (users.length === 0) return null;
 
             return await this.broadcast({
-                userIds: users.map((u: { id: string }) => u.id),
+                userIds: users.map((u) => u.id),
                 title,
                 message,
                 type,
@@ -332,7 +423,7 @@ export class NotificationService {
                 dedupKey
             });
         } catch (error) {
-            console.error('Failed to notify by role:', error);
+            console.error('Failed to notify by audience:', error);
             return null;
         }
     }

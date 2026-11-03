@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
 import { NotificationService } from '@/services/notification/notification.service';
 
@@ -209,8 +208,8 @@ export class SODAutoCompletionService {
 
             // Send ONE batch summary notification instead of N individual ones (anti-spam)
             if (completedCount > 0) {
-                await NotificationService.notifyByRole({
-                    roles: ROLE_GROUPS.OFFICE_ADMINS,
+                await NotificationService.notifyByAudience({
+                    audience: 'OFFICE_ADMINS',
                     title: 'SOD Auto-Completion Summary',
                     message: `${completedCount} service order(s) auto-completed from SLT data.`,
                     type: 'PROJECT',

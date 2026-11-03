@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { InvoiceQueryService } from './invoice.query.service';
@@ -7,6 +6,10 @@ import { InvoiceCalculatorService } from './invoice.calculator.service';
 import { InvoiceRetentionService } from './invoice.retention.service';
 import { CreateInvoiceDTO, UpdateInvoiceDTO } from '@/lib/validations/invoice.schema';
 import { AppError, ErrorCode } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { getUserEffectivePermissions } from '@/lib/user-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
 
 export class InvoiceService {
 
@@ -48,8 +51,8 @@ export class InvoiceService {
         const invNum = invoice?.invoiceNumber || invoiceId;
 
         if (status === 'PENDING') {
-            await NotificationService.notifyByRole({
-                roles: ROLE_GROUPS.ADMINS,
+            await NotificationService.notifyByAudience({
+                audience: 'ADMINISTRATORS',
                 title: 'New Penalty Proposed',
                 message: `A penalty of LKR ${amount.toFixed(2)} has been proposed for Invoice ${invNum} by ${proposerName}. Reason: ${reason || 'MANUAL'}.`,
                 type: 'FINANCE',
@@ -70,7 +73,14 @@ export class InvoiceService {
         return penalty;
     }
 
-    static async updatePenaltyStatus(invoiceId: string, penaltyId: string, status: 'APPROVED' | 'REJECTED') {
+    static async updatePenaltyStatus(
+        invoiceId: string,
+        penaltyId: string,
+        status: 'APPROVED' | 'REJECTED',
+        actorUserId: string,
+    ) {
+        await this.assertPenaltyUpdateAccess(invoiceId, actorUserId);
+
         const { primaryClient } = await import('@/lib/prisma');
         const { NotificationService } = await import('@/services/notification');
 
@@ -91,8 +101,8 @@ export class InvoiceService {
         });
         const invNum = invoice?.invoiceNumber || invoiceId;
 
-        await NotificationService.notifyByRole({
-            roles: ROLE_GROUPS.PROJECT_MANAGERS,
+        await NotificationService.notifyByAudience({
+            audience: 'PROJECT_MANAGERS',
             title: `Penalty ${status.toLowerCase()}`,
             message: `A proposed penalty of LKR ${updatedPenalty.amount.toFixed(2)} for Invoice ${invNum} has been ${status.toLowerCase()} by an Area Manager.`,
             type: 'FINANCE',
@@ -112,6 +122,35 @@ export class InvoiceService {
         }
 
         return updatedPenalty;
+    }
+
+    /**
+     * Keep the service boundary authoritative for direct callers as well as
+     * apiHandler. Capability and project/OPMC scope are separate controls.
+     */
+    private static async assertPenaltyUpdateAccess(invoiceId: string, actorUserId: string) {
+        if (!actorUserId) {
+            throw AppError.unauthorized('Authentication required');
+        }
+
+        const permissions = await getUserEffectivePermissions(actorUserId);
+        if (!permissions.includes(RBAC_PERMISSIONS.SOD_INVOICE)) {
+            throw AppError.forbidden('SOD invoice capability is required');
+        }
+
+        const invoice = await prisma.invoice.findUnique({
+            where: { id: invoiceId },
+            select: { projectId: true },
+        });
+        if (!invoice) {
+            throw AppError.notFound('Invoice not found');
+        }
+
+        if (invoice.projectId) {
+            await assertProjectAccess(invoice.projectId, actorUserId);
+        } else if (await resolveOpmcScope(actorUserId) !== undefined) {
+            throw AppError.forbidden('Unlinked invoice is outside assigned OPMC scope');
+        }
     }
 
     static async deletePenalty(invoiceId: string, penaltyId: string) {

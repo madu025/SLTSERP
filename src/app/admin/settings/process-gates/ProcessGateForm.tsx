@@ -50,6 +50,7 @@ export function ProcessGateForm({
     reqDocUpload: gate?.reqDocUpload || false,
     writeAuditLedger: gate ? gate.writeAuditLedger : true,
     generateIssueNote: gate?.generateIssueNote || false,
+    notificationAudience: gate?.notificationAudience || '',
   });
 
   const availableStatuses = MODULE_STATUS_REGISTRY[formData.entityType] || [
@@ -217,6 +218,22 @@ export function ProcessGateForm({
                       required
                       className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Canonical Notification Audience</label>
+                    <select
+                      name="notificationAudience"
+                      value={formData.notificationAudience}
+                      onChange={handleChange}
+                      className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    >
+                      <option value="">None (unknown legacy routing fails closed)</option>
+                      <option value="PROCESS_GATE_OSP_MANAGER">OSP Manager</option>
+                      <option value="PROCESS_GATE_HEAD_OF_SECTION">Head of Section</option>
+                      <option value="PROCESS_GATE_PROCUREMENT">Procurement</option>
+                      <option value="PROCESS_GATE_STORES">Stores</option>
+                    </select>
                   </div>
 
                   {/* Predefined Dropdowns for Statuses */}

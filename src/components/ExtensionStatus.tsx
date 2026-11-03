@@ -4,6 +4,7 @@ import {  useEffect, useState, useCallback, useRef  } from 'react';
 import { usePathname } from 'next/navigation';
 import { Download, AlertCircle, CheckCircle2, RefreshCw, Terminal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import {
     Popover,
     PopoverContent,
@@ -31,7 +32,7 @@ export default function ExtensionStatus() {
         type: null
     });
     const [lastChecked, setLastChecked] = useState<Date | null>(null);
-    const [userDetail, setUserDetail] = useState<{ role?: string } | null>(null);
+    const [userDetail, setUserDetail] = useState<{ role?: string; permissions?: string[] } | null>(null);
     const checkCount = useRef(0);
     const maxChecks = 10;
 
@@ -196,12 +197,12 @@ export default function ExtensionStatus() {
         setTimeout(() => checkExtension(), 500);
     };
 
-    const isContractorUser = pathname?.startsWith('/contractor') || userDetail?.role?.startsWith('CONTRACTOR_');
+    const isContractorUser = pathname?.startsWith('/contractor');
     if (isContractorUser) {
         return null;
     }
 
-    const isAdmin = userDetail?.role === 'SUPER_ADMIN' || userDetail?.role === 'ADMIN';
+    const isAdmin = userDetail?.permissions?.includes(RBAC_PERMISSIONS.ADMIN_RBAC) ?? false;
 
     if (!mounted) {
         return (

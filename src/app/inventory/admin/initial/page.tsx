@@ -134,7 +134,7 @@ export default function InitialStockPage() {
     );
 
     return (
-        <RoleGuard allowedRoles={[]} permissionId={RBAC_PERMISSIONS.INVENTORY_WRITE}>
+        <RoleGuard permissionId={RBAC_PERMISSIONS.INVENTORY_WRITE}>
         <div className="erp-page-wrapper flex-row overflow-hidden">
             <Sidebar />
             <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">

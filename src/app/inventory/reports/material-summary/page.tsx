@@ -133,7 +133,7 @@ export default function MaterialSummaryReportPage() {
             : null;
 
     return (
-        <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', 'AREA_MANAGER', 'ENGINEER', 'FINANCE_MANAGER', 'STORES_MANAGER']}>
+        <RoleGuard>
             <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

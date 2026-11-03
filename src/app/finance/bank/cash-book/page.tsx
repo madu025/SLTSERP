@@ -5,7 +5,6 @@ import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from "@/config/roles";
 import { Landmark, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ACCOUNTS } from '@/services/finance/account-codes';
@@ -47,7 +46,7 @@ export default function CashBookPage() {
     });
 
     return (
-        <RoleGuard allowedRoles={ROLE_GROUPS.FINANCE}>
+        <RoleGuard>
             <div className="flex h-screen bg-slate-50 overflow-hidden">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

@@ -274,10 +274,10 @@ export function VisualWorkflowPipeline({
                   </div>
 
                   {/* Mail Notifications Indicator */}
-                  {Array.isArray(gate.rolesToNotify) && gate.rolesToNotify.length > 0 && (
+                  {gate.notificationAudience && (
                     <div className="flex items-center gap-1 text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
                       <Mail className="w-3 h-3 text-amber-500" />
-                      Notify: {gate.rolesToNotify.join(', ')}
+                      Notify audience: {gate.notificationAudience}
                     </div>
                   )}
                 </div>

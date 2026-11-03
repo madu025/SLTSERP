@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { assertProjectAccess } from '@/lib/project-access';
@@ -106,8 +105,8 @@ export class ProjectApprovalService {
                             metadata: { requestId: newRequest.id, projectId, approvalType: type }
                         });
                     } else {
-                        await NotificationService.notifyByRole({
-                            roles: ROLE_GROUPS.ADMINS,
+                        await NotificationService.notifyByAudience({
+                            audience: 'ADMINISTRATORS',
                             title: '✅ Approval Required',
                             message: `A new approval request "${title}" requires your action as ${s.roleRequired.replace(/_/g, ' ')}.`,
                             type: 'PROJECT',
@@ -253,8 +252,8 @@ export class ProjectApprovalService {
                             metadata: { requestId: step.requestId, projectId, stepNumber: currentStepNumber }
                         });
                     }
-                    await NotificationService.notifyByRole({
-                        roles: ROLE_GROUPS.PROJECT_MANAGERS,
+                    await NotificationService.notifyByAudience({
+                        audience: 'PROJECT_MANAGERS',
                         title: '❌ Project Approval Rejected',
                         message: `Approval "${requestTitle}" was rejected at step ${currentStepNumber}.${comment ? ` Reason: ${comment}` : ''}`,
                         type: 'PROJECT',
@@ -279,8 +278,8 @@ export class ProjectApprovalService {
                                 metadata: { requestId: step.requestId, projectId }
                             });
                         }
-                        await NotificationService.notifyByRole({
-                            roles: ROLE_GROUPS.PROJECT_MANAGERS,
+                        await NotificationService.notifyByAudience({
+                            audience: 'PROJECT_MANAGERS',
                             title: '🎉 Approval Completed',
                             message: `All approval steps for "${requestTitle}" have been completed.`,
                             type: 'PROJECT',
@@ -305,8 +304,8 @@ export class ProjectApprovalService {
                                     metadata: { requestId: step.requestId, projectId, stepNumber: nextStep.stepNumber }
                                 });
                             } else {
-                                await NotificationService.notifyByRole({
-                                    roles: ROLE_GROUPS.ADMINS,
+                                await NotificationService.notifyByAudience({
+                                    audience: 'ADMINISTRATORS',
                                     title: '✅ Approval Required — Your Turn',
                                     message: `Step ${currentStepNumber} was approved. "${requestTitle}" now requires approval from ${String(nextStep.roleRequired || 'ADMIN').replace(/_/g, ' ')} (Step ${nextStep.stepNumber}).`,
                                     type: 'PROJECT',

@@ -124,7 +124,7 @@ export default function ProcurementOverviewPage() {
     };
 
     return (
-        <RoleGuard allowedRoles={[]} permissionId={RBAC_PERMISSIONS.PROCUREMENT_READ}>
+        <RoleGuard permissionId={RBAC_PERMISSIONS.PROCUREMENT_READ}>
             <div className="erp-page-wrapper flex-row overflow-hidden">
                 <Sidebar />
                 <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">

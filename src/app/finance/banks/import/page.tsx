@@ -7,7 +7,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Upload, Download, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import readXlsxFile from 'read-excel-file';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from "@/config/roles";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useRouter } from 'next/navigation';
@@ -95,7 +94,7 @@ export default function BankBulkImportPage() {
     };
 
     return (
-        <RoleGuard allowedRoles={ROLE_GROUPS.ADMINS}>
+        <RoleGuard>
             <div className="flex h-screen bg-slate-50 dark:bg-slate-900">
                 <Sidebar />
                 <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">

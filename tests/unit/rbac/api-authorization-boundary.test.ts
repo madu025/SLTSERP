@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { SIDEBAR_MENU, canAccessMenuItem } from '@/config/sidebar-menu';
 import { resolveRouteCapability } from '@/lib/route-capabilities';
 
 const API_ROOT = path.resolve(process.cwd(), 'src/app/api');
@@ -13,6 +14,7 @@ const CLIENT_ROOTS = [
 ];
 const API_HANDLER_SOURCE = readFileSync(path.resolve(process.cwd(), 'src/lib/api-handler.ts'), 'utf8');
 const ROLE_GUARD_SOURCE = readFileSync(path.resolve(process.cwd(), 'src/components/RoleGuard.tsx'), 'utf8');
+const SIDEBAR_SOURCE = readFileSync(path.resolve(process.cwd(), 'src/config/sidebar-menu.ts'), 'utf8');
 
 function routeFiles(directory: string): string[] {
     return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -88,6 +90,33 @@ test('API handler has no legacy role fallback and requires an explicit boundary'
 
 test('RoleGuard never authorizes from allowed role arrays', () => {
     assert.doesNotMatch(ROLE_GUARD_SOURCE, /hasAccess\(/);
+    assert.doesNotMatch(ROLE_GUARD_SOURCE, /allowedRoles/);
     assert.match(ROLE_GUARD_SOURCE, /resolvePageCapability/);
     assert.match(ROLE_GUARD_SOURCE, /user\.permissions/);
+});
+
+test('sidebar visibility uses canonical capabilities without role-array metadata', () => {
+    assert.doesNotMatch(SIDEBAR_SOURCE, /allowedRoles|ROLE_GROUPS/);
+
+    const nestedItems = SIDEBAR_MENU.flatMap((item) => [
+        item,
+        ...(item.submenu ?? []).flatMap((sub) => [sub, ...(sub.submenu ?? [])]),
+    ]);
+    assert.equal(nestedItems.some((item) => Object.hasOwn(item, 'allowedRoles')), false);
+
+    assert.equal(canAccessMenuItem({
+        permissionId: RBAC_PERMISSIONS.PROJECT_READ,
+        pathname: '/projects',
+        userPermissions: [RBAC_PERMISSIONS.PROJECT_READ],
+    }), true);
+    assert.equal(canAccessMenuItem({
+        permissionId: 'contractor-portal',
+        pathname: '/contractor/dashboard',
+        userPermissions: [RBAC_PERMISSIONS.CONTRACTOR_READ],
+    }), true);
+    assert.equal(canAccessMenuItem({
+        permissionId: RBAC_PERMISSIONS.PROJECT_READ,
+        pathname: '/projects',
+        userPermissions: [RBAC_PERMISSIONS.FINANCE_READ],
+    }), false);
 });

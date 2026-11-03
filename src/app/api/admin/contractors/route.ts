@@ -4,6 +4,7 @@ import { ContractorService } from '@/services/contractor/contractor.service';
 import { contractorSchema } from '@/lib/validations/contractor.schema';
 import { AppError } from '@/lib/error';
 import type { ContractorUpdateData } from '@/types/contractor/contractor.types';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,7 @@ export const GET = apiHandler(
         });
     },
     {
+        permissions: [RBAC_PERMISSIONS.ADMIN_RBAC],
     }
 );
 
@@ -39,6 +41,7 @@ export const POST = apiHandler(
         return await ContractorService.createContractor(body as ContractorUpdateData);
     },
     {
+        permissions: [RBAC_PERMISSIONS.ADMIN_RBAC],
         schema: contractorSchema,
         audit: {
             action: 'CREATE',
@@ -57,6 +60,7 @@ export const PUT = apiHandler(
         return await ContractorService.updateContractor(id, data);
     },
     {
+        permissions: [RBAC_PERMISSIONS.ADMIN_RBAC],
         schema: contractorSchema,
         audit: {
             action: 'UPDATE',
@@ -81,6 +85,7 @@ export const DELETE = apiHandler(
         };
     },
     {
+        permissions: [RBAC_PERMISSIONS.ADMIN_RBAC],
         audit: {
             action: 'DELETE',
             entity: 'Contractor'

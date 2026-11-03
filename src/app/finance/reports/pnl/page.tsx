@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from "@/config/roles";
 import { TrendingUp, TrendingDown, FileText } from "lucide-react";
 
 interface AccountBalanceSummary {
@@ -36,7 +35,7 @@ export default function PnlPage() {
     const isProfitable = (data?.netProfit || 0) >= 0;
 
     return (
-        <RoleGuard allowedRoles={ROLE_GROUPS.FINANCE}>
+        <RoleGuard>
             <div className="flex h-screen bg-slate-50 overflow-hidden">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

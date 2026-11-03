@@ -1,9 +1,14 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { assertProjectAccess } from '@/lib/project-access';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
-import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { isCanonicalPermission, RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import {
+  getChangeRequestApprovalPolicy,
+  getChangeRequestPolicyVariant,
+  hasEligiblePolicyRole,
+} from '@/services/project/project-approval-policy.service';
 
 export interface CreateChangeRequestInput {
   projectId: string;
@@ -16,18 +21,17 @@ export interface CreateChangeRequestInput {
   requestedById: string;
 }
 
+type CanonicalChangeApprovalSnapshot = {
+  requiredPermission: string | null;
+  eligibleRoles: unknown;
+};
+
 /**
  * Dynamic approval chain based on cost impact:
  * < 100K → Section Manager (1 level)
  * < 500K → AE/Engineer (2 levels)
  * ≥ 500K → Finance + Director (3 levels)
  */
-const APPROVAL_CHAIN = {
-  SECTION_MANAGER: { threshold: 100000, roles: ROLE_GROUPS.ADMINS },
-  AE_ENGINEER: { threshold: 500000, roles: ROLE_GROUPS.PROJECT_MANAGERS },
-  FINANCE_DIRECTOR: { threshold: Infinity, roles: ROLE_GROUPS.PROJECT_MANAGERS },
-};
-
 export class ChangeRequestService {
   /**
    * Create a change request with dynamic approval chain
@@ -43,14 +47,13 @@ export class ChangeRequestService {
     const count = await prisma.projectChangeRequest.count();
     const requestNumber = `CR-${new Date().getFullYear()}-${(count + 1).toString().padStart(4, '0')}`;
 
-    // Determine approval chain by cost impact
+    // Resolve the approval chain from the active DB policy. The seed
+    // snapshots the previous default role lists, but runtime authorization no
+    // longer depends on the legacy role-group configuration.
     const costImpact = input.costImpact ?? 0;
-    const chain =
-      costImpact < 100000
-        ? APPROVAL_CHAIN.SECTION_MANAGER
-        : costImpact < 500000
-        ? APPROVAL_CHAIN.AE_ENGINEER
-        : APPROVAL_CHAIN.FINANCE_DIRECTOR;
+    const policyVariant = getChangeRequestPolicyVariant(costImpact);
+    const policy = await getChangeRequestApprovalPolicy(policyVariant);
+    const chainRoles = policy.approvalLevels.map((level) => level.requiredRole);
 
     // Create change request with approval steps
     const changeRequest = await prisma.projectChangeRequest.create({
@@ -65,9 +68,15 @@ export class ChangeRequestService {
         routeChangeData: input.routeChangeData ? (input.routeChangeData as object) : undefined,
         requestedById: input.requestedById,
         approvals: {
-          create: chain.roles.map((role, index) => ({
-            role,
+          create: policy.approvalLevels.map((level, index) => ({
+            role: level.requiredRole,
             stepOrder: index + 1,
+            policyId: policy.id,
+            policyVariant,
+            requiredPermission: level.requiredPermission,
+            eligibleRoles: level.eligibleRoles == null
+              ? Prisma.JsonNull
+              : level.eligibleRoles as Prisma.InputJsonValue,
             status: 'PENDING',
           })),
         },
@@ -77,7 +86,7 @@ export class ChangeRequestService {
       },
     });
 
-    return { changeRequest, approvalChain: chain.roles };
+    return { changeRequest, approvalChain: chainRoles };
   }
 
   /**
@@ -102,7 +111,10 @@ export class ChangeRequestService {
       throw AppError.badRequest(`Cannot approve: step is already ${approval.status}`);
     }
 
-    await this.assertApprovalActor(approval, userId);
+    await this.assertApprovalActor(
+      approval as typeof approval & CanonicalChangeApprovalSnapshot,
+      userId,
+    );
 
     // Update this step only after the project scope, canonical capability,
     // workflow role, ordering, and maker-checker checks above have passed.
@@ -159,7 +171,10 @@ export class ChangeRequestService {
       orderBy: { stepOrder: 'asc' },
     });
     if (!pendingStep) throw AppError.badRequest('No pending approval step found');
-    await this.assertApprovalActor({ ...pendingStep, changeRequest: cr }, userId);
+    await this.assertApprovalActor(
+      { ...pendingStep, changeRequest: cr } as typeof pendingStep & CanonicalChangeApprovalSnapshot & { changeRequest: typeof cr },
+      userId,
+    );
 
     await prisma.projectChangeRequest.update({
       where: { id: changeRequestId },
@@ -226,7 +241,17 @@ export class ChangeRequestService {
   }
 
   private static async assertApprovalActor(
-    approval: { role: string; stepOrder: number; changeRequest: { projectId: string; requestedById: string | null; approvals?: Array<{ stepOrder: number; status: string }> } },
+    approval: {
+      role: string;
+      stepOrder: number;
+      requiredPermission: string | null;
+      eligibleRoles: unknown;
+      changeRequest: {
+        projectId: string;
+        requestedById: string | null;
+        approvals?: Array<{ stepOrder: number; status: string }>;
+      };
+    },
     userId: string,
   ) {
     await assertProjectAccess(approval.changeRequest.projectId, userId);
@@ -236,7 +261,11 @@ export class ChangeRequestService {
     }
 
     const permissions = await getUserEffectivePermissions(userId);
-    if (!permissions.includes(RBAC_PERMISSIONS.PROJECT_APPROVE)) {
+    const requiredPermission = approval.requiredPermission;
+    if (!requiredPermission || !isCanonicalPermission(requiredPermission)) {
+      throw AppError.badRequest('Change-request approval is missing a canonical permission policy');
+    }
+    if (!permissions.includes(requiredPermission)) {
       throw AppError.forbidden('Project approval capability is required');
     }
 
@@ -254,12 +283,9 @@ export class ChangeRequestService {
     }
 
     const isAdmin = permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC);
-    const actorRoles = [actor.systemRole, ...actor.sectionAssignments.map(assignment => assignment.role)]
-      .filter((role): role is { code: string; isActive: boolean } => Boolean(role?.isActive))
-      .flatMap(role => [role.code, role.code.replace(/_GLOBAL$/, '')]);
-    const requiredRole = approval.role.trim();
-    if (!isAdmin && !actorRoles.includes(requiredRole) && !actorRoles.includes(requiredRole.replace(/_GLOBAL$/, ''))) {
-      throw AppError.forbidden(`User is not authorized for change-request role ${requiredRole}`);
+    const actorRoles = [actor.systemRole, ...actor.sectionAssignments.map(assignment => assignment.role)];
+    if (!isAdmin && !hasEligiblePolicyRole(actorRoles, approval.eligibleRoles)) {
+      throw AppError.forbidden('User is not eligible for this change-request approval level');
     }
 
     const earlierPending = approval.changeRequest.approvals?.some(step =>

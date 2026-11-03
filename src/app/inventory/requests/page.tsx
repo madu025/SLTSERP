@@ -14,13 +14,14 @@ import { Plus, ClipboardList, Info, Building2, User, Check, Ban, DollarSign, Pac
 import { toast } from 'sonner';
 import { processStockRequestAction } from '@/actions/inventory-actions';
 import { cn } from "@/lib/utils";
-import { ROLE_GROUPS, hasRole } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 interface User {
     id: string;
     name: string;
     role: string;
     assignedStoreId?: string;
+    permissions?: string[];
 }
 
 interface InventoryItem {
@@ -77,7 +78,7 @@ export default function RequestsPage() {
     });
 
     const [requestSide, setRequestSide] = useState<'internal' | 'procurement'>(() => {
-        if (user && hasRole(user.role, ROLE_GROUPS.PROCUREMENT) && !hasRole(user.role, ROLE_GROUPS.STORES_ALL)) {
+        if (user?.permissions?.includes(RBAC_PERMISSIONS.PROCUREMENT_WRITE) && !user.permissions.includes(RBAC_PERMISSIONS.INVENTORY_WRITE)) {
             return 'procurement';
         }
         return 'internal';
@@ -91,10 +92,12 @@ export default function RequestsPage() {
         return () => window.clearTimeout(timer);
     }, []);
 
-    // User permissions (Centralized RBAC Configuration Driven with Hydration Safety)
-    const isStoresOfficer = mounted && hasRole(user?.role, ROLE_GROUPS.STORES_ALL);
-    const isAreaManager = mounted && hasRole(user?.role, ROLE_GROUPS.AREA_MANAGERS);
-    const isProcurementRole = mounted && (hasRole(user?.role, ROLE_GROUPS.PROCUREMENT) || hasRole(user?.role, ROLE_GROUPS.STORES_ALL));
+    // Canonical capabilities decide which controls are visible. The API still
+    // enforces the operation and the selected-store checks below enforce scope.
+    const isStoresOfficer = mounted && !!user?.permissions?.includes(RBAC_PERMISSIONS.INVENTORY_WRITE);
+    const isAreaManager = mounted && !!user?.permissions?.includes(RBAC_PERMISSIONS.INVENTORY_APPROVE);
+    const canProcurementWrite = mounted && !!user?.permissions?.includes(RBAC_PERMISSIONS.PROCUREMENT_WRITE);
+    const isProcurementRole = mounted && (canProcurementWrite || isStoresOfficer);
 
     // Approval State
     const [selectedRequest, setSelectedRequest] = useState<InventoryRequest | null>(null);
@@ -902,7 +905,7 @@ export default function RequestsPage() {
                             </Button>
                             {selectedRequest && selectedRequest.status !== 'COMPLETED' && selectedRequest.status !== 'REJECTED' && (
                                 <div className="flex gap-2">
-                                    {selectedRequest.status === 'APPROVED' && (!selectedRequest.purchaseOrders || selectedRequest.purchaseOrders.length === 0) && (ROLE_GROUPS.PROCUREMENT.includes(user?.role || '') || user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN') && (
+                                    {selectedRequest.status === 'APPROVED' && (!selectedRequest.purchaseOrders || selectedRequest.purchaseOrders.length === 0) && canProcurementWrite && (
                                         <Button
                                             variant="outline"
                                             onClick={() => approvalMutation.mutate({ action: 'RECALL_APPROVAL' })}
@@ -943,7 +946,7 @@ export default function RequestsPage() {
                                             </Badge>
                                         )
                                     ) : selectedRequest.workflowStage === 'OSP_MANAGER_APPROVAL' ? (
-                                        (['OSP_MANAGER', 'AREA_MANAGER', 'HEAD_OF_OSP', 'ADMIN', 'SUPER_ADMIN'].includes(user?.role || '')) ? (
+                                        canProcurementWrite ? (
                                             <>
                                                 <Button
                                                     variant="outline"
@@ -967,7 +970,7 @@ export default function RequestsPage() {
                                             </Badge>
                                         )
                                     ) : selectedRequest.workflowStage === 'PROCUREMENT' ? (
-                                        (['PROCUREMENT_OFFICER', 'ADMIN', 'SUPER_ADMIN'].includes(user?.role || '')) ? (
+                                        canProcurementWrite ? (
                                             <Button
                                                 onClick={() => approvalMutation.mutate({ action: 'CREATE_PO' })}
                                                 disabled={approvalMutation.isPending}

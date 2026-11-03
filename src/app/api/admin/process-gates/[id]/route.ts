@@ -17,6 +17,7 @@ const updateGateSchema = z.object({
   generateIssueNote: z.boolean().optional(),
   // Zero-Coding webhook mapping from the Domain Action registry
   domainAction: z.string().max(200).optional().nullable(),
+  notificationAudience: z.string().max(120).optional().nullable(),
 });
 
 export const PUT = apiHandler(async (req, params, body) => {

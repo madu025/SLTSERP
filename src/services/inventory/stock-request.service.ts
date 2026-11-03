@@ -14,6 +14,10 @@ import { StoreService } from './store.service';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { getStockRequestActionPermission } from '@/lib/inventory-stock-request-permissions';
 import { NIL_UUID, resolveOpmcScope } from '@/lib/opmc-scope';
+import {
+    resolveProcessGateAudience,
+    type NotificationAudienceId,
+} from '@/services/notification/notification-audiences';
 export class StockRequestService {
     private static generateRequestId(sourceType?: string): string {
         const date = new Date();
@@ -433,7 +437,7 @@ export class StockRequestService {
             const nextStage = policy.toStatus;
 
             // Condition-Based Domain Routing (Zero-Hardcoding via Event Bus Pattern)
-            const rolesToNotify: string[] = Array.isArray(policy.rolesToNotify) ? (policy.rolesToNotify as string[]) : [];
+            const notificationAudience = resolveProcessGateAudience(policy.notificationAudience);
             const domainAction = policy.domainAction;
 
             if (domainAction) {
@@ -483,7 +487,7 @@ export class StockRequestService {
             const updated = await StockRequestRepository.update(requestId, updatePayload, tx);
 
             // Event-Driven Side Effect triggers
-            this.safeNotifyStageChange(updated, nextStage, rolesToNotify);
+            this.safeNotifyStageChange(updated, nextStage, notificationAudience);
             
             return updated;
         });
@@ -1078,11 +1082,15 @@ export class StockRequestService {
 
     // --- HELPER NOTIFICATION METHODS ---
 
-    private static async safeNotifyStageChange(req: StockRequest, stage: string, roles: string[]) {
+    private static async safeNotifyStageChange(
+        req: StockRequest,
+        stage: string,
+        audience: NotificationAudienceId | null,
+    ) {
         const [nErr] = await safe(eventBus.publish('inventory.stock_request_stage_changed', {
             request: { id: req.id, requestNr: req.requestNr },
             stage,
-            roles
+            audience,
         }));
         if (nErr) {
             console.error(`Failed to publish stage change event [${stage}]:`, nErr);

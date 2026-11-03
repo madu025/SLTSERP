@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { Prisma, ServiceOrder } from '@prisma/client';
@@ -2055,8 +2054,8 @@ export class SODSyncService {
                     message = `${updated} existing service orders were updated for RTOM ${rtom}.`;
                 }
 
-                await NotificationService.notifyByRole({
-                    roles: ROLE_GROUPS.SOD_PROJECT,
+                await NotificationService.notifyByAudience({
+                    audience: 'SOD_PROJECT',
                     title,
                     message,
                     type: 'SYSTEM',
@@ -2856,8 +2855,8 @@ export class SODSyncService {
 
                 if (syncedOrder.sltsStatus === 'RETURN') {
                     const { NotificationService } = await import('@/services/notification/notification.service');
-                    await NotificationService.notifyByRole({
-                        roles: ROLE_GROUPS.PROJECT_MANAGERS,
+                    await NotificationService.notifyByAudience({
+                        audience: 'PROJECT_MANAGERS',
                         title: 'SOD Returned (Bridge Sync)',
                         message: `Service Order ${syncedOrder.soNum} was marked as RETURN via Extension. Reason: ${mapping.returnReason || 'N/A'}.`,
                         type: 'PROJECT',

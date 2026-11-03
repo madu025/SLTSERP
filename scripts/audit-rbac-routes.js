@@ -20,13 +20,15 @@ function walk(dir) {
                 new RegExp(`export const ${m}\\b`).test(src)
             );
             if (mutators.length === 0) continue;
-            const hasRoles = /roles:\s*(\[|ROLE_GROUPS|[A-Za-z_$][\w$]*)/.test(src) || /menuPath:\s*['"]/.test(src);
+            const hasCanonicalGuard = /permissions:\s*(\[[\s\S]*?\]|[A-Za-z_$][\w$]*)/.test(src)
+                || /apiHandler/.test(src)
+                || /menuPath:\s*['"]/.test(src);
             const hasRequireAuth = /requireAuth/.test(src);
             const hasManualRoleCheck = /x-user-role/.test(src) && /(includes|===|!==)/.test(src);
             const hasCronAuth = /assertCronAuth/.test(src) || (/CRON_SECRET/.test(src) && /throw/.test(src));
             const apiPath = '/' + path.relative(apiRoot, full).split(path.sep).slice(0, -1).join('/').replace(/\\/g, '/');
             const hasPrefixGuard = PREFIX_GUARDS.some(p => ('/api' + apiPath.slice(0)).startsWith(p));
-            if (!hasRoles && !hasRequireAuth && !hasManualRoleCheck && !hasCronAuth && !hasPrefixGuard) {
+            if (!hasCanonicalGuard && !hasRequireAuth && !hasManualRoleCheck && !hasCronAuth && !hasPrefixGuard) {
                 results.push({ file: path.relative(apiRoot, full), mutators: mutators.join(',') });
             }
         }

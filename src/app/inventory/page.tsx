@@ -5,14 +5,13 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
 import { useQuery } from '@tanstack/react-query';
-import { hasRole } from '@/config/roles';
 import StoreManagerCommandCenter from './components/StoreManagerCommandCenter';
 import StoreAssistantDashboard from './components/StoreAssistantDashboard';
 import { User, StoreType, KpiData } from '@/types/inventory/dashboard.types';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export default function StoresManagerDashboardPage() {
-    const [user] = useState<User | null>(() => {
+    const [user] = useState<(User & { permissions?: string[] }) | null>(() => {
         if (typeof window !== 'undefined') {
             const stored = localStorage.getItem('user');
             return stored ? JSON.parse(stored) : null;
@@ -32,10 +31,14 @@ export default function StoresManagerDashboardPage() {
         setTimeout(() => setMounted(true), 0);
     }, []);
 
-    // Dynamic Role-based Store Scope Detection
-    const isGlobalManager = hasRole(user?.role, [
-        'SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'MANAGER'
-    ]);
+    // The server-issued capability set decides which store view is available.
+    // Store assignment remains a data-scope concern and is applied below.
+    const globalViewPermissions: string[] = [
+        RBAC_PERMISSIONS.ADMIN_RBAC,
+        RBAC_PERMISSIONS.INVENTORY_APPROVE,
+        RBAC_PERMISSIONS.REPORTS_MANAGER_READ,
+    ];
+    const isGlobalManager = !!user?.permissions?.some((permission) => globalViewPermissions.includes(permission));
 
     useEffect(() => {
         if (user && stores.length > 0 && !isGlobalManager) {
@@ -62,7 +65,6 @@ export default function StoresManagerDashboardPage() {
 
     return (
         <RoleGuard
-            allowedRoles={[]}
             permissionId={RBAC_PERMISSIONS.INVENTORY_READ}
         >
             <div className="erp-page-wrapper flex-row overflow-hidden bg-slate-50 dark:bg-slate-950">

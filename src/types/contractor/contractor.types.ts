@@ -66,13 +66,16 @@ export interface ContractorUpdateData {
     teams?: TeamInput[];
     createdAt?: Date | string;
     updatedAt?: Date | string;
-    armApprovedAt?: Date | string | null;
-    armApprovedById?: string | null;
-    ospApprovedAt?: Date | string | null;
-    ospApprovedById?: string | null;
-    rejectionReason?: string | null;
-    rejectionById?: string | null;
-    rejectedAt?: Date | string | null;
+}
+
+/** Client input for the approval flow; actor, status, and audit fields are server-derived. */
+export interface ContractorApprovalInput {
+    teamCodes?: Record<string, string>;
+}
+
+/** Client input for a rejection; the rejecting actor and timestamp are server-derived. */
+export interface ContractorRejectionInput {
+    reason: string;
 }
 
 export interface RegistrationLinkParams {

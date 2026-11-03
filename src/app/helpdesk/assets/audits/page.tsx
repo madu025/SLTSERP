@@ -1,6 +1,4 @@
 "use client";
-import { ROLE_GROUPS } from '@/config/roles';
-
 import {  useEffect, useState, useCallback  } from 'react';
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
@@ -23,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 
 import RoleGuard from "@/components/RoleGuard";
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 interface AuditRecord {
   id: string;
@@ -68,7 +67,7 @@ interface AuditRecord {
 export default function AdminAuditReviewPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [user, setUser] = useState<{ id: string; name: string; role: string } | null>(null);
+  const [user, setUser] = useState<{ id: string; name: string; role: string; permissions?: string[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [audits, setAudits] = useState<AuditRecord[]>([]);
   const [syncingId, setSyncingId] = useState<string | null>(null);
@@ -99,10 +98,9 @@ export default function AdminAuditReviewPage() {
     setMounted(true);
     const stored = localStorage.getItem("user");
     if (stored) {
-      const parsedUser = JSON.parse(stored);
+      const parsedUser = JSON.parse(stored) as { id: string; name: string; role: string; permissions?: string[] };
       setUser(parsedUser);
-      const allowedRoles = ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"];
-      if (!parsedUser.role || !allowedRoles.includes(parsedUser.role)) {
+      if (!parsedUser.permissions?.includes(RBAC_PERMISSIONS.HELPDESK_APPROVE)) {
         toast.error("Unauthorized access.");
         router.push("/login");
       }
@@ -286,7 +284,7 @@ export default function AdminAuditReviewPage() {
     }
   };
 
-  const isITStaff = !!(user?.role && ROLE_GROUPS.IT_ADMINS.includes(user.role));
+  const isITStaff = !!user?.permissions?.includes(RBAC_PERMISSIONS.HELPDESK_APPROVE);
 
   if (!mounted || !user || !isITStaff) {
     return (
@@ -303,7 +301,7 @@ export default function AdminAuditReviewPage() {
   const discrepancies = audits.filter(a => !a.isSynced && !a.isMatched).length;
 
   return (
-    <RoleGuard allowedRoles={ROLE_GROUPS.IT_ADMINS}>
+    <RoleGuard permissionId={RBAC_PERMISSIONS.HELPDESK_APPROVE}>
       <div className="flex h-screen bg-slate-50 overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

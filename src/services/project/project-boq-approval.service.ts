@@ -3,10 +3,11 @@ import { AppError } from '@/lib/error';
 import { AutoBOQService } from '@/services/project/auto-boq.service';
 import { ProjectMaterialReservationService } from '@/services/project/project-material-reservation.service';
 import { ProjectTaskPlanService } from '@/services/project/project-task-plan.service';
-import { ROLE_GROUPS } from '@/config/roles';
 import { logger } from '@/lib/logger';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
+import { getBoqApprovalLevel, getBoqApprovalPolicy, hasEligiblePolicyRole } from '@/services/project/project-approval-policy.service';
 
 export class ProjectBOQApprovalService {
     /**
@@ -57,7 +58,13 @@ export class ProjectBOQApprovalService {
     /**
      * Submit BOQ for approval
      */
-    static async submitForApproval(projectId: string, notes?: string) {
+    static async submitForApproval(projectId: string, actorUserId: string, notes?: string) {
+        await assertProjectAccess(projectId, actorUserId);
+        const capabilities = await getUserEffectivePermissions(actorUserId);
+        if (!capabilities.includes(RBAC_PERMISSIONS.PROJECT_WRITE)) {
+            throw AppError.forbidden(`${RBAC_PERMISSIONS.PROJECT_WRITE} is required to submit a BOQ`);
+        }
+
         const boqCount = await prisma.projectBOQItem.count({ where: { projectId } });
         if (boqCount === 0) {
             throw AppError.badRequest('No BOQ items found. Generate BOQ first via POST /api/projects/{id}/boq/generate');
@@ -74,10 +81,13 @@ export class ProjectBOQApprovalService {
             throw AppError.conflict(`BOQ is already ${existing.status}. Revise or reject first before resubmitting.`);
         }
 
+        const policy = await getBoqApprovalPolicy();
         const approval = await prisma.bOQApproval.create({
             data: {
                 boqId: projectId,
                 projectId,
+                policyId: policy.id,
+                policyVariant: 'DEFAULT',
                 status: 'PENDING',
                 currentStep: 'SUPERVISOR',
                 notes: notes || null,
@@ -105,7 +115,7 @@ export class ProjectBOQApprovalService {
         }
 
         const step = approval.currentStep;
-        const isAdmin = await this.assertApprovalActor(step, userId);
+        const isAdmin = await this.assertApprovalActor(projectId, step, userId, RBAC_PERMISSIONS.PROJECT_APPROVE, approval.policyId);
         // Maker-checker: the same user cannot approve more than one step (global admin override).
         const earlierApprovers = [approval.supervisorId, approval.pmId, approval.financeId];
         if (!isAdmin && earlierApprovers.includes(userId)) {
@@ -193,7 +203,7 @@ export class ProjectBOQApprovalService {
             throw AppError.notFound('No pending BOQ approval found');
         }
 
-        await this.assertApprovalActor(approval.currentStep, userId);
+        await this.assertApprovalActor(projectId, approval.currentStep, userId, RBAC_PERMISSIONS.PROJECT_APPROVE, approval.policyId);
 
         const updated = await prisma.bOQApproval.update({
             where: { id: approval.id },
@@ -232,7 +242,7 @@ export class ProjectBOQApprovalService {
             throw AppError.conflict(`BOQ is already ${open.status}; it cannot be revised.`);
         }
 
-        await this.assertApprovalActor('PROJECT_MANAGER', userId, RBAC_PERMISSIONS.PROJECT_WRITE);
+        await this.assertApprovalActor(projectId, 'PROJECT_MANAGER', userId, RBAC_PERMISSIONS.PROJECT_WRITE, approval.policyId);
 
         const { boq } = await AutoBOQService.generateBOQ(projectId);
 
@@ -241,10 +251,13 @@ export class ProjectBOQApprovalService {
         }
 
         const newApproval = await prisma.$transaction(async (tx) => {
+            const policy = await getBoqApprovalPolicy();
             const created = await tx.bOQApproval.create({
                 data: {
                     boqId: projectId,
                     projectId,
+                    policyId: policy.id,
+                    policyVariant: 'DEFAULT',
                     status: 'PENDING',
                     currentStep: 'SUPERVISOR',
                     notes: notes || `Revised from rejection: ${approval.rejectionReason || approval.notes}`,
@@ -260,7 +273,8 @@ export class ProjectBOQApprovalService {
         return { message: 'BOQ revised and resubmitted', approval: newApproval, boq };
     }
 
-    private static async assertApprovalActor(step: string, userId: string, requiredPermission: string = RBAC_PERMISSIONS.PROJECT_APPROVE): Promise<boolean> {
+    private static async assertApprovalActor(projectId: string, step: string, userId: string, requiredPermission: string = RBAC_PERMISSIONS.PROJECT_APPROVE, policyId?: string | null): Promise<boolean> {
+        await assertProjectAccess(projectId, userId);
         const actor = await prisma.user.findUnique({
             where: { id: userId },
             select: {
@@ -278,16 +292,14 @@ export class ProjectBOQApprovalService {
         }
         const isAdmin = capabilities.includes(RBAC_PERMISSIONS.ADMIN_RBAC);
 
-        const allowedRolesByStep: Record<string, string[]> = {
-            SUPERVISOR: [...new Set([...ROLE_GROUPS.ADMINS, 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'QC_OFFICER', 'OSP_ENGINEER', 'CIVIL_SUPERVISOR'])],
-            PROJECT_MANAGER: [...new Set([...ROLE_GROUPS.ADMINS, 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'])],
-            FINANCE: ROLE_GROUPS.FINANCE_APPROVERS,
-        };
+        const { policy, level } = await getBoqApprovalLevel(step);
+        if (policyId && policyId !== policy.id) {
+            throw AppError.conflict('BOQ approval policy changed; resubmit the BOQ under the active policy');
+        }
         const roles = [actor.systemRole, ...actor.sectionAssignments.map(assignment => assignment.role)]
-            .filter((role): role is { code: string; isActive: boolean } => !!role && role.isActive)
-            .map(role => role.code.replace(/_GLOBAL$/, ''));
-        if (!isAdmin && !roles.some(code => allowedRolesByStep[step]?.includes(code))) {
-            throw AppError.forbidden(`User role is not authorized for BOQ ${step} action`);
+            .filter((role): role is { code: string; isActive: boolean } => !!role && role.isActive);
+        if (!isAdmin && !hasEligiblePolicyRole(roles, level.eligibleRoles)) {
+            throw AppError.forbidden(`User is not authorized for BOQ ${step} action under the active workflow policy`);
         }
         return isAdmin;
     }

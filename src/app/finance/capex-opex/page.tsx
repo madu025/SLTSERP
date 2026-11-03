@@ -5,7 +5,6 @@ import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from "@/config/roles";
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -258,7 +257,7 @@ export default function CapexOpexDashboardPage() {
     const selectedOpmc = opmcs.find((o) => o.id === selectedOpmcId);
 
     return (
-        <RoleGuard allowedRoles={ROLE_GROUPS.PROJECT_MANAGERS}>
+        <RoleGuard>
             <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

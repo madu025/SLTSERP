@@ -449,6 +449,8 @@ model BOQApproval {
   id                   String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   boqId                String    @db.Uuid
   projectId            String    @db.Uuid
+  policyId             String?   @db.Uuid
+  policyVariant        String    @default("DEFAULT")
   status               String    @default("PENDING")
   currentStep          String    @default("SUPERVISOR")
   supervisorId         String?   @db.Uuid
@@ -462,8 +464,10 @@ model BOQApproval {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
   project              Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  policy               ProcessGatePolicy? @relation("ProcessGateBOQApproval", fields: [policyId], references: [id], onDelete: SetNull)
 
   @@index([boqId])
+  @@index([policyId])
   @@index([projectId])
   @@index([status])
   @@index([supervisorId])

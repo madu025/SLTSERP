@@ -4,7 +4,6 @@ import React, { useState, useCallback, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from '@/config/roles';
 import { Button } from "@/components/ui/button";
 import {
     Download, RefreshCw, Calendar as CalendarIcon, TrendingUp,
@@ -1224,7 +1223,7 @@ export default function DailyOperationalReportPage() {
     // ─────────────────────────────────────────────────────────────────────────
 
     return (
-        <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', 'AREA_MANAGER', ...ROLE_GROUPS.SECTION_HEADS]}>
+        <RoleGuard>
             <div className="flex h-screen bg-slate-50 overflow-hidden">
                 <Sidebar />
                 <main className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto">

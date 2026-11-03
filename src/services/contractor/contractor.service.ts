@@ -6,6 +6,8 @@ import { deriveEffectivePermissions } from '@/lib/effective-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { 
     ContractorUpdateData, 
+    ContractorApprovalInput,
+    ContractorRejectionInput,
     ContractorQueryParams, 
     RegistrationLinkParams,
     TeamInput,
@@ -135,6 +137,14 @@ export class ContractorService {
 
     static async updateContractor(id: string, data: ContractorUpdateData) {
         return ContractorLifecycleService.updateContractor(id, data);
+    }
+
+    static async approveContractor(id: string, actorUserId: string, input?: ContractorApprovalInput) {
+        return ContractorLifecycleService.approveContractor(id, actorUserId, input);
+    }
+
+    static async rejectContractor(id: string, actorUserId: string, input: ContractorRejectionInput) {
+        return ContractorLifecycleService.rejectContractor(id, actorUserId, input);
     }
 
     static async deleteContractor(id: string) {

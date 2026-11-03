@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import RoleGuard from '@/components/RoleGuard';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import { ROLE_GROUPS } from '@/config/roles';
 import { Mail, Plus, Edit2, Trash2, Eye, Save, X, Send } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -332,7 +331,7 @@ export default function NotificationTemplatesPage() {
   };
 
   return (
-    <RoleGuard allowedRoles={ROLE_GROUPS.ADMINS as unknown as string[]}>
+    <RoleGuard>
       <div className="flex h-screen bg-slate-50 overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

@@ -8,6 +8,7 @@
  * name varies at runtime.
  */
 import type { SyncActor } from '@/lib/constants/sod-status-policy';
+import type { NotificationAudienceId } from '@/services/notification/notification-audiences';
 
 export interface EventMap {
     'inventory.stock_request_created': {
@@ -23,7 +24,7 @@ export interface EventMap {
     'inventory.stock_request_stage_changed': {
         request: { id: string; requestNr: string };
         stage: string;
-        roles: string[];
+        audience: NotificationAudienceId | null;
     };
     'inventory.stock_request_finalized': {
         request: { id: string; requestNr: string; requestedById: string };

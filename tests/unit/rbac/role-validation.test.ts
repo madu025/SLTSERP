@@ -1,16 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ROLE_GROUPS } from '@/config/roles';
+import { getCanonicalBootstrapRoles } from '@/config/rbac-bootstrap';
 import { isDatabaseRole } from '@/lib/role-validation';
 import { VALID_ROLES } from '@/config/valid-roles';
 import { hasRouteAccess } from '@/config/route-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { resolveRouteCapability } from '@/lib/route-capabilities';
 
-test('all configured RBAC group roles belong to the database Role enum', () => {
+test('all canonical bootstrap grant roles belong to the database Role enum', () => {
     const valid = new Set(VALID_ROLES);
-    const invalid = Object.entries(ROLE_GROUPS).flatMap(([group, roles]) =>
-        roles.filter((role) => !valid.has(role)).map((role) => `${group}:${role}`)
+    const invalid = Object.entries(RBAC_PERMISSIONS).flatMap(([, permission]) =>
+        getCanonicalBootstrapRoles(permission).filter((role) => !valid.has(role)).map((role) => `${permission}:${role}`)
     );
 
     assert.deepEqual(invalid, []);
@@ -21,12 +21,13 @@ test('unknown organization label is not accepted as an authorization role', () =
     assert.equal(isDatabaseRole('FINANCE_MANAGER'), true);
 });
 
-test('SOD module group includes OSP project roles for read access', () => {
-    assert.equal(ROLE_GROUPS.SOD_MODULE_USERS.includes('AREA_MANAGER'), true);
-    assert.equal(ROLE_GROUPS.SOD_MODULE_USERS.includes('SA_MANAGER'), true);
-    assert.equal(ROLE_GROUPS.SOD_MODULE_USERS.includes('OSP_ENGINEER'), true);
-    assert.equal(ROLE_GROUPS.SOD_MODULE_USERS.includes('CIVIL_SUPERVISOR'), true);
-    assert.equal(ROLE_GROUPS.SOD_MODULE_USERS.includes('CABLE_SPLICER'), true);
+test('canonical SOD read grant includes OSP project roles', () => {
+    const sodReaders = getCanonicalBootstrapRoles(RBAC_PERMISSIONS.SOD_READ);
+    assert.equal(sodReaders.includes('AREA_MANAGER'), true);
+    assert.equal(sodReaders.includes('SA_MANAGER'), true);
+    assert.equal(sodReaders.includes('OSP_ENGINEER'), true);
+    assert.equal(sodReaders.includes('CIVIL_SUPERVISOR'), true);
+    assert.equal(sodReaders.includes('CABLE_SPLICER'), true);
 });
 
 test('frontend SOD routes follow the same module boundary', () => {

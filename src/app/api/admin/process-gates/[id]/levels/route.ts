@@ -6,7 +6,10 @@ import { AppError } from '@/lib/error';
 
 // specificUserId targets a @db.Uuid FK — validate format to avoid P2023 runtime errors
 const levelSchema = z.object({
-  requiredRole: z.string().min(1, "Required Role is required"),
+  requiredPermission: z.string().min(1, "Canonical permission is required"),
+  eligibleRoles: z.array(z.string().min(1)).default([]),
+  // Compatibility/display snapshot only; authorization never trusts this.
+  requiredRole: z.string().min(1).optional(),
   specificUserId: z.string().uuid('specificUserId must be a valid UUID').optional().nullable(),
   description: z.string().max(500).optional().nullable(),
   minAmount: z.number().nonnegative().optional().nullable(),
@@ -28,6 +31,8 @@ export const POST = apiHandler(async (req, params, body) => {
     // Cast nulls to undefined to match service signature
     const data = {
       requiredRole: parsedBody.requiredRole,
+      requiredPermission: parsedBody.requiredPermission,
+      eligibleRoles: parsedBody.eligibleRoles,
       specificUserId: parsedBody.specificUserId ?? undefined,
       description: parsedBody.description ?? undefined,
       minAmount: parsedBody.minAmount ?? undefined,

@@ -1,6 +1,6 @@
 /**
  * RBAC Sync — regenerates src/config/valid-roles.ts from the Prisma Role enum
- * and validates every role reference in ROLE_GROUPS + SIDEBAR_MENU against it.
+ * and validates canonical bootstrap/UI role literals against it.
  *
  * Usage:
  *   node scripts/rbac-sync.js          # regenerate + validate (exit 1 on drift)
@@ -46,6 +46,7 @@ if (write) {
 const ALLOWED_NON_ENUM = new Set(['ALL']); // sidebar wildcard for "every authenticated role"
 
 const targets = [
+    'src/config/rbac-bootstrap.ts',
     'src/config/roles.ts',
     'src/config/sidebar-menu.ts',
 ];

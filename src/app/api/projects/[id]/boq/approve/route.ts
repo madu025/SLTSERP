@@ -31,7 +31,7 @@ export const POST = apiHandler(async (_request, params, body) => {
     }
 
     if (action === 'submit') {
-        const result = await ProjectBOQApprovalService.submitForApproval(projectId, notes);
+        const result = await ProjectBOQApprovalService.submitForApproval(projectId, userId, notes);
         return Response.json(result, { status: 201 });
     }
 
