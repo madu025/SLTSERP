@@ -27,3 +27,14 @@ browser validation.
 Use pnpm commands only. At minimum run the targeted Playwright project and the
 related unit/type suites; collect screenshots and console/network evidence on
 failure.
+
+## Lessons from project hand-off QA
+
+- Log in through the login form for any UI assertion. A cookie set by `fetch('/api/login')` leaves
+  the header on "Guest" and hides permission-gated sidebar items. Access tokens expire after
+  15 minutes, so re-login before assuming a 401 is a defect.
+- Prefer one account per role with explicit permissions and a single OPMC scope; assert both the
+  positive path and that the maker cannot act on their own item.
+- Check the recipient's `/api/notifications` and queue after each hand-off; notification failures
+  are swallowed by design, so absence is the only signal.
+- See `project-workflow-notification-qa` for the project hand-off scenario and fixtures.
