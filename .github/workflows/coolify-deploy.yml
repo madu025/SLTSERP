@@ -39,6 +39,7 @@ jobs:
         id: revision
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
           QA_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
@@ -48,10 +49,19 @@ jobs:
             exit 1
           fi
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_run" && "$latest_sha" != "$QA_HEAD_SHA" ]]; then
-            echo "A newer main commit exists; this deployment is superseded."
-            echo "current=false" >> "$GITHUB_OUTPUT"
-            echo "sha=$QA_HEAD_SHA" >> "$GITHUB_OUTPUT"
-            exit 0
+            # Commits that touch only ignored paths (docs, tests, workflows) never
+            # run QA, so they must not supersede a verified code revision.
+            # Keep this regex in sync with paths-ignore in qa-check.yml.
+            IGNORED_PATHS_REGEX='^(.*\.md|docs/.*|memory/.*|tests/.*|\.github/.*)$'
+            changed="$(gh api "repos/${GITHUB_REPOSITORY}/compare/${QA_HEAD_SHA}...${latest_sha}" --paginate --jq '.files[].filename')"
+            if [[ -n "$changed" ]] && ! grep -Evq "$IGNORED_PATHS_REGEX" <<<"$changed"; then
+              echo "Only ignored paths changed since ${QA_HEAD_SHA}; deploying the verified revision."
+            else
+              echo "A newer main commit exists; this deployment is superseded."
+              echo "current=false" >> "$GITHUB_OUTPUT"
+              echo "sha=$QA_HEAD_SHA" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
           fi
           selected_sha="${QA_HEAD_SHA:-$latest_sha}"
           echo "current=true" >> "$GITHUB_OUTPUT"

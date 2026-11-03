@@ -5,6 +5,15 @@ on:
     branches: [ main, staging ]
   push:
     branches: [ main, staging ]
+    # Changes that cannot affect the running app must not trigger QA, and so
+    # not a production deploy. Keep this list in sync with IGNORED_PATHS_REGEX
+    # in coolify-deploy.yml. Pull requests are not filtered.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'memory/**'
+      - 'tests/**'
+      - '.github/**'
   workflow_dispatch:
 
 concurrency:
