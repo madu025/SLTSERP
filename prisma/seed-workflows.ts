@@ -3,7 +3,8 @@ import {
   GENERIC_WORKFLOW_STAGES,
   PROJECT_TYPE_CATALOG,
 } from '../src/config/project-type-catalog';
-import { workflowEligibleRoles, workflowPermissionForRole } from '../src/config/workflow-policy';
+import { RBAC_PERMISSIONS } from '../src/config/rbac-permissions';
+import { workflowEligibleRoles } from '../src/config/workflow-policy';
 import { seedProjectApprovalPolicies } from './seed-project-approval-policies';
 
 const prisma = new PrismaClient();
@@ -14,7 +15,11 @@ async function seedCanonicalWorkflowApprovalSnapshots() {
   });
 
   for (const template of templates) {
-    const requiredPermission = template.requiredPermission ?? workflowPermissionForRole(template.role, 'PROJECT');
+    // Every project workflow approval is a project approval action. The legacy
+    // role remains only as the display/eligibility snapshot; using a role-to-
+    // permission map here would incorrectly turn (for example) a Finance
+    // Manager's project-stage approval into a finance capability.
+    const requiredPermission = template.requiredPermission ?? RBAC_PERMISSIONS.PROJECT_APPROVE;
     const storedEligibleRoles = template.eligibleRoles === null || template.eligibleRoles === undefined
       ? null
       : Array.isArray(template.eligibleRoles)
