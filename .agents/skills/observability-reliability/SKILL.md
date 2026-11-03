@@ -45,3 +45,7 @@ performance changes, or production incidents.
   queue, worker, and sync freshness separately in readiness/operational health;
   partial stale feeds should be visible without making liveness pretend the
   process is dead.
+- Treat the image/release/rollout sequence as separate observable phases:
+  image build and push, one-time DB release, Coolify image pull, container
+  readiness, proxy handoff, and old-container removal. The release job must
+  emit step names and non-secret outcomes without logging connection strings.

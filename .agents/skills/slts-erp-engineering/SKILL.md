@@ -40,5 +40,11 @@ Route the task to the smallest applicable local skills:
 - Environment config, secrets, feature flags, or runtime settings: `configuration-secrets`
 - Security incidents, breach response, or operational escalation: `incident-response`
 
+For production delivery, use the immutable image path: GitHub Actions builds
+and publishes the verified commit, `pnpm run db:release` owns the one-time
+Prisma/index/catalog/RBAC release step, and Coolify pulls that image through a
+Docker Image application. Do not add migrations or seeds back to web startup,
+and do not mix a Git/Dockerfile Coolify build with the image deployment.
+
 Do not claim a production PASS from unit tests, a local build, or an API-only
 check. Keep local/API, browser/lifecycle, and deployed evidence separate.

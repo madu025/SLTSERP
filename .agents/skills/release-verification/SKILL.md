@@ -22,6 +22,24 @@ live.
 - Do not convert a local build, unit suite, or health endpoint into a browser
   lifecycle PASS. Record transient worker/queue warnings separately.
 
+## Immutable image release path
+
+- Build the production Docker image once in GitHub Actions and push it to the
+  configured registry with an immutable commit tag or digest. Do not let
+  Coolify rebuild the same revision from Git during the production rollout.
+- Coolify production must be a Docker Image application with a separately
+  stored read-only registry login. The deploy job must update only the image
+  tag/digest, verify the resource has no Git source, then pull and roll it out.
+- Run `pnpm run db:release` exactly once from the image before the Coolify
+  deploy. It owns Prisma migrations, non-Prisma indexes, workflow catalog
+  reconciliation, and canonical RBAC grants. A web container must not run any
+  of those writes at startup.
+- Fail closed when the image application UUID, registry pull login, or masked
+  production release database secrets are absent. Never fall back to a Git
+  build, a startup migration, or a second deployment provider.
+- Record the image tag/digest, release-job result, Coolify deployment UUID,
+  health transition, and authenticated smoke result as separate evidence.
+
 ## Production deployment authority
 
 - Use one production deployment trigger only: `QA & Security Check` on `main`

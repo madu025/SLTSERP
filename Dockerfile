@@ -49,13 +49,15 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
 COPY --from=builder /app/node_modules ./node_modules
-# The production entrypoint seeds the DB-backed RBAC catalog. Keep the small
-# source dependency graph in the runner because the seed runs after migrations
-# and before the web process starts.
+# The release job runs Prisma and the DB-backed catalog reconciliation from this
+# image before Coolify switches traffic. Keep the small source dependency graph
+# in the runner so `pnpm run db:release` is self-contained and reproducible.
 COPY --from=builder /app/src/config/rbac-permissions.ts ./src/config/rbac-permissions.ts
+COPY --from=builder /app/src/config/rbac-bootstrap.ts ./src/config/rbac-bootstrap.ts
 COPY --from=builder /app/src/config/roles.ts ./src/config/roles.ts
 COPY --from=builder /app/src/config/valid-roles.ts ./src/config/valid-roles.ts
 COPY --from=builder /app/src/config/project-type-catalog.ts ./src/config/project-type-catalog.ts
+COPY --from=builder /app/src/config/workflow-policy.ts ./src/config/workflow-policy.ts
 
 # Automatically leverage output traces to reduce image size
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

@@ -12,11 +12,17 @@ The repository now has two separate gates:
 
 Production deployment is handled by `.github/workflows/coolify-deploy.yml`.
 It runs only after `QA & Security Check` succeeds for `main`, verifies that the
-tested SHA is still the latest `main` SHA, cancels older queued or in-progress
-Coolify deployments, deploys the latest revision, waits for the deployment to
-finish, and checks both production health endpoints. Do not also enable a
+tested SHA is still the latest `main` SHA, builds one immutable Docker image,
+pushes it to GHCR, runs the database release job from that exact image, then
+asks Coolify to pull the exact image tag. Coolify must be configured as a
+Docker Image application; a Git/Dockerfile application is rejected by the
+workflow so a push cannot silently rebuild on the VPS. Do not also enable a
 direct Coolify Git push webhook, otherwise one push can create duplicate
 deployments.
+
+The web image never runs Prisma migrations, SQL index creation, workflow seed,
+or RBAC reconciliation during startup. Those writes are owned by the one-time
+`pnpm run db:release` job and must finish before the image deployment begins.
 
 ## Required GitHub secrets
 
@@ -27,8 +33,18 @@ Configure these secrets before enabling the gates:
   production smoke account with the minimum read-only permissions required for
   `/api/profile`.
 - `COOLIFY_API_URL`: trusted Coolify base URL without `/api/v1`.
-- `COOLIFY_API_TOKEN`: team API token with `deploy` permission.
-- `COOLIFY_APPLICATION_UUID`: production application UUID.
+- `COOLIFY_API_TOKEN`: team API token with `deploy` and application update
+  permission.
+- `COOLIFY_IMAGE_APPLICATION_UUID`: the Coolify Docker Image application UUID
+  for the production hostname. Keep the old Git/Dockerfile application
+  available as a rollback resource until the image path has passed acceptance.
+- `PRODUCTION_DATABASE_URL`: production database connection string for the
+  one-time release job. Store it only as a masked GitHub Actions secret.
+- `PRODUCTION_DIRECT_URL`: direct production database connection string for
+  Prisma migrations. Store it only as a masked GitHub Actions secret.
+- `GHCR pull login`: configure a read-only GHCR token for the Coolify server
+  under Servers > Registries. The workflow uses the ephemeral GitHub Actions
+  token only to publish; Coolify needs its own pull credential.
 
 Never use a real administrator password for these tests.
 
@@ -52,6 +68,7 @@ commit the password or place it in `.env.example`.
 ## Running the post-deploy gate
 
 From GitHub Actions, run **Production Smoke Gate** and supply the deployed URL,
-such as `https://sltserp.vercel.app`. A Coolify or Vercel release is accepted
-only after this read-only smoke gate passes. The same workflow is reusable from a
+such as `https://slts.vynor.lk`. A Coolify release is accepted only after the
+immutable image tag, release-job success, Coolify deployment, health endpoints,
+and this read-only smoke gate all pass. The same workflow is reusable from a
 deployment workflow through `workflow_call`.

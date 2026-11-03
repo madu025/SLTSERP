@@ -20,3 +20,9 @@ CI workflows, generated code, or third-party integrations.
   privilege containers, and exclude `.env`, keys, dumps, and test artifacts.
 - Run type, unit, security, and build checks after upgrades and record the
   exact lockfile/commit used for deployment.
+- Prefer one immutable GHCR image built from the verified commit. Deploy by
+  commit tag or digest, not `latest`; grant GitHub Actions package write only
+  for publishing and give Coolify a separate read-only registry credential.
+- Keep database release commands in a one-time job from the exact image. The
+  web image must be able to start without registry egress or schema writes, and
+  a missing release artifact must fail before traffic is switched.

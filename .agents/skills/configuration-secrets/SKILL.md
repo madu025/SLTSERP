@@ -20,3 +20,8 @@ Coolify/Vercel configuration, credentials, or secret rotation.
   and test both enabled and disabled paths.
 - Rotate credentials without downtime where possible and verify old secrets no
   longer authenticate after rotation.
+- Keep the production release database URLs in masked CI secrets only when the
+  release job runs in GitHub Actions; keep the Coolify runtime copy in Coolify.
+  The GHCR pull credential belongs to the Coolify server registry store and
+  must be read-only for the package. Never copy any of these values into the
+  repository, Docker labels, image layers, or deployment logs.
