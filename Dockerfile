@@ -37,7 +37,7 @@ RUN JWT_SECRET='ci-only-build-secret-not-for-production' \
 # Stage 3: Production runner
 FROM node:22-alpine AS runner
 WORKDIR /app
-RUN apk add --no-cache tzdata
+RUN apk add --no-cache tzdata curl
 
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
