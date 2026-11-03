@@ -16,10 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
           version: 12.3.4
 
@@ -47,6 +47,8 @@ jobs:
 
       - name: Strict TypeScript Compilation (Zero `any` Rule Check)
         shell: bash
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
         run: |
           set +e
           pnpm exec tsc --noEmit --pretty false 2>&1 | tee /tmp/slts-tsc.log
@@ -61,6 +63,7 @@ jobs:
       - name: Production build
         run: pnpm run build
         env:
+          NODE_OPTIONS: --max-old-space-size=6144
           # The build evaluates auth-protected route modules. This is a CI-only
           # secret; production uses the JWT_SECRET configured in the deployment environment.
           JWT_SECRET: ci-only-build-secret-not-for-production
