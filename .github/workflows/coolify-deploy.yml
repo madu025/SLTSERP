@@ -73,7 +73,10 @@ jobs:
             -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
             "${api}/deployments/applications/${COOLIFY_APPLICATION_UUID}?take=20")"
 
-          echo "$deployments" | jq -r '.[] | select((.status // "") | test("queued|in_progress|in-progress"; "i")) | .deployment_uuid' |
+          # Coolify returns a paginated wrapper: { count, deployments: [...] }.
+          # Read the actual deployment collection so the cancellation gate does
+          # not fail before the verified deployment is queued.
+          echo "$deployments" | jq -r '.deployments[]? | select((.status // "") | test("queued|in_progress|in-progress"; "i")) | .deployment_uuid' |
             while IFS= read -r deployment_uuid; do
               [[ -z "$deployment_uuid" ]] && continue
               echo "Cancelling superseded Coolify deployment ${deployment_uuid}."
