@@ -66,9 +66,11 @@ jobs:
           COOLIFY_IMAGE_APP: ${{ secrets.COOLIFY_IMAGE_APPLICATION_UUID }}
           RELEASE_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           RELEASE_DIRECT_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
+          SMOKE_USERNAME: ${{ secrets.PRODUCTION_SMOKE_USERNAME }}
+          SMOKE_PASSWORD: ${{ secrets.PRODUCTION_SMOKE_PASSWORD }}
         run: |
           set -euo pipefail
-          for name in COOLIFY_API_URL COOLIFY_IMAGE_APP COOLIFY_TOKEN RELEASE_DATABASE_URL RELEASE_DIRECT_URL; do
+          for name in COOLIFY_API_URL COOLIFY_IMAGE_APP COOLIFY_TOKEN RELEASE_DATABASE_URL RELEASE_DIRECT_URL SMOKE_USERNAME SMOKE_PASSWORD; do
             if [[ -z "${!name:-}" ]]; then
               echo "Missing required production release secret/configuration: $name" >&2
               exit 1
@@ -166,7 +168,7 @@ jobs:
             exit 1
           fi
           payload="$(jq -n --arg image "$IMAGE_NAME" --arg tag "$IMAGE_TAG" \
-            '{docker_registry_image_name:$image,docker_registry_image_tag:$tag,is_auto_deploy_enabled:false,instant_deploy:false,health_check_enabled:false,rolling_update_drain_seconds:10,stop_grace_period:30}')"
+            '{docker_registry_image_name:$image,docker_registry_image_tag:$tag,is_auto_deploy_enabled:false,instant_deploy:false,health_check_enabled:true,rolling_update_drain_seconds:10,stop_grace_period:30}')"
           curl --fail --silent --show-error -X PATCH \
             -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
             -H 'Content-Type: application/json' \
@@ -243,3 +245,11 @@ jobs:
           done
           curl --fail --silent --show-error "${PRODUCTION_BASE_URL}/api/health/live"
           curl --fail --silent --show-error "${PRODUCTION_BASE_URL}/api/health"
+
+  production-smoke:
+    name: Authenticated production smoke
+    needs: deploy
+    uses: ./.github/workflows/production-smoke.yml
+    with:
+      base_url: https://slts.vynor.lk
+    secrets: inherit

@@ -4,8 +4,10 @@ The repository now has two separate gates:
 
 1. `QA & Security Check` runs on pull requests and pushes to `main`/`staging`.
    It performs dependency installation, Prisma generation, TypeScript checks,
-   build, unit tests, sync diagnostics, and the local Playwright suite.
-2. `Production Smoke Gate` runs against an already deployed URL. It checks the
+   build, unit tests, and sync diagnostics. It is source/release validation and
+   never waits for the production hostname.
+2. `Production Smoke Gate` runs after the immutable deployment against the
+   deployed URL. It checks the
    liveness endpoint, database health, login form, and a dedicated read-only
    account session. It does not create, edit, delete, upload, or process business
    records.
@@ -13,14 +15,16 @@ The repository now has two separate gates:
 Production deployment is handled by `.github/workflows/coolify-deploy.yml`.
 It runs only after `QA & Security Check` succeeds for `main`, verifies that the
 tested SHA is still the latest `main` SHA, builds one immutable Docker image,
-pushes it to GHCR, runs the database release job from that exact image, then
-asks Coolify to pull the exact image tag. Coolify must be configured as a
-Docker Image application; a Git/Dockerfile application is rejected by the
-workflow so a push cannot silently rebuild on the VPS. Do not also enable a
-direct Coolify Git push webhook, otherwise one push can create duplicate
-deployments.
+pushes it to GHCR, runs the database release job from that exact image, asks
+Coolify to pull the exact image tag, and then calls `Production Smoke Gate`.
+This ordering avoids a circular gate where pre-deploy QA waits for production
+while deployment waits for QA. Coolify must be configured as a Docker Image
+application; a Git/Dockerfile application is rejected by the workflow so a
+push cannot silently rebuild on the VPS. Do not also enable a direct Coolify
+Git push webhook, otherwise one push can create duplicate deployments.
 
-The web image never runs Prisma migrations, SQL index creation, workflow seed,
+The Docker build uses a non-production JWT placeholder only for static Next.js
+evaluation. The web image never runs Prisma migrations, SQL index creation, workflow seed,
 or RBAC reconciliation during startup. Those writes are owned by the one-time
 `pnpm run db:release` job and must finish before the image deployment begins.
 

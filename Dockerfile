@@ -27,8 +27,12 @@ RUN pnpm exec prisma generate
 # Build Next.js with limited memory
 ENV NEXT_TELEMETRY_DISABLED 1
 # DOCKER_BUILD=1 → skips tsc/eslint in next.config.ts (prevents OOM on low-RAM VPS)
+# The auth module fails closed when JWT_SECRET is absent. Use a non-production
+# build placeholder for static Next.js evaluation; it is not used at runtime.
 ENV DOCKER_BUILD 1
-RUN NODE_OPTIONS='--max-old-space-size=3072' pnpm run build
+RUN JWT_SECRET='ci-only-build-secret-not-for-production' \
+    NODE_OPTIONS='--max-old-space-size=3072' \
+    pnpm run build
 
 # Stage 3: Production runner
 FROM node:22-alpine AS runner
