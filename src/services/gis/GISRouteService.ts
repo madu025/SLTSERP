@@ -1,4 +1,7 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { assertProjectAccess } from '@/lib/project-access';
 import { AppError } from '@/lib/error';
 import { GISAuditService } from '@/services/gis/gis-audit.service';
 import { updateProgressOnBOQGenerate } from '@/lib/project-progress';
@@ -760,9 +763,13 @@ export class GISRouteService {
     /**
      * Fetch active GIS routes and global stats
      */
-    static async getActiveRoutesAndStats() {
+    static async getActiveRoutesAndStats(userId: string | null | undefined) {
+        // Regional isolation: a GIS capability never grants other OPMCs' routes. `undefined` = global admin,
+        // `[]` (no assignment / unknown user) matches nothing, so the map fails closed.
+        const opmcScope = await resolveOpmcScope(userId);
+        const routeScope: Prisma.GISRouteWhereInput = opmcScope === undefined ? {} : { project: { opmcId: { in: opmcScope } } };
         const routes = await prisma.gISRoute.findMany({
-            where: { isActive: true },
+            where: { isActive: true, ...routeScope },
             select: {
                 id: true,
                 projectId: true,
@@ -780,10 +787,11 @@ export class GISRouteService {
         });
 
         const [polesCount, chambersCount, closuresCount, totalCableLengthDb] = await Promise.all([
-            prisma.gISPole.count(),
-            prisma.gISChamber.count(),
-            prisma.gISClosure.count(),
+            prisma.gISPole.count({ where: { route: routeScope } }),
+            prisma.gISChamber.count({ where: { route: routeScope } }),
+            prisma.gISClosure.count({ where: { route: routeScope } }),
             prisma.gISCableSegment.aggregate({
+                where: { route: routeScope },
                 _sum: {
                     length: true
                 }
@@ -894,7 +902,7 @@ export class GISRouteService {
     /**
      * Add slack loop to a cable segment
      */
-    static async addSlackLoop(segmentId: string) {
+    static async addSlackLoop(segmentId: string, actorId: string | null | undefined) {
         const segment = await prisma.gISCableSegment.findUnique({
             where: { id: segmentId },
             include: { route: true },
@@ -903,6 +911,8 @@ export class GISRouteService {
         if (!segment) {
             throw AppError.notFound('Cable segment not found');
         }
+        // The segment id alone must not let a caller change (and invalidate the BOQ of) another OPMC's project.
+        await assertProjectAccess(segment.route.projectId, actorId);
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const currentProperties = (segment.properties as Record<string, any>) || {};

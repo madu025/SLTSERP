@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { GISRouteService } from '@/services/gis/GISRouteService';
 import { ProjectSurveyService } from '@/services/project/project-survey.service';
+import { AppError } from '@/lib/error';
 import { safe } from '@/utils/safe-await.util';
 export const dynamic = 'force-dynamic';
-export const POST = apiHandler(async (req) => {
+export const POST = apiHandler(async (req, params) => {
   const [jsonErr, body] = await safe<Record<string, unknown>>(req.json());
   if (jsonErr || !body) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
@@ -13,12 +14,12 @@ export const POST = apiHandler(async (req) => {
     if (!segmentId) {
       return NextResponse.json({ error: 'Segment ID is required' }, { status: 400 });
     }
-    const [routeErr, result] = await safe(GISRouteService.addSlackLoop(segmentId));
+    const [routeErr, result] = await safe(GISRouteService.addSlackLoop(segmentId, params._userId));
     if (routeErr || !result) {
       console.error('[API-SLACK] Error adding slack loop:', routeErr);
       return NextResponse.json(
         { error: routeErr?.message || 'Failed to update segment slack loops' },
-        { status: 500 }
+        { status: routeErr instanceof AppError ? routeErr.statusCode : 500 }
       );
     }
     const { updatedSegment, projectId } = result;

@@ -10,6 +10,8 @@ export interface GISUploadRequest {
   versionType?: 'PLANNED' | 'FIELD_CHANGE' | 'BEFORE_PAT' | 'AS_BUILT';
   notes?: string;
   projectName?: string;
+  /** Explicit OPMC for the new project (its data scope); the caller must have access to it. */
+  opmcId?: string;
   region?: string;
   district?: string;
   createdById: string;
@@ -33,4 +35,4 @@ export interface GISProcessResponse {
   importId: string;
   result: GISImportResult;
   message: string;
-}
+}

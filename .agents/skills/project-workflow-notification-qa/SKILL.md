@@ -98,3 +98,27 @@ driver and the UI for spot checks. Reuse these lessons:
   and the issue approver needs `assignedStoreId`. Keep quantities tiny; ledger and GL rows are permanent.
 - Completing the final stage closes the project. Plan-generated project tasks are not completed by their
   workflow stages, so closure waits on 37 pending tasks until assignees finish them.
+
+## GIS import and CAD upload run (2026-11-04)
+
+Sample package `SM-HJJ-0508-AB` (7 GeoJSON layers, one `.qgz`, one AutoCAD 2010 `.dwg`) was driven through
+`POST /api/gis/upload` then `/api/gis/process`, exactly as `GISUpload.tsx` sends it (multipart `files`,
+`layerTypes`, `projectName`, `opmcId`, `region`, `district`). Reuse these lessons:
+
+- **Read back counts against the source files**: poles 37 existing + 2 new = 39, cables 4, FDP 3 + joints 2 = 5
+  closures, handhole 1 = chamber 1, cable length 1123.5 m (geodesic of the geometry; the `Length` text
+  property sums to 1666 m, so the sample's declared lengths do not match its geometry).
+- **Check the project's OPMC, not just the 200.** A GIS import creates a project whose OPMC is its data scope.
+  Importing by region text once put it in a different OPMC than selected, so the importer got 403 on their own
+  project. Always assert `project.opmcId` equals the OPMC picked in the form.
+- **Test with a scoped account, not admin.** A user limited to one OPMC must not see another OPMC's routes in
+  `/api/gis/map-data`, and must get 403 from `POST /api/gis/cable-segment/slack` for a foreign segment id.
+- **Open the GIS page in the browser** (`/projects/{id}/gis`) and read the console: Prisma Decimals arrive as
+  strings and crashed `seg.length.toFixed` until the GIS endpoints used `toSerializable`.
+- **Imports consume the real project code sequence** (`FSSD_SLTS_<year>_<n>`) and write ~50 assets, 153 field
+  tasks, 24 permits and a 7-stage workflow. Name the project `QA-GIS-<timestamp>` and report the codes used.
+- **CAD files**: `/api/upload` accepts `.dxf`/`.dwg` only; `.geojson`, `.qgz`, `.zip`, `.gpkg` are rejected even
+  though the Documents tab offers some of them. With the local storage fallback the returned
+  `/api/files/documents/...` URL has no route (404); compare the stored file's SHA-256 on disk instead.
+- **BOQ**: the BOQ engine prices every pole, joint and handhole as new supply and ignores the layers'
+  `Exist_New` attribute (37 existing poles = LKR 1.665 M in the sample). Check BOQ lines against the source.

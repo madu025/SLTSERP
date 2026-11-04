@@ -260,6 +260,7 @@ export function GISUpload() {
         if (notes) formData.append('notes', notes);
       } else {
         if (projectName) formData.append('projectName', projectName);
+        if (selectedOpmcId) formData.append('opmcId', selectedOpmcId);
         if (region) formData.append('region', region);
         if (district) formData.append('district', district);
         if (lea) formData.append('lea', lea);

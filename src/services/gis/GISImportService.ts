@@ -47,6 +47,7 @@ import type {
   CableSegment,
 } from '@/types/gis';
 import { resolveRegionMultiplier } from '@/types/gis';
+import { resolveImportOpmc } from '@/lib/gis/import-opmc';
 import type { InventoryStockEntry } from '@/lib/gis/boq-engine';
 
 // ============================================================================
@@ -59,6 +60,8 @@ export interface GISUploadSession {
   versionType?: 'PLANNED' | 'FIELD_CHANGE' | 'BEFORE_PAT' | 'AS_BUILT';
   notes?: string;
   projectName?: string;
+  /** Explicit OPMC chosen by the uploader; takes precedence over region/district text. */
+  opmcId?: string;
   region?: string;
   district?: string;
   createdById: string;
@@ -440,6 +443,7 @@ export class GISImportService {
       versionType: request.versionType,
       notes: request.notes,
       projectName: request.projectName,
+      opmcId: request.opmcId,
       region: request.region,
       district: request.district,
       createdById: request.createdById,
@@ -1171,18 +1175,18 @@ export class GISImportService {
       // 1. CREATE PROJECT (With Automated OPMC/Region lookup)
       // ======================================================================
       let opmcId: UUID | null = null;
-      if (session.region) {
-        const opmc = await prisma.oPMC.findFirst({
-          where: {
-            OR: [
-              { name: { contains: session.region, mode: 'insensitive' } },
-              { rtom: { contains: session.region, mode: 'insensitive' } },
-              { region: { contains: session.region, mode: 'insensitive' } },
-            ],
-          },
-        });
-        if (opmc) {
-          opmcId = opmc.id;
+      if (session.opmcId || session.district || session.region) {
+        const resolution = resolveImportOpmc(
+          await prisma.oPMC.findMany({ select: { id: true, name: true, rtom: true, region: true } }),
+          { opmcId: session.opmcId, district: session.district, region: session.region },
+        );
+        if (resolution.id) {
+          opmcId = resolution.id;
+        } else if (resolution.by === 'unknown-id') {
+          throw AppError.badRequest('OPMC_NOT_FOUND');
+        } else {
+          // Never guess an OPMC: it is the project's data scope.
+          logger.warn(`GIS import ${session.id}: OPMC not resolved (${resolution.by}); project created without OPMC scope`);
         }
       }
 

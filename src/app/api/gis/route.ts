@@ -10,6 +10,7 @@ import { logger } from '@/lib/logger';
 import { safe } from '@/utils/safe-await.util';
 import { AppError } from '@/lib/error';
 import { assertProjectAccess } from '@/lib/project-access';
+import { toSerializable } from '@/lib/server-utils';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 export const dynamic = 'force-dynamic';
 export const GET = apiHandler(async (request, params) => {
@@ -71,7 +72,8 @@ export const GET = apiHandler(async (request, params) => {
           { status: 500 }
         );
       }
-      return NextResponse.json(data);
+      // Prisma Decimals (segment length, pole height, ...) would reach the map as strings and crash `.toFixed()`.
+      return NextResponse.json(toSerializable(data));
     }
     // List all active sessions
     const canViewAll = params._permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC);

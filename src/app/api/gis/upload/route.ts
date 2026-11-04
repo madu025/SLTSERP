@@ -10,6 +10,7 @@ import { GISImportService } from '@/services/gis/GISImportService';
 import { logger } from '@/lib/logger';
 import { AppError } from '@/lib/error';
 import { assertProjectAccess } from '@/lib/project-access';
+import { assertOpmcAccess } from '@/lib/project-record-access';
 import type { GISUploadRequest, GISLayerType } from '@/types/gis';
 import { safe, safeSync } from '@/utils/safe-await.util';
 export const POST = apiHandler(async (request, params) => {
@@ -57,6 +58,7 @@ export const POST = apiHandler(async (request, params) => {
         versionType: (formData.get('versionType') as 'PLANNED' | 'FIELD_CHANGE' | 'BEFORE_PAT' | 'AS_BUILT') || undefined,
         notes: (formData.get('notes') as string) || undefined,
         projectName: (formData.get('projectName') as string) || undefined,
+        opmcId: (formData.get('opmcId') as string) || undefined,
         region: (formData.get('region') as string) || undefined,
         district: (formData.get('district') as string) || undefined,
         // Actor identity is always taken from the validated session. A
@@ -83,6 +85,8 @@ export const POST = apiHandler(async (request, params) => {
       body = { ...clientBody, createdById: userId };
     }
     if (body.projectId) await assertProjectAccess(body.projectId, userId);
+    // The OPMC becomes the new project's data scope, so the uploader must already be in it.
+    if (body.opmcId) await assertOpmcAccess(body.opmcId, userId);
     if (!body.files || body.files.length === 0) {
       return NextResponse.json(
         { error: 'No files provided. At least one GIS file is required.' },
