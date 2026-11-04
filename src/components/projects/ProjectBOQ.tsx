@@ -11,6 +11,7 @@ import SearchableItemSelect, { InventoryItem } from '@/components/shared/Searcha
 
 import { toast } from 'sonner';
 import { Prisma } from '@prisma/client';
+import { toErrorText } from '@/lib/error-text';
 
 type ProjectWithBOQ = Prisma.ProjectGetPayload<{
     include: { boqItems: true }
@@ -142,7 +143,7 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
                 toast.success(data.message || `BOQ generated: ${data.itemCount} items created.`);
                 refreshProject();
             } else {
-                toast.error(data.error || data.message || 'Failed to generate BOQ');
+                toast.error(toErrorText(data.error) || data.message || 'Failed to generate BOQ');
             }
         } catch (error) {
             console.error('Auto-BOQ generation error:', error);
@@ -215,7 +216,7 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
                 refreshProject();
             } else {
                 const error = await res.json();
-                toast.error(error.error || 'Operation failed');
+                toast.error(toErrorText(error.error) || 'Operation failed');
             }
         } catch (error) {
             console.error('Submit error:', error);

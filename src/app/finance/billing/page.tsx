@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Loader2, FileText, CheckCircle, Calculator } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { toErrorText } from '@/lib/error-text';
 
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(amount);
 
@@ -64,7 +65,7 @@ export default function ContractorBillingPage() {
                     setUnbilledSods(data.data.sods);
                     setGrossAmount(data.data.totalAmount);
                 } else {
-                    toast.error(data.error || 'Error fetching SODs');
+                    toast.error(toErrorText(data.error) || 'Error fetching SODs');
                 }
             })
             .catch(err => toast.error((err instanceof Error ? err.message : "Unknown error")))
@@ -98,7 +99,7 @@ export default function ContractorBillingPage() {
                 setGrossAmount(0);
                 setTimeout(() => router.push('/finance/invoices'), 1500);
             } else {
-                toast.error(data.error || 'Generation failed');
+                toast.error(toErrorText(data.error) || 'Generation failed');
             }
         } catch (error: unknown) {
             toast.error((error instanceof Error ? error.message : "Unknown error"));

@@ -17,6 +17,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { toast } from 'sonner';
 import { createOPMC, updateOPMC, deleteOPMC } from '@/actions/opmc-actions';
 import { Badge } from '@/components/ui/badge';
+import { toErrorText } from '@/lib/error-text';
 
 // Types
 interface OPMC {
@@ -82,7 +83,7 @@ export default function RTOMRegistrationPage() {
                 handleCloseModal();
                 toast.success("RTOM saved successfully");
             } else {
-                toast.error(result.error || "Error saving RTOM");
+                toast.error(toErrorText(result.error) || "Error saving RTOM");
             }
         },
         onError: () => toast.error("Error saving RTOM")
@@ -96,7 +97,7 @@ export default function RTOMRegistrationPage() {
                 toast.success("RTOM deleted");
                 setDeleteTarget(null);
             } else {
-                toast.error(result.error || "Error deleting RTOM");
+                toast.error(toErrorText(result.error) || "Error deleting RTOM");
             }
         },
         onError: () => toast.error("Error deleting RTOM")

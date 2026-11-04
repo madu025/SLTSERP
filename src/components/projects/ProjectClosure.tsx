@@ -18,6 +18,7 @@ import {
     ThumbsUp, Ban, Hammer, Archive,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { toErrorText } from '@/lib/error-text';
 
 
 interface Project {
@@ -174,7 +175,7 @@ export default function ProjectClosure({ project, refreshProject }: ProjectClosu
                 fetchChangeOrders();
             } else {
                 const err = await res.json();
-                toast.error(err.error || 'Failed to create change order');
+                toast.error(toErrorText(err.error) || 'Failed to create change order');
             }
         } catch {
 toast.error('Failed to create change order');
@@ -205,7 +206,7 @@ toast.error('Failed to create change order');
                 fetchChangeOrders();
             } else {
                 const err = await res.json();
-                toast.error(err.error || 'Action failed');
+                toast.error(toErrorText(err.error) || 'Action failed');
             }
         } catch {
             toast.error('Action failed');
@@ -221,7 +222,7 @@ toast.error('Failed to create change order');
             if (res.ok) fetchChangeOrders();
             else {
                 const err = await res.json();
-                toast.error(err.error || 'Delete failed');
+                toast.error(toErrorText(err.error) || 'Delete failed');
             }
         } catch {
             toast.error('Delete failed');
@@ -241,7 +242,7 @@ toast.error('Failed to create change order');
                 refreshProject();
             } else {
                 const err = await res.json();
-                toast.error(err.error || 'Failed to close project');
+                toast.error(toErrorText(err.error) || 'Failed to close project');
             }
         } catch {
 toast.error('Failed to close project');

@@ -7,7 +7,8 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { assertProjectAccess } from '@/lib/project-access';
 import { ProjectTaskNotificationService } from '@/services/project/project-task-notification.service';
 
-const EDITABLE_PLAN_STATUSES = new Set(['DRAFT', 'CHANGES_REQUESTED']);
+// SUBMITTED stays editable so the supervisor can still correct a plan an approver has not acted on yet.
+const EDITABLE_PLAN_STATUSES = new Set(['DRAFT', 'CHANGES_REQUESTED', 'SUBMITTED']);
 const PROJECT_SUPERVISOR_ROLE_CODES = [
     'CEO', 'HEAD_OF_OSP', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER',
     'ENGINEER', 'ASSISTANT_ENGINEER', 'OSP_ENGINEER', 'CIVIL_SUPERVISOR',
@@ -380,6 +381,32 @@ export class ProjectTaskPlanService {
         if (orderedItemIds.length !== items.length || orderedItemIds.some(id => !validIds.has(id))) throw AppError.badRequest('TASK_PLAN_ORDER_MISMATCH');
         await db.$transaction(orderedItemIds.map((id, index) => db.projectTaskPlanItem.update({ where: { id }, data: { sortOrder: index } })));
         return this.getPlan(projectId);
+    }
+
+    /**
+     * The supervisor hands the finished plan to the approvers. Until now a manager had no signal that a
+     * draft was ready, so plans waited until someone happened to open the project.
+     */
+    static async submit(projectId: string, actorId: string) {
+        await assertPlanDesigner(projectId, actorId);
+        const project = await getProject(projectId);
+        const plan = await db.projectTaskPlan.findUnique({ where: { projectId }, include: { items: true } });
+        if (!plan) throw AppError.badRequest('TASK_PLAN_NOT_INITIALIZED');
+        if (plan.status === 'SUBMITTED') return this.getPlan(projectId, actorId);
+        if (!EDITABLE_PLAN_STATUSES.has(plan.status)) throw AppError.conflict('TASK_PLAN_LOCKED_AFTER_APPROVAL');
+        const approvedBoq = await db.bOQApproval.findFirst({ where: { projectId, status: 'APPROVED' }, select: { id: true } });
+        if (!approvedBoq) throw AppError.badRequest('BOQ_APPROVAL_REQUIRED_FOR_TASK_PLAN');
+        const enabled = plan.items.filter(item => item.enabled);
+        if (enabled.length === 0) throw AppError.badRequest('TASK_PLAN_HAS_NO_ENABLED_ITEMS');
+        const disabledRequired = plan.items.filter(item => !item.enabled && item.isRequired);
+        if (disabledRequired.length) throw AppError.badRequest(`REQUIRED_TASKS_DISABLED:${disabledRequired.map(item => item.name).join(', ')}`);
+        const parentIds = new Set(enabled.map(item => item.parentId).filter((id): id is string => Boolean(id)));
+        const missing = enabled.filter(item => !parentIds.has(item.id) && !item.assignedUserId && !item.assignedContractorId);
+        if (missing.length) throw AppError.badRequest(`TASK_ASSIGNMENTS_REQUIRED:${missing.map(item => item.name).join(', ')}`);
+
+        await db.projectTaskPlan.update({ where: { id: plan.id }, data: { status: 'SUBMITTED', configuredById: actorId, configuredAt: new Date() } });
+        await ProjectTaskNotificationService.notifyPlanSubmitted(projectId, enabled.length, actorId, project.opmcId);
+        return this.getPlan(projectId, actorId);
     }
 
     static async finalize(projectId: string, actorId: string) {

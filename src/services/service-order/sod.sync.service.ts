@@ -150,7 +150,7 @@ export class SODSyncService {
      */
     private static readonly TICK_DAILY_JOBS: ReadonlyArray<{
         name: string;
-        type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP';
+        type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP' | 'PROJECT_REMINDERS';
         at: string;
         onlyOn?: number;
         inlineCostMs: number;
@@ -158,6 +158,8 @@ export class SODSyncService {
             { name: 'daily-report-snapshot', type: 'DAILY_REPORT_SNAPSHOT', at: '00:15', inlineCostMs: 10000 },
             { name: 'appointment-reminders', type: 'APPOINTMENT_REMINDERS', at: '05:45', inlineCostMs: 10000 },
             { name: 'daily-automation', type: 'DAILY_AUTOMATION', at: '06:30', inlineCostMs: 20000 },
+            // Project hand-off reminders (task due, overdue invoices, permit expiry, DLP end, stale approvals).
+            { name: 'project-reminders', type: 'PROJECT_REMINDERS', at: '07:30', inlineCostMs: 20000 },
             { name: 'notification-cleanup', type: 'NOTIFICATION_CLEANUP', at: '02:00', onlyOn: 0, inlineCostMs: 8000 },
         ];
 
@@ -1283,7 +1285,7 @@ export class SODSyncService {
      * stays possible. Public because the system worker delegates here - two bodies for one job is how
      * a queued pass and a serverless pass start disagreeing.
      */
-    static async runDailyTask(type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP'): Promise<unknown> {
+    static async runDailyTask(type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP' | 'PROJECT_REMINDERS'): Promise<unknown> {
         const window = tickWindow(new Date(), 60_000);
 
         if (type === 'DAILY_REPORT_SNAPSHOT') {
@@ -1303,6 +1305,10 @@ export class SODSyncService {
         if (type === 'DAILY_AUTOMATION') {
             const { AutomationService } = await import('../automation/automation.service');
             return AutomationService.runAllDailyTasks();
+        }
+        if (type === 'PROJECT_REMINDERS') {
+            const { ReminderSchedulerService } = await import('../notification/reminder-scheduler.service');
+            return ReminderSchedulerService.runProjectReminders();
         }
 
         const { NotificationService } = await import('../notification/notification.service');

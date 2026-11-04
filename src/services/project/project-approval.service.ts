@@ -3,6 +3,7 @@ import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { assertProjectAccess } from '@/lib/project-access';
 import { prisma } from '@/lib/prisma';
 import { NotificationService } from '@/services/notification/notification.service';
+import { WorkflowNotificationService } from '@/services/project/workflow-notification.service';
 import { AppError } from '@/lib/error';
 import { hasActiveWorkflowRole } from '@/lib/project-workflow-role';
 
@@ -105,14 +106,9 @@ export class ProjectApprovalService {
                             metadata: { requestId: newRequest.id, projectId, approvalType: type }
                         });
                     } else {
-                        await NotificationService.notifyByAudience({
-                            audience: 'ADMINISTRATORS',
-                            title: '✅ Approval Required',
-                            message: `A new approval request "${title}" requires your action as ${s.roleRequired.replace(/_/g, ' ')}.`,
-                            type: 'PROJECT',
-                            priority: 'HIGH',
-                            link: `/projects/${projectId}/approvals`,
-                            metadata: { requestId: newRequest.id, projectId, approvalType: type }
+                        await WorkflowNotificationService.notifyRoleHolders({
+                            projectId, roleCodes: [s.roleRequired], title: '✅ Approval Required', message: `A new approval request "${title}" requires your action as ${s.roleRequired.replace(/_/g, ' ')}.`,
+                            link: `/projects/${projectId}/approvals`, dedupBase: `project-approval:${newRequest.id}:1`, metadata: { requestId: newRequest.id, projectId, approvalType: type },
                         });
                     }
                 }
@@ -304,14 +300,9 @@ export class ProjectApprovalService {
                                     metadata: { requestId: step.requestId, projectId, stepNumber: nextStep.stepNumber }
                                 });
                             } else {
-                                await NotificationService.notifyByAudience({
-                                    audience: 'ADMINISTRATORS',
-                                    title: '✅ Approval Required — Your Turn',
-                                    message: `Step ${currentStepNumber} was approved. "${requestTitle}" now requires approval from ${String(nextStep.roleRequired || 'ADMIN').replace(/_/g, ' ')} (Step ${nextStep.stepNumber}).`,
-                                    type: 'PROJECT',
-                                    priority: 'HIGH',
-                                    link: approvalLink,
-                                    metadata: { requestId: step.requestId, projectId, stepNumber: nextStep.stepNumber }
+                                await WorkflowNotificationService.notifyRoleHolders({
+                                    projectId, roleCodes: [String(nextStep.roleRequired || '')], title: '✅ Approval Required — Your Turn', message: `Step ${currentStepNumber} was approved. "${requestTitle}" now requires approval from ${String(nextStep.roleRequired || 'ADMIN').replace(/_/g, ' ')} (Step ${nextStep.stepNumber}).`,
+                                    link: approvalLink, dedupBase: `project-approval:${step.requestId}:${nextStep.stepNumber}`, metadata: { requestId: step.requestId, projectId, stepNumber: nextStep.stepNumber },
                                 });
                             }
                         }

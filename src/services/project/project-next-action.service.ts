@@ -38,7 +38,19 @@ export function holdsRole(userRoleCodes: string[], stageRole: string): boolean {
  * a supervisor sees the plan to build, a manager sees projects with no supervisor and plans to
  * approve, an approver sees their approval step, a stage owner sees the stage they must finish.
  */
+const COUNT_TTL_MS = 60_000;
+const countCache = new Map<string, { at: number; count: number }>();
+
 export class ProjectNextActionService {
+    /** Actionable (not waiting) items for the sidebar badge. Cached briefly: the sidebar polls often. */
+    static async countForUser(userId: string): Promise<number> {
+        const hit = countCache.get(userId);
+        if (hit && Date.now() - hit.at < COUNT_TTL_MS) return hit.count;
+        const count = (await this.listForUser(userId)).filter((a) => !a.waiting).length;
+        countCache.set(userId, { at: Date.now(), count });
+        return count;
+    }
+
     static async listForUser(userId: string): Promise<NextAction[]> {
         const [scope, permissions, user] = await Promise.all([
             resolveOpmcScope(userId),
@@ -78,12 +90,18 @@ export class ProjectNextActionService {
             for (const { project } of assignments) {
                 const plan = planByProject.get(project.id);
                 const link = `/projects/${project.id}?tab=tasks`;
-                if (plan && plan.status !== 'DRAFT') continue; // approved and generated: tasks now live in the task list
+                if (plan && !['DRAFT', 'CHANGES_REQUESTED', 'SUBMITTED'].includes(plan.status)) continue; // approved and generated: tasks now live in the task list
                 if (!boqApproved.has(project.id)) {
                     actions.push({
                         id: `plan-wait-boq:${project.id}`, kind: 'PLAN_WAITING', ...ref(project), link, priority: 'LOW', waiting: true,
                         title: 'Waiting for BOQ approval',
                         detail: 'You are the project supervisor. The task plan can be built once the BOQ is approved; you will be told when it is.',
+                    });
+                } else if (plan?.status === 'SUBMITTED') {
+                    actions.push({
+                        id: `plan-submitted:${project.id}`, kind: 'PLAN_WAITING', ...ref(project), link, priority: 'LOW', waiting: true,
+                        title: 'Task plan waiting for approval',
+                        detail: 'You submitted the plan. A project manager will approve it; the tasks are generated and assigned when they do.',
                     });
                 } else if (!plan) {
                     actions.push({
@@ -95,7 +113,7 @@ export class ProjectNextActionService {
                     actions.push({
                         id: `plan-configure:${project.id}`, kind: 'PLAN_SETUP', ...ref(project), link, priority: 'HIGH', waiting: false,
                         title: 'Finish the task plan',
-                        detail: `Draft plan has ${plan._count.items} item${plan._count.items === 1 ? '' : 's'}. Assign every task, then ask a manager to approve it.`,
+                        detail: `Draft plan has ${plan._count.items} item${plan._count.items === 1 ? '' : 's'}. Assign every task, then click Submit for approval.`,
                     });
                 }
             }
@@ -128,7 +146,7 @@ export class ProjectNextActionService {
         }
         if (permissions.includes(RBAC_PERMISSIONS.PROJECT_PLAN_APPROVE)) {
             const plans = await prisma.projectTaskPlan.findMany({
-                where: { status: 'DRAFT', configuredById: { not: userId }, project: activeProject, items: { some: {} } },
+                where: { status: 'SUBMITTED', configuredById: { not: userId }, project: activeProject, items: { some: {} } },
                 take: MAX_PER_KIND,
                 select: { project: { select: { id: true, projectCode: true, name: true } }, _count: { select: { items: true } } },
             });
@@ -139,7 +157,7 @@ export class ProjectNextActionService {
                 actions.push({
                     id: `plan-approve:${plan.project.id}`, kind: 'APPROVE_PLAN', ...ref(plan.project), priority: 'MEDIUM', waiting: false,
                     link: `/projects/${plan.project.id}?tab=tasks`,
-                    title: 'Review and approve the task plan',
+                    title: 'Approve the submitted task plan',
                     detail: `${plan._count.items} planned item${plan._count.items === 1 ? '' : 's'}. Approving generates the project tasks and tells each assignee.`,
                 });
             }

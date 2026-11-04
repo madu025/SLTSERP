@@ -38,6 +38,7 @@ export function SidebarMenu({ user, isCollapsed, mounted, menuCounts }: SidebarM
             case 'Contractor Registration Approvals': return menuCounts.contractorApprovals || 0;
             case 'IT Dashboard (Staff)': return menuCounts.helpdesk || 0;
             case 'Project Approvals': return menuCounts.approvals || 0;
+            case 'My Tasks': return menuCounts.myTasks || 0;
             default: return 0;
         }
     };

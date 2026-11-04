@@ -129,3 +129,5 @@ After a hand-off notification, open `/projects/my-tasks` as that user and assert
 section lists the action (supervisor: waiting for BOQ / start plan; manager: assign supervisor / approve plan;
 approver: approval step; stage owner: complete stage). A notification with an empty My Tasks is a defect.
 Run the UI through the login form, and do not pick real staff in the supervisor dropdown.
+- Plan hand-off: supervisor *Submit for approval* -> managers notified and listed under What to do next -> approve generates tasks. The sidebar My Tasks badge reads `myTasks` from `/api/notifications/sidebar-counts`.
+- Reminders run from the worker job `PROJECT_REMINDERS` (07:30 SL), not from an external cron; verify with `ReminderSchedulerService.runProjectReminders()` against QA data only (they notify real owners).

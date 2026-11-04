@@ -172,6 +172,7 @@ export default function ProjectTaskPlanDesigner({ projectId }: ProjectTaskPlanDe
                         <Button variant="outline" size="sm" className="gap-1 text-slate-800" onClick={() => void fetchPlan()}><RefreshCw className="h-3.5 w-3.5" />Refresh</Button>
                         {!plan && <Button size="sm" className="gap-1" onClick={() => void callPlan({ action: 'initialize' }, 'Pre-built task plan created')}><Plus className="h-3.5 w-3.5" />Start Plan</Button>}
                         {plan && !locked && <Button variant="outline" size="sm" className="gap-1 border-emerald-300 text-emerald-800" onClick={() => void callPlan({ action: 'sync_boq' }, 'Approved BOQ work packages synced')}><RefreshCw className="h-3.5 w-3.5" />Sync Approved BOQ</Button>}
+                        {plan && !locked && plan.status !== 'SUBMITTED' && <Button variant="outline" size="sm" className="gap-1 border-cyan-400 text-cyan-900" disabled={saving} onClick={() => void callPlan({ action: 'submit' }, 'Task plan submitted. Project managers were notified.')}><Send className="h-3.5 w-3.5" />Submit for approval</Button>}
                         {plan && !locked && <Button size="sm" className="gap-1" onClick={async () => {
                             setSaving(true);
                             try {

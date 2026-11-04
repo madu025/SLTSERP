@@ -22,6 +22,8 @@ export const POST = apiHandler(async (_request, params, body) => {
             return ProjectTaskPlanService.initialize(params.id, actorId);
         case 'sync_boq':
             return ProjectTaskPlanService.syncApprovedBoq(params.id, actorId);
+        case 'submit':
+            return ProjectTaskPlanService.submit(params.id, actorId);
         case 'add_template':
             if (!body.sourceTemplateId) throw AppError.badRequest('sourceTemplateId is required');
             return ProjectTaskPlanService.addTemplate(params.id, actorId, String(body.sourceTemplateId));

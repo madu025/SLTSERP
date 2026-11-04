@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import TeamManager from "../TeamManager";
 import Image from "next/image";
+import { toErrorText } from '@/lib/error-text';
 
 interface TeamMember {
     id: string;
@@ -101,7 +102,7 @@ function ContractorApprovals() {
                 queryClient.invalidateQueries({ queryKey: ['contractor-approvals'] });
                 setSelectedContractor(null);
             } else {
-                toast.error(result.error || 'Failed to approve');
+                toast.error(toErrorText(result.error) || 'Failed to approve');
             }
         }
     });
@@ -118,7 +119,7 @@ function ContractorApprovals() {
                 setIsRejectDialogOpen(false);
                 setRejectionReason("");
             } else {
-                toast.error(result.error || 'Failed to reject');
+                toast.error(toErrorText(result.error) || 'Failed to reject');
             }
         }
     });

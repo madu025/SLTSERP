@@ -54,6 +54,7 @@ import { getTabsForStage, filterProjectTabsByPermissions, TabDefinition } from '
 import { resolveCurrentProjectStage } from '@/lib/project-navigation';
 import { useCanonicalPermissions } from '@/hooks/use-canonical-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { toErrorText } from '@/lib/error-text';
  
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface ProjectStaff { id: string; name: string; }
@@ -252,7 +253,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                     contractorId: editContractorId || null 
                 }) 
             });
-            if (!res.ok) { const e = await res.json(); toast.error(e.error || 'Failed to update'); return; }
+            if (!res.ok) { const e = await res.json(); toast.error(toErrorText(e.error) || 'Failed to update'); return; }
             toast.success('Project updated'); setEditDialogOpen(false); fetchProjectDetails();
         } catch { toast.error('Failed to update project'); }
         finally { setSaving(false); }

@@ -3,6 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { createStore, updateStore, deleteStore } from "@/actions/inventory-actions";
+import { toErrorText } from '@/lib/error-text';
 
 export function useStoreOperations() {
     const queryClient = useQueryClient();
@@ -17,7 +18,7 @@ export function useStoreOperations() {
                 toast.success("Logistics registry synchronized");
                 queryClient.invalidateQueries({ queryKey: ["stores"] });
             } else {
-                toast.error(result.error || "Operation failed");
+                toast.error(toErrorText(result.error) || "Operation failed");
             }
         },
         onError: (err: Error) => toast.error(err.message)
@@ -30,7 +31,7 @@ export function useStoreOperations() {
                 toast.success("Store entity purged from registry");
                 queryClient.invalidateQueries({ queryKey: ["stores"] });
             } else {
-                toast.error(result.error || "Deletion failed");
+                toast.error(toErrorText(result.error) || "Deletion failed");
             }
         },
         onError: (err: Error) => toast.error(err.message)

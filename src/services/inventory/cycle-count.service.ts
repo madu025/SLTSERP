@@ -282,7 +282,8 @@ export class CycleCountService {
                 data: {
                     type: 'CYCLE_COUNT_ADJUSTMENT',
                     storeId: header.storeId,
-                    referenceId: header.countNumber,
+                    // referenceId is a UUID column; the human number stays in the notes.
+                    referenceId: header.id,
                     notes: `Cycle count physical adjustment (${header.countNumber})`,
                     userId: approvedById,
                     items: {

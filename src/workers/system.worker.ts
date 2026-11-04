@@ -33,6 +33,11 @@ const HANDLERS: Record<DailyJobType, (job: Job<SystemJobData>) => Promise<unknow
         return AppointmentNotificationService.checkAndNotify();
     },
 
+    PROJECT_REMINDERS: async () => {
+        const { ReminderSchedulerService } = await import('@/services/notification/reminder-scheduler.service');
+        return ReminderSchedulerService.runProjectReminders();
+    },
+
     NOTIFICATION_CLEANUP: async () => {
         // The body lives in SODSyncService.runDailyTask so the queue path and the serverless inline
         // path cannot diverge on what a pass is, or on whether it is censused.

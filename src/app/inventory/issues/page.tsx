@@ -12,6 +12,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { PackageMinus, Plus, Trash2, Eye, Info, Calendar, Building2, User, AlertCircle, PenSquare, Tag, TrendingUp, X, Clock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createStockIssue } from "@/actions/inventory-actions";
+import { toErrorText } from '@/lib/error-text';
 
 interface User {
     id: string;
@@ -150,7 +151,7 @@ export default function StockIssuePage() {
                 queryClient.invalidateQueries({ queryKey: ['stock'] });
                 handleCloseIssueDialog();
             } else {
-                toast.error(result.error || 'Failed to issue stock');
+                toast.error(toErrorText(result.error) || 'Failed to issue stock');
             }
         },
         onError: (error: Error) => {

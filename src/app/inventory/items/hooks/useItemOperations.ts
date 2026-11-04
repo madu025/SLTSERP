@@ -3,6 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { createItem, updateItem, deleteItem, mergeItemsAction, patchBulkItemsAction } from "@/actions/inventory-actions";
+import { toErrorText } from '@/lib/error-text';
 
 export function useItemOperations() {
     const queryClient = useQueryClient();
@@ -17,7 +18,7 @@ export function useItemOperations() {
                 toast.success("Material registry synchronized");
                 queryClient.invalidateQueries({ queryKey: ["items"] });
             } else {
-                toast.error(result.error || "Operation failed");
+                toast.error(toErrorText(result.error) || "Operation failed");
             }
         },
         onError: (err: Error) => toast.error(err.message)
@@ -30,7 +31,7 @@ export function useItemOperations() {
                 toast.success("Item purged from registry");
                 queryClient.invalidateQueries({ queryKey: ["items"] });
             } else {
-                toast.error(result.error || "Deletion failed");
+                toast.error(toErrorText(result.error) || "Deletion failed");
             }
         },
         onError: (err: Error) => toast.error(err.message)
@@ -43,7 +44,7 @@ export function useItemOperations() {
                 toast.success("Bulk update completed");
                 queryClient.invalidateQueries({ queryKey: ["items"] });
             } else {
-                toast.error(result.error || "Bulk update failed");
+                toast.error(toErrorText(result.error) || "Bulk update failed");
             }
         },
         onError: (err: Error) => toast.error(err.message)
@@ -56,7 +57,7 @@ export function useItemOperations() {
                 toast.success("Entities merged successfully");
                 queryClient.invalidateQueries({ queryKey: ["items"] });
             } else {
-                toast.error(result.error || "Merge failed");
+                toast.error(toErrorText(result.error) || "Merge failed");
             }
         },
         onError: (err: Error) => toast.error(err.message)

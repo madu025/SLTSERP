@@ -14,6 +14,7 @@ import { prisma } from '@/lib/prisma';
 import { NotificationService } from './index';
 import { DomainNotificationPolicies } from './domain-policies.service';
 import { ProjectFinanceNotificationService } from '@/services/project/project-finance-notification.service';
+import { ProjectDeadlineReminderService } from '@/services/project/project-deadline-reminder.service';
 
 interface SchedulerResult {
     name: string;
@@ -33,6 +34,7 @@ export class ReminderSchedulerService {
         results.push(await this.checkAppointmentReminders());
         results.push(await this.checkTaskDueDates());
         results.push(await this.checkProjectInvoiceFollowUps());
+        results.push(await this.checkProjectDeadlines());
         results.push(await this.checkMilestoneDueDates());
         results.push(await this.checkBatchExpirations());
         results.push(await this.checkNotificationEscalations());
@@ -250,6 +252,35 @@ export class ReminderSchedulerService {
             result.errors++;
         }
 
+        return result;
+    }
+
+    /** The project hand-off reminders as one daily pass (what the worker's PROJECT_REMINDERS job runs). */
+    static async runProjectReminders(): Promise<SchedulerResult[]> {
+        return [
+            await this.checkTaskDueDates(),
+            await this.checkProjectInvoiceFollowUps(),
+            await this.checkProjectDeadlines(),
+        ];
+    }
+
+    /** Permit expiry, defect-liability end and stale approvals/plans. Notification only. */
+    static async checkProjectDeadlines(): Promise<SchedulerResult> {
+        const result: SchedulerResult = { name: 'project-deadlines', itemsProcessed: 0, notificationsCreated: 0, errors: 0 };
+        for (const run of [
+            () => ProjectDeadlineReminderService.remindPermitExpiry(),
+            () => ProjectDeadlineReminderService.remindDefectLiabilityEnd(),
+            () => ProjectDeadlineReminderService.remindStaleActions(),
+        ]) {
+            try {
+                const { processed, notified } = await run();
+                result.itemsProcessed += processed;
+                result.notificationsCreated += notified;
+            } catch (error) {
+                console.error('[Scheduler] Project deadline check failed:', error);
+                result.errors++;
+            }
+        }
         return result;
     }
 

@@ -188,24 +188,6 @@ export class ProjectInvoiceService {
             throw AppError.badRequest('INVALID_INVOICE_ADJUSTMENT');
         }
 
-        // Auto-generate invoice number
-        // Only the PINV- series feeds the counter: an imported or manually numbered invoice such as
-        // "QA-INV-..." sorts above it and would otherwise reset every new number to PINV-00001.
-        const lastInv = await prisma.projectInvoice.findFirst({
-            where: { invoiceNumber: { startsWith: 'PINV-' } },
-            orderBy: { invoiceNumber: 'desc' },
-            select: { invoiceNumber: true },
-        });
-
-        let nextNumber: string;
-        if (lastInv && lastInv.invoiceNumber) {
-            const lastNum = parseInt(lastInv.invoiceNumber.replace('PINV-', ''), 10);
-            const nextNum = isNaN(lastNum) ? 1 : lastNum + 1;
-            nextNumber = 'PINV-' + String(nextNum).padStart(5, '0');
-        } else {
-            nextNumber = 'PINV-00001';
-        }
-
         // Calculate totals from items
         let subtotal = 0;
         const itemsData = items.map((item) => {
@@ -248,6 +230,19 @@ export class ProjectInvoiceService {
                     throw AppError.conflict('One or more SODs were linked to another client/project invoice');
                 }
             }
+
+            // Auto-generate the invoice number inside the transaction, under a lock on the series: two invoices
+            // created together used to read the same "last" number and one failed on the unique constraint.
+            // Only the PINV- series feeds the counter: an imported or manually numbered invoice such as
+            // "QA-INV-..." sorts above it and would otherwise reset every new number to PINV-00001.
+            await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('project-invoice-number', 0))`;
+            const lastInv = await tx.projectInvoice.findFirst({
+                where: { invoiceNumber: { startsWith: 'PINV-' } },
+                orderBy: { invoiceNumber: 'desc' },
+                select: { invoiceNumber: true },
+            });
+            const lastNum = lastInv ? parseInt(lastInv.invoiceNumber.replace('PINV-', ''), 10) : 0;
+            const nextNumber = 'PINV-' + String((Number.isNaN(lastNum) ? 0 : lastNum) + 1).padStart(5, '0');
 
             const newInvoice = await tx.projectInvoice.create({
                 data: {

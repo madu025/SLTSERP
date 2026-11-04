@@ -9,6 +9,7 @@ import { CompactLayerGrid } from './CompactLayerGrid';
 import { RouteSummaryTable } from './RouteSummaryTable';
 import { BOQSummaryCard } from './BOQSummaryCard';
 import { calculateLinkBudget, LinkBudgetAuditCard } from './LinkBudgetCalculator';
+import { toErrorText } from '@/lib/error-text';
 
 const LAYER_COLORS: Record<string, string> = {
   cables: '#2563eb',
@@ -96,7 +97,7 @@ export function GISLayerPanel({
         if (onPreSurveyCreated) onPreSurveyCreated();
       } else {
         const err = await res.json() as { error?: string };
-        toast.error(err.error || 'Failed to generate Pre-Survey.');
+        toast.error(toErrorText(err.error) || 'Failed to generate Pre-Survey.');
       }
     } catch {
       toast.error('Network error occurred.');
@@ -128,7 +129,7 @@ export function GISLayerPanel({
         }
       } else {
         const err = await res.json() as { error?: string };
-        toast.error(err.error || 'Failed to delete route.');
+        toast.error(toErrorText(err.error) || 'Failed to delete route.');
       }
     } catch {
       toast.error('Network error.');
@@ -152,7 +153,7 @@ export function GISLayerPanel({
         }
       } else {
         const err = await res.json() as { error?: string };
-        toast.error(err.error || 'Failed to reconcile survey points.');
+        toast.error(toErrorText(err.error) || 'Failed to reconcile survey points.');
       }
     } catch {
       toast.error('Network error during reconciliation.');

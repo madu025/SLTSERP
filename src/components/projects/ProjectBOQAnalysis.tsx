@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, RefreshCw, Save, CheckCircle2, AlertTriangle, FileText } from 'lucide-react';
 import { toast } from 'sonner';
+import { toErrorText } from '@/lib/error-text';
 
 interface Project {
     id: string;
@@ -102,7 +103,7 @@ export default function ProjectBOQAnalysis({ project, refreshProject }: { projec
                 toast.success(result.message || 'Purchase Requisition generated successfully');
                 refreshProject();
             } else {
-                toast.error(result.error || 'Failed to generate PR');
+                toast.error(toErrorText(result.error) || 'Failed to generate PR');
             }
         } catch (e) {
             console.error(e);

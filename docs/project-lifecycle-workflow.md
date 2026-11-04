@@ -114,6 +114,22 @@ got "Assigned to a Project", opened My Tasks and found it empty. `/projects/my-t
 | Assigned approver | "Approve: <request>" once earlier steps are approved | step actioned |
 | Stage owner (named user or role) | "Complete stage N: <name>" | stage is completed |
 
-Supervisor and finance assignment notifications now state the next step and open My Tasks. Not done:
-a supervisor "submit plan for approval" action (the manager sees any configured DRAFT plan), reminders
-for stale actions, and a dashboard count badge on the sidebar item.
+Supervisor and finance assignment notifications now state the next step and open My Tasks.
+
+### Gap closure (2026-11-04)
+
+| Gap | Now |
+|---|---|
+| Manager never told a plan was ready | **Done:** supervisor clicks *Submit for approval* (status SUBMITTED), project managers are notified; approve queue shows SUBMITTED plans only |
+| BOQ 3-level approval notified nobody | **Done:** each level's eligible roles are notified in turn, and the supervisor when the BOQ is fully approved |
+| Document approvals broadcast to ADMINISTRATORS (~250 people) | **Done:** only holders of the step's role in the project's OPMC; managers if none |
+| G4 permit expiry, G6 DLP end | **Done:** `ProjectDeadlineReminderService` (30/7 days then daily once expired; DLP weekly from 14 days before) |
+| Stale approvals / plans | **Done:** nudge after 2 days, once a day |
+| Reminders never ran (nothing in the repo called the scheduler) | **Done:** worker daily job `PROJECT_REMINDERS` at 07:30 Asia/Colombo |
+| No count on the sidebar | **Done:** My Tasks badge (60 s cache) |
+| Error toasts crashed pages (object rendered as a React child) | **Done:** `toErrorText` on 34 call sites |
+| Invoice numbers raced; wastage / cycle-count wrote non-UUID reference ids | **Done:** numbering under an advisory lock; ids are UUIDs |
+
+Still needs a business decision, not code: owner roles for stages 1-8 (template leaves them empty), whether the BOQ
+should price existing poles/joints as supply, the OTDR evidence gate for in-house PAT (G5, changes the workflow
+template), and unifying project status with workflow stage (G3).

@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { StockService } from './stock.service';
@@ -190,7 +191,8 @@ export class WastageService {
                     type: 'WASTAGE',
                     storeId,
                     userId: userId || 'SYSTEM',
-                    referenceId: `STORE-WASTAGE-${Date.now()}`,
+                    // referenceId is a UUID column, so a text tag made this insert fail; the reason lives in the notes.
+                    referenceId: randomUUID(),
                     notes: `[STATUS: ${status}] ${reason || description}`,
                     items: {
                         create: transactionItems.map((ti) => ({

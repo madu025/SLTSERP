@@ -7,7 +7,9 @@ import { logger } from '@/lib/logger';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { assertProjectAccess } from '@/lib/project-access';
-import { getBoqApprovalLevel, getBoqApprovalPolicy, hasEligiblePolicyRole } from '@/services/project/project-approval-policy.service';
+import { NotificationService } from '@/services/notification/notification.service';
+import { WorkflowNotificationService } from '@/services/project/workflow-notification.service';
+import { getBoqApprovalLevel, getBoqApprovalPolicy, hasEligiblePolicyRole, parseEligibleRoles } from '@/services/project/project-approval-policy.service';
 
 export class ProjectBOQApprovalService {
     /**
@@ -99,6 +101,7 @@ export class ProjectBOQApprovalService {
             data: { status: 'BOQ_PENDING' },
         });
 
+        await this.notifyStep(projectId, approval.id, 'SUPERVISOR', actorUserId);
         return { message: 'BOQ submitted for approval', approval };
     }
 
@@ -271,6 +274,50 @@ export class ProjectBOQApprovalService {
         });
 
         return { message: 'BOQ revised and resubmitted', approval: newApproval, boq };
+    }
+
+    /** Tell the holders of the level that is now due. Before this, a three-level BOQ chain notified nobody. */
+    private static async notifyStep(projectId: string, approvalId: string, step: string, actorId: string) {
+        try {
+            const { level } = await getBoqApprovalLevel(step);
+            const project = await prisma.project.findUnique({ where: { id: projectId }, select: { name: true, projectCode: true } });
+            await WorkflowNotificationService.notifyRoleHolders({
+                projectId,
+                roleCodes: parseEligibleRoles(level.eligibleRoles),
+                title: '✅ BOQ awaiting your approval',
+                message: `The BOQ for ${project?.name ?? 'a project'} (${project?.projectCode ?? ''}) is waiting for the ${step.replace(/_/g, ' ').toLowerCase()} approval.`,
+                link: `/projects/${projectId}?tab=boq`,
+                dedupBase: `boq-approval:${approvalId}:${step}`,
+                metadata: { approvalId, step },
+                excludeUserId: actorId,
+            });
+        } catch (error) {
+            logger.error('[BOQ-APPROVAL-NOTIFY-FAILED]', { projectId, error });
+        }
+    }
+
+    /** The BOQ is fully approved: the project supervisor can now build the task plan. */
+    private static async notifyApproved(projectId: string, actorId: string) {
+        try {
+            const [project, supervisors] = await Promise.all([
+                prisma.project.findUnique({ where: { id: projectId }, select: { name: true, projectCode: true } }),
+                prisma.projectSupervisorAssignment.findMany({ where: { projectId, status: 'ASSIGNED', supervisorId: { not: actorId } }, select: { supervisorId: true } }),
+            ]);
+            for (const { supervisorId } of supervisors) {
+                await NotificationService.send({
+                    userId: supervisorId,
+                    title: '📋 BOQ approved - build the task plan',
+                    message: `The BOQ for ${project?.name ?? 'a project'} (${project?.projectCode ?? ''}) is approved. Open Tasks, configure the plan and submit it for approval.`,
+                    type: 'PROJECT',
+                    priority: 'HIGH',
+                    link: '/projects/my-tasks',
+                    metadata: { projectId },
+                    dedupKey: `boq-approved-plan:${projectId}:${supervisorId}`,
+                });
+            }
+        } catch (error) {
+            logger.error('[BOQ-APPROVED-NOTIFY-FAILED]', { projectId, error });
+        }
     }
 
     private static async assertApprovalActor(projectId: string, step: string, userId: string, requiredPermission: string = RBAC_PERMISSIONS.PROJECT_APPROVE, policyId?: string | null): Promise<boolean> {

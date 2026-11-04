@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus, Trash2, ArrowLeft, Save, Settings, Layers, ListPlus, RotateCcw } from 'lucide-react';
+import { toErrorText } from '@/lib/error-text';
 
 interface QFieldFieldConfig {
   id?: string;
@@ -248,7 +249,7 @@ export default function QFieldConfigForm({ projectId, projectCode, projectName }
         toast.success("Dropdown configurations saved successfully!");
       } else {
         const err = await res.json();
-        toast.error(err.error || "Failed to save configurations");
+        toast.error(toErrorText(err.error) || "Failed to save configurations");
       }
     } catch (err) {
       console.error(err);

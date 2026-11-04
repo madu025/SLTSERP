@@ -24,6 +24,7 @@ import {
 import { MapPin, Route, Upload, Calculator, CheckCircle2, MapIcon, Settings, ShoppingCart } from 'lucide-react';
 
 import { toast } from 'sonner';
+import { toErrorText } from '@/lib/error-text';
 interface ProjectGISRouteProps { project: any; }
 
 const GIS_CATEGORIES = [
@@ -102,7 +103,7 @@ export default function ProjectGISRoute({ project }: ProjectGISRouteProps) {
                 setMappingOpen(false);
             } else {
                 const err = await res.json();
-                toast.error(err.error || "Failed to save mappings");
+                toast.error(toErrorText(err.error) || "Failed to save mappings");
             }
         } catch (err) { console.error("Failed to save mappings:", err); }
         finally { setSavingMapping(false); }
@@ -126,7 +127,7 @@ export default function ProjectGISRoute({ project }: ProjectGISRouteProps) {
             if (res.ok) {
                 setPrResult(prev => ({ ...prev, [routeId]: data }));
             } else {
-                toast.error(data.error || "Failed to generate PR");
+                toast.error(toErrorText(data.error) || "Failed to generate PR");
             }
         } catch (err) { console.error("Failed to generate PR:", err); }
         finally { setGeneratingPR(prev => ({ ...prev, [routeId]: false })); }

@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { z } from "zod";
+import { toErrorText } from '@/lib/error-text';
 
 export interface ITAsset {
   id: string;
@@ -245,7 +246,7 @@ export default function AssetList({
         toast.success(`Import complete! ${json.data.importedCount} imported, ${json.data.skippedCount} skipped.`);
         if (onRefresh) onRefresh();
       } else {
-        toast.error(json.error || "Import failed");
+        toast.error(toErrorText(json.error) || "Import failed");
       }
     } catch {
       toast.error("Network error during file upload");

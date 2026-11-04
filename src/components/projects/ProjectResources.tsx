@@ -10,6 +10,7 @@ import { Plus, Trash2, AlertTriangle, Users, HardHat, Calendar } from 'lucide-re
 import { format } from 'date-fns';
 
 import { toast } from 'sonner';
+import { toErrorText } from '@/lib/error-text';
 interface Project {
     id: string;
     name: string;
@@ -113,7 +114,7 @@ export default function ProjectResources({ project }: ProjectResourcesProps) {
                 }
             } else {
                 const error = await res.json();
-                toast.error(error.error || 'Failed to allocate resource');
+                toast.error(toErrorText(error.error) || 'Failed to allocate resource');
             }
         } catch (error) {
 } finally {

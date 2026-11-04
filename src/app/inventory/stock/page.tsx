@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { safeFormat } from '@/lib/utils';
 import { recordWastage } from "@/actions/inventory-actions";
 import { Badge } from "@/components/ui/badge";
+import { toErrorText } from '@/lib/error-text';
 
 interface User {
     id: string;
@@ -137,7 +138,7 @@ export default function StockPage() {
                 setWastageReason("");
                 queryClient.invalidateQueries({ queryKey: ['stock'] });
             } else {
-                toast.error(result.error || "Failed to record wastage");
+                toast.error(toErrorText(result.error) || "Failed to record wastage");
             }
         },
         onError: () => toast.error("Failed to record wastage")

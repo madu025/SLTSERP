@@ -55,12 +55,14 @@ export class WorkflowNotificationService {
         dedupBase: string;
         metadata: Record<string, unknown>;
         fallbackToManagers?: boolean;
+        link?: string;
     }): Promise<number> {
         const { projectId, recipients, title, message, priority = 'HIGH', dedupBase, metadata } = params;
+        const link = params.link ?? `/projects/${projectId}`;
         for (const userId of recipients) {
             await NotificationService.send({
                 userId, title, message, type: 'PROJECT', priority,
-                link: `/projects/${projectId}`,
+                link,
                 metadata: { projectId, ...metadata },
                 dedupKey: `${dedupBase}:${userId}`,
             });
@@ -72,13 +74,40 @@ export class WorkflowNotificationService {
                 title: `${title} (no owner found)`,
                 message: `${message} No active user holds the owning role, so assign one.`,
                 type: 'PROJECT', priority,
-                link: `/projects/${projectId}`,
+                link,
                 opmcId: project?.opmcId ?? undefined,
                 metadata: { projectId, ...metadata },
                 dedupKey: `${dedupBase}:managers`,
             });
         }
         return recipients.length;
+    }
+
+    /**
+     * Notify the holders of an approval role on one project (document approvals, BOQ levels). Replaces the
+     * ADMINISTRATORS broadcast that told ~250 people about every approval; falls back to the OPMC's
+     * project managers only when nobody in scope holds the role.
+     */
+    static async notifyRoleHolders(params: {
+        projectId: string;
+        roleCodes: string[];
+        title: string;
+        message: string;
+        link: string;
+        dedupBase: string;
+        metadata?: Record<string, unknown>;
+        excludeUserId?: string | null;
+    }): Promise<number> {
+        try {
+            const recipients = await this.resolveRecipients(params.projectId, params.roleCodes, params.excludeUserId);
+            return await this.deliver({
+                projectId: params.projectId, recipients, title: params.title, message: params.message,
+                dedupBase: params.dedupBase, metadata: params.metadata ?? {}, link: params.link, fallbackToManagers: true,
+            });
+        } catch (error) {
+            console.error('Failed to notify approval role holders:', error);
+            return 0;
+        }
     }
 
     private static async projectLabel(projectId: string): Promise<string> {

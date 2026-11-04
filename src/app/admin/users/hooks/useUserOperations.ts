@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { createUser, updateUser, deleteUser } from '@/actions/user-actions';
 import { z } from 'zod';
+import { toErrorText } from '@/lib/error-text';
 
 const userSchema = z.object({
     username: z.string().min(3, "Username required"),
@@ -44,7 +45,7 @@ export function useUserOperations() {
                 queryClient.invalidateQueries({ queryKey: ["users"] });
                 toast.success("User saved successfully");
             } else {
-                toast.error(result.error || "Error saving user");
+                toast.error(toErrorText(result.error) || "Error saving user");
             }
         },
         onError: () => toast.error("Error saving user")
@@ -60,7 +61,7 @@ export function useUserOperations() {
                 queryClient.invalidateQueries({ queryKey: ["audit-logs"] });
                 toast.success("User deleted");
             } else {
-                toast.error(result.error || "Error deleting user");
+                toast.error(toErrorText(result.error) || "Error deleting user");
             }
         }
     });

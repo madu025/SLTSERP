@@ -13,6 +13,7 @@ import { Package, Eye, Info, Calendar, Building2, AlertCircle, Tag, TrendingUp, 
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { createGRN } from "@/actions/inventory-actions";
+import { toErrorText } from '@/lib/error-text';
 
 interface GRNItem {
     itemId: string;
@@ -214,7 +215,7 @@ export default function GRNPage() {
                 queryClient.invalidateQueries({ queryKey: ['completed-grns'] });
                 handleCloseGRNDialog();
             } else {
-                toast.error(result.error || 'Failed to create GRN');
+                toast.error(toErrorText(result.error) || 'Failed to create GRN');
             }
         },
         onError: () => toast.error('Failed to create GRN')

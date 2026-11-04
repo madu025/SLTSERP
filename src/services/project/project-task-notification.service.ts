@@ -67,6 +67,27 @@ export class ProjectTaskNotificationService {
         }
     }
 
+    /** The supervisor finished the plan: tell the OPMC's project managers it is waiting for approval. */
+    static async notifyPlanSubmitted(projectId: string, itemCount: number, actorId: string, opmcId?: string | null): Promise<void> {
+        try {
+            const project = await prisma.project.findUnique({ where: { id: projectId }, select: { name: true, projectCode: true } });
+            const projectLabel = project ? `${project.name} (${project.projectCode})` : 'a project';
+            await NotificationService.notifyByAudience({
+                audience: 'PROJECT_MANAGERS',
+                title: '📝 Task plan waiting for approval',
+                message: `The task plan for ${projectLabel} (${itemCount} items) is ready. Review it, then approve to generate the tasks.`,
+                type: 'PROJECT',
+                priority: 'HIGH',
+                link: MY_TASKS_LINK,
+                opmcId: opmcId ?? undefined,
+                metadata: { projectId, itemCount, submittedBy: actorId },
+                dedupKey: `project-plan-submitted:${projectId}`,
+            });
+        } catch (error) {
+            console.error('Failed to send task plan submission notification:', error);
+        }
+    }
+
     /** Open work assigned to the viewer, limited to the OPMC scope they may access. */
     static async listForUser(userId: string) {
         const scope = await resolveOpmcScope(userId);
