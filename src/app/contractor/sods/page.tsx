@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { ClipboardList, QrCode, CheckCircle2, Layers, MapPin, Search, ChevronLeft, ChevronRight, Filter, Package, Zap, ChevronDown, ChevronUp, Cpu, RefreshCw, Bell, AlertTriangle, RotateCcw } from "lucide-react";
 import { toast } from 'sonner';
 import { getPreviousReturnDetails } from '@/lib/utils/sod-reassigned-utils';
+import { pickDropWireStock, pickOntStock } from '@/lib/sod-material-items';
 
 interface MaterialUsageItem {
     id: string;
@@ -285,17 +286,8 @@ export default function ContractorSODsPage() {
 
         // Resolve drop wire and ONT item IDs dynamically from van stock catalog
         const stockItems = stockData?.stockItems || [];
-        const dropWireItem = stockItems.find((s) => 
-            (s.item.code || '').toUpperCase().includes('DW') || 
-            (s.item.code || '').toUpperCase().includes('CBL-2F') ||
-            (s.item.name || '').toUpperCase().includes('DROP WIRE')
-        );
-        const ontItem = stockItems.find((s) => 
-            (s.item.code || '').toUpperCase().includes('ONT') || 
-            (s.item.code || '').toUpperCase().includes('ONU') ||
-            (s.item.name || '').toUpperCase().includes('ONT') ||
-            (s.item.name || '').toUpperCase().includes('ROUTER')
-        );
+        const dropWireItem = pickDropWireStock(stockItems);
+        const ontItem = pickOntStock(stockItems);
 
         if (!dropWireItem) {
             toast.error("Drop wire item not found in your van stock catalog!");

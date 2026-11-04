@@ -17,8 +17,8 @@ import type { Prisma } from '@prisma/client';
 export type DailyMaterialBucket = 'dw' | 'pole56' | 'pole67' | 'pole80';
 export type DailyPoleBucket = Exclude<DailyMaterialBucket, 'dw'>;
 
-/** Drop wire measured in meters: G1/indoor DW and F1 SLT drop cable. */
-export const DROP_WIRE_ITEM_CODES: readonly string[] = ['OSPFTA003', 'OSP-HC-CBL-DW'];
+export { DROP_WIRE_ITEM_CODES } from '@/lib/sod-material-items';
+import { DROP_WIRE_ITEM_CODES } from '@/lib/sod-material-items';
 
 /** Pole items that exist in the item master, keyed by exact item code. */
 export const POLE_ITEM_CODE_BUCKETS: Record<string, DailyPoleBucket> = {
