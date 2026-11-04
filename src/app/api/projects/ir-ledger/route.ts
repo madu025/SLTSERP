@@ -8,12 +8,13 @@ import { getAccessibleProjectIds, requireUserId } from '@/lib/project-record-acc
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { StoreService } from '@/services/inventory/store.service';
 import { z } from 'zod';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 
 const PROJECT_MOVEMENT_TYPES = new Set(['PROJECT_ISSUE', 'PROJECT_RETURN', 'PROJECT_TRANSFER_OUT', 'PROJECT_TRANSFER_IN', 'WASTAGE', 'SLT_RETURN']);
 const receiptSchema = z.object({
   irNumber: z.string().min(1),
-  storeId: z.string().uuid(),
-  items: z.array(z.object({ itemId: z.string().uuid(), quantity: z.number().positive() })).min(1),
+  storeId: databaseUuidSchema,
+  items: z.array(z.object({ itemId: databaseUuidSchema, quantity: z.number().positive() })).min(1),
 });
 
 // GET: Fetch IR Ledger entries

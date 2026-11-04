@@ -6,12 +6,13 @@ import { userHasPermission } from '@/lib/user-permissions';
 import { assertProjectAccess } from '@/lib/project-access';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 
 export const dynamic = 'force-dynamic';
 
 const createRetentionSchema = z.object({
-    projectId: z.string().uuid(),
-    invoiceId: z.string().uuid().optional().nullable(),
+    projectId: databaseUuidSchema,
+    invoiceId: databaseUuidSchema.optional().nullable(),
     title: z.string().trim().min(1),
     description: z.string().optional().nullable(),
     retentionPercent: z.number().finite().positive().max(100).optional(),
@@ -21,7 +22,7 @@ const createRetentionSchema = z.object({
 });
 
 const patchRetentionSchema = z.object({
-    id: z.string().uuid(),
+    id: databaseUuidSchema,
     action: z.enum(['RELEASE', 'UPDATE']),
     releaseAmount: z.number().finite().positive().optional(),
     releaseDate: z.string().optional().nullable(),

@@ -72,3 +72,29 @@ Not covered, needs a prepared project: plan publish notifications (needs an APPR
   project id so it can be removed by an admin.
 - Report per step: role, URL or endpoint, HTTP status, and the persisted read-back (notification
   title/message or queue row). A step without read-back is not a PASS.
+
+## Full lifecycle run (2026-11-04)
+
+A complete Building Fiber project (17 stages, survey to closure, material chain, both invoice types)
+was driven end to end against the real database as role accounts, mostly through the API with a Node
+driver and the UI for spot checks. Reuse these lessons:
+
+- **Exact system roles matter.** `createUser` makes section-prefixed roles (`NEW_CONNECTION_OSP_MANAGER`). The
+  workflow engine suffix-matches them, but BOQ approval policy, supervisor eligibility and plan
+  assignment need the exact code (`OSP_MANAGER`, `ENGINEER`, `AREA_MANAGER`, `FINANCE_MANAGER`,
+  `QC_OFFICER`, `OSP_ENGINEER`, `CONTRACTOR_SUPERVISOR`, `INVOICE_MANAGER`). Set `User.roleId` to the
+  exact role after creating each account.
+- **One user cannot approve two levels of a stage or BOQ**, so a run needs at least ENGINEER x2,
+  AREA_MANAGER, OSP_MANAGER, FINANCE_MANAGER, QC_OFFICER and a finance preparer.
+- **Notifications reach real staff.** In a shared OPMC, hand-offs, document approvals (ADMINISTRATORS
+  audience) and fallbacks create in-app rows for real users. Delete rows that reference the QA project
+  for non-QA users after each step; pushes/emails need the worker, which is not running locally.
+- **Local storage:** uploads fail against the Coolify S3 endpoint from a dev machine. Blank
+  `S3_ENDPOINT` and set `STORAGE_ALLOW_LOCAL_FALLBACK=true` in the worktree `.env` copy only; remove both
+  afterwards and delete `public/uploads/`.
+- **Slow remote DB:** interactive transactions over the VPS can exceed Prisma's 5 s default. A 500
+  `Transaction not found` on a bulk action is a timeout, not a data error.
+- **Material chain** needs a store: GRN approval deposits to the project OPMC's store or the MAIN store,
+  and the issue approver needs `assignedStoreId`. Keep quantities tiny; ledger and GL rows are permanent.
+- Completing the final stage closes the project. Plan-generated project tasks are not completed by their
+  workflow stages, so closure waits on 37 pending tasks until assignees finish them.

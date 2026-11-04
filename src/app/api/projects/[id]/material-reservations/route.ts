@@ -6,14 +6,15 @@ import { ProjectMaterialReservationService } from '@/services/project/project-ma
 import { assertProjectAccess } from '@/lib/project-access';
 import { StoreService } from '@/services/inventory/store.service';
 import { prisma } from '@/lib/prisma';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 
 export const dynamic = 'force-dynamic';
 
 const reservationSchema = z.object({
   action: z.enum(['SYNC_REQUIREMENTS', 'RESERVE', 'RELEASE']),
-  storeId: z.string().uuid().optional(),
-  reservationId: z.string().uuid().optional(),
-  requirementIds: z.array(z.string().uuid()).max(500).optional(),
+  storeId: databaseUuidSchema.optional(),
+  reservationId: databaseUuidSchema.optional(),
+  requirementIds: z.array(databaseUuidSchema).max(500).optional(),
   notes: z.string().trim().max(1000).nullable().optional(),
 });
 

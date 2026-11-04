@@ -189,7 +189,10 @@ export class ProjectInvoiceService {
         }
 
         // Auto-generate invoice number
+        // Only the PINV- series feeds the counter: an imported or manually numbered invoice such as
+        // "QA-INV-..." sorts above it and would otherwise reset every new number to PINV-00001.
         const lastInv = await prisma.projectInvoice.findFirst({
+            where: { invoiceNumber: { startsWith: 'PINV-' } },
             orderBy: { invoiceNumber: 'desc' },
             select: { invoiceNumber: true },
         });

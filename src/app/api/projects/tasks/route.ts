@@ -4,6 +4,7 @@ import { assertProjectAccess } from '@/lib/project-access';
 import { AppError } from '@/lib/error';
 import { CreateTaskInput, ProjectTaskService, UpdateTaskInput } from '@/services/project/project-task.service';
 import { z } from 'zod';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +29,7 @@ const taskFields = {
     contractorId: optionalNullableText(100),
     contractorAssignmentId: optionalNullableText(100),
 };
-const createTaskSchema = z.object({ projectId: z.string().uuid(), ...taskFields }).strict();
+const createTaskSchema = z.object({ projectId: databaseUuidSchema, ...taskFields }).strict();
 const updateTaskSchema = z.object({
     ...taskFields,
     actualStartDate: optionalDate,
@@ -36,8 +37,8 @@ const updateTaskSchema = z.object({
     status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'DELAYED']).optional(),
     actualProgress: z.number().finite().min(0).max(100).optional(),
 }).partial().extend({
-    id: z.string().uuid(),
-    projectId: z.string().uuid(),
+    id: databaseUuidSchema,
+    projectId: databaseUuidSchema,
 }).strict();
 
 // GET /api/projects/tasks?projectId=xxx (rawResponse for compatibility)
@@ -88,7 +89,9 @@ export const PATCH = apiHandler<unknown, UpdateTaskInput & { id: string; project
     return await ProjectTaskService.updateTask(id, updateData, body.projectId, _params._userId);
 }, {
     schema: updateTaskSchema,
-    permissions: [RBAC_PERMISSIONS.PROJECT_PLAN_WRITE],
+    // An assignee needs no write capability to report progress on their own task: the route admits any
+    // project reader and ProjectTaskService.assertTaskActor limits who may edit what (assignee: progress only).
+    permissions: [RBAC_PERMISSIONS.PROJECT_PLAN_WRITE, RBAC_PERMISSIONS.PROJECT_WRITE, RBAC_PERMISSIONS.PROJECT_READ],
     audit: { action: 'UPDATE', entity: 'PROJECT_TASK' },
     rawResponse: true
 });

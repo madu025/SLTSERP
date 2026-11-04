@@ -473,7 +473,8 @@ export class ProjectTaskPlanService {
                 cursor = addDays(schedule.plannedEndDate || cursor, 1);
             }
             await tx.projectTaskPlan.update({ where: { id: plan.id }, data: { status: 'APPROVED', version: { increment: 1 }, approvedById: actorId, approvedAt: new Date(), generatedAt: new Date() } });
-        });
+        // One row per plan item is written serially, so a large plan outgrows Prisma's 5 s default.
+        }, { maxWait: 10_000, timeout: 120_000 });
         // Tasks exist (and are visible to assignees) only now, so this is when assignees are told.
         void ProjectTaskNotificationService.notifyAssigned(
             projectId,

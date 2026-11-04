@@ -4,6 +4,7 @@ import { AppError } from '@/lib/error';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { ProjectWorkflowReviewService } from '@/services/project/project-workflow-review.service';
 import { assertProjectAccess } from '@/lib/project-access';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,8 +15,8 @@ const reviewCommentSchema = z.object({
 
 const reviewSchema = z.object({
   action: z.enum(['submit', 'decide', 'resubmit']),
-  stageId: z.string().uuid().optional(),
-  reviewId: z.string().uuid().optional(),
+  stageId: databaseUuidSchema.optional(),
+  reviewId: databaseUuidSchema.optional(),
   deliverableType: z.string().trim().min(2).optional(),
   decision: z.enum(['APPROVED', 'CHANGES_REQUESTED', 'REJECTED']).optional(),
   notes: z.string().trim().max(4000).optional().nullable(),

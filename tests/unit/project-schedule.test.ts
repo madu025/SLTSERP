@@ -6,6 +6,20 @@ import {
   normalizeTaskSchedule,
 } from '../../src/lib/project-schedule';
 
+describe('task schedule calendar days', () => {
+  it('accepts a one-day task whose start carries a time of day', () => {
+    const result = normalizeTaskSchedule({ plannedStartDate: new Date('2026-11-03T17:50:13.000Z'), plannedDuration: 1 });
+    assert.equal(result.plannedEndDate?.toISOString(), '2026-11-03T00:00:00.000Z');
+  });
+
+  it('still rejects an end on an earlier calendar day than the start', () => {
+    assert.throws(
+      () => normalizeTaskSchedule({ plannedStartDate: '2026-11-03T08:00:00.000Z', plannedEndDate: '2026-11-02T20:00:00.000Z' }),
+      /INVALID_TASK_DATE_RANGE/,
+    );
+  });
+});
+
 describe('project schedule timeline', () => {
   it('anchors the timeline to the project start, not the first task', () => {
     const schedule = buildProjectSchedule(

@@ -6,11 +6,12 @@ import { userHasPermission } from '@/lib/user-permissions';
 import { assertProjectAccess } from '@/lib/project-access';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 
 export const dynamic = 'force-dynamic';
 
 const createPenaltySchema = z.object({
-    projectId: z.string().uuid(),
+    projectId: databaseUuidSchema,
     title: z.string().trim().min(1),
     description: z.string().optional().nullable(),
     type: z.string().trim().min(1).optional(),
@@ -18,14 +19,14 @@ const createPenaltySchema = z.object({
     amount: z.number().finite().positive(),
     percentage: z.number().finite().min(0).max(100).optional().nullable(),
     referenceTable: z.string().optional().nullable(),
-    referenceId: z.string().uuid().optional().nullable(),
+    referenceId: databaseUuidSchema.optional().nullable(),
     referenceDesc: z.string().optional().nullable(),
     appliedDate: z.string().optional(),
     remarks: z.string().optional().nullable(),
 });
 
 const updatePenaltySchema = z.object({
-    id: z.string().uuid(),
+    id: databaseUuidSchema,
     status: z.enum(['APPROVED', 'WAIVED', 'REJECTED']),
     waivedAmount: z.number().finite().min(0).optional(),
     remarks: z.string().optional().nullable(),

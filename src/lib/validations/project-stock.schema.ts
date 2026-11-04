@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 
 export const stockIssueItemSchema = z.object({
   itemId: z.string().min(1, 'Item ID is required'),
@@ -10,8 +11,8 @@ export const createStockIssueSchema = z.object({
   projectId: z.string().min(1, 'Project ID is required'),
   storeId: z.string().min(1, 'Store ID is required'),
   items: z.array(stockIssueItemSchema).min(1, 'At least one item is required'),
-  reservationId: z.string().uuid().optional(),
-  requirementId: z.string().uuid().optional(),
+  reservationId: databaseUuidSchema.optional(),
+  requirementId: databaseUuidSchema.optional(),
   remarks: z.string().optional(),
   issueDate: z.string().optional(),
 });

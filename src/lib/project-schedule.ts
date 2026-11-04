@@ -104,7 +104,9 @@ export function normalizeTaskSchedule(input: TaskScheduleValidationInput): Norma
     ? addDays(plannedStartDate, plannedDuration - 1)
     : null);
 
-  if (plannedStartDate && plannedEndDate && plannedEndDate < plannedStartDate) {
+  // Compare calendar days: a one-day task ends on its start day at midnight, which is earlier than a
+  // start that carries a time of day (for example a fallback of `new Date()`); that is not a reversed range.
+  if (plannedStartDate && plannedEndDate && startOfDay(plannedEndDate) < startOfDay(plannedStartDate)) {
     throw new Error('INVALID_TASK_DATE_RANGE');
   }
 

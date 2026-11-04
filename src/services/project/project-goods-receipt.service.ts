@@ -250,6 +250,23 @@ export class ProjectGoodsReceiptService {
                             create: { storeId: store.id, itemId: invItem.id, quantity: qty, minLevel: 0 }
                         });
 
+                        // Issues are picked from batches, so a receipt that only raised the store total
+                        // could never be issued and would drift from the batch totals. Mirror the
+                        // inventory GRN: one batch and one batch-stock row per accepted line.
+                        const receiptUnitPrice = Number(item.unitPrice || 0);
+                        const batch = await tx.inventoryBatch.create({
+                            data: {
+                                batchNumber: item.batchNumber || await AuditLedgerService.getNextDocumentNumber('LOT', tx as TransactionClient),
+                                itemId: invItem.id,
+                                initialQty: qty,
+                                costPrice: receiptUnitPrice,
+                                unitPrice: receiptUnitPrice,
+                            },
+                        });
+                        await tx.inventoryBatchStock.create({
+                            data: { storeId: store.id, batchId: batch.id, itemId: invItem.id, quantity: qty },
+                        });
+
                         await AuditLedgerService.recordEntry({
                             storeId: store.id,
                             itemId: invItem.id,
@@ -269,7 +286,8 @@ export class ProjectGoodsReceiptService {
                             data: {
                                 storeId: store.id,
                                 type: 'IN',
-                                referenceId: grn.grnNumber,
+                                // InventoryTransaction.referenceId is a UUID column; the GRN number is not one.
+                                referenceId: grn.id,
                                 userId: approvedById,
                                 items: {
                                     create: [{
@@ -298,7 +316,8 @@ export class ProjectGoodsReceiptService {
                 }
 
                 return grn;
-            });
+            // Stock, ledger and GL rows are written per line, so give a multi-line receipt more than the 5 s default.
+            }, { maxWait: 10_000, timeout: 60_000 });
             return goodsReceipt;
         } else {
             const goodsReceipt = await prisma.projectGoodsReceipt.update({

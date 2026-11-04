@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/prisma';
-import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { NotificationService } from '@/services/notification/notification.service';
 
 /** Cap per event: a role shared by many users must not turn one hand-off into a broadcast. */
@@ -24,27 +23,27 @@ export class WorkflowNotificationService {
         if (codes.length === 0) return [];
 
         const project = await prisma.project.findUnique({ where: { id: projectId }, select: { opmcId: true } });
+        // A project without an OPMC has no scoped owners; the caller falls back to project managers.
+        if (!project?.opmcId) return [];
+
         const roleMatch = {
             isActive: true,
             OR: codes.flatMap(code => [{ code }, { code: `${code}_GLOBAL` }, { code: { endsWith: `_${code}` } }]),
         };
+        // The OPMC scope is part of the query, not a post-filter: a common role such as ENGINEER has
+        // hundreds of holders nationwide, so capping first and filtering after would drop the
+        // few who are actually in scope. Users with the global capability are not matched here.
         const candidates = await prisma.user.findMany({
             where: {
                 status: 'active',
+                id: excludeUserId ? { not: excludeUserId } : undefined,
+                accessibleOpmcs: { some: { id: project.opmcId } },
                 OR: [{ systemRole: roleMatch }, { sectionAssignments: { some: { role: roleMatch } } }],
             },
             select: { id: true },
-            take: MAX_RECIPIENTS * 4,
+            take: MAX_RECIPIENTS,
         });
-
-        const recipients: string[] = [];
-        for (const { id } of candidates) {
-            if (id === excludeUserId) continue;
-            const scope = await resolveOpmcScope(id);
-            if (scope === undefined || (project?.opmcId && scope.includes(project.opmcId))) recipients.push(id);
-            if (recipients.length >= MAX_RECIPIENTS) break;
-        }
-        return recipients;
+        return candidates.map(c => c.id);
     }
 
     private static async deliver(params: {
