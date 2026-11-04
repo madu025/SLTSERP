@@ -80,6 +80,18 @@ const DASHBOARDS = [
 ];
  
 // ─── Main Page ────────────────────────────────────────────────────────────────
+/** API errors are `{ error: { code, message } }`; rendering that object in a toast crashes the page. */
+async function apiErrorMessage(res: Response, fallback: string): Promise<string> {
+    try {
+        const body = await res.json();
+        const error = body?.error;
+        if (typeof error === 'string') return error;
+        if (typeof error?.message === 'string') return error.message;
+        if (typeof body?.message === 'string') return body.message;
+    } catch { /* non-JSON error body */ }
+    return fallback;
+}
+
 export default function ProjectsPage() {
     const canWriteProjects = useCanonicalPermissions().includes(RBAC_PERMISSIONS.PROJECT_WRITE);
     const router = useRouter();
@@ -101,7 +113,7 @@ export default function ProjectsPage() {
     const [opmcs, setOpmcs] = useState<OPMCOption[]>([]);
     const [contractors, setContractors] = useState<ContractorOption[]>([]);
     const [newProject, setNewProject] = useState({
-        projectCode: '', name: '', projectTypeId: '', planningSource: 'GIS', parentId: ''
+        projectCode: '', name: '', projectTypeId: '', planningSource: 'GIS', parentId: '', opmcId: ''
     });
     const [newTypeDialogOpen, setNewTypeDialogOpen] = useState(false);
     const [newTypeName, setNewTypeName] = useState('');
@@ -202,12 +214,14 @@ export default function ProjectsPage() {
     const handleCreate = async () => {
         if (!newProject.name.trim() || !newProject.projectCode.trim()) { toast.error('Project Code and Name are required'); return; }
         if (!newProject.projectTypeId) { toast.error('Select a project type before creating the project'); return; }
+        // The OPMC is the project's data scope; the server rejects a project outside the creator's OPMCs.
+        if (!newProject.opmcId) { toast.error('Select the OPMC this project belongs to'); return; }
         try {
             const res = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newProject) });
-            if (!res.ok) { const e = await res.json(); toast.error(e.error || 'Failed'); return; }
+            if (!res.ok) { toast.error(await apiErrorMessage(res, 'Failed')); return; }
             toast.success('Project created');
             setCreateDialogOpen(false);
-            setNewProject({ projectCode: '', name: '', projectTypeId: '', planningSource: 'GIS', parentId: '' });
+            setNewProject({ projectCode: '', name: '', projectTypeId: '', planningSource: 'GIS', parentId: '', opmcId: '' });
             fetchProjects();
         } catch { toast.error('Failed to create project'); }
     };
@@ -217,7 +231,7 @@ export default function ProjectsPage() {
         try {
             setDeleting(true);
             const res = await fetch(`/api/projects/${projectToDelete.id}`, { method: 'DELETE' });
-            if (!res.ok) { const e = await res.json(); toast.error(e.error || 'Failed'); return; }
+            if (!res.ok) { toast.error(await apiErrorMessage(res, 'Failed')); return; }
             toast.success('Project deleted');
             setDeleteDialogOpen(false); setProjectToDelete(null); fetchProjects();
         } catch { toast.error('Failed to delete project'); }
@@ -229,7 +243,7 @@ export default function ProjectsPage() {
         try {
             setCreatingType(true);
             const res = await fetch('/api/projects/types', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newTypeName.trim(), description: newTypeDescription.trim() }) });
-            if (!res.ok) { const e = await res.json(); toast.error(e.error || 'Failed'); return; }
+            if (!res.ok) { toast.error(await apiErrorMessage(res, 'Failed')); return; }
             const created = await res.json();
             setNewProject(prev => ({
                 ...prev,
@@ -497,6 +511,15 @@ export default function ProjectsPage() {
                                  </SelectContent>
                              </Select>
                              <p className="text-[10px] text-muted-foreground">GIS is optional. Use CAD or Manual for CCTV, PABX, network and operations projects.</p>
+                         </div>
+                         <div className="space-y-1.5">
+                             <Label className="text-xs">OPMC *</Label>
+                             <Select value={newProject.opmcId} onValueChange={(v) => setNewProject({ ...newProject, opmcId: v })}>
+                                 <SelectTrigger className="h-8 text-xs bg-card border-border text-foreground"><SelectValue placeholder="Select OPMC" /></SelectTrigger>
+                                 <SelectContent>
+                                     {opmcs.map((o) => <SelectItem key={o.id} value={o.id}>{o.rtom}</SelectItem>)}
+                                 </SelectContent>
+                             </Select>
                          </div>
                          <div className="space-y-1.5">
                              <Label className="text-xs">Parent Project (optional)</Label>
