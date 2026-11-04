@@ -13,6 +13,7 @@ const PAGE_RULES: ReadonlyArray<{ prefix: string; permission: RbacPermission }> 
     { prefix: '/contractor', permission: RBAC_PERMISSIONS.CONTRACTOR_READ },
     { prefix: '/contractors', permission: RBAC_PERMISSIONS.CONTRACTOR_READ },
     { prefix: '/service-orders/invoicable', permission: RBAC_PERMISSIONS.SOD_INVOICE },
+    { prefix: '/service-orders/material-deviation', permission: RBAC_PERMISSIONS.SOD_INVOICE },
     { prefix: '/service-orders', permission: RBAC_PERMISSIONS.SOD_READ },
     { prefix: '/invoices', permission: RBAC_PERMISSIONS.SOD_INVOICE },
     { prefix: '/projects', permission: RBAC_PERMISSIONS.PROJECT_READ },

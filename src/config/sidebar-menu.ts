@@ -143,6 +143,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 permissionId: RBAC_PERMISSIONS.SOD_INVOICE
             },
             {
+                title: 'Material Deviation',
+                path: '/service-orders/material-deviation',
+                icon: Receipt,
+                permissionId: RBAC_PERMISSIONS.SOD_INVOICE
+            },
+            {
                 title: 'PAT Status Monitor',
                 path: '/service-orders/work-order/pat',
                 icon: ClipboardCheck,

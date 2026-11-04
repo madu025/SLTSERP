@@ -88,6 +88,7 @@ model InventoryItem {
   boqItems              ProjectBOQItem[]               @relation("BOQMaterials")
   projectReturnItems    ProjectMaterialReturnItem[]    @relation("ProjectReturnItems")
   sodUsage              SODMaterialUsage[]             @relation("SODUsage")
+  sltReportedUsage      SODSltReportedMaterial[]       @relation("SODSltReported")
   stockIssueItems       StockIssueItem[]               @relation("IssueItemsStock")
   requestItems          StockRequestItem[]
   cycleCountLines       CycleCountLine[]

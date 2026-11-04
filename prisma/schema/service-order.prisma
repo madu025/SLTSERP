@@ -76,6 +76,7 @@ model ServiceOrder {
   forensicAudit      SODForensicAudit?
   iptvSerials        SODIptvSerial[]
   materialUsage      SODMaterialUsage[]
+  sltReportedMaterials SODSltReportedMaterial[]
   contractor         Contractor?                 @relation(fields: [contractorId], references: [id])
   invoice            Invoice?                    @relation(fields: [invoiceId], references: [id])
   opmc               OPMC                        @relation(fields: [opmcId], references: [id], onDelete: Cascade)
@@ -203,6 +204,29 @@ model RestoreRequest {
   @@index([serviceOrderId])
   @@index([requestedById])
   @@index([approvedById])
+}
+
+/// What SLT itself reports for a service order (browser extension today, API later).
+/// Never touches stock or the ledger. It is only the reference that manually entered
+/// SODMaterialUsage rows are compared against to find deviations.
+model SODSltReportedMaterial {
+  id             String        @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  serviceOrderId String        @db.Uuid
+  itemId         String?       @db.Uuid
+  rawCode        String?
+  rawName        String?
+  quantity       Decimal       @db.Decimal(12, 4)
+  unit           String?
+  serialNumber   String?
+  source         String        @default("EXTENSION")
+  reportedBy     String?
+  reportedAt     DateTime      @default(now())
+  serviceOrder   ServiceOrder  @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  item           InventoryItem? @relation("SODSltReported", fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@index([serviceOrderId])
+  @@index([itemId])
+  @@index([source])
 }
 
 model SODMaterialUsage {

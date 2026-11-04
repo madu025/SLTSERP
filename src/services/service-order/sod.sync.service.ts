@@ -14,7 +14,7 @@ import { SodStatus, SOD_RETURN_STATUSES, backfillReceiptDate, orderRaiseDateFrom
 import { authorityActorFor, isTerminalSltsStatus } from '@/lib/constants/sod-status-policy';
 import { applySodStatus, countDecision } from './sync/sod-status.writer';
 import { SyncAuditService, syncCountersOf, tickWindow } from './sync/sync-audit.service';
-import { MaterialUsageInput } from '@/types/service-order/sod-sync.types';
+import { SODSltReportedMaterialService } from './sod-slt-reported-material.service';
 import { format, subMonths } from 'date-fns';
 import { safe } from '@/utils/safe-await.util';
 import { enqueueCronJob } from '@/lib/cron-enqueue';
@@ -2104,21 +2104,6 @@ export class SODSyncService {
     }) {
         const { soNum, allTabs, teamDetails, forensicAudit } = payload;
         if (!soNum) return;
-        const MATERIAL_MAP: Record<string, string> = {
-            'DROP WIRE': 'OSPFTA003',
-            'FTTH DROP WIRE': 'OSPFTA003',
-            'D-WIRE': 'OSPFTA003',
-            'DW': 'OSPFTA003',
-            'ONT': 'ONT',
-            'ONT ROUTER': 'ONT',
-            'IPTV': 'IPTV-CPE',
-            'STB': 'IPTV-CPE',
-            'SET TOP BOX': 'IPTV-CPE',
-            'PATCH CORD': 'OSPFTA004',
-            'P-CORD': 'OSPFTA004',
-            'OTO': 'OSPFTA005',
-            'ROSETTE': 'OSPFTA005'
-        };
 
         const masterData: Record<string, string> = {};
         if (allTabs) {
@@ -2578,163 +2563,8 @@ export class SODSyncService {
                 if (hasExistingManualUsage) {
                     console.log(`[BRIDGE-SYNC] Preserving ${existingManualMaterials.length} manual material record(s) for SO ${soNum}. Portal material overwrite skipped.`);
                 } else if (isCompleting || (updated.sltsStatus === SodStatus.COMPLETED && materialDetails.length > 0)) {
-                    const usagesInput: MaterialUsageInput[] = [];
-                    const unmappedMaterials: string[] = [];
-                    for (const mat of materialDetails) {
-                        const code = mat.CODE || mat.TYPE;
-                        const name = mat.NAME;
-                        const qty = parseFloat(String(mat.QTY || "0"));
-
-                        if (qty > 0 && (code || name)) {
-                            const targetSource = updated.materialSource || serviceOrder.materialSource || 'SLT';
-                            const targetType = (targetSource === 'SLTS' || targetSource === 'COMPANY') ? 'SLTS' : 'SLT';
-                            // Normalized keys for exact-match against admin-managed alias arrays
-                            const codeKey = code ? code.trim().toUpperCase() : "";
-                            const nameKey = name ? name.trim().toUpperCase() : "";
-
-                            // 1. Try finding item matching the SOD's materialSource type
-                            let item = await tx.inventoryItem.findFirst({
-                                where: {
-                                    type: targetType,
-                                    OR: [
-                                        { code: code ? code.trim().toUpperCase() : undefined },
-                                        { name: name ? { equals: name, mode: 'insensitive' } : undefined },
-                                        { importAliases: { has: code || "" } },
-                                        { importAliases: { has: name || "" } },
-                                        { importAliases: { has: codeKey } },
-                                        { importAliases: { has: nameKey } },
-                                        { scrapedAliases: { has: codeKey } },
-                                        { scrapedAliases: { has: nameKey } },
-                                        { bomAliases: { has: codeKey } },
-                                        { bomAliases: { has: nameKey } }
-                                    ]
-                                }
-                            });
-
-                            // 2. Fallback to any item type if specific type match is missing
-                            if (!item) {
-                                item = await tx.inventoryItem.findFirst({
-                                    where: {
-                                        OR: [
-                                            { code: code ? code.trim().toUpperCase() : undefined },
-                                            { name: name ? { equals: name, mode: 'insensitive' } : undefined },
-                                            { importAliases: { has: code || "" } },
-                                            { importAliases: { has: name || "" } },
-                                            { importAliases: { has: codeKey } },
-                                            { importAliases: { has: nameKey } },
-                                            { scrapedAliases: { has: codeKey } },
-                                            { scrapedAliases: { has: nameKey } },
-                                            { bomAliases: { has: codeKey } },
-                                            { bomAliases: { has: nameKey } }
-                                        ]
-                                    }
-                                });
-                            }
-
-                            if (!item) {
-                                const searchKey = (name || code || "").toUpperCase();
-                                let mappedCode = null;
-                                for (const [key, val] of Object.entries(MATERIAL_MAP)) {
-                                    if (searchKey.includes(key)) { mappedCode = val; break; }
-                                }
-                                if (mappedCode) {
-                                    item = await tx.inventoryItem.findFirst({ where: { code: mappedCode, type: targetType } }) ||
-                                           await tx.inventoryItem.findFirst({ where: { code: mappedCode } });
-                                }
-                            }
-
-                            // 4. Portal sends a single code, but the same physical material exists as
-                            //    separate SLT / SLTS items with different codes. If the matched item's
-                            //    type mismatches the SOD's materialSource, swap to the correct type
-                            //    variant sharing the same commonName group — only when the contractor
-                            //    actually holds stock of the variant (prevents negative-stock deductions).
-                            if (item && item.type !== targetType) {
-                                const groupName = item.commonName || item.name;
-                                const typeVariant = await tx.inventoryItem.findFirst({
-                                    where: {
-                                        type: targetType,
-                                        OR: [
-                                            { commonName: groupName },
-                                            { name: { equals: groupName, mode: 'insensitive' } }
-                                        ]
-                                    }
-                                });
-                                if (typeVariant) {
-                                    if (updated.contractorId) {
-                                        const variantStock = await tx.contractorStock.findUnique({
-                                            where: { contractorId_itemId: { contractorId: updated.contractorId, itemId: typeVariant.id } }
-                                        });
-                                        if (variantStock && Number(variantStock.quantity) >= qty) {
-                                            item = typeVariant;
-                                        }
-                                    } else {
-                                        item = typeVariant;
-                                    }
-                                }
-                            }
-
-                            const matSerial = mat.SERIAL || (mat.RAW ? (mat.RAW['SERIAL'] || mat.RAW['SERIAL NUMBER'] || mat.RAW['ONT_ROUTER_SERIAL_NUMBER_']) : null);
-                            if (item) {
-                                usagesInput.push({
-                                    itemId: item.id,
-                                    quantity: qty.toString(),
-                                    usageType: 'PORTAL_SYNC',
-                                    serialNumber: matSerial || undefined,
-                                    comment: `Auto-synced from Portal`
-                                });
-                            } else {
-                                unmappedMaterials.push(code || name || 'UNKNOWN_MATERIAL');
-                            }
-                        } else if (qty > 0) {
-                            unmappedMaterials.push(code || name || 'UNKNOWN_MATERIAL');
-                        }
-                    }
-
-                    if (unmappedMaterials.length > 0) {
-                        throw AppError.badRequest(
-                            `UNMAPPED_SOD_MATERIAL: ${[...new Set(unmappedMaterials)].join(', ')}`
-                        );
-                    }
-
-                    if (usagesInput.length > 0) {
-                        const { InventoryService } = await import('../inventory');
-                        const isMaterialRefresh = updated.sltsStatus === SodStatus.COMPLETED && !isCompleting;
-                        if (isMaterialRefresh) {
-                            await LedgerService.rollbackSodTransaction(
-                                tx,
-                                updated.id,
-                                `Reversal for Portal Material Refresh on SOD: ${updated.id}`,
-                                ['SOD_CONSUMPTION']
-                            );
-                        }
-
-                        await SODMaterialService.processMaterialUsage(
-                            tx,
-                            updated.id,
-                            updated.opmcId,
-                            updated.contractorId,
-                            usagesInput,
-                            InventoryService,
-                            payload.currentUser || 'BRIDGE_SYNC'
-                        );
-
-                        const updatedWithUsages = await tx.serviceOrder.findUnique({
-                            where: { id: updated.id },
-                            include: { materialUsage: true }
-                        });
-                        const usages = updatedWithUsages?.materialUsage || [];
-                        const totalSodMaterialCost = usages.reduce((sum, u) => sum.add(new Prisma.Decimal(u.costPrice || 0).mul(new Prisma.Decimal(u.quantity))), new Prisma.Decimal(0));
-                        await LedgerService.logSodConsumption(
-                            tx,
-                            updated.id,
-                            totalSodMaterialCost.toNumber(),
-                            undefined,
-                            isMaterialRefresh
-                                ? { idempotencyKey: `SOD_CONSUMPTION_${updated.id}_REVISION_${updated.updatedAt.getTime()}` }
-                                : undefined
-                        );
-                    }
-
+                    // SLT-reported material is stored by recordSltReportedMaterial (reference only). Stock and the
+                    // consumption ledger are driven by the manual entry, never by this push.
                     if (updated.revenueAmount) {
                         await LedgerService.logSodRevenue(tx, updated.id, Number(updated.revenueAmount));
                     }
@@ -2904,180 +2734,15 @@ export class SODSyncService {
             });
         }
 
-        const hasExistingManualUsageInOrder = (serviceOrder?.materialUsage || []).some(
-            m => m.usageType !== 'PORTAL_SYNC'
-        );
-
-        if (!hasExistingManualUsageInOrder && materialDetails.length > 0 && syncedOrder && syncedOrder.sltsStatus !== 'COMPLETED') {
-            // Resolve items first and aggregate quantities by unique constraint key:
-            // (itemId, validatedSerial) to prevent P2002 unique constraint violations on uq_sod_material_usage_line.
-            const resolvedUsages = new Map<string, {
-                itemId: string;
-                itemCode: string;
-                quantity: number;
-                unit: string;
-                serialNumber: string | null;
-                unitPrice: number;
-                costPrice: number;
-                commentText: string;
-            }>();
-
-            for (const mat of materialDetails) {
-                const code = mat.CODE || mat.TYPE;
-                const name = mat.NAME;
-                const qty = parseFloat(String(mat.QTY || "0"));
-
-                if (qty > 0 && (code || name)) {
-                    const targetSource = syncedOrder.materialSource || 'SLT';
-                    const targetType = (targetSource === 'SLTS' || targetSource === 'COMPANY') ? 'SLTS' : 'SLT';
-                    // Normalized keys for exact-match against admin-managed alias arrays
-                    const codeKey = code ? code.trim().toUpperCase() : "";
-                    const nameKey = name ? name.trim().toUpperCase() : "";
-
-                    let item = await prisma.inventoryItem.findFirst({
-                        where: {
-                            type: targetType,
-                            OR: [
-                                { code: code ? code.trim().toUpperCase() : undefined },
-                                { name: name ? { equals: name, mode: 'insensitive' } : undefined },
-                                { importAliases: { has: code || "" } },
-                                { importAliases: { has: name || "" } },
-                                { importAliases: { has: codeKey } },
-                                { importAliases: { has: nameKey } },
-                                { scrapedAliases: { has: codeKey } },
-                                { scrapedAliases: { has: nameKey } },
-                                { bomAliases: { has: codeKey } },
-                                { bomAliases: { has: nameKey } }
-                            ]
-                        }
-                    });
-
-                    if (!item) {
-                        item = await prisma.inventoryItem.findFirst({
-                            where: {
-                                OR: [
-                                    { code: code ? code.trim().toUpperCase() : undefined },
-                                    { name: name ? { equals: name, mode: 'insensitive' } : undefined },
-                                    { importAliases: { has: code || "" } },
-                                    { importAliases: { has: name || "" } },
-                                    { importAliases: { has: codeKey } },
-                                    { importAliases: { has: nameKey } },
-                                    { scrapedAliases: { has: codeKey } },
-                                    { scrapedAliases: { has: nameKey } },
-                                    { bomAliases: { has: codeKey } },
-                                    { bomAliases: { has: nameKey } }
-                                ]
-                            }
-                        });
-                    }
-
-                    if (!item) {
-                        const searchKey = (name || code || "").toUpperCase();
-                        let mappedCode = null;
-                        for (const [key, val] of Object.entries(MATERIAL_MAP)) {
-                            if (searchKey.includes(key)) { mappedCode = val; break; }
-                        }
-                        if (mappedCode) {
-                            item = await prisma.inventoryItem.findFirst({ where: { code: mappedCode, type: targetType } }) ||
-                                   await prisma.inventoryItem.findFirst({ where: { code: mappedCode } });
-                        }
-                    }
-
-                    // Portal sends a single code; resolve to the SLT/SLTS type variant
-                    // sharing the same commonName group when types mismatch — only when
-                    // the contractor actually holds stock of the variant (prevents
-                    // negative-stock deductions once the SOD completes).
-                    if (item && item.type !== targetType) {
-                        const groupName = item.commonName || item.name;
-                        const typeVariant = await prisma.inventoryItem.findFirst({
-                            where: {
-                                type: targetType,
-                                OR: [
-                                    { commonName: groupName },
-                                    { name: { equals: groupName, mode: 'insensitive' } }
-                                ]
-                            }
-                        });
-                        if (typeVariant) {
-                            if (syncedOrder.contractorId) {
-                                const variantStock = await prisma.contractorStock.findUnique({
-                                    where: { contractorId_itemId: { contractorId: syncedOrder.contractorId, itemId: typeVariant.id } }
-                                });
-                                if (variantStock && Number(variantStock.quantity) >= qty) {
-                                    item = typeVariant;
-                                }
-                            } else {
-                                item = typeVariant;
-                            }
-                        }
-                    }
-
-                    const matSerial = mat.SERIAL || (mat.RAW ? (mat.RAW['SERIAL'] || mat.RAW['SERIAL NUMBER'] || mat.RAW['ONT_ROUTER_SERIAL_NUMBER_']) : null);
-                    if (item) {
-                        let validatedSerial: string | null = null;
-                        const serialCandidate = matSerial ? String(matSerial).trim() : null;
-                        if (serialCandidate) {
-                            const existingSerial = await prisma.inventoryItemSerial.findUnique({
-                                where: { serialNumber: serialCandidate },
-                                select: { serialNumber: true }
-                            });
-                            if (existingSerial) {
-                                validatedSerial = existingSerial.serialNumber;
-                            }
-                        }
-
-                        const commentText = serialCandidate && !validatedSerial
-                            ? `Auto-synced from Portal (Serial: ${serialCandidate})`
-                            : `Auto-synced from Portal`;
-
-                        const aggKey = `${item.id}|${validatedSerial || ''}`;
-                        const existing = resolvedUsages.get(aggKey);
-                        if (existing) {
-                            existing.quantity += qty;
-                        } else {
-                            resolvedUsages.set(aggKey, {
-                                itemId: item.id,
-                                itemCode: item.code,
-                                quantity: qty,
-                                unit: item.unit || "Nos",
-                                serialNumber: validatedSerial,
-                                unitPrice: item.unitPrice ? Number(item.unitPrice) : 0,
-                                costPrice: item.costPrice ? Number(item.costPrice) : 0,
-                                commentText
-                            });
-                        }
-                    }
-                }
-            }
-
-            if (resolvedUsages.size > 0) {
-                const targetOrderId = syncedOrder.id;
-                const [syncUsageErr] = await safe(prisma.$transaction(async (tx) => {
-                    await tx.sODMaterialUsage.deleteMany({
-                        where: { serviceOrderId: targetOrderId, usageType: 'PORTAL_SYNC' }
-                    });
-
-                    for (const usage of resolvedUsages.values()) {
-                        await tx.sODMaterialUsage.create({
-                            data: {
-                                serviceOrderId: targetOrderId,
-                                itemId: usage.itemId,
-                                quantity: usage.quantity,
-                                unit: usage.unit,
-                                usageType: 'PORTAL_SYNC',
-                                serialNumber: usage.serialNumber,
-                                unitPrice: usage.unitPrice,
-                                costPrice: usage.costPrice,
-                                comment: usage.commentText
-                            }
-                        });
-                    }
-                }));
-
-                if (syncUsageErr) {
-                    console.error(`[BRIDGE-SYNC] Failed to atomic sync material usages for SO ${syncedOrder.soNum}:`, syncUsageErr);
-                }
-            }
+        // SLT-reported material: kept as reference data for the manual-vs-SLT deviation check.
+        // It never creates SODMaterialUsage rows, moves stock or posts to the ledger.
+        if (materialDetails.length > 0 && syncedOrder) {
+            const [reportErr] = await safe(SODSltReportedMaterialService.record(prisma as unknown as import('@/types/inventory/inventory-service.types').TransactionClient, syncedOrder.id, materialDetails, {
+                materialSource: syncedOrder.materialSource,
+                source: 'EXTENSION',
+                reportedBy: payload.currentUser || null,
+            }));
+            if (reportErr) console.error(`[BRIDGE-SYNC] Failed to record SLT-reported material for SO ${soNum}:`, reportErr);
         }
 
         await safe((async () => {
