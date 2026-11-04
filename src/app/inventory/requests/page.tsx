@@ -972,7 +972,7 @@ export default function RequestsPage() {
                                     ) : selectedRequest.workflowStage === 'PROCUREMENT' ? (
                                         canProcurementWrite ? (
                                             <Button
-                                                onClick={() => approvalMutation.mutate({ action: 'CREATE_PO' })}
+                                                onClick={() => { window.location.href = '/procurement/orders'; }}
                                                 disabled={approvalMutation.isPending}
                                                 className="h-9 px-4 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-md transition-transform active:scale-95"
                                             >

@@ -11,7 +11,7 @@ export const POST = apiHandler(async (_request, params, body) => {
     const requestId = body.requestId as string | undefined;
     const action = body.action as string | undefined;
     const remarks = body.remarks as string | undefined;
-    const allocation = body.allocation as { id: string; approvedQty?: number; issuedQty?: number; receivedQty?: number }[] | undefined;
+    const allocation = body.allocation as { id: string; approvedQty?: number; issuedQty?: number; receivedQty?: number; orderQty?: number }[] | undefined;
 
     if (!requestId || !action) {
         throw AppError.badRequest('Missing required fields');
@@ -22,7 +22,13 @@ export const POST = apiHandler(async (_request, params, body) => {
         action: action as StockRequestActionData['action'],
         userId,
         remarks,
-        items: allocation
+        items: allocation,
+        // procurement fields: without them CREATE_PO / UPDATE_PROCUREMENT_STATUS fail through this route
+        poNumber: body.poNumber as string | undefined,
+        vendor: body.vendor as string | undefined,
+        expectedDelivery: body.expectedDelivery as string | undefined,
+        procurementStatus: body.procurementStatus as string | undefined,
+        instanceId: body.instanceId as string | undefined,
     });
 
     return result;

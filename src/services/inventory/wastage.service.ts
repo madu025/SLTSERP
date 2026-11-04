@@ -1,4 +1,7 @@
 import { randomUUID } from 'crypto';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { getUserEffectivePermissions } from '@/lib/user-permissions';
+import { isValidUuid } from '@/lib/uuid';
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { StockService } from './stock.service';
@@ -11,6 +14,14 @@ import { ContractorRepository } from '@/repositories/contractor.repository';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 
 export class WastageService {
+    /** Segregation of duties: whoever reported a wastage cannot approve or reject it (admin escalation excepted). */
+    private static async assertNotReporter(reportedById: string | null | undefined, userId: string) {
+        if (!reportedById || reportedById !== userId) return;
+        const permissions = await getUserEffectivePermissions(userId);
+        if (permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC)) return;
+        throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: The person who reported a wastage cannot approve or reject it.');
+    }
+
     /**
      * Record a new wastage incident. 
      * Includes logic for automatic approval vs pending based on item settings.
@@ -90,6 +101,7 @@ export class WastageService {
                             ? `[EXCESS_WASTAGE: ${excessDetails.join(', ')}] ${description || reason || ''}`
                             : (description || reason),
                         status: status,
+                        reportedById: userId && isValidUuid(userId) ? userId : null,
                         items: {
                             create: items.map((item) => ({
                                 itemId: item.itemId,
@@ -235,6 +247,7 @@ export class WastageService {
 
             if (wastage) {
                 if (wastage.status !== 'PENDING') throw AppError.badRequest('ALREADY_PROCESSED');
+                await WastageService.assertNotReporter(wastage.reportedById, userId);
 
                 const itemIds = wastage.items.map((i) => i.itemId);
                 const itemMetas = await tx.inventoryItem.findMany({ select: { id: true, name: true, unitPrice: true, costPrice: true, maxWastagePercentage: true, isWastageAllowed: true },
@@ -399,6 +412,7 @@ export class WastageService {
 
             if (wastage) {
                 if (wastage.status !== 'PENDING') throw AppError.badRequest('ALREADY_PROCESSED');
+                await WastageService.assertNotReporter(wastage.reportedById, userId);
 
                 // Update Status to REJECTED
                 

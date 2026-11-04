@@ -197,6 +197,18 @@ export class GRNService {
                     batchId: batch.id
                 });
 
+                // D2. Serial-tracked items must arrive with exactly one distinct serial per unit
+                const itemMeta = dbItems.find((d) => d.id === item.itemId);
+                const snAll: string[] = (item.serials ?? []).map((s: string) => s.trim()).filter(Boolean);
+                if (itemMeta?.hasSerial) {
+                    if (snAll.length !== Number(qty)) {
+                        throw AppError.badRequest(`SERIAL_COUNT_MISMATCH: ${itemMeta.name} needs ${qty} serial number(s), received ${snAll.length}`);
+                    }
+                    if (new Set(snAll).size !== snAll.length) {
+                        throw AppError.badRequest(`DUPLICATE_SERIAL_IN_REQUEST: ${itemMeta.name} has repeated serial numbers`);
+                    }
+                }
+
                 // E. If the item is serialized, upsert serial records in bulk
                 if (item.serials && Array.isArray(item.serials) && item.serials.length > 0) {
                     const snList = item.serials.map((s: string) => s.trim()).filter(Boolean);
@@ -212,6 +224,10 @@ export class GRNService {
                         for (const sn of snList) {
                             const existing = existingMap.get(sn);
                             if (existing) {
+                                // A serial that is in the store, issued or installed must not be received again
+                                if (['IN_STORE', 'ISSUED', 'INSTALLED'].includes(existing.status)) {
+                                    throw AppError.badRequest(`SERIAL_ALREADY_IN_USE: ${sn} is ${existing.status}`);
+                                }
                                 toUpdateIds.push(existing.id);
                             } else {
                                 toCreateData.push({

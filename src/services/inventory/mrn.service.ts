@@ -214,10 +214,12 @@ export class MRNService {
                         });
                     }
 
-                    const updatedStoreStock = await tx.inventoryStock.upsert({
+                    // update, never upsert: an upsert's INSERT branch carries a negative quantity, which the
+                    // fn_prevent_negative_stock BEFORE INSERT trigger rejects even when the row already exists.
+                    // The FIFO pick above already proved the stock row and its batches exist.
+                    const updatedStoreStock = await tx.inventoryStock.update({
                         where: { storeId_itemId: { storeId, itemId: item.itemId } },
-                        update: { quantity: { decrement: item.quantity } },
-                        create: { storeId, itemId: item.itemId, quantity: -item.quantity }
+                        data: { quantity: { decrement: item.quantity } }
                     });
 
                     // Write Immutable Inventory Ledger Entry

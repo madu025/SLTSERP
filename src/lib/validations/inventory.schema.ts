@@ -33,7 +33,9 @@ export const materialIssueSchema = z.object({
     items: z.array(z.object({
         itemId: z.string().min(1),
         quantity: z.union([z.string(), z.number()]).transform(v => typeof v === 'string' ? parseFloat(v) : v),
-        unit: z.string().optional()
+        unit: z.string().optional(),
+        // serial-tracked items: the serial numbers handed over (verified against the store by the issue service)
+        serials: z.array(z.string()).optional()
     })).min(1, "At least one item is required")
 });
 

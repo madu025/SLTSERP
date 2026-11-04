@@ -152,6 +152,17 @@ export class SODMaterialService {
                 // Update serial number status if the item is serialized
                 if (itemMeta.hasSerial && m.serialNumber) {
                     const serialNum = m.serialNumber.trim();
+                    const serialRecord = await tx.inventoryItemSerial.findUnique({ where: { serialNumber: serialNum } });
+                    if (!serialRecord) throw AppError.badRequest(`SERIAL_NOT_FOUND: ${serialNum}`);
+                    if (serialRecord.itemId !== m.itemId) {
+                        throw AppError.badRequest(`SERIAL_ITEM_MISMATCH: Serial ${serialNum} does not belong to ${itemMeta.name}`);
+                    }
+                    const heldHere = contractorId
+                        ? serialRecord.status === 'ISSUED' && serialRecord.contractorId === contractorId
+                        : serialRecord.status === 'IN_STORE' && serialRecord.storeId === storeId;
+                    if (!heldHere) {
+                        throw AppError.badRequest(`SERIAL_NOT_AVAILABLE: Serial ${serialNum} is ${serialRecord.status} and is not held by ${contractorId ? 'this contractor' : 'this store'}`);
+                    }
                     await tx.inventoryItemSerial.update({
                         where: { serialNumber: serialNum },
                         data: {

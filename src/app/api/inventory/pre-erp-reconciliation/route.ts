@@ -1,4 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 import { AppError } from '@/lib/error';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { PreErpReconciliationService } from '@/services/inventory/pre-erp-reconciliation.service';
@@ -9,8 +10,8 @@ import { z } from 'zod';
 export const dynamic = 'force-dynamic';
 
 const SingleBalanceSchema = z.object({
-  opmcId: z.string().uuid(),
-  itemId: z.string().uuid(),
+  opmcId: databaseUuidSchema,
+  itemId: databaseUuidSchema,
   year: z.number().int().min(2020).max(2100),
   month: z.enum(['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']),
   carryForwardQuantity: z.number().finite().min(0),

@@ -792,7 +792,7 @@ export class StockRequestService {
                 await InventoryRepository.createTransaction({
                     type: 'TRANSFER_OUT',
                     storeId: stockReq.toStoreId!,
-                    referenceId: stockReq.requestNr,
+                    referenceId: stockReq.id,
                     userId: userId || 'SYSTEM',
                     notes: `Released to Transit (Partial/Full) - Request ${stockReq.requestNr}`,
                     items: {
@@ -805,7 +805,7 @@ export class StockRequestService {
                 await InventoryRepository.createTransaction({
                     type: 'TRANSFER_IN',
                     storeId: transitStoreId,
-                    referenceId: stockReq.requestNr,
+                    referenceId: stockReq.id,
                     userId: userId || 'SYSTEM',
                     notes: `Transit incoming from Main Store (Partial/Full) - Request ${stockReq.requestNr}`,
                     items: {
@@ -852,7 +852,7 @@ export class StockRequestService {
             const allMovements = await prismaTx.inventoryTransactionItem.findMany({
                 where: {
                     transaction: {
-                        referenceId: stockReq.requestNr,
+                        referenceId: stockReq.id,
                         storeId: transitStoreId
                     },
                     itemId: { in: itemIds }
@@ -1010,7 +1010,7 @@ export class StockRequestService {
                 await InventoryRepository.createTransaction({
                     type: 'TRANSFER_OUT',
                     storeId: transitStoreId,
-                    referenceId: stockReq.requestNr,
+                    referenceId: stockReq.id,
                     userId: userId || 'SYSTEM',
                     notes: `Transit outgoing to Sub Store - Request ${stockReq.requestNr}`,
                     items: {
@@ -1023,7 +1023,7 @@ export class StockRequestService {
                 await InventoryRepository.createTransaction({
                     type: 'TRANSFER_IN',
                     storeId: stockReq.fromStoreId!,
-                    referenceId: stockReq.requestNr,
+                    referenceId: stockReq.id,
                     userId: userId || 'SYSTEM',
                     notes: `Received from Transit - Request ${stockReq.requestNr}`,
                     items: {

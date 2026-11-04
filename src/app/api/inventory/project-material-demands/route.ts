@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
@@ -9,20 +10,20 @@ export const dynamic = 'force-dynamic';
 const actionSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('SYNC'),
-    projectId: z.string().uuid(),
+    projectId: databaseUuidSchema,
   }),
   z.object({
     action: z.literal('RESERVE_AVAILABLE'),
-    projectId: z.string().uuid(),
-    storeId: z.string().uuid(),
-    requirementIds: z.array(z.string().uuid()).optional(),
+    projectId: databaseUuidSchema,
+    storeId: databaseUuidSchema,
+    requirementIds: z.array(databaseUuidSchema).optional(),
     notes: z.string().max(500).optional(),
   }),
   z.object({
     action: z.literal('CREATE_SOURCE_REQUEST'),
-    requirementId: z.string().uuid(),
+    requirementId: databaseUuidSchema,
     sourceType: z.enum(['SLT', 'LOCAL_PURCHASE']),
-    storeId: z.string().uuid(),
+    storeId: databaseUuidSchema,
     requestedQty: z.number().positive().optional(),
     requiredDate: z.string().datetime().optional(),
     notes: z.string().max(500).optional(),

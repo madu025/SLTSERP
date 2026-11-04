@@ -1,4 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 import { PeriodCloseService } from '@/services/finance/period-close.service';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { z } from 'zod';
@@ -9,7 +10,7 @@ export const dynamic = 'force-dynamic';
 const noteSchema = z.object({
     noteNumber: z.string().trim().max(80).optional(),
     type: z.enum(['CREDIT_NOTE', 'DEBIT_NOTE']).default('CREDIT_NOTE'),
-    invoiceId: z.string().uuid().optional(),
+    invoiceId: databaseUuidSchema.optional(),
     amount: z.number().finite().positive().refine((value) => Number.isInteger(value * 100), 'Amount must have at most two decimal places'),
     reason: z.string().trim().min(2).max(1000),
 });

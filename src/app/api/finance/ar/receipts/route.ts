@@ -1,4 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 import { ArApService } from '@/services/finance/ar-ap.service';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { assertProjectAccess } from '@/lib/project-access';
@@ -13,8 +14,8 @@ export const dynamic = 'force-dynamic';
 
 const receiptSchema = z.object({
     receiptNumber: z.string().trim().max(80).optional(),
-    customerId: z.string().uuid().optional(),
-    invoiceId: z.string().uuid().optional(),
+    customerId: databaseUuidSchema.optional(),
+    invoiceId: databaseUuidSchema.optional(),
     amount: z.number().finite().positive(),
     paymentMethod: z.enum(['BANK_TRANSFER', 'CHEQUE', 'CASH']).optional(),
     referenceNumber: z.string().trim().max(120).optional(),

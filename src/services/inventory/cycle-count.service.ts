@@ -22,6 +22,46 @@ export interface SubmitCycleCountLineInput {
 }
 
 export class CycleCountService {
+    /**
+     * Keep InventoryBatchStock in step with an approved variance. FIFO picking reads batches, so a count that only
+     * touched InventoryStock left "ghost" stock that could be issued but did not exist.
+     * Shortage: take from the counted batch first, then oldest batches. Surplus: add to the counted batch, or to the
+     * most recently touched batch, or open an adjustment batch when the store holds none.
+     */
+    private static async applyBatchVariance(tx: TransactionClient, storeId: string, itemId: string, preferredBatchId: string | null | undefined, varQty: number, countNumber: string) {
+        if (varQty < 0) {
+            let remaining = -varQty;
+            const rows = await tx.inventoryBatchStock.findMany({
+                where: { storeId, itemId, quantity: { gt: 0 } },
+                include: { batch: { select: { createdAt: true } } },
+            });
+            rows.sort((a, b) => {
+                if (preferredBatchId) {
+                    const pa = a.batchId === preferredBatchId ? 0 : 1;
+                    const pb = b.batchId === preferredBatchId ? 0 : 1;
+                    if (pa !== pb) return pa - pb;
+                }
+                return a.batch.createdAt.getTime() - b.batch.createdAt.getTime();
+            });
+            for (const row of rows) {
+                if (remaining <= 0) break;
+                const take = Math.min(Number(row.quantity), remaining);
+                await tx.inventoryBatchStock.update({ where: { id: row.id }, data: { quantity: { decrement: take } } });
+                remaining -= take;
+            }
+            return;
+        }
+        const target = preferredBatchId
+            ? await tx.inventoryBatchStock.findFirst({ where: { storeId, itemId, batchId: preferredBatchId } })
+            : await tx.inventoryBatchStock.findFirst({ where: { storeId, itemId }, orderBy: { updatedAt: 'desc' } });
+        if (target) {
+            await tx.inventoryBatchStock.update({ where: { id: target.id }, data: { quantity: { increment: varQty } } });
+            return;
+        }
+        const batch = await tx.inventoryBatch.create({ data: { batchNumber: `CC-ADJ-${countNumber}`, itemId, initialQty: varQty } });
+        await tx.inventoryBatchStock.create({ data: { storeId, itemId, batchId: batch.id, quantity: varQty } });
+    }
+
     static async createCycleCount(data: CreateCycleCountInput) {
         const store = await prisma.inventoryStore.findUnique({
             where: { id: data.storeId }
@@ -259,6 +299,8 @@ export class CycleCountService {
                         quantity: Number(line.countedQty)
                     }
                 });
+
+                await CycleCountService.applyBatchVariance(tx, header.storeId, line.itemId, line.batchId, varQty, header.countNumber);
 
                 // Write immutable Inventory Ledger entry (approved correction path)
                 await AuditLedgerService.recordEntry({

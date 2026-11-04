@@ -271,6 +271,7 @@ model ContractorWastage {
   month        String
   description  String?
   status       String                  @default("APPROVED")
+  reportedById String?                 @db.Uuid
   approvedById String?                 @db.Uuid
   approvedAt   DateTime?
   createdAt    DateTime                @default(now())

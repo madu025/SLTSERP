@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { ProcessGateAdminService } from '@/services/admin/process-gate.service';
 import { z } from 'zod';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 import { AppError } from '@/lib/error';
 
 // specificUserId targets a @db.Uuid FK — validate format to avoid P2023 runtime errors
@@ -10,7 +11,7 @@ const levelSchema = z.object({
   eligibleRoles: z.array(z.string().min(1)).default([]),
   // Compatibility/display snapshot only; authorization never trusts this.
   requiredRole: z.string().min(1).optional(),
-  specificUserId: z.string().uuid('specificUserId must be a valid UUID').optional().nullable(),
+  specificUserId: databaseUuidSchema.optional().nullable(),
   description: z.string().max(500).optional().nullable(),
   minAmount: z.number().nonnegative().optional().nullable(),
   maxAmount: z.number().nonnegative().optional().nullable(),
