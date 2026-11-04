@@ -45,7 +45,7 @@ export function OrderAssignmentSection({
                     type="button"
                     onClick={() => onAssignmentTypeChange('CONTRACTOR')}
                     className={cn(
-                        "flex-1 h-7 text-xs font-bold rounded transition-all flex items-center justify-center gap-2",
+                        "flex-1 h-9 text-sm font-bold rounded transition-all flex items-center justify-center gap-2",
                         assignmentType === 'CONTRACTOR' 
                             ? "bg-blue-600 text-white shadow-sm" 
                             : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
@@ -57,7 +57,7 @@ export function OrderAssignmentSection({
                     type="button"
                     onClick={() => onAssignmentTypeChange('DIRECT_TEAM')}
                     className={cn(
-                        "flex-1 h-7 text-xs font-bold rounded transition-all flex items-center justify-center gap-2",
+                        "flex-1 h-9 text-sm font-bold rounded transition-all flex items-center justify-center gap-2",
                         assignmentType === 'DIRECT_TEAM' 
                             ? "bg-blue-600 text-white shadow-sm" 
                             : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
@@ -68,25 +68,25 @@ export function OrderAssignmentSection({
             </div>
 
             {assignmentType === 'CONTRACTOR' ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div className="space-y-0.5">
-                        <Label className="text-[9px] font-bold text-slate-500 uppercase">Contractor</Label>
+                <div className="grid grid-cols-1 gap-3">
+                    <div className="space-y-1 min-w-0">
+                        <Label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Contractor</Label>
                         <Select value={selectedContractorId} onValueChange={onContractorChange}>
-                            <SelectTrigger className="h-7 border-slate-200 dark:border-slate-700 text-xs bg-white dark:bg-slate-900">
+                            <SelectTrigger className="w-full h-10 border-slate-300 dark:border-slate-700 text-sm bg-white dark:bg-slate-900">
                                 <SelectValue placeholder="Select Contractor" />
                             </SelectTrigger>
                             <SelectContent className="max-h-[200px]">
                                 {contractors.map(c => (
-                                    <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+                                    <SelectItem key={c.id} value={c.id} className="text-sm">{c.name}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                     </div>
 
-                    <div className="space-y-0.5">
-                        <Label className="text-[9px] font-bold text-slate-500 uppercase">Team</Label>
+                    <div className="space-y-1 min-w-0">
+                        <Label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Team</Label>
                         <Select value={selectedTeamId} onValueChange={onTeamChange} disabled={!selectedContractorId}>
-                            <SelectTrigger className="h-7 border-slate-200 dark:border-slate-700 text-xs bg-white dark:bg-slate-900">
+                            <SelectTrigger className="w-full h-10 border-slate-300 dark:border-slate-700 text-sm bg-white dark:bg-slate-900">
                                 <SelectValue placeholder={availableTeams.length > 0 ? "Select Team" : "No Teams found"} />
                             </SelectTrigger>
                             <SelectContent className="max-h-[200px]">
@@ -106,13 +106,13 @@ export function OrderAssignmentSection({
                     </div>
                 </div>
             ) : (
-                <div className="space-y-0.5">
-                    <Label className="text-[9px] font-bold text-slate-500 uppercase">Direct Team Name / Identifier</Label>
+                <div className="space-y-1 min-w-0">
+                    <Label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Direct Team Name / Identifier</Label>
                     <Input 
                         placeholder="e.g. SLT Maintenance Team A" 
                         value={directTeamName}
                         onChange={(e) => onDirectTeamNameChange(e.target.value)}
-                        className="h-7 text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                        className="h-10 text-sm bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700"
                     />
                 </div>
             )}

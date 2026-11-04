@@ -206,10 +206,12 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     });
 
     const { data: contractors = [] } = useQuery<Contractor[]>({
-        queryKey: ["contractors", selectedRtomId],
+        queryKey: ["sod-contractors", selectedRtomId],
         queryFn: async () => {
-            const rtomParam = selectedRtomId && selectedRtomId !== 'ALL' ? `?rtomId=${selectedRtomId}&limit=1000` : `?limit=1000`;
-            const res = await fetch(`/api/admin/contractors${rtomParam}`);
+            // /api/contractors (CONTRACTOR_READ, OPMC scoped) instead of the ADMIN-only /api/admin/contractors,
+            // which returned an empty list for every non-admin staff member.
+            const rtomParam = selectedRtomId && selectedRtomId !== 'ALL' ? `&rtomId=${selectedRtomId}` : '';
+            const res = await fetch(`/api/contractors?type=SOD&status=ACTIVE&limit=1000${rtomParam}`);
             const json = (await res.json()) as Record<string, unknown>;
             const actualData = (json?.success && json?.data ? json.data : json) as Record<string, unknown>;
             return (actualData?.contractors || []) as Contractor[];

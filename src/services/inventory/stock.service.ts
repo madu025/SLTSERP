@@ -187,7 +187,9 @@ export class StockService {
         const shortageRow = pickedBatches.find(p => p.batchId === null);
         if (shortageRow) {
             if (!allowShortage) {
-                throw AppError.badRequest(`INSUFFICIENT_CONTRACTOR_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${shortageRow.quantity}`);
+                const item = await tx.inventoryItem.findUnique({ where: { id: itemId }, select: { code: true, name: true, unit: true } });
+                const label = item ? `${item.code} ${item.name}` : itemId;
+                throw AppError.badRequest(`INSUFFICIENT_CONTRACTOR_STOCK: ${label} - the contractor's in-hand stock is short by ${shortageRow.quantity}${item?.unit ? ' ' + item.unit : ''}`);
             }
         }
 

@@ -168,14 +168,14 @@ export function SODMaterialMatrixGrid({
                                         >
                                             <div className="flex-1 min-w-0 pr-1">
                                                 <div className="flex items-baseline gap-1.5">
-                                                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                                                    <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
                                                         {item.name}
                                                     </span>
-                                                    <span className="text-[9px] font-mono text-slate-500 dark:text-slate-400 shrink-0 font-bold bg-white dark:bg-slate-800 px-1 py-0.2 rounded border border-slate-200 dark:border-slate-700">
+                                                    <span className="text-[11px] font-mono text-slate-700 dark:text-slate-300 shrink-0 font-bold bg-white dark:bg-slate-800 px-1 py-0.2 rounded border border-slate-200 dark:border-slate-700">
                                                         {item.header}
                                                     </span>
                                                 </div>
-                                                <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                                                <span className="text-xs text-slate-600 dark:text-slate-400">
                                                     Unit: {item.unit}
                                                 </span>
                                             </div>
@@ -190,7 +190,7 @@ export function SODMaterialMatrixGrid({
                                                     onFocus={(e) => e.target.select()}
                                                     onChange={(e) => onUpdateMatrixValue(item.key, e.target.value)}
                                                     className={cn(
-                                                        "h-7 w-20 text-center font-mono font-bold text-xs transition-all",
+                                                        "h-10 w-24 text-center font-mono font-bold text-base transition-all",
                                                         hasValue
                                                             ? "bg-white dark:bg-slate-950 border-emerald-500 text-emerald-950 dark:text-emerald-200 ring-2 ring-emerald-500/20"
                                                             : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 focus:border-blue-400"
