@@ -1,5 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { evaluateOtdrEvidence } from '@/lib/otdr-gate';
+import { statusForStage, STATUS_NOT_STAGE_DRIVEN } from '@/lib/project-stage-status';
 import { updateProjectProgressOnStageChange } from '@/lib/project-progress';
 import { isCanonicalPermission, RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
@@ -243,6 +245,15 @@ export class WorkflowEngine {
       }
     }
 
+    // Check 2b: OTDR acceptance evidence (traces within limits) where the stage requires it
+    if (stage.reqOTDR) {
+      const tests = await prisma.oTDRTest.findMany({
+        where: { projectId: stage.projectWorkflowInstance.projectId },
+        select: { autoResult: true, status: true, cableSegmentId: true, fiberNumber: true, wavelength: true, testDate: true },
+      });
+      errors.push(...evaluateOtdrEvidence(tests).errors);
+    }
+
     // Check 3: Photo upload proof requirements
     if (stage.reqPhotos) {
       if (stage.checklists.length === 0) {
@@ -465,6 +476,14 @@ export class WorkflowEngine {
               details: { stageName: nextStage.name },
             },
           });
+          // Keep project.status in step with the stage the project is now in.
+          const stageStatus = statusForStage(nextStage.code, nextStage.name);
+          if (stageStatus) {
+            await tx.project.updateMany({
+              where: { id: stage.projectWorkflowInstance.projectId, status: { notIn: [...STATUS_NOT_STAGE_DRIVEN] } },
+              data: { status: stageStatus },
+            });
+          }
           startedStage = {
             id: nextStage.id,
             name: nextStage.name,

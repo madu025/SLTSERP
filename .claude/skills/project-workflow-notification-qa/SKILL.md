@@ -131,3 +131,12 @@ approver: approval step; stage owner: complete stage). A notification with an em
 Run the UI through the login form, and do not pick real staff in the supervisor dropdown.
 - Plan hand-off: supervisor *Submit for approval* -> managers notified and listed under What to do next -> approve generates tasks. The sidebar My Tasks badge reads `myTasks` from `/api/notifications/sidebar-counts`.
 - Reminders run from the worker job `PROJECT_REMINDERS` (07:30 SL), not from an external cron; verify with `ReminderSchedulerService.runProjectReminders()` against QA data only (they notify real owners).
+
+## Full lifecycle run, standard-practice version (2026-11-04)
+
+Stages 1-14 were driven with role accounts and every hand-off was asserted in the next owner's `/api/projects/my-tasks`
+(`nextActions` of kind STAGE). Extra checks that caught real defects: plan submit -> approver queue -> approve; the OTDR
+gate (no trace refused, failed trace refused, same-fibre re-test passes, tester cannot review own trace); project status
+follows the stage; invoice stage visible to the finance team only. Fixtures: `e2e_sup` needs the exact `CONTRACTOR_SUPERVISOR`
+role and the plan's INVOICE_MANAGER task needs a user with `INVOICE_MANAGER`, otherwise plan assignment fails with
+`TASK_USER_ROLE_MISMATCH`. Dry-run migrations inside a transaction you roll back; never apply them to the real DB by hand.

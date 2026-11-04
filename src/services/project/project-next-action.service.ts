@@ -2,8 +2,9 @@ import { prisma } from '@/lib/prisma';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { FINANCE_STAGE_ROLES, FINANCE_TEAM_ROLES } from '@/lib/workflow-finance-roles';
 
-export type NextActionKind = 'PLAN_SETUP' | 'PLAN_WAITING' | 'ASSIGN_SUPERVISOR' | 'APPROVE_PLAN' | 'APPROVAL_STEP' | 'STAGE';
+export type NextActionKind = 'PLAN_SETUP' | 'PLAN_WAITING' | 'ASSIGN_SUPERVISOR' | 'APPROVE_PLAN' | 'APPROVAL_STEP' | 'STAGE' | 'ASSIGN_FINANCE';
 
 export interface NextAction {
     id: string;
@@ -195,8 +196,16 @@ export class ProjectNextActionService {
                 projectWorkflowInstance: { select: { project: { select: { id: true, projectCode: true, name: true } } } },
             },
         });
+        let financeProjects: Set<string> | null = null;
         for (const stage of stages) {
-            const mine = stage.assignedUserId ? stage.assignedUserId === userId : !!stage.assignedRole && holdsRole(roleCodes, stage.assignedRole);
+            let mine = stage.assignedUserId ? stage.assignedUserId === userId : !!stage.assignedRole && holdsRole(roleCodes, stage.assignedRole);
+            if (!mine && !stage.assignedUserId && stage.assignedRole && FINANCE_STAGE_ROLES.includes(stage.assignedRole)) {
+                // Invoice stages belong to the project's assigned finance team (see WorkflowNotificationService.ownersOf).
+                financeProjects ??= new Set((await prisma.projectFinanceAssignment.findMany({
+                    where: { userId, status: 'ACTIVE', assignmentRole: { in: [...FINANCE_TEAM_ROLES] } }, select: { projectId: true },
+                })).map((a) => a.projectId));
+                mine = financeProjects.has(stage.projectWorkflowInstance.project.id);
+            }
             if (!mine) continue;
             const project = stage.projectWorkflowInstance.project;
             actions.push({
@@ -205,6 +214,27 @@ export class ProjectNextActionService {
                 title: `Complete stage ${stage.sequence}: ${stage.name}`,
                 detail: 'This stage is yours. Finish its checklist, tasks and approvals, then mark it complete to hand over to the next owner.',
             });
+        }
+
+        // Manager: an invoice stage is active but the project has no finance team, so nobody can pick it up.
+        if (permissions.includes(RBAC_PERMISSIONS.PROJECT_FINANCE_ASSIGN)) {
+            const invoiceStages = stages.filter((st) => st.assignedRole && FINANCE_STAGE_ROLES.includes(st.assignedRole));
+            if (invoiceStages.length) {
+                const ids = [...new Set(invoiceStages.map((st) => st.projectWorkflowInstance.project.id))];
+                const staffed = new Set((await prisma.projectFinanceAssignment.findMany({
+                    where: { projectId: { in: ids }, status: 'ACTIVE', assignmentRole: { in: [...FINANCE_TEAM_ROLES] } }, select: { projectId: true },
+                })).map((a) => a.projectId));
+                for (const st of invoiceStages) {
+                    const project = st.projectWorkflowInstance.project;
+                    if (staffed.has(project.id)) continue;
+                    actions.push({
+                        id: `assign-finance:${project.id}`, kind: 'ASSIGN_FINANCE', ...ref(project), priority: 'HIGH', waiting: false,
+                        link: `/projects/${project.id}`,
+                        title: 'Assign the project finance team',
+                        detail: `"${st.name}" is active but no preparer or lead controller is assigned, so nobody is told about invoices.`,
+                    });
+                }
+            }
         }
 
         const rank = { HIGH: 0, MEDIUM: 1, LOW: 2 } as const;

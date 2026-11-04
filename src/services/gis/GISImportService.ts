@@ -18,7 +18,7 @@ import { assetEngine } from '@/lib/gis/asset-engine';
 import { surveyGenerator } from '@/lib/gis/survey-generator';
 import { permitGenerator } from '@/lib/gis/permit-generator';
 import { gisAnalyticsEngine } from '@/lib/gis/gis-analytics-engine';
-import { getWorkflowForProjectType } from '@/lib/gis/workflow-definitions';
+import { defaultStageRole, getWorkflowForProjectType } from '@/lib/gis/workflow-definitions';
 import { logger } from '@/lib/logger';
 import { redis } from '@/lib/redis';
 import { safe, safeSync } from '@/utils/safe-await.util';
@@ -2019,6 +2019,7 @@ export class GISImportService {
                 reqDocuments: stageDef.reqDocuments,
                 reqOTDR: stageDef.reqOTDR,
                 reqGPS: stageDef.reqGPS,
+                assignmentRole: defaultStageRole(stageDef.name),
               });
 
               // Create task templates for the new stage
@@ -2038,6 +2039,11 @@ export class GISImportService {
                 stageTemplatesToBackfillApproval.push({ id: generatedId, name: stageDef.name });
               }
             } else {
+              // Templates created before owners existed: give the stage its standard owner so hand-offs reach someone.
+              const standardRole = defaultStageRole(stageDef.name);
+              if (standardRole && !stageTemplate.assignmentRole) {
+                await prisma.workflowStageTemplate.update({ where: { id: stageTemplate.id }, data: { assignmentRole: standardRole } });
+              }
               if (stageTemplate.name !== stageDef.name) {
                 // Align the name of the stage template with the code registry definitions
                 await prisma.workflowStageTemplate.update({

@@ -457,6 +457,25 @@ export const WORKFLOW_REGISTRY: Record<
 };
 
 /**
+ * Standard owner role for an OSP delivery stage, by name. Templates created from these definitions used to
+ * carry no owner, so nobody was told when a stage started and the work sat in no queue. The mapping follows
+ * normal FTTH/OSP delivery: field survey by the OSP engineer, permits by the area manager, material by the
+ * stores manager, construction by the contractor supervisor, testing/QA by QC, design and engineering by the
+ * engineer, handover and closure by the OSP manager. Keep the SQL in the 20261106 migration in step with this.
+ */
+export function defaultStageRole(stageName: string): string | null {
+  const n = stageName.toLowerCase();
+  if (/otdr|test|\bqa\b|commission/.test(n)) return 'QC_OFFICER';
+  if (/survey/.test(n)) return 'OSP_ENGINEER';
+  if (/permit|access/.test(n)) return 'AREA_MANAGER';
+  if (/material|procure/.test(n)) return 'STORES_MANAGER';
+  if (/install|civil|splic|cabling/.test(n)) return 'CONTRACTOR_SUPERVISOR';
+  if (/closure|handover/.test(n)) return 'OSP_MANAGER';
+  if (/feasib|engineering|design/.test(n)) return 'ENGINEER';
+  return null;
+}
+
+/**
  * Get workflow definition for a project type
  */
 export function getWorkflowForProjectType(

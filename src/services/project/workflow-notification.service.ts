@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { NotificationService } from '@/services/notification/notification.service';
 
+import { FINANCE_STAGE_ROLES, FINANCE_TEAM_ROLES } from '@/lib/workflow-finance-roles';
+
 /** Cap per event: a role shared by many users must not turn one hand-off into a broadcast. */
 const MAX_RECIPIENTS = 25;
 
@@ -117,7 +119,15 @@ export class WorkflowNotificationService {
 
     private static async ownersOf(projectId: string, stage: StageRef, excludeUserId?: string | null): Promise<string[]> {
         if (stage.assignedUserId) return stage.assignedUserId === excludeUserId ? [] : [stage.assignedUserId];
-        return stage.assignedRole ? this.resolveRecipients(projectId, [stage.assignedRole], excludeUserId) : [];
+        const holders = stage.assignedRole ? await this.resolveRecipients(projectId, [stage.assignedRole], excludeUserId) : [];
+        if (holders.length > 0 || !stage.assignedRole || !FINANCE_STAGE_ROLES.includes(stage.assignedRole)) return holders;
+        // Invoice stages are owned by contractor/invoice roles that staff usually do not hold. The people who
+        // actually do the work are the project's assigned finance team, so use them rather than a manager broadcast.
+        const team = await prisma.projectFinanceAssignment.findMany({
+            where: { projectId, status: 'ACTIVE', assignmentRole: { in: [...FINANCE_TEAM_ROLES] }, userId: excludeUserId ? { not: excludeUserId } : undefined },
+            select: { userId: true },
+        });
+        return [...new Set(team.map((t) => t.userId))];
     }
 
     /** A stage just became the active one. */

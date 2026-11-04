@@ -455,7 +455,7 @@ async function main() {
       taskTemplates: { create: [{ code: 'EXECUTE_CHILD_TASKS', name: 'Execute allocated child tasks', taskType: 'SEMI_TASK', assignmentRole: 'CONTRACTOR_SUPERVISOR', assignmentTeamKey: 'CONTRACTOR_TEAMS', isRequired: true, autoProgressWeight: 80 }, { code: 'FIELD_CLOSEOUT', name: 'Submit field completion evidence', taskType: 'HANDOFF', assignmentRole: 'CONTRACTOR_SUPERVISOR', assignmentTeamKey: 'CONTRACTOR_TEAMS', isRequired: true, autoProgressWeight: 20, dependsOnCode: 'EXECUTE_CHILD_TASKS' }] },
     },
     {
-      code: 'INHOUSE_PAT', name: 'In-house PAT', workstream: 'QUALITY', assignmentRole: 'QC_OFFICER', assignmentTeamKey: 'QA_QC', description: 'Complete the internal/pre-acceptance test and resolve failed points.', sequence: 12, reqApproval: true, reqChecklist: true,
+      code: 'INHOUSE_PAT', name: 'In-house PAT', workstream: 'QUALITY', assignmentRole: 'QC_OFFICER', assignmentTeamKey: 'QA_QC', description: 'Complete the internal/pre-acceptance test and resolve failed points.', sequence: 12, reqApproval: true, reqChecklist: true, reqOTDR: true,
       checklistTemplates: { create: [{ label: 'In-house PAT session passed', isMandatory: true }] }, approvalTemplates: { create: [{ level: 1, role: 'QC_OFFICER' }] },
       taskTemplates: { create: [{ code: 'PRE_PAT', name: 'Run in-house PAT and resolve failures', taskType: 'REVIEW', assignmentRole: 'QC_OFFICER', assignmentTeamKey: 'QA_QC', isRequired: true, autoProgressWeight: 100 }] },
     },

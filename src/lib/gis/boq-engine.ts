@@ -30,6 +30,24 @@ export interface InventoryStockEntry {
 }
 
 /**
+ * Existing vs new assets. A design file marks each feature "Existing" or "New" (Exist_New / Exst_New). A BOQ
+ * prices only what has to be supplied and installed: reusing 37 existing poles must not be bought again. The
+ * old engine priced every feature as new supply, which overstated a pole-attachment project by ~40%.
+ */
+export function splitNewExisting(items?: ReadonlyArray<{ properties?: Record<string, unknown> }>): { newCount: number; existing: number } {
+  let existing = 0;
+  const list = items ?? [];
+  for (const item of list) {
+    const props = item.properties ?? {};
+    const key = Object.keys(props).find((k) => /^exi?st[ _]?new$/i.test(k.trim()));
+    if (key && /^exist/i.test(String(props[key] ?? '').trim())) existing++;
+  }
+  return { newCount: list.length - existing, existing };
+}
+
+const existingNote = (existing: number, noun: string) => (existing > 0 ? ` [${existing} existing ${noun} reused, not priced]` : '');
+
+/**
  * Auto BOQ Engine
  * Calculates quantities and costs from GIS layer data
  */
@@ -103,14 +121,15 @@ export class BOQEngine {
     // Unit: Each
     // Formula: poleCount * ratePerPole
     // ======================================================================
-    if (poleData && poleData.featureCount > 0) {
-      const poleCount = poleData.featureCount;
+    const poleSplit = splitNewExisting(poleData?.poles);
+    if (poleData && poleSplit.newCount > 0) {
+      const poleCount = poleSplit.newCount;
       const poleRate = BOQ_UNIT_RATES['POLE'] * regionMultiplier;
       const poleCost = poleCount * poleRate;
 
       items.push({
         category: 'POLE',
-        description: `Telecom Poles (${poleCount} units) - Supply & Installation`,
+        description: `Telecom Poles (${poleCount} units) - Supply & Installation${existingNote(poleSplit.existing, 'poles')}`,
         unit: 'Each',
         quantity: poleCount,
         unitRate: Math.round(poleRate * 100) / 100,
@@ -124,14 +143,15 @@ export class BOQEngine {
     // Unit: Each
     // Formula: fdpCount * ratePerFDP
     // ======================================================================
-    if (fdpData && fdpData.featureCount > 0) {
-      const fdpCount = fdpData.featureCount;
+    const fdpSplit = splitNewExisting(fdpData?.fdps);
+    if (fdpData && fdpSplit.newCount > 0) {
+      const fdpCount = fdpSplit.newCount;
       const fdpRate = BOQ_UNIT_RATES['FDP'] * regionMultiplier;
       const fdpCost = fdpCount * fdpRate;
 
       items.push({
         category: 'FDP',
-        description: `Fiber Distribution Points (${fdpCount} units) - Supply & Installation`,
+        description: `Fiber Distribution Points (${fdpCount} units) - Supply & Installation${existingNote(fdpSplit.existing, 'FDPs')}`,
         unit: 'Each',
         quantity: fdpCount,
         unitRate: Math.round(fdpRate * 100) / 100,
@@ -145,14 +165,15 @@ export class BOQEngine {
     // Unit: Each
     // Formula: jointCount * ratePerJoint
     // ======================================================================
-    if (jointData && jointData.featureCount > 0) {
-      const jointCount = jointData.featureCount;
+    const jointSplit = splitNewExisting(jointData?.joints);
+    if (jointData && jointSplit.newCount > 0) {
+      const jointCount = jointSplit.newCount;
       const jointRate = BOQ_UNIT_RATES['FIBER_JOINT'] * regionMultiplier;
       const jointCost = jointCount * jointRate;
 
       items.push({
         category: 'FIBER_JOINT',
-        description: `Fiber Joint Closures (${jointCount} units) - Supply & Installation`,
+        description: `Fiber Joint Closures (${jointCount} units) - Supply & Installation${existingNote(jointSplit.existing, 'joints')}`,
         unit: 'Each',
         quantity: jointCount,
         unitRate: Math.round(jointRate * 100) / 100,
@@ -182,13 +203,14 @@ export class BOQEngine {
     // ======================================================================
     // 4c. Handholes
     // ======================================================================
-    if (handholeData && handholeData.featureCount > 0) {
-      const hhCount = handholeData.featureCount;
+    const hhSplit = splitNewExisting(handholeData?.assets);
+    if (handholeData && hhSplit.newCount > 0) {
+      const hhCount = hhSplit.newCount;
       const hhRate = (BOQ_UNIT_RATES['HANDHOLE'] || 25000) * regionMultiplier;
       const hhCost = hhCount * hhRate;
       items.push({
         category: 'HANDHOLE',
-        description: `Handholes (${hhCount} units) - Supply & Installation`,
+        description: `Handholes (${hhCount} units) - Supply & Installation${existingNote(hhSplit.existing, 'handholes')}`,
         unit: 'Each',
         quantity: hhCount,
         unitRate: Math.round(hhRate * 100) / 100,
@@ -200,13 +222,14 @@ export class BOQEngine {
     // ======================================================================
     // 4d. Manholes
     // ======================================================================
-    if (manholeData && manholeData.featureCount > 0) {
-      const mhCount = manholeData.featureCount;
+    const mhSplit = splitNewExisting(manholeData?.assets);
+    if (manholeData && mhSplit.newCount > 0) {
+      const mhCount = mhSplit.newCount;
       const mhRate = (BOQ_UNIT_RATES['MANHOLE'] || 85000) * regionMultiplier;
       const mhCost = mhCount * mhRate;
       items.push({
         category: 'MANHOLE',
-        description: `Manholes (${mhCount} units) - Supply & Installation`,
+        description: `Manholes (${mhCount} units) - Supply & Installation${existingNote(mhSplit.existing, 'manholes')}`,
         unit: 'Each',
         quantity: mhCount,
         unitRate: Math.round(mhRate * 100) / 100,

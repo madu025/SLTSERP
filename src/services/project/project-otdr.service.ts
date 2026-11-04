@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 interface CreateOTDRTestInput {
     testNumber?: string;
     testDate?: string;
@@ -34,6 +35,16 @@ export class ProjectOTDRService {
             orderBy: { testDate: 'desc' },
         });
     }
+    /** A reviewer's decision on a trace. Waiving needs a note; the tester cannot review their own trace. */
+    static async reviewOTDRTest(projectId: string, testId: string, reviewerId: string, status: string, notes?: string | null, isAdmin = false) {
+        if (!['APPROVED', 'WAIVED', 'REJECTED'].includes(status)) throw AppError.badRequest('INVALID_OTDR_REVIEW_STATUS');
+        if (status !== 'APPROVED' && !notes?.trim()) throw AppError.badRequest('OTDR_REVIEW_NOTES_REQUIRED');
+        const test = await prisma.oTDRTest.findFirst({ where: { id: testId, projectId }, select: { id: true, testedById: true } });
+        if (!test) throw AppError.notFound('OTDR_TEST_NOT_FOUND');
+        if (test.testedById === reviewerId && !isAdmin) throw AppError.forbidden('SEGREGATION_OF_DUTIES_VIOLATION: the tester cannot review their own OTDR trace.');
+        return prisma.oTDRTest.update({ where: { id: testId }, data: { status, reviewedById: reviewerId, reviewedAt: new Date(), reviewNotes: notes?.trim() || null } });
+    }
+
     static async createOTDRTest(projectId: string, data: CreateOTDRTestInput) {
         const testNumber = data.testNumber || `OTDR-${projectId.slice(0, 8)}-${Date.now()}`;
         return await prisma.oTDRTest.create({

@@ -130,6 +130,18 @@ Supervisor and finance assignment notifications now state the next step and open
 | Error toasts crashed pages (object rendered as a React child) | **Done:** `toErrorText` on 34 call sites |
 | Invoice numbers raced; wastage / cycle-count wrote non-UUID reference ids | **Done:** numbering under an advisory lock; ids are UUIDs |
 
-Still needs a business decision, not code: owner roles for stages 1-8 (template leaves them empty), whether the BOQ
-should price existing poles/joints as supply, the OTDR evidence gate for in-house PAT (G5, changes the workflow
-template), and unifying project status with workflow stage (G3).
+### Standard-practice decisions (2026-11-04)
+
+The remaining open items were decided to match normal FTTH/OSP delivery practice, so production users meet a
+complete process rather than gaps. Deploying runs migration `20261106000000_backfill_workflow_stage_owner_roles`.
+
+| Decision | Standard applied |
+|---|---|
+| Stage owners | Every stage has an owner. SSD and Cluster Development had none (17 template stages, 14 running stage instances): survey = OSP engineer, permit = area manager, material = stores manager, construction = contractor supervisor, OTDR/QA = QC officer, design/engineering = engineer, handover/closure = OSP manager (`defaultStageRole`). Only blank roles are filled. |
+| Invoice stages | Owned by the project finance team (lead controller, preparer, reviewer). A manager sees "Assign the project finance team" when none is assigned. |
+| BOQ pricing | Only new assets are priced. Features marked Existing (`Exist_New` / `Exst_New`) are listed in the line text as reused, not priced. The Sammanthurai sample drops by ~LKR 1.7 M. |
+| OTDR evidence | In-house PAT cannot complete without OTDR traces. A re-test of the same fibre supersedes the earlier trace; a failure needs a re-test or a reviewer waive/approve with a note (tester cannot review their own trace). The tester is the signed-in user. |
+| Status vs stage | Starting a stage moves `project.status` to the matching status (`statusForStage`); completed, cancelled, on-hold and delayed projects are never overwritten. |
+
+Not code: CONTRACTOR_SUPERVISOR and CONTRACTOR_FINANCE must be held by real users in each OPMC (plan assignment checks the role),
+and whether the OTDR requirement should also apply to the SLT PAT stage.
