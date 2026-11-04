@@ -228,6 +228,7 @@ export class ProjectFinanceAssignmentService {
       input.userId,
       `project finance ${input.assignmentRole.toLowerCase().replace(/_/g, ' ')}`,
       input.assignedById,
+      'invoices for this project will appear under Finance & invoicing in My Tasks when they need you.',
     );
     return saved;
   }

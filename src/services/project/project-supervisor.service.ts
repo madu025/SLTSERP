@@ -107,7 +107,7 @@ export class ProjectSupervisorService {
       });
     }
 
-    void ProjectTaskNotificationService.notifyRoleAssigned(projectId, supervisorId, `${(role || 'PRIMARY').toLowerCase()} supervisor`, actorId);
+    void ProjectTaskNotificationService.notifyRoleAssigned(projectId, supervisorId, `${(role || 'PRIMARY').toLowerCase()} supervisor`, actorId, 'build the task plan (Tasks tab) once the BOQ is approved, assign each task, then ask a manager to approve it. It is listed under What to do next in My Tasks.');
 
     return {
       ...assignment,

@@ -46,7 +46,7 @@ export class ProjectTaskNotificationService {
     }
 
     /** Tells a user they were given a standing role on a project (supervisor, finance controller, ...). */
-    static async notifyRoleAssigned(projectId: string, userId: string, roleLabel: string, actorId: string): Promise<void> {
+    static async notifyRoleAssigned(projectId: string, userId: string, roleLabel: string, actorId: string, nextStep?: string): Promise<void> {
         if (!userId || userId === actorId) return;
         try {
             const project = await prisma.project.findUnique({ where: { id: projectId }, select: { name: true, projectCode: true } });
@@ -54,10 +54,11 @@ export class ProjectTaskNotificationService {
             await NotificationService.send({
                 userId,
                 title: '👤 Assigned to a Project',
-                message: `You have been assigned as ${roleLabel} on ${projectLabel}.`,
+                // Say what to do next and open the queue that lists it, so the recipient is never left guessing.
+                message: `You have been assigned as ${roleLabel} on ${projectLabel}.${nextStep ? ` Next: ${nextStep}` : ''}`,
                 type: 'PROJECT',
                 priority: 'MEDIUM',
-                link: `/projects/${projectId}`,
+                link: nextStep ? MY_TASKS_LINK : `/projects/${projectId}`,
                 metadata: { projectId, role: roleLabel },
                 dedupKey: `project-role-assigned:${projectId}:${userId}:${roleLabel}`,
             });

@@ -122,3 +122,10 @@ Sample package `SM-HJJ-0508-AB` (7 GeoJSON layers, one `.qgz`, one AutoCAD 2010 
   `/api/files/documents/...` URL has no route (404); compare the stored file's SHA-256 on disk instead.
 - **BOQ**: the BOQ engine prices every pole, joint and handhole as new supply and ignores the layers'
   `Exist_New` attribute (37 existing poles = LKR 1.665 M in the sample). Check BOQ lines against the source.
+
+## Next-action queue (2026-11-04)
+
+After a hand-off notification, open `/projects/my-tasks` as that user and assert the **What to do next**
+section lists the action (supervisor: waiting for BOQ / start plan; manager: assign supervisor / approve plan;
+approver: approval step; stage owner: complete stage). A notification with an empty My Tasks is a defect.
+Run the UI through the login form, and do not pick real staff in the supervisor dropdown.

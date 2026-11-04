@@ -44,7 +44,20 @@ type FinanceWorkRow = {
   actionLabel: string;
 };
 
-type MyTasksResponse = { tasks: ProjectTaskRow[]; fieldTasks: FieldTaskRow[]; financeWork: FinanceWorkRow[] };
+type NextActionRow = {
+  id: string;
+  kind: string;
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  title: string;
+  detail: string;
+  link: string;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  waiting: boolean;
+};
+
+type MyTasksResponse = { tasks: ProjectTaskRow[]; fieldTasks: FieldTaskRow[]; financeWork: FinanceWorkRow[]; nextActions: NextActionRow[] };
 
 const formatDate = (value: string | null) => (value ? new Date(value).toLocaleDateString() : '—');
 const label = (value: string) => value.replace(/_/g, ' ');
@@ -81,7 +94,8 @@ export default function MyProjectTasksPage() {
     };
   }, [retryToken]);
 
-  const total = (data?.tasks.length ?? 0) + (data?.fieldTasks.length ?? 0) + (data?.financeWork.length ?? 0);
+  const nextActions = data?.nextActions ?? [];
+  const total = (data?.tasks.length ?? 0) + (data?.fieldTasks.length ?? 0) + (data?.financeWork.length ?? 0) + nextActions.length;
 
   return (
     <div className="min-h-screen flex bg-background text-foreground">
@@ -115,8 +129,36 @@ export default function MyProjectTasksPage() {
 
             {data && total === 0 && !loading && (
               <div className="rounded-lg border border-slate-200 bg-white px-4 py-10 text-center text-slate-700">
-                No open tasks are assigned to you.
+                Nothing is waiting on you right now.
               </div>
+            )}
+
+            {nextActions.length > 0 && (
+              <section className="rounded-lg border border-cyan-400 bg-white" aria-label="What to do next">
+                <h2 className="px-4 py-3 text-sm font-semibold text-slate-900 border-b border-slate-200">
+                  What to do next
+                </h2>
+                <ul className="divide-y divide-slate-100">
+                  {nextActions.map(action => (
+                    <li key={action.id} className={`px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${action.waiting ? 'bg-slate-50' : ''}`}>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900">
+                          {action.title}
+                          {action.waiting && <span className="ml-2 text-xs font-medium text-slate-600">(waiting)</span>}
+                        </p>
+                        <p className="text-xs text-slate-700 mt-0.5">{action.detail}</p>
+                        <p className="text-xs text-slate-600 mt-1 font-mono">{action.projectCode} · {action.projectName}</p>
+                      </div>
+                      <Link
+                        href={action.link}
+                        className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-semibold ${action.waiting ? 'border border-slate-300 text-slate-800 bg-white' : 'bg-cyan-700 text-white hover:bg-cyan-800'}`}
+                      >
+                        {action.waiting ? 'View project' : 'Open'}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             )}
 
             {data && data.financeWork.length > 0 && (

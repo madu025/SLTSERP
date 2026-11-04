@@ -2,6 +2,7 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { ProjectFinanceNotificationService } from '@/services/project/project-finance-notification.service';
+import { ProjectNextActionService } from '@/services/project/project-next-action.service';
 import { ProjectTaskNotificationService } from '@/services/project/project-task-notification.service';
 
 export const dynamic = 'force-dynamic';
@@ -10,11 +11,12 @@ export const dynamic = 'force-dynamic';
 // tasks, plus invoice work derived from their project finance roles. Limited to their OPMC scope.
 export const GET = apiHandler(async (_req, params) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
-    const [work, financeWork] = await Promise.all([
+    const [work, financeWork, nextActions] = await Promise.all([
         ProjectTaskNotificationService.listForUser(params._userId),
         ProjectFinanceNotificationService.listWorkForUser(params._userId),
+        ProjectNextActionService.listForUser(params._userId),
     ]);
-    return { ...work, financeWork };
+    return { ...work, financeWork, nextActions };
 }, {
     permissions: [RBAC_PERMISSIONS.PROJECT_READ],
     rawResponse: true,

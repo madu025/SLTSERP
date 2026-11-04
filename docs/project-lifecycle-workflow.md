@@ -99,3 +99,21 @@ notifies the next stage's owner and puts the work in their queue; nobody should 
 
 Open questions for the business: who owns survey, design and CAD stages (the template leaves the
 owner role empty for stages 1-8); the review SLA in days; and the permit warning window.
+
+## 6. "What to do next" queue (done)
+
+A notification says something happened; it did not say what to do. A live UI run showed the supervisor
+got "Assigned to a Project", opened My Tasks and found it empty. `/projects/my-tasks` now has a
+**What to do next** section, derived from live state by `ProjectNextActionService` (nothing stored):
+
+| Who | Sees | Until |
+|---|---|---|
+| Project supervisor | "Waiting for BOQ approval", then "Start the task plan", then "Finish the task plan" | plan is approved |
+| User with project write | "Assign a project supervisor" for in-scope projects with none | a supervisor is assigned |
+| User with plan approve | "Review and approve the task plan" (not their own plan, BOQ approved) | plan is approved |
+| Assigned approver | "Approve: <request>" once earlier steps are approved | step actioned |
+| Stage owner (named user or role) | "Complete stage N: <name>" | stage is completed |
+
+Supervisor and finance assignment notifications now state the next step and open My Tasks. Not done:
+a supervisor "submit plan for approval" action (the manager sees any configured DRAFT plan), reminders
+for stale actions, and a dashboard count badge on the sidebar item.
