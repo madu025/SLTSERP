@@ -23,12 +23,17 @@ export const GET = apiHandler(
         
         const userId = getAuthenticatedUserId() || undefined;
         const opmcIds = rtomId ? [rtomId] : undefined;
+        const typeParam = searchParams.get('type')?.toUpperCase();
+        const type = typeParam === 'SOD' || typeParam === 'OSP' ? typeParam : undefined;
+        const status = searchParams.get('status')?.toUpperCase() || undefined;
 
         return await ContractorService.getAllContractors({
             opmcIds,
             page,
             limit,
-            userId
+            userId,
+            type,
+            status
         });
     },
     {

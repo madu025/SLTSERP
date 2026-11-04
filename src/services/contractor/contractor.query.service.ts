@@ -13,6 +13,8 @@ export class ContractorQueryService {
         const { opmcIds: clientOpmcIds, page = 1, limit = 50, userId } = params;
 
         const where: Prisma.ContractorWhereInput = {};
+        if (params.type) where.type = params.type;
+        if (params.status) where.status = params.status as Prisma.ContractorWhereInput['status'];
 
         // Resolve client-supplied opmcIds / RTOM codes to valid OPMC UUIDs
         let resolvedOpmcIds: string[] = [];

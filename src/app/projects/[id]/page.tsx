@@ -200,7 +200,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
         });
         setEditOpmcId(project.opmcId ?? ''); setEditContractorId(project.contractorId ?? '');
         try {
-            const [or, cr] = await Promise.all([fetch('/api/opmcs'), fetch('/api/contractors')]);
+            const [or, cr] = await Promise.all([fetch('/api/opmcs'), fetch('/api/contractors?type=OSP&status=ACTIVE&limit=500')]);
             if (or.ok) { const d = await or.json(); setOpmcs(Array.isArray(d) ? d : d.opmcs || d.data || []); }
             if (cr.ok) { const j = await cr.json(); const a = j?.success && j?.data ? j.data : j; setContractors(Array.isArray(a?.contractors) ? a.contractors : []); }
         } catch { toast.error('Failed to load dropdown options'); }

@@ -13,10 +13,12 @@ export class ProjectContractorAssignmentService {
   static async assign(data: { projectId: string; contractorId: string; role?: string; allocationPercent?: number | null; contractValue?: number | null; notes?: string | null }) {
     const [project, contractor] = await Promise.all([
       prisma.project.findUnique({ where: { id: data.projectId }, select: { id: true } }),
-      prisma.contractor.findUnique({ where: { id: data.contractorId }, select: { id: true, status: true } }),
+      prisma.contractor.findUnique({ where: { id: data.contractorId }, select: { id: true, status: true, type: true } }),
     ]);
     if (!project) throw AppError.notFound('PROJECT_NOT_FOUND');
     if (!contractor || contractor.status !== 'ACTIVE') throw AppError.badRequest('ACTIVE_CONTRACTOR_REQUIRED');
+    // Projects (fibre construction) are delivered by OSP contractors; SOD contractors handle service orders.
+    if (contractor.type !== 'OSP') throw AppError.badRequest('PROJECT_CONTRACTOR_MUST_BE_OSP');
     if (data.allocationPercent !== undefined && data.allocationPercent !== null && (data.allocationPercent <= 0 || data.allocationPercent > 100)) {
       throw AppError.badRequest('INVALID_CONTRACTOR_ALLOCATION');
     }

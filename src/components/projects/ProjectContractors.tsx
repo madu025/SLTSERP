@@ -67,7 +67,7 @@ export default function ProjectContractors({ project }: ProjectContractorsProps)
         try {
             const [assignmentRes, contractorRes] = await Promise.all([
                 fetch(`/api/projects/contractor-assignments?projectId=${project.id}`),
-                fetch('/api/contractors'),
+                fetch('/api/contractors?type=OSP&status=ACTIVE&limit=500'),
             ]);
             if (assignmentRes.ok) setAssignments(await assignmentRes.json());
             if (contractorRes.ok) {

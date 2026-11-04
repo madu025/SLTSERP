@@ -94,4 +94,7 @@ export interface ContractorQueryParams {
     limit?: number;
     userId?: string;
     userRole?: string;
+    /** SOD = service-order contractors, OSP = project / fibre-construction contractors. */
+    type?: 'SOD' | 'OSP';
+    status?: string;
 }

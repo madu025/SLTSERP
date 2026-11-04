@@ -150,7 +150,7 @@ export default function ProjectsPage() {
  
     const fetchDropdowns = useCallback(async () => {
         try {
-            const [opmcRes, contractorRes] = await Promise.all([fetch('/api/opmcs'), fetch('/api/contractors')]);
+            const [opmcRes, contractorRes] = await Promise.all([fetch('/api/opmcs'), fetch('/api/contractors?type=OSP&status=ACTIVE&limit=500')]);
             if (opmcRes.ok) { const d = await opmcRes.json(); setOpmcs(Array.isArray(d) ? d : d.opmcs || d.data || []); }
             if (contractorRes.ok) {
                 const j = await contractorRes.json();
