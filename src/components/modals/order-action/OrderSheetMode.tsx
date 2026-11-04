@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { 
     CalendarIcon, Trash2, CheckCircle2, Import, Grid3X3, Table2
@@ -17,7 +17,14 @@ import { Contractor, InventoryItem, MaterialUsageRow, OrderActionData } from "@/
 import { OrderAssignmentSection } from "./OrderAssignmentSection";
 import { MATERIAL_CATEGORY_ORDER } from "@/config/inventory-categories";
 import { toast } from "sonner";
-import { SODMaterialMatrixGrid } from "./SODMaterialMatrixGrid";
+import { useQuery } from "@tanstack/react-query";
+import { SODMaterialMatrixGrid, type StockByCode, type SltByCode } from "./SODMaterialMatrixGrid";
+
+interface MaterialContextResponse {
+    contractorStock: Array<{ code: string; quantity: number; usableQuantity: number; unit?: string }>;
+    sltReported: Array<{ code?: string | null; quantity: number }>;
+    sltReceivedAt: string | null;
+}
 
 export interface CollectedCpe {
     deviceType: string;
@@ -129,6 +136,37 @@ export function OrderSheetMode({
     onClose
 }: OrderSheetModeProps) {
     const gridContainerRef = useRef<HTMLDivElement>(null);
+
+    // Contractor in-hand stock and SLT-reported material (with the date it arrived) for this order.
+    const { data: materialContext, isSuccess: materialContextLoaded } = useQuery<MaterialContextResponse>({
+        queryKey: ["sod-material-context", orderData?.id, state.selectedContractorId || null],
+        enabled: !!orderData?.id,
+        staleTime: 30 * 1000,
+        queryFn: async () => {
+            const qs = new URLSearchParams({ serviceOrderId: orderData!.id });
+            if (state.selectedContractorId) qs.set("contractorId", state.selectedContractorId);
+            const res = await fetch(`/api/service-orders/material-context?${qs.toString()}`, { cache: "no-store" });
+            if (!res.ok) throw new Error("Could not load material context");
+            const json = await res.json();
+            return (json?.data ?? json) as MaterialContextResponse;
+        },
+    });
+    const stockByCode = useMemo<StockByCode>(() => {
+        const map: StockByCode = {};
+        for (const s of materialContext?.contractorStock ?? []) {
+            map[s.code.toUpperCase()] = { quantity: s.quantity, usable: s.usableQuantity, unit: s.unit };
+        }
+        return map;
+    }, [materialContext]);
+    const sltByCode = useMemo<SltByCode>(() => {
+        const map: SltByCode = {};
+        for (const r of materialContext?.sltReported ?? []) {
+            if (!r.code) continue;
+            const key = r.code.toUpperCase();
+            map[key] = { quantity: (map[key]?.quantity ?? 0) + r.quantity };
+        }
+        return map;
+    }, [materialContext]);
     const [todayStr] = useState(() => format(new Date(), "yyyy-MM-dd"));
     const [yesterdayStr] = useState(() => {
         const d = new Date();
@@ -627,6 +665,11 @@ export function OrderSheetMode({
                                 onReset={controls.resetMatrix}
                                 materialSource={materialSource}
                                 dropWireDistance={orderData?.dropWireDistance}
+                                stockByCode={stockByCode}
+                                contractorSelected={!!state.selectedContractorId}
+                                sltByCode={sltByCode}
+                                sltReceivedAt={materialContext?.sltReceivedAt ?? null}
+                                sltLoaded={materialContextLoaded}
                             />
                         ) : (
                             /* 2. TABLE VIEW: CUSTOM ROWS SPREADSHEET */

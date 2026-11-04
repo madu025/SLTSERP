@@ -17,8 +17,15 @@ import { Button } from "@/components/ui/button";
 import { 
     SOD_STANDARD_MATRIX_CONFIG, 
     MATRIX_CATEGORIES, 
-    SODMatrixItemConfig 
+    SODMatrixItemConfig,
+    matrixItemAllowsWastage,
+    wastageKeyFor
 } from "@/config/sod-matrix-config";
+
+/** What the selected contractor holds (usable = backed by batches), keyed by upper-case item code. */
+export type StockByCode = Record<string, { quantity: number; usable: number; unit?: string }>;
+/** What SLT reported for this order, keyed by upper-case item code. */
+export type SltByCode = Record<string, { quantity: number }>;
 
 interface SODMaterialMatrixGridProps {
     matrixValues: Record<string, string>;
@@ -28,6 +35,11 @@ interface SODMaterialMatrixGridProps {
     onReset?: () => void;
     materialSource?: string;
     dropWireDistance?: number | null;
+    stockByCode?: StockByCode;
+    contractorSelected?: boolean;
+    sltByCode?: SltByCode;
+    sltReceivedAt?: string | null;
+    sltLoaded?: boolean;
 }
 
 export function SODMaterialMatrixGrid({
@@ -37,8 +49,15 @@ export function SODMaterialMatrixGrid({
     onUpdatePoleNumber,
     onReset,
     materialSource = 'SLT',
-    dropWireDistance
+    dropWireDistance,
+    stockByCode,
+    contractorSelected = false,
+    sltByCode,
+    sltReceivedAt,
+    sltLoaded = false
 }: SODMaterialMatrixGridProps) {
+    const pick = <T,>(map: Record<string, T> | undefined, item: SODMatrixItemConfig): T | undefined =>
+        map?.[item.companyCode.toUpperCase()] ?? map?.[item.sltCode.toUpperCase()];
 
     // Metrics computation for live status
     const metrics = useMemo(() => {
@@ -74,6 +93,19 @@ export function SODMaterialMatrixGrid({
 
     return (
         <div className="space-y-3">
+            {/* When SLT's own figures arrived (extension today, API later) */}
+            {sltLoaded && (
+                <div className={cn(
+                    "flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold",
+                    sltReceivedAt
+                        ? "bg-amber-50 border-amber-300 text-amber-900"
+                        : "bg-slate-100 border-slate-300 text-slate-800"
+                )}>
+                    {sltReceivedAt
+                        ? <>SLT data received on {new Date(sltReceivedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} - shown beside each item as &quot;SLT&quot;. Enter what was actually used.</>
+                        : <>No SLT data has been received for this order yet.</>}
+                </div>
+            )}
             {/* 4 Category Cards Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 {MATRIX_CATEGORIES.map((cat) => {
@@ -178,6 +210,27 @@ export function SODMaterialMatrixGrid({
                                                 <span className="text-xs text-slate-600 dark:text-slate-400">
                                                     Unit: {item.unit}
                                                 </span>
+                                                {(() => {
+                                                    const stock = pick(stockByCode, item);
+                                                    const slt = pick(sltByCode, item);
+                                                    const entered = (parseFloat(currentVal || '0') || 0) + (parseFloat(matrixValues[wastageKeyFor(item.key)] || '0') || 0);
+                                                    const over = contractorSelected && entered > 0 && (!stock || entered > stock.usable);
+                                                    return (
+                                                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                                            {contractorSelected && (
+                                                                <span className={cn("text-xs font-semibold px-1.5 py-0.5 rounded border", over ? "bg-rose-100 text-rose-900 border-rose-300" : "bg-slate-100 text-slate-800 border-slate-300")}>
+                                                                    {stock ? `In hand: ${stock.usable} ${item.unit}` : 'Not in contractor stock'}
+                                                                </span>
+                                                            )}
+                                                            {slt && (
+                                                                <span className="text-xs font-semibold px-1.5 py-0.5 rounded border bg-amber-100 text-amber-900 border-amber-300">
+                                                                    SLT: {slt.quantity}
+                                                                </span>
+                                                            )}
+                                                            {over && stock && <span className="text-xs font-bold text-rose-700">More than the contractor holds</span>}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
 
                                             <div className="flex items-center gap-1 shrink-0">
@@ -196,6 +249,26 @@ export function SODMaterialMatrixGrid({
                                                             : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 focus:border-blue-400"
                                                     )}
                                                 />
+                                                {matrixItemAllowsWastage(item) && (
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-[11px] font-bold text-orange-800 uppercase leading-none mb-0.5">Wastage</span>
+                                                        <Input
+                                                            type="number"
+                                                            min="0"
+                                                            step={item.step || "1"}
+                                                            value={matrixValues[wastageKeyFor(item.key)] || ""}
+                                                            placeholder="0"
+                                                            onFocus={(e) => e.target.select()}
+                                                            onChange={(e) => onUpdateMatrixValue(wastageKeyFor(item.key), e.target.value)}
+                                                            className={cn(
+                                                                "h-10 w-20 text-center font-mono font-bold text-base",
+                                                                parseFloat(matrixValues[wastageKeyFor(item.key)] || "0") > 0
+                                                                    ? "bg-orange-50 border-orange-500 text-orange-950 ring-2 ring-orange-500/20"
+                                                                    : "bg-white border-slate-200 text-slate-700"
+                                                            )}
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     );

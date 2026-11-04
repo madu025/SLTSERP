@@ -235,7 +235,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     const { data: systemConfigs = {} } = useQuery<Record<string, string>>({
         queryKey: ["system-configs"],
         queryFn: async () => {
-            const res = await fetch("/api/admin/system-config");
+            const res = await fetch("/api/ui-settings/sod-config");
             return await res.json() as Record<string, string>;
         },
         staleTime: 15 * 60 * 1000
@@ -426,7 +426,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                         )}
 
                         <div className="bg-card px-3 py-1.5 rounded-xl border border-border/40 shadow-sm flex flex-wrap xl:flex-nowrap gap-2 items-center justify-between">
-                             <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-1 min-w-0">
+                             <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
                                  <div className="flex items-center gap-1.5 shrink-0">
                                      <Layers className="w-4 h-4 text-primary" />
                                      <span className="text-sm font-bold text-foreground whitespace-nowrap tracking-tight">{pageTitle}</span>

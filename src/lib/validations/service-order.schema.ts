@@ -29,7 +29,8 @@ export const serviceOrderPatchSchema = z.object({
     hoPatStatus: z.string().optional().nullable(),
     materialUsage: z.array(z.object({
         itemId: z.string(),
-        quantity: z.string(),
+        // The staff Complete Order form sends a number, the contractor app a string: accept both.
+        quantity: z.union([z.string(), z.number()]).transform((v) => String(v)),
         usageType: z.string(),
         unit: z.string().optional(),
         wastagePercent: z.string().optional(),

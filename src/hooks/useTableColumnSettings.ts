@@ -25,7 +25,7 @@ export function useTableColumnSettings(tableName: string) {
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                const resp = await fetch(`/api/admin/table-settings?tableName=${tableName}`);
+                const resp = await fetch(`/api/ui-settings/table?tableName=${tableName}`);
                 const data = await resp.json();
                 setSettings(data);
             } catch (err) {

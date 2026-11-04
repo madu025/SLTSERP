@@ -16,6 +16,18 @@ export interface SODMatrixItemConfig {
     step?: string;
 }
 
+/** Matrix value key that holds the wastage entered against an item, e.g. "CABLE_TIE__WASTAGE". */
+export const WASTAGE_KEY_SUFFIX = '__WASTAGE';
+export const wastageKeyFor = (key: string) => key + WASTAGE_KEY_SUFFIX;
+
+/**
+ * Plain consumable items get their own wastage field. Drop wire already has the dedicated
+ * "Drop Wire Wastage" row, and poles are counted, never wasted.
+ */
+export function matrixItemAllowsWastage(item: Pick<SODMatrixItemConfig, 'usageType' | 'category' | 'isPoleNumber'>): boolean {
+    return item.usageType === 'USED' && item.category !== 'POLES' && !item.isPoleNumber;
+}
+
 export const SOD_STANDARD_MATRIX_CONFIG: SODMatrixItemConfig[] = [
     // ── 1. CABLES & DROP WIRE ──
     {

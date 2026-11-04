@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 import { resolveOpmcScope, NIL_UUID } from '@/lib/opmc-scope';
 import { compareMaterial, hasDeviation, type DeviationLine } from '@/lib/sod-material-deviation';
 
@@ -89,6 +90,55 @@ export class SODSltReportedMaterialService {
     await db.sODSltReportedMaterial.deleteMany({ where: { serviceOrderId } });
     if (rows.length > 0) await db.sODSltReportedMaterial.createMany({ data: rows });
     return rows.length;
+  }
+
+  /**
+   * Everything the staff material form needs beside the entry fields: what the selected contractor holds
+   * (so a short stock is visible before saving) and what SLT reported for this order and when it arrived.
+   */
+  static async materialContext(userId: string, serviceOrderId: string, contractorIdOverride?: string) {
+    const scope = await resolveOpmcScope(userId);
+    const order = await prisma.serviceOrder.findUnique({
+      where: { id: serviceOrderId },
+      select: { id: true, opmcId: true, contractorId: true, sltReportedMaterials: { select: { itemId: true, rawCode: true, rawName: true, quantity: true, source: true, reportedAt: true } } },
+    });
+    if (!order) throw AppError.notFound('SERVICE_ORDER_NOT_FOUND');
+    if (scope !== undefined && !scope.includes(order.opmcId)) throw AppError.forbidden('OPMC_ACCESS_DENIED');
+
+    let contractorId = order.contractorId;
+    if (contractorIdOverride && contractorIdOverride !== order.contractorId) {
+      const allowed = await prisma.contractor.findFirst({
+        where: {
+          id: contractorIdOverride,
+          ...(scope === undefined ? {} : { OR: [{ opmcId: { in: scope.length ? scope : [NIL_UUID] } }, { teams: { some: { opmcId: { in: scope.length ? scope : [NIL_UUID] } } } }] }),
+        },
+        select: { id: true },
+      });
+      if (!allowed) throw AppError.forbidden('CONTRACTOR_ACCESS_DENIED');
+      contractorId = allowed.id;
+    }
+
+    const stock = contractorId
+      ? await prisma.contractorStock.findMany({ where: { contractorId }, select: { itemId: true, quantity: true, item: { select: { code: true, name: true, unit: true } } } })
+      : [];
+    const batches = contractorId
+      ? await prisma.contractorBatchStock.groupBy({ by: ['itemId'], where: { contractorId }, _sum: { quantity: true } })
+      : [];
+    const batchQty = new Map(batches.map((b) => [b.itemId, Number(b._sum.quantity ?? 0)]));
+
+    const reportedItemIds = order.sltReportedMaterials.map((r) => r.itemId).filter((v): v is string => !!v);
+    const reportedItems = reportedItemIds.length
+      ? await prisma.inventoryItem.findMany({ where: { id: { in: reportedItemIds } }, select: { id: true, code: true } })
+      : [];
+    const codeById = new Map(reportedItems.map((i) => [i.id, i.code]));
+    const latest = order.sltReportedMaterials.reduce<Date | null>((m, r) => (!m || r.reportedAt > m ? r.reportedAt : m), null);
+
+    return {
+      contractorId,
+      contractorStock: stock.map((s) => ({ itemId: s.itemId, code: s.item.code, name: s.item.name, unit: s.item.unit, quantity: Number(s.quantity), usableQuantity: Math.min(Number(s.quantity), batchQty.get(s.itemId) ?? 0) })),
+      sltReported: order.sltReportedMaterials.map((r) => ({ itemId: r.itemId, code: (r.itemId && codeById.get(r.itemId)) || r.rawCode, label: r.rawName || r.rawCode, quantity: Number(r.quantity), source: r.source, reportedAt: r.reportedAt })),
+      sltReceivedAt: latest,
+    };
   }
 
   /**

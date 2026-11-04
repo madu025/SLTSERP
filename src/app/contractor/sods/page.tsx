@@ -8,6 +8,7 @@ import { ClipboardList, QrCode, CheckCircle2, Layers, MapPin, Search, ChevronLef
 import { toast } from 'sonner';
 import { getPreviousReturnDetails } from '@/lib/utils/sod-reassigned-utils';
 import { pickDropWireStock, pickOntStock } from '@/lib/sod-material-items';
+import { toErrorText } from '@/lib/error-text';
 
 interface MaterialUsageItem {
     id: string;
@@ -186,8 +187,14 @@ export default function ContractorSODsPage() {
                 body: JSON.stringify(payload)
             });
             if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.message || err.error || 'Failed to complete Service Order');
+                // The session ran out (access tokens last 15 minutes): say so instead of failing silently.
+                if (res.status === 401) {
+                    setTimeout(() => { window.location.href = '/contractor/login?callbackUrl=%2Fcontractor%2Fsods'; }, 2500);
+                    throw new Error('Your session has expired. Please sign in again - nothing was saved.');
+                }
+                const err = await res.json().catch(() => ({}));
+                // The API answers { error: { code, message } }; an object must never reach the toast.
+                throw new Error(toErrorText(err?.error ?? err) || 'Failed to complete Service Order');
             }
             return res.json();
         },

@@ -6,7 +6,10 @@ import { OrderActionData, MaterialUsageRow, InventoryItem, OrderCompletionData }
 import { formatMaterialUsage } from "./utils";
 import { 
     SOD_STANDARD_MATRIX_CONFIG, 
-    SODMatrixItemConfig 
+    SODMatrixItemConfig,
+    WASTAGE_KEY_SUFFIX,
+    wastageKeyFor,
+    matrixItemAllowsWastage
 } from "@/config/sod-matrix-config";
 
 interface BridgeMaterialDetail {
@@ -188,6 +191,14 @@ export function useOrderAction(
                 });
                 if (match && match.quantity != null) {
                     initialMatrix[cfg.key] = String(match.quantity);
+                }
+                if (matrixItemAllowsWastage(cfg)) {
+                    const wasted = orderData.materialUsage.find(m => {
+                        const mItem = (m as { item?: { code?: string } }).item;
+                        const code = (mItem?.code || '').toUpperCase();
+                        return m.usageType === 'WASTAGE' && (code === cfg.companyCode.toUpperCase() || code === cfg.sltCode.toUpperCase());
+                    });
+                    if (wasted && wasted.quantity != null) initialMatrix[wastageKeyFor(cfg.key)] = String(wasted.quantity);
                 }
             }
             // Fallback for F1 if dropWireDistance is present
@@ -628,11 +639,13 @@ export function useOrderAction(
     const updateMatrixValue = useCallback((key: string, value: string) => {
         setMatrixValues(prev => ({ ...prev, [key]: value }));
 
-        const cfg = SOD_STANDARD_MATRIX_CONFIG.find(c => c.key === key);
+        const isWastageEntry = key.endsWith(WASTAGE_KEY_SUFFIX);
+        const baseKey = isWastageEntry ? key.slice(0, -WASTAGE_KEY_SUFFIX.length) : key;
+        const cfg = SOD_STANDARD_MATRIX_CONFIG.find(c => c.key === baseKey);
         if (!cfg) return;
 
         // If it's a pole item and quantity > 0, make sure erectedPoles is updated
-        if (cfg.category === 'POLES') {
+        if (!isWastageEntry && cfg.category === 'POLES') {
             const qtyNum = parseFloat(value) || 0;
             if (qtyNum > 0) {
                 setErectedPoles(prev => {
@@ -656,7 +669,7 @@ export function useOrderAction(
                 return rItem && targetItem && (rItem.commonName || rItem.name) === (targetItem.commonName || targetItem.name);
             });
 
-            const fieldToUpdate: keyof MaterialUsageRow = 
+            const fieldToUpdate: keyof MaterialUsageRow = isWastageEntry ? 'wastageQty' :
                 cfg.usageType === 'USED_F1' ? 'f1Qty' :
                 cfg.usageType === 'USED_G1' ? 'g1Qty' :
                 cfg.usageType === 'WASTAGE' ? 'wastageQty' : 'usedQty';

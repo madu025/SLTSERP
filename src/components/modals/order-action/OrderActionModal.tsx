@@ -154,25 +154,25 @@ export default function OrderActionModal({
                             <CheckCircle2 className="w-10 h-10 animate-bounce" />
                         </div>
                         <div className="space-y-2">
-                            <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">Order Completed Successfully</h2>
+                            <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">Review and save</h2>
                             <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 py-1 px-3 rounded-full inline-block font-mono border border-emerald-200 dark:border-emerald-800">
                                 SO-NUM: {orderData?.soNum || 'N/A'}
                             </p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Materials inventory counts have been updated. Managers have been notified of this completion.</p>
+                            <p className="text-sm text-slate-700 dark:text-slate-300 font-semibold">Nothing is saved yet. Press &quot;Save order&quot; to record the completion, deduct the materials from the contractor&apos;s stock and notify the managers.</p>
                         </div>
                         <div className="flex w-full gap-3 mt-4">
                             <Button 
                                 variant="outline" 
                                 className="flex-1 h-10 text-xs font-bold"
-                                onClick={handleConfirmFinal}
+                                onClick={() => setShowSuccess(false)}
                             >
-                                View Order
+                                Back to edit
                             </Button>
                             <Button 
                                 className="flex-1 h-10 text-xs font-bold bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white"
                                 onClick={handleConfirmFinal}
                             >
-                                Close Drawer
+                                Save order
                             </Button>
                         </div>
                     </div>
