@@ -39,6 +39,6 @@ test('MRN approval never upserts a negative stock row (the BEFORE INSERT trigger
 
 test('stock request transfers record InventoryTransaction.referenceId as the request id (a UUID column)', () => {
   const src = fs.readFileSync(path.join(process.cwd(), 'src/services/inventory/stock-request.service.ts'), 'utf8');
-  const bad = [...src.matchAll(/createTransaction\(\{[^}]*?referenceId:\s*stockReq\.requestNr/gs)];
+  const bad = [...src.matchAll(/createTransaction\(\{[^}]*?referenceId:\s*stockReq\.requestNr/g)];
   assert.equal(bad.length, 0);
 });

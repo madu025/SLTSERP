@@ -4,6 +4,7 @@ import { NotificationTemplateEngineService } from '@/services/notification/templ
 import { EmailService } from '@/services/notification/email.service';
 import { NotificationTemplateService } from '@/services/admin/notification-template.service';
 import { z } from 'zod';
+import { getAppBaseUrl } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,8 +31,8 @@ export const POST = apiHandler(async (req, _params, body) => {
     entityName: 'Fiber Drop Wire - 100m (Test)',
     amount: '15,500',
     status: 'PENDING_APPROVAL',
-    approveUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app'}/api/approvals/webhook?token=TEST_APPROVE_TOKEN`,
-    rejectUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app'}/api/approvals/webhook?token=TEST_REJECT_TOKEN`,
+    approveUrl: `${getAppBaseUrl()}/api/approvals/webhook?token=TEST_APPROVE_TOKEN`,
+    rejectUrl: `${getAppBaseUrl()}/api/approvals/webhook?token=TEST_REJECT_TOKEN`,
     expiryHours: '48',
 
     // --- APPROVAL_MATERIAL_REQUEST ---
@@ -45,7 +46,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     // --- ALERT_GENERIC / NOTIFICATION_GENERIC ---
     title: 'System Alert - Low Stock Warning',
     message: 'Cat5e UTP Cable stock has fallen below the minimum threshold of 10 units. Current stock: 3 units.',
-    actionUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app'}/inventory/stock`,
+    actionUrl: `${getAppBaseUrl()}/inventory/stock`,
 
     // --- ALERT_FEFO_EXPIRY ---
     itemCount: '3',

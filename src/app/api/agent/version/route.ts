@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
+import { getAppBaseUrl } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +16,7 @@ export const GET = apiHandler(async (req, _params) => {
     }
 
     // 2. Resolve Host & Protocol for download URL (Vercel canonical domain entry point)
-    const host = req.headers.get('host') || 'sltserp.vercel.app';
+    const host = req.headers.get('host') || new URL(getAppBaseUrl()).host;
     const protocol = req.headers.get('x-forwarded-proto') || 'https';
     const downloadUrl = process.env.AGENT_DOWNLOAD_URL || `${protocol}://${host}/api/agent/download`;
 

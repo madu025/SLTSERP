@@ -1,5 +1,6 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { getAppBaseUrl } from '@/lib/app-url';
 
 export interface UpdateTeamMemberProfileInput {
   shoeSize?: string | null;
@@ -27,7 +28,7 @@ export class TeamMemberService {
       }
     });
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app';
+    const appUrl = getAppBaseUrl();
     return `${appUrl}/team-upload/${token}`;
   }
 

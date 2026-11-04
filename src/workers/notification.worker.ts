@@ -5,6 +5,7 @@ import { PushNotificationService } from '@/services/notification/push/push.servi
 import { EmailService } from '@/services/notification/email.service';
 import { NotificationTemplateEngineService } from '@/services/notification/template-engine.service';
 import { prisma } from '@/lib/prisma';
+import { getAppBaseUrl } from '@/lib/app-url';
 
 export const notificationWorker = new Worker(QUEUE_NAMES.NOTIFICATIONS, async (job) => {
     if (job.name === 'process-notification') {
@@ -36,7 +37,7 @@ export const notificationWorker = new Worker(QUEUE_NAMES.NOTIFICATIONS, async (j
                     user: user.name || user.email,
                     title,
                     message,
-                    actionUrl: link ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app'}${link}` : '#',
+                    actionUrl: link ? `${getAppBaseUrl()}${link}` : '#',
                     date: new Date().toLocaleString()
                 };
                 const dbTemplate = await NotificationTemplateEngineService.renderEmailByCode('NOTIFICATION_GENERIC', notifVars);
@@ -44,7 +45,7 @@ export const notificationWorker = new Worker(QUEUE_NAMES.NOTIFICATIONS, async (j
                 await EmailService.sendMail({
                     to: user.email,
                     subject: dbTemplate?.subject || title,
-                    text: dbTemplate?.text || `${message}\n\nLink: ${link ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app'}${link}` : 'N/A'}`,
+                    text: dbTemplate?.text || `${message}\n\nLink: ${link ? `${getAppBaseUrl()}${link}` : 'N/A'}`,
                     html: dbTemplate?.html
                 });
             } catch (e) {

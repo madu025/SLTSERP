@@ -9,6 +9,7 @@ import { NotificationService } from './index';
 import { PushNotificationService, PushNotificationPayload } from './push/push.service';
 import { EmailService } from './email.service';
 import { NotificationTemplateEngineService } from './template-engine.service';
+import { getAppBaseUrl } from '@/lib/app-url';
 
 interface RetryTask {
     id: string;
@@ -165,7 +166,7 @@ export class NotificationRetryService {
                             user: userEmail,
                             title,
                             message,
-                            actionUrl: link ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app'}${link}` : '#',
+                            actionUrl: link ? `${getAppBaseUrl()}${link}` : '#',
                             date: new Date().toLocaleString()
                         };
                         const dbTemplate = await NotificationTemplateEngineService.renderEmailByCode('NOTIFICATION_GENERIC', retryVars);

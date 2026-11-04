@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAppBaseUrl } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
     const defaultUrl = process.env.AGENT_DOWNLOAD_URL || 'http://172.255.209.243:8091/agent/SLTSERPagent_setup.zip';
     
     // Construct target URL dynamically based on incoming request origin/host
-    const origin = request.nextUrl.origin || process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app';
+    const origin = request.nextUrl.origin || getAppBaseUrl();
     const redirectTarget = defaultUrl.startsWith('http') ? defaultUrl : new URL(defaultUrl, origin).toString();
 
     return NextResponse.redirect(redirectTarget, {

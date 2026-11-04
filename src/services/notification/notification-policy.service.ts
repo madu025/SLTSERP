@@ -4,6 +4,7 @@ import { EmailService } from './email.service';
 import { NotificationTemplateEngineService } from './template-engine.service';
 import { prisma } from '@/lib/prisma';
 import { getSriLankaDayKey } from '@/lib/timezone';
+import { getAppBaseUrl } from '@/lib/app-url';
 
 /**
  * Roles that receive all stock/inventory alert emails.
@@ -189,7 +190,7 @@ export class NotificationPolicyService {
                 title: `Critical Low Stock: ${itemName} in ${storeName}`,
                 message: `Low stock detected: ${itemName} in ${storeName}. Current: ${currentQty}, Min Level: ${minLevel}`,
                 date: new Date().toLocaleString(),
-                actionUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app'}/inventory/stock`
+                actionUrl: `${getAppBaseUrl()}/inventory/stock`
             }
         });
     }

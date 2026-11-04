@@ -4,6 +4,7 @@ import { EmailService } from '../notification/email.service';
 import { NotificationTemplateEngineService } from '../notification/template-engine.service';
 import { AppError } from '@/lib/error';
 import { requireEnv } from '@/lib/env';
+import { getAppBaseUrl } from '@/lib/app-url';
 
 /** Fail-closed: approval tokens must never be signed with a hardcoded default */
 function getJwtSecret(): string {
@@ -51,7 +52,7 @@ export class DynamicApprovalService {
         const rejectToken = this.generateActionToken(instanceId, 'REJECTED', userId);
         const viewToken = this.generateViewToken(instanceId, userId);
 
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app';
+        const baseUrl = getAppBaseUrl();
         
         const approveUrl = `${baseUrl}/api/approvals/webhook?token=${approveToken}`;
         const rejectUrl = `${baseUrl}/api/approvals/webhook?token=${rejectToken}`;
@@ -163,7 +164,7 @@ export class DynamicApprovalService {
         const approveToken = this.generateActionToken(instanceId, 'APPROVED', userId);
         const rejectToken = this.generateActionToken(instanceId, 'REJECTED', userId);
         const viewToken = this.generateViewToken(instanceId, userId);
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app';
+        const baseUrl = getAppBaseUrl();
         const approveUrl = `${baseUrl}/api/approvals/webhook?token=${approveToken}`;
         const rejectUrl = `${baseUrl}/api/approvals/webhook?token=${rejectToken}`;
         const viewUrl = `${baseUrl}/approvals/action?token=${viewToken}`;
