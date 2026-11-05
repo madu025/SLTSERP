@@ -53,6 +53,10 @@ model Project {
   routeTo               String?
   routeLength           Decimal?                      @db.Decimal(12, 4)
   surveyLayers          String[]                      @default([])
+  poNumber              String?
+  poDate                DateTime?
+  contractRef           String?
+  sltRef                String?
   aiPredictions         AiPrediction[]
   boqApprovals          BOQApproval[]
   boqRateConfigs        BOQRateConfig[]
@@ -163,6 +167,14 @@ model ProjectBOQItem {
   taskId               String?                      @db.Uuid
   contractorId         String?                      @db.Uuid
   remarks              String?
+  udNo                 Int?
+  unitDesignator       String?
+  /// P0 = material + accessories + services, P1 = accessories + services, P2 = services only
+  supplyTier           String                       @default("P0")
+  rateP0               Decimal?                     @db.Decimal(14, 2)
+  rateP1               Decimal?                     @db.Decimal(14, 2)
+  rateP2               Decimal?                     @db.Decimal(14, 2)
+  boqPart              String?
   createdAt            DateTime                     @default(now())
   updatedAt            DateTime                     @updatedAt
   material             InventoryItem?               @relation("BOQMaterials", fields: [materialId], references: [id])
@@ -173,6 +185,7 @@ model ProjectBOQItem {
   project              Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
+  @@index([unitDesignator])
   @@index([category])
   @@index([source])
   @@index([materialId])
@@ -421,10 +434,29 @@ model ProjectType {
   id                String             @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name              String             @unique
   description       String?
+  /// BOQ / invoice document layout: STANDARD, CLUSTER or MARKETING
+  documentProfile   String?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   projects          Project[]
   workflowTemplates WorkflowTemplate[]
+}
+
+/// SLT unit-rate catalogue: one row per unit designator with the three price tiers (before increment factors)
+model SltRateItem {
+  id             String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  unitDesignator String   @unique
+  udNo           Int?
+  description    String
+  unit           String
+  rateP0         Decimal  @default(0) @db.Decimal(14, 2)
+  rateP1         Decimal  @default(0) @db.Decimal(14, 2)
+  rateP2         Decimal  @default(0) @db.Decimal(14, 2)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([udNo])
 }
 
 model BOQRateConfig {

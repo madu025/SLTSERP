@@ -407,6 +407,8 @@ model ProjectInvoice {
   paymentReference String?
   completedAt      DateTime?
   referenceNumber  String?
+  /// FINAL or PART
+  invoiceKind      String               @default("FINAL")
   periodFrom       DateTime?
   periodTo         DateTime?
   createdById      String?              @db.Uuid

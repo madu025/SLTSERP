@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { assertProjectAccess } from '@/lib/project-access';
 import { deriveEffectivePermissions } from '@/lib/effective-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { SltBoqService } from '@/services/project/slt-boq.service';
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
@@ -485,6 +486,7 @@ export class ProjectTaskService {
             }
         });
 
+        if (task.status === 'COMPLETED') void SltBoqService.maybeGenerateCompletionDraft(task.projectId);
         return task;
     }
 
@@ -701,6 +703,7 @@ export class ProjectTaskService {
             return newLog;
         });
 
+        if (Number(progressVal) >= 100) void SltBoqService.maybeGenerateCompletionDraft(task.projectId);
         return log;
     }
 
