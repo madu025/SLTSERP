@@ -6,6 +6,7 @@ import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { Prisma } from '@prisma/client';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { StoreService } from './store.service';
 
 export interface CreateCycleCountInput {
     storeId: string;
@@ -253,6 +254,8 @@ export class CycleCountService {
         if (!permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC) && header.countedById === approvedById) {
             throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: The cycle counter cannot approve their own count.');
         }
+        // A manager of another store must not be able to approve this store's stock adjustment
+        await StoreService.assertStoreWriteAccess(approvedById, header.storeId);
 
         await prisma.$transaction(async (tx: TransactionClient) => {
             // Atomic approval claim: flip PENDING_APPROVAL → APPROVED in a single

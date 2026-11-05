@@ -27,6 +27,10 @@ type SeedGate = {
   writeAuditLedger?: boolean;
   generateIssueNote?: boolean;
   notificationAudience?: NotificationAudienceId;
+  /** Rule-engine condition(s) on the entity payload; omitted means the gate always applies. */
+  conditions?: Prisma.InputJsonValue;
+  /** Domain action run when the gate is passed, e.g. '/api/inventory/reserve-stock'. */
+  domainAction?: string;
   approvalLevels: Array<{ level: number; requiredRole: string; description: string }>;
 };
 
@@ -396,6 +400,8 @@ export class ProcessGateAdminService {
           toStatus: 'OSP_MANAGER_APPROVAL',
           label: '1. MRN Submission & OSP Review',
           isEnabled: true,
+          // external purchases only; transfers between our own stores use the two internal gates below
+          conditions: { field: 'isExternalProcurement', operator: '==', value: true },
           notificationAudience: 'PROCESS_GATE_OSP_MANAGER',
           approvalLevels: [{ level: 1, requiredRole: 'OSP_MANAGER', description: 'OSP Manager verifies field requirements' }]
         },
@@ -429,6 +435,31 @@ export class ProcessGateAdminService {
           approvalLevels: [{ level: 1, requiredRole: 'STORES_MANAGER', description: 'Main Store issues MIN note and releases inventory' }]
         }
       ];
+
+      // Internal transfer: a sub store asks a main store. Area Manager approves and the stock is reserved at the
+      // main store; release (MAIN_STORE_RELEASE) and receipt (SUB_STORE_RECEIVE) are then done by the stores.
+      mrGates.push(
+        {
+          entityType: 'MATERIAL_REQUEST',
+          fromStatus: 'DRAFT',
+          toStatus: 'ARM_APPROVAL',
+          label: '1. Sub-store Request & Area Manager Review',
+          isEnabled: true,
+          conditions: { field: 'isExternalProcurement', operator: '==', value: false },
+          approvalLevels: [{ level: 1, requiredRole: 'AREA_MANAGER', description: 'Area Manager approves the sub-store request' }]
+        },
+        {
+          entityType: 'MATERIAL_REQUEST',
+          fromStatus: 'ARM_APPROVAL',
+          toStatus: 'MAIN_STORE_RELEASE',
+          label: '2. Area Manager Approval & Stock Reservation',
+          isEnabled: true,
+          writeAuditLedger: true,
+          domainAction: '/api/inventory/reserve-stock',
+          notificationAudience: 'PROCESS_GATE_STORES',
+          approvalLevels: [{ level: 1, requiredRole: 'STORES_MANAGER', description: 'Main store releases the reserved stock to the sub store' }]
+        }
+      );
 
       for (const g of mrGates) {
         await ensureGate(g);

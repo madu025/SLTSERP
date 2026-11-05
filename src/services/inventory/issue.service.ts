@@ -298,6 +298,25 @@ export class IssueService {
                     }, tx);
                 }
 
+                if (item.condition && item.condition !== 'GOOD') {
+                    // Received physically, but not added to saleable stock. A zero-movement ledger row ties the
+                    // damaged / faulty receipt to this return note (the quantity is on the return item itself).
+                    const storeStockNow = await tx.inventoryStock.findUnique({ where: { storeId_itemId: { storeId, itemId: item.itemId } } });
+                    const qtyNow = storeStockNow ? Number(storeStockNow.quantity) : 0;
+                    await AuditLedgerService.recordEntry({
+                        storeId,
+                        itemId: item.itemId,
+                        transactionType: 'DAMAGED_RETURN_RECEIVED',
+                        referenceType: 'MRN',
+                        referenceId: materialReturn.id,
+                        quantityBefore: qtyNow,
+                        quantityChange: 0,
+                        quantityAfter: qtyNow,
+                        performedById: userId || 'SYSTEM',
+                        idempotencyKey: `return-damaged-${materialReturn.id}-${item.itemId}`
+                    }, tx);
+                }
+
                 // Update serials status if returned and serials are provided
                 if (item.serials && Array.isArray(item.serials) && item.serials.length > 0) {
                     for (const sn of item.serials) {
