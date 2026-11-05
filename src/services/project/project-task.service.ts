@@ -486,7 +486,7 @@ export class ProjectTaskService {
             }
         });
 
-        if (task.status === 'COMPLETED') void SltBoqService.maybeGenerateCompletionDraft(task.projectId);
+        if (task.status === 'COMPLETED' && String(currentTask.status).toUpperCase() !== 'COMPLETED') void SltBoqService.maybeGenerateCompletionDraft(task.projectId);
         return task;
     }
 
@@ -643,7 +643,7 @@ export class ProjectTaskService {
 
         const task = await prisma.projectTask.findUnique({
             where: { id: taskId },
-            select: { projectId: true, actualStartDate: true, actualEndDate: true },
+            select: { projectId: true, actualStartDate: true, actualEndDate: true, status: true },
         });
         if (!task) throw AppError.notFound('Task not found');
         if (projectId && task.projectId !== projectId) throw AppError.forbidden('Task does not belong to this project');
@@ -703,7 +703,7 @@ export class ProjectTaskService {
             return newLog;
         });
 
-        if (Number(progressVal) >= 100) void SltBoqService.maybeGenerateCompletionDraft(task.projectId);
+        if (Number(progressVal) >= 100 && String(task.status).toUpperCase() !== 'COMPLETED') void SltBoqService.maybeGenerateCompletionDraft(task.projectId);
         return log;
     }
 

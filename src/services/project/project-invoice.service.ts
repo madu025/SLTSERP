@@ -44,6 +44,10 @@ interface CreateInvoiceInput {
      * link and is therefore exclusive only within the ProjectInvoice path.
      */
     sodIds?: string[];
+    /** FINAL or PART (SLT BOQ invoices) */
+    invoiceKind?: 'FINAL' | 'PART';
+    /** Tax split recorded on the invoice when the caller computed it (SLT: SSCL then VAT, no withholding) */
+    taxBreakdown?: { ssclAmount: number; ssclPercent: number; vatAmount: number; vatPercent: number; whtPercent?: number };
     items: InvoiceItemInput[];
 }
 
@@ -114,7 +118,7 @@ export class ProjectInvoiceService {
             projectId, title, description, type, invoiceDate, dueDate,
             referenceNumber, periodFrom, periodTo, currency, notes, items,
             taxAmount, discountAmount, createdById, contractorId,
-            sodIds,
+            sodIds, invoiceKind, taxBreakdown,
         } = data;
 
         // Verify project exists
@@ -196,7 +200,7 @@ export class ProjectInvoiceService {
             if (!Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitPrice) || unitPrice < 0) {
                 throw AppError.badRequest('INVALID_INVOICE_ITEM_AMOUNT');
             }
-            const totalPrice = unitPrice * quantity;
+            const totalPrice = Math.round((unitPrice * quantity + Number.EPSILON) * 100) / 100;
             subtotal += totalPrice;
             return {
                 description: item.description,
@@ -265,6 +269,12 @@ export class ProjectInvoiceService {
                     currency: currency || 'LKR',
                     notes: notes || null,
                     referenceNumber: referenceNumber || null,
+                    ...(invoiceKind ? { invoiceKind } : {}),
+                    ...(taxBreakdown ? {
+                        ssclAmount: taxBreakdown.ssclAmount, ssclPercent: taxBreakdown.ssclPercent,
+                        vatAmount: taxBreakdown.vatAmount, vatPercent: taxBreakdown.vatPercent,
+                        whtPercent: taxBreakdown.whtPercent ?? 0, whtAmount: 0,
+                    } : {}),
                     periodFrom: periodFrom ? new Date(periodFrom) : null,
                     periodTo: periodTo ? new Date(periodTo) : null,
                     createdById: createdById || null,

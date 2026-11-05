@@ -46,7 +46,8 @@ function rowsOf(wb: XLSX.WorkBook, sheet: string): Row[] {
 }
 
 export function readWorkbook(data: Buffer | ArrayBuffer | Uint8Array): XLSX.WorkBook {
-    return XLSX.read(data, { type: 'buffer', cellDates: false });
+    // sheetRows bounds the work done for a crafted or oversized upload; real BOQs are a few hundred rows
+    return XLSX.read(data, { type: 'buffer', cellDates: false, sheetRows: 2000 });
 }
 
 export function detectBoqFormat(wb: XLSX.WorkBook): BoqWorkbookFormat | null {

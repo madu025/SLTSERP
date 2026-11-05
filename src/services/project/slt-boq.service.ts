@@ -60,31 +60,55 @@ export class SltBoqService {
         }
         if (!parsed.lines.length) throw AppError.badRequest(`BOQ_WORKBOOK_HAS_NO_LINES: ${parsed.warnings.join('; ')}`);
 
+        // One line per designator/part/tier: a repeated line adds to the quantity
+        const keyOf = (l: { unitDesignator: string; boqPart?: string | null; supplyTier: string }) => `${l.unitDesignator}|${l.boqPart ?? ''}|${l.supplyTier}`;
+        const merged = new Map<string, (typeof parsed.lines)[number]>();
+        for (const l of parsed.lines) {
+            const k = keyOf(l);
+            const prev = merged.get(k);
+            merged.set(k, prev ? { ...prev, quantity: prev.quantity + l.quantity } : { ...l });
+        }
+
         const result = await prisma.$transaction(async (tx) => {
-            const removed = await tx.projectBOQItem.deleteMany({ where: { projectId, unitDesignator: { not: null } } });
-            const created = await tx.projectBOQItem.createMany({
-                data: parsed.lines.map((l) => {
-                    const rate = tierRate(l, l.supplyTier);
-                    return {
-                        projectId,
-                        itemCode: l.unitDesignator,
-                        description: l.description || l.unitDesignator,
-                        unit: l.unit || 'Nos',
-                        quantity: l.quantity,
-                        unitRate: rate,
-                        amount: round2(rate * l.quantity),
-                        category: l.boqPart ?? null,
-                        remarks: 'SLT_IMPORT',
-                        udNo: l.udNo ?? null,
-                        unitDesignator: l.unitDesignator,
-                        supplyTier: l.supplyTier,
-                        rateP0: l.rateP0,
-                        rateP1: l.rateP1,
-                        rateP2: l.rateP2,
-                        boqPart: l.boqPart ?? null,
-                    };
-                }),
-            });
+            const existing = await tx.projectBOQItem.findMany({ where: { projectId, unitDesignator: { not: null } } });
+            const byKey = new Map(existing.map((e) => [keyOf({ unitDesignator: e.unitDesignator as string, boqPart: e.boqPart, supplyTier: e.supplyTier }), e]));
+
+            // A line that is no longer in the workbook can only go if nothing was invoiced on it
+            const dropped = existing.filter((e) => !merged.has(keyOf({ unitDesignator: e.unitDesignator as string, boqPart: e.boqPart, supplyTier: e.supplyTier })));
+            if (dropped.length) {
+                const billed = await tx.projectInvoiceItem.count({
+                    where: { boqItemId: { in: dropped.map((d) => d.id) }, invoice: { status: { not: 'CANCELLED' } } },
+                });
+                if (billed > 0) throw AppError.conflict('BOQ_REIMPORT_WOULD_DROP_INVOICED_LINES: a line that is already invoiced is missing from this workbook');
+            }
+
+            let created = 0;
+            let updated = 0;
+            for (const l of merged.values()) {
+                const rate = tierRate(l, l.supplyTier);
+                const fields = {
+                    description: l.description || l.unitDesignator,
+                    unit: l.unit || 'Nos',
+                    quantity: l.quantity,
+                    unitRate: rate,
+                    amount: round2(rate * l.quantity),
+                    udNo: l.udNo ?? null,
+                    rateP0: l.rateP0,
+                    rateP1: l.rateP1,
+                    rateP2: l.rateP2,
+                };
+                const found = byKey.get(keyOf(l));
+                if (found) {
+                    await tx.projectBOQItem.update({ where: { id: found.id }, data: fields });
+                    updated++;
+                } else {
+                    await tx.projectBOQItem.create({
+                        data: { projectId, itemCode: l.unitDesignator, category: l.boqPart ?? null, remarks: 'SLT_IMPORT', unitDesignator: l.unitDesignator, supplyTier: l.supplyTier, boqPart: l.boqPart ?? null, ...fields },
+                    });
+                    created++;
+                }
+            }
+            if (dropped.length) await tx.projectBOQItem.deleteMany({ where: { id: { in: dropped.map((d) => d.id) } } });
 
             // Rate catalogue: add what is missing, keep what is there
             const known = new Set((await tx.sltRateItem.findMany({
@@ -112,8 +136,8 @@ export class SltBoqService {
             if (!project?.sltRef && parsed.meta.sltRef) meta.sltRef = parsed.meta.sltRef;
             if (Object.keys(meta).length) await tx.project.update({ where: { id: projectId }, data: meta });
 
-            return { removed: removed.count, created: created.count, catalogueAdded: fresh.length };
-        });
+            return { removed: dropped.length, created, updated, catalogueAdded: fresh.length };
+        }, { timeout: 60000, maxWait: 15000 });
 
         return { format: parsed.format, meta: parsed.meta, warnings: parsed.warnings, ...result };
     }
@@ -132,8 +156,9 @@ export class SltBoqService {
     private static async nextReferenceNumber(prefix: string, rtom: string): Promise<string> {
         const year = new Date().getFullYear();
         const base = `SLTS/${rtom || 'NA'}/${prefix}/${year}/`;
-        const existing = await prisma.projectInvoice.count({ where: { referenceNumber: { startsWith: base } } });
-        return `${base}${String(existing + 1).padStart(2, '0')}`;
+        const rows = await prisma.projectInvoice.findMany({ where: { referenceNumber: { startsWith: base } }, select: { referenceNumber: true } });
+        const highest = rows.reduce((max, r) => Math.max(max, parseInt((r.referenceNumber ?? '').slice(base.length), 10) || 0), 0);
+        return `${base}${String(highest + 1).padStart(2, '0')}`;
     }
 
     /**
@@ -144,6 +169,15 @@ export class SltBoqService {
      */
     static async createCompletionInvoiceDraft(projectId: string, actorId: string | null) {
         if (actorId) await assertProjectAccess(projectId, actorId);
+        // Two completions at once (or a double click) must not both read "nothing invoiced yet": the lock is held until
+        // the invoice has been committed by createInvoice (which runs on its own connection).
+        return prisma.$transaction(async (lockTx) => {
+            await lockTx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${'boq-invoice:' + projectId}, 0))`;
+            return this.buildCompletionInvoiceDraft(projectId, actorId);
+        }, { timeout: 60000, maxWait: 30000 });
+    }
+
+    private static async buildCompletionInvoiceDraft(projectId: string, actorId: string | null) {
         const project = await prisma.project.findUnique({
             where: { id: projectId },
             include: { projectType: true, opmc: { select: { rtom: true } }, boqItems: { where: { unitDesignator: { not: null } }, orderBy: [{ boqPart: 'asc' }, { udNo: 'asc' }] } },
@@ -186,6 +220,8 @@ export class SltBoqService {
             currency: 'LKR',
             taxAmount: round2(tax.sscl + tax.vat),
             createdById: actorId,
+            invoiceKind: kind,
+            taxBreakdown: { ssclAmount: round2(tax.sscl), ssclPercent: SSCL_PERCENT, vatAmount: round2(tax.vat), vatPercent: VAT_PERCENT, whtPercent: 0 },
             items: toInvoice.map(({ row, line }) => ({
                 description: `${line.udNo ?? ''} ${line.unitDesignator} - ${line.description}`.trim(),
                 quantity: line.quantity,
@@ -196,16 +232,6 @@ export class SltBoqService {
             })),
         });
 
-        // createInvoice only knows one tax figure: record the SLT split and rates on the invoice
-        await prisma.projectInvoice.update({
-            where: { id: invoice.id },
-            data: {
-                invoiceKind: kind,
-                ssclAmount: round2(tax.sscl), ssclPercent: SSCL_PERCENT,
-                vatAmount: round2(tax.vat), vatPercent: VAT_PERCENT,
-                whtPercent: 0, whtAmount: 0,
-            },
-        });
         return { invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber, referenceNumber, kind, gross, net: round2(tax.net), lines: lines.length };
     }
 
@@ -235,6 +261,7 @@ export class SltBoqService {
         });
         if (!invoice) throw AppError.notFound('Invoice not found');
         await assertProjectAccess(invoice.projectId, actorId);
+        if (invoice.type !== 'CLIENT') throw AppError.badRequest('INVOICE_PACK_IS_FOR_CLIENT_INVOICES');
 
         const boqIds = invoice.items.map((i) => i.boqItemId).filter((id): id is string => Boolean(id));
         if (!boqIds.length) throw AppError.badRequest('INVOICE_HAS_NO_BOQ_LINES');

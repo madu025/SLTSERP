@@ -123,7 +123,7 @@ export interface TierTotals { P0: number; P1: number; P2: number }
 export function invoiceTierTotals(lines: BoqLineInput[], inc: IncrementFactors): TierTotals {
     const totals: TierTotals = { P0: 0, P1: 0, P2: 0 };
     for (const line of lines) {
-        totals[line.supplyTier] += invoiceUnitRate(line, inc) * line.quantity;
+        totals[line.supplyTier] += round2(invoiceUnitRate(line, inc) * line.quantity);
     }
     return { P0: round2(totals.P0), P1: round2(totals.P1), P2: round2(totals.P2) };
 }
