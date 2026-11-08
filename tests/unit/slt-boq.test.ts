@@ -18,7 +18,7 @@ const MKT = sample('Marketing', 'CAPITAL TRUST MKT-928.xlsx');
 const have = (f: string) => Boolean(f) && fs.existsSync(f);
 const near = (a: number, b: number, eps = 0.01) => assert.ok(Math.abs(a - b) <= eps, `${a} != ${b}`);
 
-test('CR BOQ: lines, tiers and totals match the SLT workbook (gross 44,634.91, net 54,017.53)', { skip: !have(CR) }, () => {
+test('CR BOQ: lines, tiers and totals match the SLT workbook (gross 44,634.91, net 54,017.53)', { skip: !have(CR) }, async () => {
   const p = parseBoqWorkbook(fs.readFileSync(CR));
   assert.equal(p.format, 'STANDARD');
   assert.equal(p.lines.length, 4);
@@ -34,7 +34,7 @@ test('CR BOQ: lines, tiers and totals match the SLT workbook (gross 44,634.91, n
   near(s.tax.net, 54017.5308);
 });
 
-test('CR invoice rates carry the increment: 3,267.18 / 1,517.18 / 994.84 for UC-50V-T', { skip: !have(CR) }, () => {
+test('CR invoice rates carry the increment: 3,267.18 / 1,517.18 / 994.84 for UC-50V-T', { skip: !have(CR) }, async () => {
   const lines = parseBoqWorkbook(fs.readFileSync(CR)).lines;
   const l = lines[0];
   near(invoiceUnitRate(l, STANDARD_INCREMENT), 3267.18, 0.1);
@@ -45,7 +45,7 @@ test('CR invoice rates carry the increment: 3,267.18 / 1,517.18 / 994.84 for UC-
   near(t.P2, 25673.87, 0.1);
 });
 
-test('Cluster BOQ: BOQ-1 / BOQ-2 tiers and contingency match the workbook', { skip: !have(CLUSTER) }, () => {
+test('Cluster BOQ: BOQ-1 / BOQ-2 tiers and contingency match the workbook', { skip: !have(CLUSTER) }, async () => {
   const p = parseBoqWorkbook(fs.readFileSync(CLUSTER));
   assert.equal(p.format, 'CLUSTER');
   assert.deepEqual(p.meta.contingencyByPart, { 'BOQ-1': 15, 'BOQ-2': 5 });
@@ -61,7 +61,7 @@ test('Cluster BOQ: BOQ-1 / BOQ-2 tiers and contingency match the workbook', { sk
   assert.equal(oc12?.quantity, 2);
 });
 
-test('Marketing invoice summary: tier follows the filled quantity columns, totals match (131,178.45)', { skip: !have(MKT) }, () => {
+test('Marketing invoice summary: tier follows the filled quantity columns, totals match (131,178.45)', { skip: !have(MKT) }, async () => {
   const p = parseBoqWorkbook(fs.readFileSync(MKT));
   assert.equal(p.format, 'INVOICE_SUMMARY');
   assert.equal(p.meta.invoiceNo?.startsWith('SLTS/HK/MKT/'), true);
@@ -84,9 +84,9 @@ test('tax order is SSCL on gross, then VAT on gross + SSCL', () => {
 import * as XLSX from 'xlsx';
 import { buildDocumentPack, resolveDocumentProfile } from '../../src/lib/slt-boq/document-pack';
 
-const packOf = (file: string, profile: string) => {
+const packOf = async (file: string, profile: string) => {
   const parsed = parseBoqWorkbook(fs.readFileSync(file));
-  const buf = buildDocumentPack({
+  const buf = await buildDocumentPack({
     profile: resolveDocumentProfile(profile),
     project: { name: 'Sample', code: 'P-1', rtom: 'MD', poNumber: '1', contractRef: 'L/0585/2023', sltRef: 'REF' },
     lines: parsed.lines, invoiceNumber: 'SLTS/MD/CR/2026/28', invoiceDate: new Date('2026-10-26'), invoiceKind: 'FINAL',
@@ -97,23 +97,23 @@ const packOf = (file: string, profile: string) => {
 const cell = (wb: XLSX.WorkBook, sheet: string, label: string): unknown[] | undefined =>
   XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[sheet], { header: 1, defval: '' }).find((r) => String(r[0]).startsWith(label));
 
-test('STANDARD pack (CR): invoice sheets exist and the tax invoice nets 54,017.53', { skip: !have(CR) }, () => {
-  const wb = packOf(CR, 'STANDARD');
+test('STANDARD pack (CR): invoice sheets exist and the tax invoice nets 54,017.53', { skip: !have(CR) }, async () => {
+  const wb = await packOf(CR, 'STANDARD');
   assert.deepEqual(wb.SheetNames, ['BOQ', 'MS -1', 'WPS- 1', 'In Sum-03', 'In-02', 'Tax Inv-01', 'IN Detail', 'Check List']);
   near(Number(cell(wb, 'Tax Inv-01', 'Net Total Payable')?.[5]), 54017.53, 0.05);
   near(Number(cell(wb, 'Tax Inv-01', 'Gross Invoice Value')?.[5]), 44634.92, 0.05);
 });
 
-test('MARKETING pack: material balance sheet included, nets 158,753.21', { skip: !have(MKT) }, () => {
-  const wb = packOf(MKT, 'MARKETING');
+test('MARKETING pack: material balance sheet included, nets 158,753.21', { skip: !have(MKT) }, async () => {
+  const wb = await packOf(MKT, 'MARKETING');
   assert.ok(wb.SheetNames.includes('MBS'));
   near(Number(cell(wb, 'Tax Inv-01', 'Net Total Payable')?.[5]), 158753.21, 0.05);
   const mbs = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets['MBS'], { header: 1, defval: '' }).find((r) => r[4] === 'Cable');
   assert.equal(mbs?.[9], 5); // 100 received - (90 invoiced + 5 wasted)
 });
 
-test('CLUSTER pack: BOQ-0/1/2, executive summary and front sheet; BOQ-1 total 414,862.99', { skip: !have(CLUSTER) }, () => {
-  const wb = packOf(CLUSTER, 'CLUSTER');
+test('CLUSTER pack: BOQ-0/1/2, executive summary and front sheet; BOQ-1 total 414,862.99', { skip: !have(CLUSTER) }, async () => {
+  const wb = await packOf(CLUSTER, 'CLUSTER');
   assert.deepEqual(wb.SheetNames, ['BOQ-0', 'BOQ-1', 'BOQ-2', 'EX Summery', 'Front Sheet']);
   const total = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets['BOQ-1'], { header: 1, defval: '' }).find((r) => String(r[3]).startsWith('Total Price (Rs.)'));
   near(Number(total?.[12]), 414862.99, 0.05);
@@ -122,4 +122,52 @@ test('CLUSTER pack: BOQ-0/1/2, executive summary and front sheet; BOQ-1 total 41
 test('a project type without a profile uses the STANDARD layout', () => {
   assert.equal(resolveDocumentProfile(null).code, 'STANDARD');
   assert.equal(resolveDocumentProfile('cluster').code, 'CLUSTER');
+});
+
+// ---- print layout and tax footing (synthetic data: runs without the SLT sample files)
+import ExcelJS from 'exceljs';
+import { invoiceTax } from '../../src/lib/slt-boq/pricing';
+
+const synthLines = Array.from({ length: 70 }, (_, i) => ({
+  udNo: i + 1, unitDesignator: `UD${i}`, description: `Long description of an assembly unit number ${i} `.repeat(4), unit: 'Nos',
+  quantity: 3 + i, supplyTier: 'P0' as const, rateP0: 3000 + i, rateP1: 1500, rateP2: 900, boqPart: 'BOQ-1',
+}));
+const synthPack = (profile: string) => buildDocumentPack({
+  profile: resolveDocumentProfile(profile),
+  project: { name: 'A very long project name '.repeat(5), code: 'P-1', rtom: 'MD', poNumber: '77', poDate: new Date('2026-01-02'), contractRef: 'C/1', sltRef: 'R' },
+  lines: synthLines, invoiceNumber: 'SLTS/MD/CR/2026/01', invoiceDate: new Date('2026-10-26'), invoiceKind: 'FINAL',
+  materialBalance: [{ description: 'Cable', received: 100, invoiced: 90, wasted: 5 }],
+});
+
+test('every sheet of every profile is set up for A4 printing', async () => {
+  for (const profile of ['STANDARD', 'MARKETING', 'CLUSTER']) {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load((await synthPack(profile)) as unknown as ArrayBuffer);
+    assert.ok(wb.worksheets.length >= 4);
+    for (const ws of wb.worksheets) {
+      assert.equal(ws.pageSetup.paperSize, 9, `${profile}/${ws.name} paper`);
+      assert.equal(ws.pageSetup.fitToPage, true, `${profile}/${ws.name} fit`);
+      assert.equal(ws.pageSetup.fitToWidth, 1, `${profile}/${ws.name} width`);
+      assert.ok(ws.pageSetup.printArea, `${profile}/${ws.name} print area`);
+      assert.ok(ws.headerFooter.oddFooter?.includes('&P'), `${profile}/${ws.name} page numbers`);
+    }
+  }
+});
+
+test('long tables repeat their headings on every printed page and money has thousands separators', async () => {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load((await synthPack('STANDARD')) as unknown as ArrayBuffer);
+  const boq = wb.getWorksheet('BOQ')!;
+  assert.equal(boq.pageSetup.orientation, 'landscape');
+  assert.equal(boq.pageSetup.printTitlesRow, '5:5');
+  assert.equal(boq.getRow(6).getCell(9).numFmt, '#,##0.00');
+});
+
+test('invoice tax is rounded step by step so gross + SSCL + VAT always equals the net total', () => {
+  for (let g = 100; g < 100000; g += 37.77) {
+    const t = invoiceTax(g);
+    assert.equal(round2(t.gross + t.sscl + t.vat), t.net, `gross ${g}`);
+  }
+  const cr = invoiceTax(44634.92);
+  assert.equal(cr.net, 54017.53);
 });

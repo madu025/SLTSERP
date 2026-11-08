@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
     ReceiptText, Wallet, Gavel, Lock, Plus, Eye, CheckCircle, XCircle,
-    Loader2, Banknote, ArrowUpDown,
+    Loader2, Banknote, ArrowUpDown, Download, FileSpreadsheet,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import ProjectFinanceAssignments from '@/components/projects/ProjectFinanceAssignments';
@@ -34,6 +34,7 @@ interface InvoiceItem {
     unitPrice: number;
     totalPrice?: number;
     itemType: string;
+    boqItemId?: string | null;
 }
 
 interface Invoice {
@@ -184,13 +185,25 @@ interface ProjectFinanceProps {
     refreshProject: () => void;
 }
 
+const BOQ_ERROR_TEXT: Record<string, string> = {
+    PROJECT_HAS_NO_SLT_BOQ: 'Import the SLT BOQ workbook on the BOQ tab first.',
+    INVOICE_HAS_NO_BOQ_LINES: 'This invoice was not generated from a BOQ, so it has no document pack.',
+    INVOICE_PACK_IS_FOR_CLIENT_INVOICES: 'The document pack is only available for client invoices.',
+};
+
+function friendlyBoqError(message: string) {
+    const code = Object.keys(BOQ_ERROR_TEXT).find((c) => message.includes(c));
+    return code ? BOQ_ERROR_TEXT[code] : message;
+}
+
 async function getResponseError(response: Response, fallback: string) {
     try {
         const body: unknown = await response.json();
         if (body && typeof body === 'object') {
-            const message = (body as { error?: unknown; message?: unknown }).error
+            const err = (body as { error?: unknown }).error;
+            const message = (err && typeof err === 'object' ? (err as { message?: unknown }).message : err)
                 ?? (body as { message?: unknown }).message;
-            if (typeof message === 'string' && message.trim()) return message;
+            if (typeof message === 'string' && message.trim()) return friendlyBoqError(message);
         }
     } catch {
         // Fall back to a clear operation-specific message for non-JSON errors.
@@ -362,6 +375,57 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
             toast.error(getErrorMessage(error, 'Unable to create the invoice.'));
         }
         finally { setSubmitting(false); }
+    };
+
+    const [packBusyId, setPackBusyId] = useState<string | null>(null);
+    const [boqDraftBusy, setBoqDraftBusy] = useState(false);
+
+    const hasPack = (inv: Invoice) => inv.type === 'CLIENT' && inv.status !== 'CANCELLED' && !!inv.items?.some((i) => i.boqItemId);
+
+    /** One click: downloads the ready-to-print document pack (xlsx, set up for A4 printing). */
+    const downloadPack = async (inv: Invoice) => {
+        setPackBusyId(inv.id);
+        try {
+            const res = await fetch(`/api/projects/invoices/${inv.id}/pack`);
+            if (!res.ok) throw new Error(await getResponseError(res, 'Unable to prepare the document pack.'));
+            const blob = await res.blob();
+            const header = res.headers.get('Content-Disposition') || '';
+            const name = /filename="([^"]+)"/.exec(header)?.[1] || `${inv.referenceNumber || inv.invoiceNumber}.xlsx`;
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = name;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            toast.success('Document pack downloaded. Open it and press Ctrl+P to print.');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Unable to prepare the document pack.'));
+        } finally {
+            setPackBusyId(null);
+        }
+    };
+
+    /** Draft invoice for whatever is built but not yet billed (also used for part invoices). */
+    const createInvoiceFromBoq = async () => {
+        if (!canWrite) return;
+        if (!window.confirm('Create a draft invoice from the BOQ for the work not yet invoiced?')) return;
+        setBoqDraftBusy(true);
+        try {
+            const res = await fetch(`/api/projects/${project.id}/boq/invoice-draft`, { method: 'POST' });
+            if (!res.ok) throw new Error(await getResponseError(res, 'Unable to create the invoice from the BOQ.'));
+            const json = await res.json();
+            const data = json?.data ?? json;
+            if (data?.invoiceId) toast.success(`Draft invoice ${data.referenceNumber || ''} created. Review it, then issue it.`);
+            else toast.info(data?.message || 'Nothing left to invoice.');
+            await fetchInvoices();
+            refreshProject();
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Unable to create the invoice from the BOQ.'));
+        } finally {
+            setBoqDraftBusy(false);
+        }
     };
 
     const handleCreatePV = async () => {
@@ -619,6 +683,13 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                 </>}
                             </p>
                         </div>
+                        <div className="flex gap-2">
+                        {canWrite && (
+                            <Button size="sm" variant="outline" disabled={boqDraftBusy} onClick={() => void createInvoiceFromBoq()}>
+                                {boqDraftBusy ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <FileSpreadsheet className="w-4 h-4 mr-1" />}
+                                Invoice from BOQ
+                            </Button>
+                        )}
                         <Dialog open={showInvDialog} onOpenChange={setShowInvDialog}>
                             {canWrite && <DialogTrigger asChild>
                                 <Button size="sm"><Plus className="w-4 h-4 mr-1" /> New Invoice</Button>
@@ -732,6 +803,7 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                 </DialogFooter>
                             </DialogContent>
                         </Dialog>
+                        </div>
                     </div>
 
                     <Dialog open={showReceiptDialog} onOpenChange={setShowReceiptDialog}>
@@ -805,6 +877,9 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                                 <span className="font-semibold text-sm text-blue-800">{inv.invoiceNumber}</span>
                                                 {statusBadge(inv.status)}
                                                 {inv.submissionStatus === 'SUBMITTED_TO_SLT' && statusBadge('SUBMITTED_TO_SLT')}
+                                                {inv.status === 'DRAFT' && hasPack(inv) && (
+                                                    <Badge className="bg-indigo-100 text-indigo-900 border border-indigo-200">Generated from BOQ - review</Badge>
+                                                )}
                                                 {inv.paymentStatus && (inv.type === 'CLIENT' && inv.paymentStatus === 'PENDING'
                                                     ? <Badge className="bg-yellow-100 text-yellow-900">SLT payment pending</Badge>
                                                     : statusBadge(inv.paymentStatus))}
@@ -822,6 +897,12 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                             )}
                                         </div>
                                         <div className="flex gap-2">
+                                            {hasPack(inv) && (
+                                                <Button size="sm" variant="outline" disabled={packBusyId === inv.id} onClick={() => void downloadPack(inv)}>
+                                                    {packBusyId === inv.id ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Download className="w-4 h-4 mr-1" />}
+                                                    Download pack
+                                                </Button>
+                                            )}
                                             {canApprove && inv.status === 'DRAFT' && (
                                                 <Button size="sm" variant="outline" disabled={submitting} onClick={() => handleStatusUpdate(
                                                     '/api/projects/invoices',

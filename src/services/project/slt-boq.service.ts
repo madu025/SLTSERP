@@ -4,10 +4,11 @@ import { Prisma } from '@prisma/client';
 import { assertProjectAccess } from '@/lib/project-access';
 import { parseBoqWorkbook } from '@/lib/slt-boq/excel-import';
 import {
-    SSCL_PERCENT, VAT_PERCENT, invoiceTierTotals, invoiceUnitRate, round2, taxBreakdown, tierRate,
+    SSCL_PERCENT, VAT_PERCENT, invoiceTax, invoiceTierTotals, invoiceUnitRate, round2, round4, tierRate,
     type BoqLineInput, type SupplyTier,
 } from '@/lib/slt-boq/pricing';
 import { buildDocumentPack, resolveDocumentProfile, type PackInput } from '@/lib/slt-boq/document-pack';
+import { NotificationService } from '@/services/notification/notification.service';
 import { ProjectBOQService } from '@/services/project/project-boq.service';
 import { ProjectInvoiceService } from '@/services/project/project-invoice.service';
 
@@ -149,7 +150,7 @@ export class SltBoqService {
             select: { boqItemId: true, quantity: true },
         });
         const map = new Map<string, number>();
-        for (const i of items) map.set(i.boqItemId as string, (map.get(i.boqItemId as string) ?? 0) + Number(i.quantity));
+        for (const i of items) map.set(i.boqItemId as string, round4((map.get(i.boqItemId as string) ?? 0) + Number(i.quantity)));
         return map;
     }
 
@@ -194,18 +195,30 @@ export class SltBoqService {
             const planned = Number(row.quantity);
             const done = Number(row.actualQuantity) > 0 ? Number(row.actualQuantity) : planned;
             const already = invoiced.get(row.id) ?? 0;
-            const remaining = round2(done - already);
+            const remaining = round4(done - already);
             if (done < planned) fullyCovered = false;
             if (remaining > 0) toInvoice.push({ row, line: rowToLine(row, remaining) });
-            if (already + Math.max(remaining, 0) < planned) fullyCovered = false;
+            if (round4(planned - already - Math.max(remaining, 0)) > 0) fullyCovered = false;
         }
         if (!toInvoice.length) return null;
 
         const lines = toInvoice.map((t) => t.line);
         const totals = invoiceTierTotals(lines, profile.increment);
-        const gross = round2(totals.P0 + totals.P1 + totals.P2);
-        if (gross <= 0) return null;
-        const tax = taxBreakdown(gross);
+        const linesGross = round2(totals.P0 + totals.P1 + totals.P2);
+        if (linesGross <= 0) return null;
+
+        // Cluster / apartment BOQs carry a contingency per part (BOQ-1 15%, BOQ-2 5%); it is billed with the works
+        const contingencyItems: Array<{ part: string; percent: number; amount: number }> = [];
+        for (const [part, percent] of Object.entries(profile.contingencyByPart)) {
+            if (!(percent > 0)) continue;
+            const partLines = lines.filter((l) => (l.boqPart || 'BOQ-1') === part);
+            if (!partLines.length) continue;
+            const t = invoiceTierTotals(partLines, profile.increment);
+            const amount = round2((t.P0 + t.P1 + t.P2) * percent / 100);
+            if (amount > 0) contingencyItems.push({ part, percent, amount });
+        }
+        const gross = round2(linesGross + contingencyItems.reduce((a, c) => a + c.amount, 0));
+        const tax = invoiceTax(gross);
 
         const prefix = INVOICE_PREFIX[project.projectType?.name ?? ''] ?? 'PRJ';
         const referenceNumber = await this.nextReferenceNumber(prefix, project.opmc?.rtom ?? '');
@@ -222,14 +235,20 @@ export class SltBoqService {
             createdById: actorId,
             invoiceKind: kind,
             taxBreakdown: { ssclAmount: round2(tax.sscl), ssclPercent: SSCL_PERCENT, vatAmount: round2(tax.vat), vatPercent: VAT_PERCENT, whtPercent: 0 },
-            items: toInvoice.map(({ row, line }) => ({
+            items: [...toInvoice.map(({ row, line }) => ({
                 description: `${line.udNo ?? ''} ${line.unitDesignator} - ${line.description}`.trim(),
                 quantity: line.quantity,
                 unitPrice: invoiceUnitRate(line, profile.increment),
                 boqItemId: row.id,
                 itemType: line.supplyTier === 'P2' ? 'SERVICE' : 'MATERIAL_AND_SERVICE',
                 notes: `Tier ${line.supplyTier}`,
-            })),
+            })), ...contingencyItems.map((c) => ({
+                description: `Contingency ${c.percent}% - ${c.part}`,
+                quantity: 1,
+                unitPrice: c.amount,
+                itemType: 'SERVICE',
+                notes: 'Contingency',
+            }))],
         });
 
         return { invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber, referenceNumber, kind, gross, net: round2(tax.net), lines: lines.length };
@@ -247,9 +266,26 @@ export class SltBoqService {
                 prisma.projectBOQItem.count({ where: { projectId, unitDesignator: { not: null } } }),
             ]);
             if (total === 0 || open > 0 || boqLines === 0) return;
-            await this.createCompletionInvoiceDraft(projectId, null);
+            const draft = await this.createCompletionInvoiceDraft(projectId, null);
+            if (draft && 'invoiceId' in draft) await this.notifyDraftCreated(projectId, draft.referenceNumber);
         } catch (e) {
             console.warn('[slt-boq] completion draft skipped:', e instanceof Error ? e.message : e);
+        }
+    }
+
+    /** Tells the area manager and project managers that a draft is waiting for review. Failures are only logged. */
+    private static async notifyDraftCreated(projectId: string, referenceNumber: string) {
+        try {
+            const project = await prisma.project.findUnique({ where: { id: projectId }, select: { name: true, areaManagerId: true } });
+            const title = 'Draft invoice ready for review';
+            const message = `Draft invoice ${referenceNumber} was generated for project "${project?.name ?? ''}". Review it under Finance > Invoices, then download the document pack.`;
+            const link = `/projects/${projectId}`;
+            if (project?.areaManagerId) {
+                await NotificationService.send({ userId: project.areaManagerId, title, message, type: 'PROJECT', priority: 'HIGH', link, metadata: { projectId, referenceNumber } });
+            }
+            await NotificationService.notifyByAudience({ audience: 'PROJECT_MANAGERS', title, message, type: 'PROJECT', priority: 'HIGH', link, metadata: { projectId, referenceNumber } });
+        } catch (e) {
+            console.warn('[slt-boq] draft notification failed:', e instanceof Error ? e.message : e);
         }
     }
 
@@ -262,6 +298,7 @@ export class SltBoqService {
         if (!invoice) throw AppError.notFound('Invoice not found');
         await assertProjectAccess(invoice.projectId, actorId);
         if (invoice.type !== 'CLIENT') throw AppError.badRequest('INVOICE_PACK_IS_FOR_CLIENT_INVOICES');
+        if (invoice.status === 'CANCELLED') throw AppError.badRequest('Invoice is cancelled, so no document pack is available');
 
         const boqIds = invoice.items.map((i) => i.boqItemId).filter((id): id is string => Boolean(id));
         if (!boqIds.length) throw AppError.badRequest('INVOICE_HAS_NO_BOQ_LINES');
@@ -270,6 +307,21 @@ export class SltBoqService {
         const lines = rows.map((r) => rowToLine(r, qtyByBoq.get(r.id) ?? 0)).filter((l) => l.quantity > 0);
 
         const profile = resolveDocumentProfile(invoice.project.projectType?.documentProfile);
+        // The pack is recomputed from the BOQ and the project type; refuse it if that no longer reproduces the stored
+        // invoice (rates re-imported or the profile changed since), so no printed document can disagree with the invoice.
+        const stored = invoice.items.reduce((a, i) => a + Number(i.totalPrice), 0);
+        const recomputed = invoiceTierTotals(lines, profile.increment);
+        let expected = recomputed.P0 + recomputed.P1 + recomputed.P2;
+        for (const [part, percent] of Object.entries(profile.contingencyByPart)) {
+            const partLines = lines.filter((l) => (l.boqPart || 'BOQ-1') === part);
+            if (!(percent > 0) || !partLines.length) continue;
+            const t = invoiceTierTotals(partLines, profile.increment);
+            expected += round2((t.P0 + t.P1 + t.P2) * percent / 100);
+        }
+        // An unchanged invoice reproduces to the cent; anything more is a change in rates, quantities or profile
+        if (Math.abs(stored - expected) > 0.005) {
+            throw AppError.conflict('INVOICE_PACK_OUT_OF_SYNC: the BOQ rates or the document profile changed after this invoice was created, so the pack no longer matches it');
+        }
         const p = invoice.project;
         const input: PackInput = {
             profile,
@@ -283,7 +335,7 @@ export class SltBoqService {
             invoiceKind: invoice.invoiceKind === 'PART' ? 'PART' : 'FINAL',
             materialBalance: profile.includeMaterialBalance ? await this.materialBalance(p.id, rows, qtyByBoq) : [],
         };
-        const buffer = buildDocumentPack(input);
+        const buffer = await buildDocumentPack(input);
         const safe = (invoice.referenceNumber || invoice.invoiceNumber).replace(/[^A-Za-z0-9._-]+/g, '_');
         return { buffer, fileName: `${safe}.xlsx`, profile: profile.code };
     }

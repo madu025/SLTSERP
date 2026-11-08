@@ -40,7 +40,9 @@ export const NO_INCREMENT: IncrementFactors = { material: 1, accessories: 1, ser
 /** Customer request / rehabilitation BOQs: material and accessories x1.13, services x1.10 */
 export const STANDARD_INCREMENT: IncrementFactors = { material: 1.13, accessories: 1.13, services: 1.1 };
 
-export const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
+/** Half-up to cents; the product is de-noised first so 1.005-style float results round the way a calculator would */
+export const round2 = (n: number): number => Math.round(Number((n * 100).toPrecision(15))) / 100;
+export const round4 = (n: number): number => Math.round(Number((n * 10000).toPrecision(15))) / 10000;
 
 export function tierRate(line: Pick<BoqLineInput, 'rateP0' | 'rateP1' | 'rateP2'>, tier: SupplyTier): number {
     return tier === 'P0' ? line.rateP0 : tier === 'P1' ? line.rateP1 : line.rateP2;
@@ -115,6 +117,18 @@ export function taxBreakdown(gross: number, ssclPercent = SSCL_PERCENT, vatPerce
     const afterSscl = gross + sscl;
     const vat = afterSscl * vatPercent / 100;
     return { gross, sscl, afterSscl, vat, net: afterSscl + vat };
+}
+
+/**
+ * Tax as it is printed and stored on an invoice: every figure is rounded to cents in order, so
+ * gross + SSCL + VAT always equals the net total shown.
+ */
+export function invoiceTax(gross: number, ssclPercent = SSCL_PERCENT, vatPercent = VAT_PERCENT): TaxBreakdown {
+    const g = round2(gross);
+    const sscl = round2(g * ssclPercent / 100);
+    const afterSscl = round2(g + sscl);
+    const vat = round2(afterSscl * vatPercent / 100);
+    return { gross: g, sscl, afterSscl, vat, net: round2(afterSscl + vat) };
 }
 
 export interface TierTotals { P0: number; P1: number; P2: number }

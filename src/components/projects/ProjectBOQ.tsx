@@ -1,4 +1,4 @@
-import {  useEffect, useMemo, useState  } from 'react';
+import {  useEffect, useMemo, useRef, useState  } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit2, Trash2, Package, ShoppingCart, Wand2, Loader2, CheckCircle2, XCircle, Send } from 'lucide-react';
+import { Plus, Edit2, Trash2, Package, ShoppingCart, Wand2, Loader2, CheckCircle2, XCircle, Send, FileUp } from 'lucide-react';
 import SearchableItemSelect, { InventoryItem } from '@/components/shared/SearchableItemSelect';
 
 import { toast } from 'sonner';
@@ -33,6 +33,37 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
     const [autoBoqLoading, setAutoBoqLoading] = useState(false);
     const [boqApproval, setBoqApproval] = useState<{ status: string; currentStep?: string; rejectionReason?: string; message?: string } | null>(null);
     const [approvalActionLoading, setApprovalActionLoading] = useState(false);
+    const [importing, setImporting] = useState(false);
+    const importInputRef = useRef<HTMLInputElement>(null);
+
+    /** Reads an SLT BOQ workbook (CR, cluster/apartment, marketing, rehabilitation) into this project's BOQ. */
+    const handleImportWorkbook = async (file: File) => {
+        setImporting(true);
+        try {
+            const body = new FormData();
+            body.append('file', file);
+            const res = await fetch(`/api/projects/${project.id}/boq/import`, { method: 'POST', body });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                const raw = toErrorText(json.error) || json.message || 'Import failed';
+                const friendly = raw.includes('BOQ_REIMPORT_WOULD_DROP_INVOICED_LINES')
+                    ? 'This workbook is missing a line that is already invoiced, so it was not imported.'
+                    : raw;
+                toast.error(friendly);
+                return;
+            }
+            const d = json.data ?? json;
+            toast.success(`BOQ imported: ${d.created ?? 0} new, ${d.updated ?? 0} updated, ${d.removed ?? 0} removed.`);
+            if (Array.isArray(d.warnings) && d.warnings.length) {
+                toast.warning(`${d.warnings.length} warning(s): ${d.warnings.slice(0, 3).join(' | ')}`);
+            }
+            refreshProject();
+        } catch {
+            toast.error('Import failed. Check your connection and try again.');
+        } finally {
+            setImporting(false);
+        }
+    };
 
 
     const [formData, setFormData] = useState({
@@ -283,6 +314,27 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
                                     Auto-Generate from Survey
                                 </>
                             )}
+                        </Button>
+                        <input
+                            ref={importInputRef}
+                            type="file"
+                            accept=".xlsx,.xls"
+                            className="hidden"
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                e.target.value = '';
+                                if (file) void handleImportWorkbook(file);
+                            }}
+                        />
+                        <Button
+                            variant="outline"
+                            onClick={() => importInputRef.current?.click()}
+                            disabled={importing || boqApproval?.status === 'PENDING' || boqApproval?.status === 'APPROVED'}
+                            title={boqApproval?.status === 'PENDING' || boqApproval?.status === 'APPROVED' ? 'BOQ is locked: reject or revise the approval first' : 'Import the SLT BOQ workbook (.xlsx)'}
+                            className="self-center gap-2"
+                        >
+                            {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileUp className="w-4 h-4" />}
+                            Import SLT BOQ (.xlsx)
                         </Button>
                         <Button onClick={handleAddNew} className="self-center gap-2">
                             <Plus className="w-4 h-4" />
