@@ -1,6 +1,9 @@
 # Stage 1: Install dependencies
 FROM node:22-alpine AS deps
 RUN apk add --no-cache libc6-compat
+# Native modules (better-sqlite3) have no prebuilt musl binary for every Node release and fall back to node-gyp,
+# which needs a compiler toolchain. It is only installed in this throw-away stage, not in the runtime image.
+RUN apk add --no-cache python3 make g++
 WORKDIR /app
 
 # Enable the repository-pinned pnpm version via corepack
