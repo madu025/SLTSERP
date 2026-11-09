@@ -11,6 +11,12 @@ export async function register() {
     // Skip initialization during build phase
     if (process.env.NEXT_PHASE === 'phase-production-build') return;
 
+    // Fail fast on a broken configuration before anything else starts (runs for web-only containers too)
+    if (process.env.NEXT_RUNTIME === 'nodejs') {
+        const { assertEnvironment } = await import('./lib/env-validation');
+        assertEnvironment();
+    }
+
     // Skip worker initialization when running in Vercel Serverless environment
     if (process.env.VERCEL === '1') {
         console.log('[INSTRUMENTATION] ❄️ Vercel Serverless environment detected, skipping background worker initialization.');

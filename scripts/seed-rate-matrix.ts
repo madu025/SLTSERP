@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 
-const directUrl = process.env.DIRECT_URL || process.env.DATABASE_URL || "postgresql://postgres.cxhjerzucacqsxoumhio:Osp%23slts%40Osp@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres";
+const directUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
+if (!directUrl) throw new Error('DIRECT_URL or DATABASE_URL must be set');
 const prisma = new PrismaClient({ datasources: { db: { url: directUrl } } });
 
 const rateRulesData = [

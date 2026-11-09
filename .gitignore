@@ -117,3 +117,6 @@ test-*.png
 # Finance browser QA report output
 playwright-finance-report/
 
+
+# local QA scratch (may hold connection strings)
+.tmp-qa/
