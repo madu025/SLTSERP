@@ -56,8 +56,8 @@ export class SltBoqService {
         let parsed;
         try {
             parsed = parseBoqWorkbook(data);
-        } catch (e) {
-            throw AppError.badRequest(`BOQ_WORKBOOK_UNREADABLE: ${e instanceof Error ? e.message : 'unknown'}`);
+        } catch {
+            throw AppError.badRequest('BOQ_WORKBOOK_UNREADABLE: the file could not be read as an SLT BOQ workbook');
         }
         if (!parsed.lines.length) throw AppError.badRequest(`BOQ_WORKBOOK_HAS_NO_LINES: ${parsed.warnings.join('; ')}`);
 
@@ -71,6 +71,8 @@ export class SltBoqService {
         }
 
         const result = await prisma.$transaction(async (tx) => {
+            // Same lock as the draft invoice: an import cannot slip in between "is it invoiced?" and the delete
+            await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${'boq-invoice:' + projectId}, 0))`;
             const existing = await tx.projectBOQItem.findMany({ where: { projectId, unitDesignator: { not: null } } });
             const byKey = new Map(existing.map((e) => [keyOf({ unitDesignator: e.unitDesignator as string, boqPart: e.boqPart, supplyTier: e.supplyTier }), e]));
 
@@ -154,9 +156,12 @@ export class SltBoqService {
         return map;
     }
 
+    private static referenceBase(prefix: string, rtom: string): string {
+        return `SLTS/${rtom || 'NA'}/${prefix}/${new Date().getFullYear()}/`;
+    }
+
     private static async nextReferenceNumber(prefix: string, rtom: string): Promise<string> {
-        const year = new Date().getFullYear();
-        const base = `SLTS/${rtom || 'NA'}/${prefix}/${year}/`;
+        const base = this.referenceBase(prefix, rtom);
         const rows = await prisma.projectInvoice.findMany({ where: { referenceNumber: { startsWith: base } }, select: { referenceNumber: true } });
         const highest = rows.reduce((max, r) => Math.max(max, parseInt((r.referenceNumber ?? '').slice(base.length), 10) || 0), 0);
         return `${base}${String(highest + 1).padStart(2, '0')}`;
@@ -174,11 +179,11 @@ export class SltBoqService {
         // the invoice has been committed by createInvoice (which runs on its own connection).
         return prisma.$transaction(async (lockTx) => {
             await lockTx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${'boq-invoice:' + projectId}, 0))`;
-            return this.buildCompletionInvoiceDraft(projectId, actorId);
+            return this.buildCompletionInvoiceDraft(projectId, actorId, lockTx);
         }, { timeout: 60000, maxWait: 30000 });
     }
 
-    private static async buildCompletionInvoiceDraft(projectId: string, actorId: string | null) {
+    private static async buildCompletionInvoiceDraft(projectId: string, actorId: string | null, lockTx: Pick<typeof prisma, '$executeRaw'>) {
         const project = await prisma.project.findUnique({
             where: { id: projectId },
             include: { projectType: true, opmc: { select: { rtom: true } }, boqItems: { where: { unitDesignator: { not: null } }, orderBy: [{ boqPart: 'asc' }, { udNo: 'asc' }] } },
@@ -221,6 +226,9 @@ export class SltBoqService {
         const tax = invoiceTax(gross);
 
         const prefix = INVOICE_PREFIX[project.projectType?.name ?? ''] ?? 'PRJ';
+        // Numbers are allocated per RTOM/prefix/year, so projects of the same RTOM must queue here until this invoice is
+        // committed (the project lock above only serialises one project). Lock order is always project, then number series.
+        await lockTx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${'boq-ref:' + this.referenceBase(prefix, project.opmc?.rtom ?? '')}, 0))`;
         const referenceNumber = await this.nextReferenceNumber(prefix, project.opmc?.rtom ?? '');
         const kind: 'FINAL' | 'PART' = fullyCovered ? 'FINAL' : 'PART';
 
