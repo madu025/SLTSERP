@@ -13,10 +13,9 @@ import { safeNextPath } from '@/lib/safe-next-path';
 export async function GET(request: NextRequest) {
     const next = safeNextPath(request.nextUrl.searchParams.get('next'));
     const result = await POST(request);
-    const target = result.status === 200
-        ? new URL(next, request.url)
-        : new URL(`/login?callbackUrl=${encodeURIComponent(next)}`, request.url);
-    const redirect = NextResponse.redirect(target);
+    // Relative Location: behind the reverse proxy request.url carries the internal host (0.0.0.0:3000), not the public one.
+    const target = result.status === 200 ? next : `/login?callbackUrl=${encodeURIComponent(next)}`;
+    const redirect = new NextResponse(null, { status: 307, headers: { Location: target } });
     // Carry the cookies the refresh set (new access token on success, cleared cookies on failure)
     for (const cookie of result.headers.getSetCookie()) redirect.headers.append('Set-Cookie', cookie);
     if (result.status !== 200) {
