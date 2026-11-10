@@ -1,6 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { syncProjectActualCost } from '@/services/project/project-cost.service';
+import { LedgerService } from '@/services/finance/ledger.service';
 import type { TransactionClient } from '@/types/inventory/inventory-service.types';
 
 export interface CreateExpenseInput {
@@ -64,6 +65,7 @@ export class ProjectExpenseService {
             });
 
             // Recomputed from all sources (expenses, labor, ledger-costed material) so it cannot drift
+            await LedgerService.logProjectExpense(tx as TransactionClient, expense.id, amountVal, `Project expense (${type}) ${description || ''} - project ${projectId}`.trim(), expenseDate);
             await syncProjectActualCost(tx as TransactionClient, projectId);
 
             return expense;
@@ -98,6 +100,7 @@ export class ProjectExpenseService {
                 },
             });
 
+            await LedgerService.reverseProjectExpense(tx as TransactionClient, id, 'Project expense voided', voidedById);
             await syncProjectActualCost(tx as TransactionClient, projectId);
 
             return { success: true, id, voidedAt: voidedAt.toISOString() };

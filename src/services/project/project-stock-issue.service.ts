@@ -6,6 +6,7 @@ import { UUID } from '@/types/common';
 import { ProjectMaterialReservationService } from './project-material-reservation.service';
 import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
 import { syncProjectActualCost } from '@/services/project/project-cost.service';
+import { LedgerService } from '@/services/finance/ledger.service';
 import { StoreService } from '@/services/inventory/store.service';
 import { assertProjectAccess } from '@/lib/project-access';
 
@@ -341,7 +342,12 @@ export class ProjectStockIssueService {
                 }, tx as TransactionClient);
             }
 
-            if (issue.projectId) await syncProjectActualCost(tx as TransactionClient, issue.projectId);
+            if (issue.projectId) {
+                let issueCost = 0;
+                for (const [itemId, quantity] of itemQuantities) issueCost += quantity * (itemPrices.get(itemId) || 0);
+                await LedgerService.logProjectMaterialIssue(tx as TransactionClient, issue.id, issueCost, `Project material issue ${issue.issueNumber} (project ${issue.projectId})`);
+                await syncProjectActualCost(tx as TransactionClient, issue.projectId);
+            }
         });
 
         return { success: true };
@@ -478,6 +484,7 @@ export class ProjectStockIssueService {
                 throw AppError.badRequest('INVALID_RETURN_REQUEST');
             }
 
+            let returnedValue = 0;
             const transferInItems: { itemId: UUID; quantity: number }[] = [];
             const wastageItems: { itemId: UUID; quantity: number }[] = [];
 
@@ -519,6 +526,7 @@ export class ProjectStockIssueService {
                         performedById: approvedById,
                         idempotencyKey: `PROJECT_RETURN:${returnReq.id}:${item.id}`,
                     }, tx as TransactionClient);
+                    returnedValue += Number(item.quantity) * unitCost;
                     transferInItems.push({ itemId: item.itemId, quantity: Number(item.quantity) });
                 } else {
                     // Damaged custody returns do not replenish usable stock or
@@ -599,6 +607,7 @@ export class ProjectStockIssueService {
             }
 
             // 3. Project total cost is recomputed from the ledger (issues minus returns) so it can never drift
+            await LedgerService.logProjectMaterialReturn(tx as TransactionClient, returnReq.id, returnedValue, `Project material return ${returnReq.returnNumber}`);
             if (returnReq.projectId) await syncProjectActualCost(tx as TransactionClient, returnReq.projectId);
         });
 

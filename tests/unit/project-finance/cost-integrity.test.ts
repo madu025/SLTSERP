@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import { prisma } from '../../../src/lib/prisma';
 import {
   calculateProjectCostSummary,
 } from '../../../src/services/finance/budget-tracking.service';
+import { LedgerService } from '../../../src/services/finance/ledger.service';
 import {
   parsePositiveExpenseAmount,
   ProjectExpenseService,
@@ -20,10 +21,23 @@ type PrismaStub = {
 const db = prisma as unknown as PrismaStub;
 const originalTransaction = db.$transaction;
 const originalFindMany = db.projectExpense.findMany;
+const originalLogExpense = LedgerService.logProjectExpense;
+const originalReverseExpense = LedgerService.reverseProjectExpense;
+const posted: Array<{ id: string; amount: number }> = [];
+const reversed: string[] = [];
+
+beforeEach(() => {
+  posted.length = 0;
+  reversed.length = 0;
+  LedgerService.logProjectExpense = (async (_tx: unknown, id: string, amount: number) => { posted.push({ id, amount }); return null; }) as never;
+  LedgerService.reverseProjectExpense = (async (_tx: unknown, id: string) => { reversed.push(id); return null; }) as never;
+});
 
 afterEach(() => {
   db.$transaction = originalTransaction;
   db.projectExpense.findMany = originalFindMany;
+  LedgerService.logProjectExpense = originalLogExpense;
+  LedgerService.reverseProjectExpense = originalReverseExpense;
 });
 
 
@@ -104,6 +118,7 @@ describe('project cost integrity', () => {
 
     assert.equal(result.success, true);
     assert.equal(updateData?.amount, 0);
+    assert.deepEqual(reversed, ['expense-1'], 'the expense journal entry is reversed on void');
     assert.match(String(updateData?.remarks), /\[VOIDED .* by user-1\] Original amount: 25\.50\./);
   });
 
@@ -137,6 +152,7 @@ describe('project cost integrity', () => {
     await ProjectExpenseService.createExpense({ projectId: 'project-1', type: 'MISC', amount: 2000 });
 
     // 10 x 3000 material + 2000 expense, never the BOQ selling rate
+    assert.deepEqual(posted, [{ id: 'e', amount: 2000 }], 'the expense is posted to the general ledger');
     assert.equal(stored?.actualCost, 32000);
     assert.equal(stored?.variance, 500 - 32000);
   });
