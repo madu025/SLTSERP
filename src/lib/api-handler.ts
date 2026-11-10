@@ -144,6 +144,14 @@ function isPrismaKnownError(error: Error): boolean {
 }
 
 /**
+ * Prisma validation failures and database numeric overflows are caused by the request data, not by the server.
+ */
+function isClientInputError(error: Error): boolean {
+    if (error.name === 'PrismaClientValidationError') return true;
+    return /numeric field overflow|value out of range|out of range for type|invalid input syntax for type (uuid|numeric|integer)/i.test(error.message);
+}
+
+/**
  * Maps well-known Prisma error codes to typed AppErrors so clients receive
  * semantically correct HTTP statuses instead of a generic 500.
  */
@@ -156,6 +164,12 @@ function mapPrismaError(error: Error): AppError {
             return AppError.notFound('The requested record was not found');
         case 'P2003':
             return AppError.badRequest('Operation failed: a related record constraint exists');
+        case 'P2023':
+            // Malformed identifier (e.g. "not-a-uuid" for a uuid column)
+            return AppError.badRequest('A supplied identifier is not valid');
+        case 'P2000':
+        case 'P2020':
+            return AppError.badRequest('A supplied value is too long or out of the allowed range');
         default:
             // Other Prisma codes (P2010 raw SQL, P2024 pool timeout, ...) stay
             // as server errors — raw Prisma message never reaches the client.
@@ -553,6 +567,9 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                     appError = AppError.validation('Invalid input data', error.format());
                 } else if (error instanceof Error && isPrismaKnownError(error)) {
                     appError = mapPrismaError(error);
+                } else if (error instanceof Error && isClientInputError(error)) {
+                    // Wrong type / unparsable value reached Prisma (number for a string id, invalid Date, ...)
+                    appError = AppError.badRequest('A supplied value has the wrong type or format');
                 } else if (error instanceof Error) {
                     // SECURITY (CWE-209): never echo internal error messages to
                     // the client on 500s — Prisma/stack/source-path details stay

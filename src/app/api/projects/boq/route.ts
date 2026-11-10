@@ -5,11 +5,13 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { assertProjectAccess } from '@/lib/project-access';
 import { assertRecordProjectAccess } from '@/lib/project-record-access';
 import { z } from 'zod';
+import { amountInput } from '@/lib/validations/project-inputs';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 
-const numericInput = z.union([z.string(), z.number()]);
+const numericInput = amountInput(4);
 const createSchema = z.object({
-    projectId: z.string().min(1), itemCode: z.string().min(1), description: z.string().min(1),
-    unit: z.string().min(1), quantity: numericInput, unitRate: numericInput,
+    projectId: databaseUuidSchema, itemCode: z.string().trim().min(1).max(100), description: z.string().trim().min(1).max(1000),
+    unit: z.string().trim().min(1).max(50), quantity: numericInput, unitRate: numericInput,
     category: z.string().nullish(), materialId: z.string().nullish(),
     taskId: z.string().nullish(), contractorId: z.string().nullish(), remarks: z.string().nullish(),
 });
@@ -17,7 +19,7 @@ const updateSchema = z.object({
     quantity: numericInput.optional(), unitRate: numericInput.optional(),
     actualQuantity: numericInput.optional(), actualCost: numericInput.optional(),
     category: z.string().nullish(), materialId: z.string().nullish(), remarks: z.string().nullish(),
-    description: z.string().optional(), unit: z.string().optional(),
+    description: z.string().max(1000).optional(), unit: z.string().max(50).optional(),
     taskId: z.string().nullish(), contractorId: z.string().nullish(),
 });
 

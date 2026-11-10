@@ -172,7 +172,7 @@ function SidebarContent() {
                         <div className="px-3 pb-1.5 pt-1">
                             <span
                                 className="text-[8px] font-bold uppercase tracking-[0.18em]"
-                                style={{ color: 'rgba(0,174,239,0.4)' }}
+                                style={{ color: 'rgba(56,189,248,0.85)' }}
                             >
                                 Navigation
                             </span>

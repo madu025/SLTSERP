@@ -259,6 +259,17 @@ export class SltBoqService {
             }))],
         });
 
+        // The auto-generated draft has no API call behind it, so record its creation explicitly
+        await prisma.auditLog.create({
+            data: {
+                userId: actorId,
+                action: 'CREATE',
+                entity: 'INVOICE',
+                entityId: invoice.id,
+                newValue: { referenceNumber, kind, projectId, source: 'SLT_BOQ_COMPLETION_DRAFT', gross },
+            },
+        }).catch(() => undefined);
+
         return { invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber, referenceNumber, kind, gross, net: round2(tax.net), lines: lines.length };
     }
 

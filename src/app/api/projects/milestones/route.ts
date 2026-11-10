@@ -5,16 +5,18 @@ import { assertRecordProjectAccess } from '@/lib/project-record-access';
 import { AppError } from '@/lib/error';
 import { ProjectMilestoneService } from '@/services/project/project-milestone.service';
 import { z } from 'zod';
+import { validDateInput } from '@/lib/validations/project-inputs';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 
-const dateInput = z.union([z.string(), z.date()]);
+const dateInput = validDateInput;
 const createSchema = z.object({
-    projectId: z.string().min(1), name: z.string().min(1), targetDate: dateInput,
-    description: z.string().optional(), status: z.string().optional(),
+    projectId: databaseUuidSchema, name: z.string().trim().min(1).max(200), targetDate: dateInput,
+    description: z.string().max(5000).optional(), status: z.string().max(50).optional(),
 });
 const updateSchema = z.object({
-    name: z.string().optional(), description: z.string().optional(),
+    name: z.string().trim().min(1).max(200).optional(), description: z.string().max(5000).optional(),
     targetDate: dateInput.optional(), completedDate: dateInput.optional(),
-    status: z.string().optional(), progress: z.number().optional(),
+    status: z.string().max(50).optional(), progress: z.number().min(0).max(100).optional(),
 });
 
 export const dynamic = 'force-dynamic';

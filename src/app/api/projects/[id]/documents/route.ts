@@ -2,6 +2,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { ProjectDocumentService } from '@/services/project/project-document.service';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
+import { requireSafeUrl } from '@/lib/input-guards';
 import { assertProjectAccess } from '@/lib/project-access';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
@@ -14,13 +15,15 @@ export const GET = apiHandler(async (_request, params) => {
 }, { permissions: [RBAC_PERMISSIONS.PROJECT_READ], rawResponse: true });
 
 const documentSchema = z.object({
-    title: z.string().optional(),
-    description: z.string().optional().nullable(),
-    category: z.string().optional(),
-    fileUrl: z.string().min(1),
+    title: z.string().trim().max(200).optional(),
+    description: z.string().max(5000).optional().nullable(),
+    category: z.string().max(100).optional(),
+    fileUrl: z.string().min(1).max(2048).transform((v, ctx) => {
+        try { return requireSafeUrl(v, 'fileUrl'); } catch { ctx.addIssue({ code: 'custom', message: 'fileUrl must be an http(s) or app-relative link' }); return z.NEVER; }
+    }),
     uploadedById: z.string().optional(),
     documentId: z.string().optional().nullable(),
-    changeSummary: z.string().optional().nullable(),
+    changeSummary: z.string().max(1000).optional().nullable(),
 });
 
 export const POST = apiHandler(async (_request, params, body) => {

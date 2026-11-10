@@ -234,7 +234,7 @@ export default function NotificationBell() {
                 }
             `}} />
             <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative transition-all hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full w-9 h-9">
+                <Button variant="ghost" size="icon" aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"} className="relative transition-all hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full w-9 h-9">
                     <Bell className={`h-5 w-5 text-slate-600 dark:text-slate-300 ${animateBell ? 'animate-bell-wiggle' : ''}`} />
                     {unreadCount > 0 && (
                         <span

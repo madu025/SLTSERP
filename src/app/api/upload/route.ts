@@ -76,6 +76,12 @@ async function verifyPublicUploadToken(formData: FormData): Promise<boolean> {
 export const POST = apiHandler(async (req) => {
     console.log("[UPLOAD-API] Received upload request");
 
+    // Refuse oversized bodies from the header before buffering them (25MB file + multipart overhead)
+    const declaredLength = Number(req.headers.get('content-length') || '0');
+    if (Number.isFinite(declaredLength) && declaredLength > 26 * 1024 * 1024) {
+        throw AppError.badRequest("File size exceeds maximum allowed limit of 25MB.");
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File;
     const requestedBucket = (formData.get("bucket") as string) || "grn-documents";
@@ -140,6 +146,10 @@ export const POST = apiHandler(async (req) => {
     if (!allowedExtensions.includes(ext)) {
         console.error("[UPLOAD-API] Blocked forbidden file extension:", ext);
         throw AppError.badRequest("Forbidden file type. Only images, PDFs, spreadsheets, and document files are allowed.");
+    }
+
+    if (file.size === 0) {
+        throw AppError.badRequest("The uploaded file is empty.");
     }
 
     if (file.size > 25 * 1024 * 1024) {

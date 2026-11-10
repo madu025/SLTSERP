@@ -585,7 +585,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                         {canWrite && <div className="flex items-center gap-1" inert={submitting}>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Log progress" aria-label={`Log progress for ${task.name}`}
                                 onClick={() => { setSelectedTask(task); setProgressForm({ progress: task.actualProgress.toString(), description: '', gpsLatitude: '', gpsLongitude: '', photoUrl: '' }); setIsProgressDialogOpen(true); }}>
                                 <Clock className="w-3.5 h-3.5 text-blue-500" />
                             </Button>
@@ -593,15 +593,15 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                                 onClick={() => handleAddTask(task.id)}>
                                 <Plus className="w-3.5 h-3.5 text-emerald-600" />
                             </Button>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Add dependency" aria-label={`Add dependency for ${task.name}`}
                                 onClick={() => { setSelectedTask(task); setDependencyForm({ dependsOnTaskId: '', type: 'FINISH_TO_START', lagDays: '0' }); setIsDependencyDialogOpen(true); }}>
                                 <Link2 className="w-3.5 h-3.5 text-purple-500" />
                             </Button>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Edit task" aria-label={`Edit ${task.name}`}
                                 onClick={() => handleEditTask(task)}>
                                 <Edit2 className="w-3.5 h-3.5 text-slate-500" />
                             </Button>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Delete task" aria-label={`Delete ${task.name}`}
                                 onClick={() => handleDeleteTask(task.id)}>
                                 <Trash2 className="w-3.5 h-3.5 text-red-500" />
                             </Button>

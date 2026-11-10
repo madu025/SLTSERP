@@ -1,6 +1,7 @@
 import { AppError } from '@/lib/error';
+import { optionalText, optionalUuid, requireText } from '@/lib/input-guards';
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, ProjectStatus } from '@prisma/client';
 import { WorkflowEngine } from '@/services/core/WorkflowEngine';
 import { calculateProjectProgress } from '@/lib/project-progress';
 import { NIL_UUID } from '@/lib/opmc-scope';
@@ -62,6 +63,8 @@ export class ProjectService {
         const where: Prisma.ProjectWhereInput = {};
 
         if (status && status !== 'ALL') {
+            const knownStatuses = Object.values(ProjectStatus) as string[];
+            if (!knownStatuses.includes(status)) throw AppError.badRequest('Unknown project status filter');
             where.status = status as import("@prisma/client").ProjectStatus;
         } else if (!status) {
             where.status = { not: 'COMPLETED' };
@@ -270,8 +273,9 @@ export class ProjectService {
         }
 
         // Check if project code already exists
-        const existing = await prisma.project.findUnique({
-            where: { projectCode }
+        const existing = await prisma.project.findFirst({
+            where: { projectCode: { equals: projectCode, mode: 'insensitive' } },
+            select: { id: true },
         });
 
         if (existing) {
@@ -352,7 +356,26 @@ export class ProjectService {
     /**
      * Update project details
      */
-    static async updateProject(id: string, updateData: UpdateProjectInput, actorUserId?: string | null) {
+    static async updateProject(id: string, rawUpdateData: UpdateProjectInput, actorUserId?: string | null) {
+        // Types and lengths are checked before anything reaches the database (400, never 500)
+        const updateData: UpdateProjectInput = { ...rawUpdateData };
+        if (updateData.name !== undefined) updateData.name = requireText(updateData.name, 'Project name', 200);
+        if (updateData.description !== undefined && updateData.description !== null && updateData.description !== '') {
+            updateData.description = requireText(updateData.description, 'description', 5000);
+        }
+        if (updateData.location !== undefined && updateData.location !== null && updateData.location !== '') {
+            updateData.location = requireText(updateData.location, 'location', 500);
+        }
+        if (updateData.type !== undefined && updateData.type !== null && updateData.type !== '') {
+            updateData.type = requireText(updateData.type, 'type', 64);
+        }
+        for (const key of ['opmcId', 'contractorId', 'areaManagerId', 'parentId'] as const) {
+            if (updateData[key] !== undefined) updateData[key] = optionalUuid(updateData[key], key) ?? null;
+        }
+        if ((updateData as { planningSource?: unknown }).planningSource !== undefined) {
+            (updateData as { planningSource?: unknown }).planningSource =
+                optionalText((updateData as { planningSource?: unknown }).planningSource, 'planningSource', 16);
+        }
         const existingProject = await prisma.project.findUnique({
             where: { id },
             include: { workflowInstance: true }

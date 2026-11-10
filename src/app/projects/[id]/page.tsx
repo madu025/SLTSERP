@@ -1,6 +1,6 @@
 "use client";
  
-import React, { use, useEffect, useState, useMemo, useCallback } from 'react';
+import React, { use, useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
@@ -126,6 +126,17 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
     const [project, setProject] = useState<Project | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
+    // Keep the selected tab in the URL hash so a reload returns to the same tab
+    const tabRestored = useRef(false);
+    useEffect(() => {
+        const fromHash = window.location.hash.startsWith('#tab=') ? decodeURIComponent(window.location.hash.slice(5)) : '';
+        if (fromHash) setActiveTab(fromHash);
+        tabRestored.current = true;
+    }, []);
+    useEffect(() => {
+        if (!tabRestored.current) return;
+        window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#tab=${encodeURIComponent(activeTab)}`);
+    }, [activeTab]);
     const [workflowOpenKey, setWorkflowOpenKey] = useState(0);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [guideDialogOpen, setGuideDialogOpen] = useState(false);
@@ -285,11 +296,11 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                                     <h1 className="text-lg md:text-xl font-bold text-foreground">{project.name}</h1>
                                     <Badge variant="outline" className="text-[10px] border-border px-1.5 py-0 text-foreground">{project.projectCode}</Badge>
-                                    <Badge className={`text-[10px] px-1.5 py-0 border ${project.status === 'COMPLETED' ? 'bg-green-500/10 text-green-600 border-green-500/20' : project.status === 'IN_PROGRESS' ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' : 'bg-amber-500/10 text-amber-600 border-amber-500/20'}`}>
+                                    <Badge className={`text-[10px] px-1.5 py-0 border ${project.status === 'COMPLETED' ? 'bg-green-50 text-green-800 border-green-600/30' : project.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-800 border-blue-600/30' : 'bg-amber-50 text-amber-900 border-amber-600/30'}`}>
                                         {project.status.replace(/_/g, ' ')}
                                     </Badge>
                                     {project.projectType && (
-                                        <Badge variant="outline" className="text-[10px] border-primary/20 bg-primary/10 text-primary px-1.5 py-0">
+                                        <Badge variant="outline" className="text-[10px] border-cyan-700/40 bg-cyan-50 text-cyan-900 px-1.5 py-0">
                                             {project.projectType.name.replace(/_/g, ' ')}
                                         </Badge>
                                     )}

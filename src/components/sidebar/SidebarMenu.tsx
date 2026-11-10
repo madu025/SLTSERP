@@ -277,7 +277,7 @@ export function SidebarMenu({ user, isCollapsed, mounted, menuCounts }: SidebarM
                                                 onClick={handleSubMenuClick}
                                                 className="flex items-center justify-between px-2 py-[4px] rounded text-[11px] font-medium transition-all duration-150 group/sub"
                                                 style={{
-                                                    color: isSubActive ? '#00AEEF' : 'rgba(255,255,255,0.4)',
+                                                    color: isSubActive ? '#00AEEF' : 'rgba(255,255,255,0.72)',
                                                     background: isSubActive ? 'rgba(0,114,187,0.1)' : 'transparent',
                                                 }}
                                                 onMouseEnter={e => {
@@ -288,7 +288,7 @@ export function SidebarMenu({ user, isCollapsed, mounted, menuCounts }: SidebarM
                                                 }}
                                                 onMouseLeave={e => {
                                                     if (!isSubActive) {
-                                                        (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.4)';
+                                                        (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.72)';
                                                         (e.currentTarget as HTMLAnchorElement).style.background = 'transparent';
                                                     }
                                                 }}

@@ -6,17 +6,18 @@ import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 import { assertProjectAccess } from '@/lib/project-access';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { amountInput, validDateInput } from '@/lib/validations/project-inputs';
 
 export const dynamic = 'force-dynamic';
 
 const expenseSchema = z.object({
     projectId: databaseUuidSchema,
-    type: z.string().trim().min(1),
-    description: z.string().optional(),
-    amount: z.union([z.number(), z.string().trim().min(1)]),
-    date: z.string().optional(),
-    invoiceRef: z.string().optional().nullable(),
-    remarks: z.string().optional().nullable(),
+    type: z.string().trim().min(1).max(100),
+    description: z.string().max(2000).optional(),
+    amount: amountInput(2),
+    date: validDateInput.optional(),
+    invoiceRef: z.string().max(100).optional().nullable(),
+    remarks: z.string().max(2000).optional().nullable(),
 });
 
 export const POST = apiHandler(async (_request, params, body) => {

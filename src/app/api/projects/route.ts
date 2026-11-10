@@ -3,6 +3,7 @@ import { AppError } from '@/lib/error';
 import { ProjectService } from '@/services/project/project.service';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { optionalText, optionalUuid, parsePaging, requireText, requireUuid } from '@/lib/input-guards';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,8 +17,11 @@ export const GET = apiHandler(async (req, params) => {
     const projectTypeId = searchParams.get('projectTypeId');
     const search = searchParams.get('search') || searchParams.get('q') || '';
 
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = parseInt(searchParams.get('limit') || '50', 10);
+    const { page, limit } = parsePaging(searchParams.get('page'), searchParams.get('limit'));
+    for (const [label, value] of [['opmcId', opmcId], ['contractorId', contractorId], ['projectTypeId', projectTypeId]] as const) {
+        if (value && value !== 'ALL') requireUuid(value, label);
+    }
+    if (search.length > 200) throw AppError.badRequest('search must be at most 200 characters');
     const isPaginated = searchParams.has('page') || searchParams.has('limit');
 
     const filters = { status, type, opmcId, contractorId, projectTypeId, search };
@@ -38,18 +42,18 @@ export const GET = apiHandler(async (req, params) => {
 
 // POST create new project
 export const POST = apiHandler(async (req, params, body) => {
-    const projectCode = body.projectCode as string | undefined;
-    const name = body.name as string | undefined;
-    const type = body.type as string | undefined;
-    const contractorId = body.contractorId as string | null | undefined;
-    const opmcId = body.opmcId as string | null | undefined;
-    const projectTypeId = body.projectTypeId as string | null | undefined;
-    const parentId = body.parentId as string | null | undefined;
-    const planningSource = body.planningSource as string | undefined;
-
-    if (!projectCode || !name || !projectTypeId) {
+    if (!body.projectCode || !body.name || !body.projectTypeId) {
         throw AppError.badRequest('Project code and name are required');
     }
+    const projectCode = requireText(body.projectCode, 'Project code', 64);
+    const name = requireText(body.name, 'Project name', 200);
+    const type = optionalText(body.type, 'type', 64);
+    const contractorId = optionalUuid(body.contractorId, 'contractorId');
+    if (!body.opmcId) throw AppError.badRequest('opmcId is required');
+    const opmcId = requireUuid(body.opmcId, 'opmcId');
+    const projectTypeId = requireUuid(body.projectTypeId, 'projectTypeId');
+    const parentId = optionalUuid(body.parentId, 'parentId');
+    const planningSource = optionalText(body.planningSource, 'planningSource', 16);
 
     return await ProjectService.createProject({
         projectCode,
@@ -70,7 +74,7 @@ export const POST = apiHandler(async (req, params, body) => {
 
 // PATCH update project
 export const PATCH = apiHandler(async (req, params, body) => {
-    const id = body.id as string | undefined;
+    const id = body.id ? requireUuid(body.id, 'Project ID') : undefined;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: _id, ...updateData } = body;
 

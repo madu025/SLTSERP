@@ -1,5 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectInvoiceService } from '@/services/project/project-invoice.service';
+import { isValidUuid } from '@/lib/uuid';
 import { AppError } from '@/lib/error';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { userHasPermission } from '@/lib/user-permissions';
@@ -131,6 +132,7 @@ export const PATCH = apiHandler(async (_request, params, body: z.infer<typeof up
 export const DELETE = apiHandler(async (request, params) => {
     const id = new URL(request.url).searchParams.get('id');
     if (!id) throw AppError.badRequest('id is required');
+    if (!isValidUuid(id)) throw AppError.badRequest('id must be a valid id');
     const invoice = await prisma.projectInvoice.findUnique({ where: { id }, select: { projectId: true } });
     if (!invoice) throw AppError.notFound('Invoice not found');
     await assertProjectAccess(invoice.projectId, params._userId);
