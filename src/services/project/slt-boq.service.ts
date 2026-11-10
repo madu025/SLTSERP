@@ -186,17 +186,20 @@ export class SltBoqService {
     private static async buildCompletionInvoiceDraft(projectId: string, actorId: string | null, lockTx: Pick<typeof prisma, '$executeRaw'>) {
         const project = await prisma.project.findUnique({
             where: { id: projectId },
-            include: { projectType: true, opmc: { select: { rtom: true } }, boqItems: { where: { unitDesignator: { not: null } }, orderBy: [{ boqPart: 'asc' }, { udNo: 'asc' }] } },
+            include: { projectType: true, opmc: { select: { rtom: true } }, boqItems: { orderBy: [{ boqPart: 'asc' }, { udNo: 'asc' }, { itemCode: 'asc' }] } },
         });
         if (!project) throw AppError.notFound('Project not found');
-        if (!project.boqItems.length) throw AppError.badRequest('PROJECT_HAS_NO_SLT_BOQ: import the BOQ workbook first');
+        // SLT-format lines (unit designator) take precedence; projects without any bill hand-entered BOQ lines that carry a rate
+        const sltRows = project.boqItems.filter((r) => r.unitDesignator);
+        const billable = sltRows.length ? sltRows : project.boqItems.filter((r) => n(r.unitRate) > 0);
+        if (!billable.length) throw AppError.badRequest('PROJECT_HAS_NO_BOQ: import the SLT BOQ workbook or add BOQ items with a unit rate first');
 
-        const profile = resolveDocumentProfile(project.projectType?.documentProfile);
+        const profile = resolveDocumentProfile(project.projectType?.documentProfile, billable);
         const invoiced = await this.invoicedQuantities(projectId);
 
         const toInvoice: Array<{ row: BoqRow; line: BoqLineInput }> = [];
         let fullyCovered = true;
-        for (const row of project.boqItems) {
+        for (const row of billable) {
             const planned = Number(row.quantity);
             const done = Number(row.actualQuantity) > 0 ? Number(row.actualQuantity) : planned;
             const already = invoiced.get(row.id) ?? 0;
@@ -282,7 +285,7 @@ export class SltBoqService {
             const [open, total, boqLines] = await Promise.all([
                 prisma.projectTask.count({ where: { projectId, status: { not: 'COMPLETED' } } }),
                 prisma.projectTask.count({ where: { projectId } }),
-                prisma.projectBOQItem.count({ where: { projectId, unitDesignator: { not: null } } }),
+                prisma.projectBOQItem.count({ where: { projectId, OR: [{ unitDesignator: { not: null } }, { unitRate: { gt: 0 } }] } }),
             ]);
             if (total === 0 || open > 0 || boqLines === 0) return;
             const draft = await this.createCompletionInvoiceDraft(projectId, null);
@@ -325,7 +328,7 @@ export class SltBoqService {
         const qtyByBoq = new Map(invoice.items.map((i) => [i.boqItemId as string, Number(i.quantity)]));
         const lines = rows.map((r) => rowToLine(r, qtyByBoq.get(r.id) ?? 0)).filter((l) => l.quantity > 0);
 
-        const profile = resolveDocumentProfile(invoice.project.projectType?.documentProfile);
+        const profile = resolveDocumentProfile(invoice.project.projectType?.documentProfile, rows);
         // The pack is recomputed from the BOQ and the project type; refuse it if that no longer reproduces the stored
         // invoice (rates re-imported or the profile changed since), so no printed document can disagree with the invoice.
         const stored = invoice.items.reduce((a, i) => a + Number(i.totalPrice), 0);

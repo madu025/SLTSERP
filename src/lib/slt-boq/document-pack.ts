@@ -10,10 +10,12 @@ import {
  *  STANDARD   customer request, rehabilitation, shifting (BOQ with increment factors; measurement + invoice sheets)
  *  CLUSTER    FTTH cluster / apartment (BOQ-0, BOQ-1, BOQ-2 with contingency, executive summary, front sheet)
  *  MARKETING  as STANDARD without increment, plus the material balance sheet (MBS)
- * A project type without a profile uses STANDARD.
+ * GENERIC    any other project type: BOQ lines entered by hand (item code, unit, quantity, rate), no increment factors,
+ *             same measurement / tax invoice / certification / check-list sheets
+ * A project type without a profile uses STANDARD for SLT-format BOQs and GENERIC for hand-entered lines.
  */
 
-export type DocumentProfileCode = 'STANDARD' | 'CLUSTER' | 'MARKETING';
+export type DocumentProfileCode = 'STANDARD' | 'CLUSTER' | 'MARKETING' | 'GENERIC';
 
 export interface DocumentProfile {
     code: DocumentProfileCode;
@@ -28,11 +30,16 @@ export const DOCUMENT_PROFILES: Record<DocumentProfileCode, DocumentProfile> = {
     STANDARD: { code: 'STANDARD', label: 'Customer request / rehabilitation / shifting', increment: STANDARD_INCREMENT, contingencyByPart: {}, includeMaterialBalance: false },
     CLUSTER: { code: 'CLUSTER', label: 'FTTH cluster / apartment', increment: NO_INCREMENT, contingencyByPart: { 'BOQ-1': 15, 'BOQ-2': 5 }, includeMaterialBalance: false },
     MARKETING: { code: 'MARKETING', label: 'Marketing', increment: NO_INCREMENT, contingencyByPart: {}, includeMaterialBalance: true },
+    GENERIC: { code: 'GENERIC', label: 'General project invoice', increment: NO_INCREMENT, contingencyByPart: {}, includeMaterialBalance: false },
 };
 
-export function resolveDocumentProfile(code: string | null | undefined): DocumentProfile {
+export function resolveDocumentProfile(code: string | null | undefined, rows?: Array<{ unitDesignator: string | null }>): DocumentProfile {
     const key = (code || '').toUpperCase() as DocumentProfileCode;
-    return DOCUMENT_PROFILES[key] ?? DOCUMENT_PROFILES.STANDARD;
+    const known = DOCUMENT_PROFILES[key];
+    if (known) return known;
+    // No profile on the project type: SLT-format BOQs keep the standard layout, hand-entered lines get the generic one
+    if (rows && rows.length > 0 && rows.every((r) => !r.unitDesignator)) return DOCUMENT_PROFILES.GENERIC;
+    return DOCUMENT_PROFILES.STANDARD;
 }
 
 export interface MaterialBalanceRow {

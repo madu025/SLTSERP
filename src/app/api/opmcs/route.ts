@@ -2,12 +2,19 @@ import { apiHandler, castBody } from '@/lib/api-handler';
 import { OpmcService } from '@/services/slt/opmc.service';
 import { AppError } from '@/lib/error';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
 
 export const dynamic = 'force-dynamic';
 
 // GET all OPMCs
-export const GET = apiHandler(async () => {
-    return await OpmcService.getAllOPMCs();
+export const GET = apiHandler(async (request, params) => {
+    const all = await OpmcService.getAllOPMCs();
+    // ?scope=mine limits the list to the OPMCs the caller may work in (used by create/assign dialogs)
+    if (new URL(request.url).searchParams.get('scope') === 'mine' && Array.isArray(all)) {
+        const scope = await resolveOpmcScope(params._userId);
+        if (scope !== undefined) return all.filter((o: { id: string }) => scope.includes(o.id));
+    }
+    return all;
 }, { permissions: [RBAC_PERMISSIONS.DASHBOARD_READ], rawResponse: true });
 
 // POST new OPMC

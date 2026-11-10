@@ -1322,6 +1322,14 @@ export class SODSyncService {
                 decisions: { READ_STALE: r.read, EXPIRED: r.expired, SUPERSEDED: r.superseded },
             }),
         );
+        // Same weekly slot: move audit rows past the retention window into the archive. Never fails the sweep.
+        try {
+            const { AuditRetentionService } = await import('../audit/audit-retention.service');
+            const audit = await AuditRetentionService.archiveAndPurge();
+            if (audit.archived > 0) console.log(`[SOD-SYNC] Audit retention archived ${audit.archived} row(s) older than ${audit.cutoff}.`);
+        } catch (error) {
+            console.error('[SOD-SYNC] Audit retention skipped:', error instanceof Error ? error.message : error);
+        }
         if (result) console.log(`[SOD-SYNC] Notification cleanup removed ${result.count} row(s) (read ${result.read}, expired ${result.expired}, superseded ${result.superseded}).`);
         return result;
     }

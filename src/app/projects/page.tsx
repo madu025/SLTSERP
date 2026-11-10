@@ -19,6 +19,7 @@ import ProjectDocumentation from '@/components/projects/ProjectDocumentation';
 import { useCanonicalPermissions } from '@/hooks/use-canonical-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { toast } from 'sonner';
+import { projectTypeHelp } from '@/lib/project-type-help';
  
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface ProjectType {
@@ -150,7 +151,7 @@ export default function ProjectsPage() {
  
     const fetchDropdowns = useCallback(async () => {
         try {
-            const [opmcRes, contractorRes] = await Promise.all([fetch('/api/opmcs'), fetch('/api/contractors?type=OSP&status=ACTIVE&limit=500')]);
+            const [opmcRes, contractorRes] = await Promise.all([fetch('/api/opmcs?scope=mine'), fetch('/api/contractors?type=OSP&status=ACTIVE&limit=500')]);
             if (opmcRes.ok) { const d = await opmcRes.json(); setOpmcs(Array.isArray(d) ? d : d.opmcs || d.data || []); }
             if (contractorRes.ok) {
                 const j = await contractorRes.json();
@@ -493,7 +494,7 @@ export default function ProjectsPage() {
                                  <SelectTrigger className="h-8 text-xs bg-card border-border text-foreground"><SelectValue placeholder="Select type..." /></SelectTrigger>
                                  <SelectContent>{(projectTypes || []).map(pt => <SelectItem key={pt.id} value={pt.id}>{pt.name.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
                              </Select>
-                             {selectedProjectType && <p className="text-[10px] text-muted-foreground mt-0.5">Workflow: {selectedProjectType.description}</p>}
+                             {selectedProjectType && <p className="text-[10px] text-muted-foreground mt-0.5">Workflow: {selectedProjectType.description || projectTypeHelp(selectedProjectType.name)}</p>}
                              {selectedProjectType?.roleSummary?.length ? (
                                  <p className="text-[10px] text-muted-foreground mt-0.5">
                                      Typical roles: {selectedProjectType.roleSummary.map((role) => role.replace(/_/g, ' ')).join(' • ')}

@@ -140,7 +140,7 @@ const synthPack = (profile: string) => buildDocumentPack({
 });
 
 test('every sheet of every profile is set up for A4 printing', async () => {
-  for (const profile of ['STANDARD', 'MARKETING', 'CLUSTER']) {
+  for (const profile of ['STANDARD', 'MARKETING', 'CLUSTER', 'GENERIC']) {
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load((await synthPack(profile)) as unknown as ArrayBuffer);
     assert.ok(wb.worksheets.length >= 4);
@@ -170,4 +170,12 @@ test('invoice tax is rounded step by step so gross + SSCL + VAT always equals th
   }
   const cr = invoiceTax(44634.92);
   assert.equal(cr.net, 54017.53);
+});
+
+test('a project type without a profile gets the generic layout for hand-entered BOQ lines and the standard one for SLT lines', () => {
+  assert.equal(resolveDocumentProfile(null, [{ unitDesignator: null }, { unitDesignator: null }]).code, 'GENERIC');
+  assert.equal(resolveDocumentProfile(null, [{ unitDesignator: 'UD1' }]).code, 'STANDARD');
+  assert.equal(resolveDocumentProfile(null, [{ unitDesignator: 'UD1' }, { unitDesignator: null }]).code, 'STANDARD');
+  assert.equal(resolveDocumentProfile('MARKETING', [{ unitDesignator: null }]).code, 'MARKETING');
+  assert.equal(resolveDocumentProfile('GENERIC', []).increment.material, 1);
 });
