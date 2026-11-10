@@ -136,6 +136,31 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # The database is not exposed to the internet. The release job reaches it through an SSH tunnel to a
+      # restricted account (no shell, forwarding allowed only to the database container's address).
+      - name: Open the SSH tunnel to the production database
+        shell: bash
+        env:
+          TUNNEL_KEY: ${{ secrets.RELEASE_TUNNEL_KEY }}
+          TUNNEL_HOST: ${{ secrets.RELEASE_TUNNEL_HOST }}
+          TUNNEL_KNOWN_HOSTS: ${{ secrets.RELEASE_TUNNEL_KNOWN_HOSTS }}
+          TUNNEL_TARGET: 10.0.1.13:5432
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$TUNNEL_KEY" > ~/.ssh/release_tunnel
+          chmod 600 ~/.ssh/release_tunnel
+          printf '%s\n' "$TUNNEL_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -N -f -o ExitOnForwardFailure=yes -o IdentitiesOnly=yes -o ServerAliveInterval=15 \
+            -o StrictHostKeyChecking=yes -i ~/.ssh/release_tunnel \
+            -L "127.0.0.1:15432:${TUNNEL_TARGET}" "tunnel@${TUNNEL_HOST}"
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            (echo > /dev/tcp/127.0.0.1/15432) 2>/dev/null && exit 0
+            sleep 1
+          done
+          echo "SSH tunnel did not come up." >&2
+          exit 1
+
       - name: Pull and run the release job from the exact image
         shell: bash
         env:
@@ -144,11 +169,17 @@ jobs:
           IMAGE_TAG: sha-${{ needs.prepare.outputs.sha }}
         run: |
           set -euo pipefail
+          # Keep user, password and parameters from the secrets; only the host and port move to the tunnel.
+          via_tunnel() {
+            node -e 'const u=new URL(process.argv[1]);u.hostname="127.0.0.1";u.port="15432";process.stdout.write(u.toString())' "$1"
+          }
+          DB_URL="$(via_tunnel "$RELEASE_DATABASE_URL")"
+          DIRECT_URL_TUNNEL="$(via_tunnel "$RELEASE_DIRECT_URL")"
           image="${IMAGE_NAME}:${IMAGE_TAG}"
           docker pull --quiet "$image"
-          docker run --rm --pull=never \
-            --env DATABASE_URL="$RELEASE_DATABASE_URL" \
-            --env DIRECT_URL="$RELEASE_DIRECT_URL" \
+          docker run --rm --pull=never --network host \
+            --env DATABASE_URL="$DB_URL" \
+            --env DIRECT_URL="$DIRECT_URL_TUNNEL" \
             --entrypoint node \
             "$image" scripts/production-release.mjs
 
