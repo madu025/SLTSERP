@@ -112,7 +112,20 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
     return response;
 }
 
+// Stored files are untrusted: the app-wide `frame-ancestors` policy must not replace the sandbox policy that the
+// storage route sets (otherwise an uploaded SVG could run script on the app origin). PDFs stay viewable.
+const STORAGE_SANDBOX_CSP = "sandbox; default-src 'none'; img-src data: 'self'; style-src 'unsafe-inline'; frame-ancestors 'none'";
+
 export async function middleware(request: NextRequest) {
+    const response = await handleRequest(request);
+    const { pathname } = request.nextUrl;
+    if (pathname.startsWith('/api/storage/') && !pathname.toLowerCase().endsWith('.pdf')) {
+        response.headers.set('Content-Security-Policy', STORAGE_SANDBOX_CSP);
+    }
+    return response;
+}
+
+async function handleRequest(request: NextRequest): Promise<NextResponse> {
     const { pathname } = request.nextUrl;
 
     // Generate Request ID for tracing
@@ -179,6 +192,17 @@ export async function middleware(request: NextRequest) {
     // ── Auto-refresh: access token expired but refresh token valid ───────────
     let verifiedToken = verifyResult.valid ? verifyResult.payload : null;
     let refreshResponse: NextResponse | null = null;
+
+    // The access-token cookie lives 15 minutes, so a reload after that often arrives with no token at all but a valid
+    // refresh token. Send page loads through the Node refresh route too instead of bouncing the user to the login page.
+    if (!verifiedToken && !token && refreshToken && request.method === 'GET' && !pathname.startsWith('/api')) {
+        const refreshPayload = await verifyRefreshToken(refreshToken);
+        if (refreshPayload) {
+            const refreshUrl = new URL('/api/auth/refresh', request.url);
+            refreshUrl.searchParams.set('next', pathname + request.nextUrl.search);
+            return NextResponse.redirect(refreshUrl);
+        }
+    }
 
     if (!verifiedToken && verifyResult.valid === false && verifyResult.expired && refreshToken) {
         const refreshPayload = await verifyRefreshToken(refreshToken);
