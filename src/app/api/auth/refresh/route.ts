@@ -3,6 +3,29 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyRefreshToken, signAccessToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { deriveEffectivePermissions } from '@/lib/effective-permissions';
+import { safeNextPath } from '@/lib/safe-next-path';
+
+/**
+ * GET /api/auth/refresh?next=/path
+ * Used by the middleware for page loads whose access token has expired: refreshes the session with the user's real
+ * permissions, then sends the browser back to the page. A failed refresh clears the cookies and goes to the login page.
+ */
+export async function GET(request: NextRequest) {
+    const next = safeNextPath(request.nextUrl.searchParams.get('next'));
+    const result = await POST(request);
+    const target = result.status === 200
+        ? new URL(next, request.url)
+        : new URL(`/login?callbackUrl=${encodeURIComponent(next)}`, request.url);
+    const redirect = NextResponse.redirect(target);
+    // Carry the cookies the refresh set (new access token on success, cleared cookies on failure)
+    for (const cookie of result.headers.getSetCookie()) redirect.headers.append('Set-Cookie', cookie);
+    if (result.status !== 200) {
+        const isProd = process.env.NODE_ENV === 'production';
+        redirect.headers.append('Set-Cookie', `token=; Max-Age=0; Path=/; SameSite=Lax${isProd ? '; Secure' : ''}; HttpOnly`);
+        redirect.headers.append('Set-Cookie', `refresh_token=; Max-Age=0; Path=/; SameSite=Lax${isProd ? '; Secure' : ''}; HttpOnly`);
+    }
+    return redirect;
+}
 
 /**
  * POST /api/auth/refresh

@@ -427,6 +427,16 @@ export class GISRouteService {
     }
 
     /**
+     * A route id in the URL must belong to the project in the URL. Project access is checked on the project id only,
+     * so without this a user who may open project A could read or change a route of project B by guessing its id.
+     * Answers 404 (not 403) so route ids of other projects are not confirmed.
+     */
+    static async assertRouteInProject(projectId: string, routeId: string) {
+        const found = await prisma.gISRoute.findFirst({ where: { id: routeId, projectId }, select: { id: true } });
+        if (!found) throw AppError.notFound('Route not found');
+    }
+
+    /**
      * Fetch a specific GIS route with elements
      */
     static async getRoute(routeId: UUID) {

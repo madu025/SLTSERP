@@ -98,13 +98,15 @@ export const POST = apiHandler(async (_request, params, body: z.infer<typeof cre
 
 export const PATCH = apiHandler(async (_request, params, body: z.infer<typeof updateInvoiceSchema>) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
-    const invoice = await prisma.projectInvoice.findUnique({ where: { id: body.id }, select: { projectId: true, createdById: true } });
+    const invoice = await prisma.projectInvoice.findUnique({ where: { id: body.id }, select: { projectId: true, createdById: true, status: true } });
     if (!invoice) throw AppError.notFound('Invoice not found');
     await assertProjectAccess(invoice.projectId, params._userId);
     if (body.status) {
         await requireFinanceApprover(params._userId);
         await assertProjectFinanceAssignment(invoice.projectId, params._userId, ['APPROVER', 'LEAD_CONTROLLER']);
-        if (invoice.createdById === params._userId && !await userHasPermission(params._userId, RBAC_PERMISSIONS.ADMIN_RBAC)) {
+        // Segregation of duties is about approving: whoever generated a draft may still discard it (nothing is posted for a DRAFT)
+        const discardingOwnDraft = body.status === 'CANCELLED' && invoice.status === 'DRAFT';
+        if (invoice.createdById === params._userId && !discardingOwnDraft && !await userHasPermission(params._userId, RBAC_PERMISSIONS.ADMIN_RBAC)) {
             throw AppError.forbidden('Invoice creator cannot approve their own invoice');
         }
     } else {

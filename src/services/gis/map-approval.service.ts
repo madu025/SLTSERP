@@ -177,29 +177,40 @@ export class MapApprovalService {
   /**
    * Batch approve multiple verified points
    */
-  static async batchApprove(pointIds: string[], userId: string) {
+  static async batchApprove(pointIds: string[], userId: string, projectId?: string) {
+    const allowed = await MapApprovalService.pointsOfProject(pointIds, projectId);
     const results = await Promise.allSettled(
-      pointIds.map((id) => MapApprovalService.approvePoint({ pointId: id, userId }))
+      allowed.map((id) => MapApprovalService.approvePoint({ pointId: id, userId }))
     );
 
     const succeeded = results.filter((r) => r.status === 'fulfilled').length;
-    const failed = results.filter((r) => r.status === 'rejected').length;
 
-    return { succeeded, failed, total: pointIds.length };
+    // Points that are not in the project count as failed without being touched
+    return { succeeded, failed: pointIds.length - succeeded, total: pointIds.length };
+  }
+
+  /**
+   * Keeps only the points that belong to the project of the request. Project access is checked on the project id in
+   * the URL, so ids that belong to another project (another OPMC) must never reach the approval workflow.
+   */
+  private static async pointsOfProject(pointIds: string[], projectId?: string): Promise<string[]> {
+    if (!projectId) return pointIds;
+    const rows = await prisma.surveyPoint.findMany({ where: { id: { in: pointIds }, projectId }, select: { id: true } });
+    return rows.map((r) => r.id);
   }
 
   /**
    * Batch verify multiple pending points (supervisor action)
    */
-  static async batchVerify(pointIds: string[], userId: string) {
+  static async batchVerify(pointIds: string[], userId: string, projectId?: string) {
+    const allowed = await MapApprovalService.pointsOfProject(pointIds, projectId);
     const results = await Promise.allSettled(
-      pointIds.map((id) => MapApprovalService.verifyPoint({ pointId: id, userId }))
+      allowed.map((id) => MapApprovalService.verifyPoint({ pointId: id, userId }))
     );
 
     const succeeded = results.filter((r) => r.status === 'fulfilled').length;
-    const failed = results.filter((r) => r.status === 'rejected').length;
 
-    return { succeeded, failed, total: pointIds.length };
+    return { succeeded, failed: pointIds.length - succeeded, total: pointIds.length };
   }
 
   /**

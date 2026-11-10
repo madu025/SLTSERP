@@ -5,7 +5,7 @@ import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
-export const POST = apiHandler(async (request, _params, body) => {
+export const POST = apiHandler(async (request, params, body) => {
     const userId = getAuthenticatedUserId();
     if (!userId) {
         throw AppError.unauthorized('Unauthorized');
@@ -26,9 +26,9 @@ export const POST = apiHandler(async (request, _params, body) => {
     const pointIdsArray = pointIds as string[];
 
     if (action === 'verify') {
-        result = await MapApprovalService.batchVerify(pointIdsArray, userId);
+        result = await MapApprovalService.batchVerify(pointIdsArray, userId, params.id);
     } else {
-        result = await MapApprovalService.batchApprove(pointIdsArray, userId);
+        result = await MapApprovalService.batchApprove(pointIdsArray, userId, params.id);
     }
 
     return {

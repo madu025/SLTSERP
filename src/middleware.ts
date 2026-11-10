@@ -182,6 +182,15 @@ export async function middleware(request: NextRequest) {
 
     if (!verifiedToken && verifyResult.valid === false && verifyResult.expired && refreshToken) {
         const refreshPayload = await verifyRefreshToken(refreshToken);
+        if (refreshPayload && !pathname.startsWith('/api')) {
+            // Page loads need the user's permissions inside the access token (route-level RBAC reads them), and the
+            // Edge runtime cannot query the database. A token rebuilt here would carry none, so every page would be
+            // denied and redirected to /dashboard, which is denied too (redirect loop). Let the Node route refresh
+            // the session with the real permissions and come back to this page.
+            const refreshUrl = new URL('/api/auth/refresh', request.url);
+            refreshUrl.searchParams.set('next', pathname + request.nextUrl.search);
+            return NextResponse.redirect(refreshUrl);
+        }
         if (refreshPayload) {
             // Refresh token carries role/tokenVersion/contractorId claims so
             // middleware can rebuild the access token without a DB lookup

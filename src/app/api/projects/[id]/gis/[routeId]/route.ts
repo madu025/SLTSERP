@@ -12,6 +12,7 @@ export const dynamic = 'force-dynamic';
  */
 export const GET = apiHandler<unknown, void>(
     async (_request, params) => {
+        await GISRouteService.assertRouteInProject(params.id, params.routeId);
         const route = await GISRouteService.getRoute(params.routeId);
         if (!route) {
             throw AppError.notFound('Route not found');
@@ -30,6 +31,7 @@ export const PATCH = apiHandler<GISRoute, UpdateGISRouteSchema>(
             throw AppError.unauthorized('Unauthorized');
         }
 
+        await GISRouteService.assertRouteInProject(params.id, params.routeId);
         const route = await GISRouteService.updateRoute(params.id, params.routeId, body, userId);
         return route;
     },
@@ -46,6 +48,7 @@ export const DELETE = apiHandler<unknown, void>(
             throw AppError.unauthorized('Unauthorized');
         }
 
+        await GISRouteService.assertRouteInProject(params.id, params.routeId);
         const result = await GISRouteService.deleteRoute(params.id, params.routeId, userId);
         return result;
     }

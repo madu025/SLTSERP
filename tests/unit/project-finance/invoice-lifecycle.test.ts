@@ -64,6 +64,17 @@ describe('Project invoice lifecycle', () => {
     );
   });
 
+  it('lets the maker discard their own DRAFT (nothing is posted) but never issue it', () => {
+    const draft = { ...baseInvoice, status: 'DRAFT' };
+    const discarded = applyInvoiceTransition(draft, { transition: 'CANCELLED', actorUserId: 'maker-id' });
+    assert.equal(discarded.data.status, 'CANCELLED');
+    assert.equal(discarded.shouldPostIssuance, false);
+    assert.throws(
+      () => applyInvoiceTransition(draft, { transition: 'ISSUED', actorUserId: 'maker-id' }),
+      /MAKER_CANNOT_ISSUE_OWN_INVOICE/,
+    );
+  });
+
   it('rejects inconsistent paid flags and missing submission on completion', () => {
     for (const overrides of [
       { paymentStatus: 'PAID', balanceAmount: 100 },

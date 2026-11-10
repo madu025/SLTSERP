@@ -1,12 +1,14 @@
 import { apiHandler } from '@/lib/api-handler';
 import { RouteVersionService } from '@/services/gis/route-version.service';
+import { GISRouteService } from '@/services/gis/GISRouteService';
 import { z } from 'zod';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (_request, params) => {
-    const { routeId } = params;
+    const { id: projectId, routeId } = params;
+    await GISRouteService.assertRouteInProject(projectId, routeId);
     return await RouteVersionService.getVersionHistory(routeId);
 }, { rawResponse: true });
 
@@ -19,6 +21,7 @@ const versionSchema = z.object({
 
 export const POST = apiHandler(async (_request, params, body) => {
     const { id: projectId, routeId } = params;
+    await GISRouteService.assertRouteInProject(projectId, routeId);
     const data = versionSchema.parse(body);
     const action = data.action || 'new_version';
 

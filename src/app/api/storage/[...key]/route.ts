@@ -40,13 +40,21 @@ const storageGetHandler = apiHandler(async (_request, params) => {
     }
 
     const object = await StorageService.downloadFile(key);
+    // The stored type comes from the uploader's browser, so the extension decides for every type we know. Otherwise
+    // "x.pdf" uploaded as text/html would be served as a page on the app origin.
+    const byExtension = contentTypeFor(key);
+    const contentType = byExtension !== 'application/octet-stream' ? byExtension : (object.contentType || byExtension);
     return new Response(object.body as BodyInit, {
         headers: {
-            'Content-Type': object.contentType || contentTypeFor(key),
+            'Content-Type': contentType,
             ...(object.contentLength ? { 'Content-Length': String(object.contentLength) } : {}),
             'Content-Disposition': 'inline',
             'Cache-Control': 'private, no-store',
             'X-Content-Type-Options': 'nosniff',
+            // Uploaded files are untrusted: an SVG opened directly could otherwise run script on the app origin.
+            // `sandbox` gives the document an opaque origin and blocks scripts; PDFs are left out because the browser's
+            // PDF viewer does not run inside a sandboxed response.
+            ...(contentType === 'application/pdf' ? {} : { 'Content-Security-Policy': "sandbox; default-src 'none'; img-src data: 'self'; style-src 'unsafe-inline'" }),
         },
     });
 }, { rawResponse: true, permissions: [RBAC_PERMISSIONS.DASHBOARD_READ] });

@@ -525,7 +525,7 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
         status: string,
         confirmation: string,
         successMessage: string,
-        extra: { rejectionReason?: string } = {}
+        extra: { rejectionReason?: string; cancelledReason?: string } = {}
     ) => {
         const isVoucherSubmission = endpoint === '/api/projects/payment-vouchers'
             && status === 'PENDING_APPROVAL'
@@ -912,6 +912,18 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                                     'Invoice issued.'
                                                 )}>
                                                     <CheckCircle className="w-4 h-4 mr-1" /> Issue
+                                                </Button>
+                                            )}
+                                            {canApprove && inv.status === 'DRAFT' && (
+                                                <Button size="sm" variant="outline" className="text-red-800 border-red-300 hover:bg-red-50" disabled={submitting} onClick={() => handleStatusUpdate(
+                                                    '/api/projects/invoices',
+                                                    inv.id,
+                                                    'CANCELLED',
+                                                    `Discard draft invoice ${inv.invoiceNumber}? Nothing has been posted. You can generate a new draft from the BOQ afterwards.`,
+                                                    'Draft invoice discarded.',
+                                                    { cancelledReason: 'Draft discarded' }
+                                                )}>
+                                                    <XCircle className="w-4 h-4 mr-1" /> Discard
                                                 </Button>
                                             )}
                                             {canApprove && inv.type === 'CLIENT' && inv.status === 'ISSUED' && inv.submissionStatus !== 'SUBMITTED_TO_SLT' && (
