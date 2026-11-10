@@ -126,6 +126,9 @@ export class ProjectInvoiceService {
         if (!project) {
             throw AppError.badRequest('PROJECT_NOT_FOUND');
         }
+        if (['COMPLETED', 'CANCELLED'].includes(project.status)) {
+            throw AppError.badRequest('PROJECT_IS_CLOSED_NO_NEW_INVOICES');
+        }
 
         const invoiceType = type || 'CLIENT';
         if (invoiceType === 'CONTRACTOR') {

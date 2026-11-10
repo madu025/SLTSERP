@@ -186,6 +186,18 @@ describe('Payment voucher transition and posting guards', () => {
         assert.match(issuance, /idempotencyKey:\s*`INVOICE_ISSUANCE_\$\{invoiceId\}`/);
     });
 
+    it('splits output VAT and SSCL out of revenue when a client invoice is issued', () => {
+        const issuance = methodBody(ledgerService, 'logInvoiceIssuance');
+        assert.match(issuance, /ACCOUNTS\.VAT_PAYABLE/);
+        assert.match(issuance, /ACCOUNTS\.SSCL_PAYABLE/);
+        assert.match(issuance, /credit:\s*revenue/);
+    });
+
+    it('does not allow new invoices on a closed or cancelled project', () => {
+        const create = methodBody(source('src/services/project/project-invoice.service.ts'), 'createInvoice');
+        assert.match(create, /PROJECT_IS_CLOSED_NO_NEW_INVOICES/);
+    });
+
     it('makes payment voucher postings idempotent', () => {
         const payment = methodBody(ledgerService, 'logPaymentVoucherPayment');
         assert.match(payment, /idempotencyKey:\s*`PV_PAYMENT_\$\{pvId\}`/);
