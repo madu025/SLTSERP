@@ -5,6 +5,7 @@ import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { UUID } from '@/types/common';
 import { ProjectMaterialReservationService } from './project-material-reservation.service';
 import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
+import { syncProjectActualCost } from '@/services/project/project-cost.service';
 import { StoreService } from '@/services/inventory/store.service';
 import { assertProjectAccess } from '@/lib/project-access';
 
@@ -217,7 +218,6 @@ export class ProjectStockIssueService {
                 throw AppError.conflict('ISSUE_NOT_PENDING');
             }
 
-            let totalIssueCost = 0;
             const transactionItems: { itemId: UUID; batchId: UUID; quantity: number }[] = [];
             const stockBefore = new Map((await tx.inventoryStock.findMany({
                 where: { storeId: issue.storeId, itemId: { in: issueItemIds } },
@@ -266,17 +266,6 @@ export class ProjectStockIssueService {
                         ${boqQuantities}::numeric[]
                     ) as updated
                 `;
-                // Fetch updated BOQ items for cost calculation
-                const updatedBoqs = await tx.projectBOQItem.findMany({
-                    where: { projectId: issue.projectId, materialId: { in: boqItemIds } },
-                    select: { materialId: true, unitRate: true }
-                });
-                for (const bq of updatedBoqs) {
-                    const origItem = issue.items.find(i => i.itemId === bq.materialId);
-                    if (origItem) {
-                        totalIssueCost += Number(origItem.quantity) * Number(bq.unitRate);
-                    }
-                }
             }
 
             // Create InventoryTransaction for tracking
@@ -299,28 +288,6 @@ export class ProjectStockIssueService {
                 });
             }
 
-            // 3. Update Project Cost - Only if this is a project issue
-            if (issue.projectId) {
-                const project = await tx.project.findUnique({
-                    where: { id: issue.projectId }
-                });
-                
-                if (project) {
-                    const newActualCost = Number(project.actualCost || 0) + totalIssueCost;
-                    const newVariance = project.budget !== null && project.budget !== undefined
-                        ? Number(project.budget) - newActualCost
-                        : null;
-
-                    await tx.project.update({
-                        where: { id: issue.projectId },
-                        data: {
-                            actualCost: newActualCost,
-                            variance: newVariance
-                        }
-                    });
-                }
-            }
-
             // Every approved project issue must leave an immutable inventory
             // ledger entry, including legacy summary-stock reservations that
             // have no batch row and therefore do not create transactionItems.
@@ -328,10 +295,30 @@ export class ProjectStockIssueService {
             for (const item of issue.items) {
                 itemQuantities.set(item.itemId, (itemQuantities.get(item.itemId) || 0) + item.quantity.toNumber());
             }
-            const itemPrices = new Map((await tx.inventoryItem.findMany({
+            // Cost basis = what the picked batches cost (FIFO), never the BOQ selling rate or the mutable item price.
+            const pickedBatchIds = [...new Set(transactionItems.map((t) => t.batchId))];
+            const batchCosts = new Map((await tx.inventoryBatch.findMany({
+                where: { id: { in: pickedBatchIds } },
+                select: { id: true, costPrice: true },
+            })).map((b) => [b.id, Number(b.costPrice || 0)]));
+            const itemFallbackCost = new Map((await tx.inventoryItem.findMany({
                 where: { id: { in: [...itemQuantities.keys()] } },
-                select: { id: true, unitPrice: true },
-            })).map((item) => [item.id, Number(item.unitPrice || 0)]));
+                select: { id: true, costPrice: true },
+            })).map((item) => [item.id, Number(item.costPrice || 0)]));
+            const itemPrices = new Map<string, number>();
+            for (const [itemId, quantity] of itemQuantities) {
+                const fallback = itemFallbackCost.get(itemId) || 0;
+                let value = 0;
+                let covered = 0;
+                for (const t of transactionItems.filter((x) => x.itemId === itemId)) {
+                    const q = Math.abs(t.quantity);
+                    const unit = batchCosts.get(t.batchId) || fallback;
+                    value += q * unit;
+                    covered += q;
+                }
+                value += Math.max(0, quantity - covered) * fallback;
+                itemPrices.set(itemId, quantity > 0 ? Math.round((value / quantity) * 10000) / 10000 : 0);
+            }
             const stockAfter = new Map((await tx.inventoryStock.findMany({
                 where: { storeId: issue.storeId, itemId: { in: [...itemQuantities.keys()] } },
                 select: { itemId: true, quantity: true },
@@ -353,6 +340,8 @@ export class ProjectStockIssueService {
                     idempotencyKey: `PROJECT_ISSUE:${issue.id}:${itemId}`,
                 }, tx as TransactionClient);
             }
+
+            if (issue.projectId) await syncProjectActualCost(tx as TransactionClient, issue.projectId);
         });
 
         return { success: true };
@@ -489,9 +478,19 @@ export class ProjectStockIssueService {
                 throw AppError.badRequest('INVALID_RETURN_REQUEST');
             }
 
-            let totalCredit = 0;
             const transferInItems: { itemId: UUID; quantity: number }[] = [];
             const wastageItems: { itemId: UUID; quantity: number }[] = [];
+
+            // Returned stock is valued at the cost it was issued at (the source issue's ledger row).
+            const unitCostOf = async (itemId: string): Promise<number> => {
+                const issued = await tx.inventoryLedger.findUnique({
+                    where: { idempotencyKey: `PROJECT_ISSUE:${returnReq.issueId}:${itemId}` },
+                    select: { unitPrice: true },
+                });
+                if (issued && Number(issued.unitPrice) > 0) return Number(issued.unitPrice);
+                const it = await tx.inventoryItem.findUnique({ where: { id: itemId }, select: { costPrice: true } });
+                return Number(it?.costPrice || 0);
+            };
 
             // 2. Process Items
             for (const item of returnReq.items) {
@@ -506,7 +505,7 @@ export class ProjectStockIssueService {
                         create: { storeId: returnReq.storeId, itemId: item.itemId, quantity: item.quantity },
                         update: { quantity: { increment: item.quantity } }
                     });
-                    const invItem = await tx.inventoryItem.findUnique({ where: { id: item.itemId }, select: { unitPrice: true } });
+                    const unitCost = await unitCostOf(item.itemId);
                     await AuditLedgerService.recordEntry({
                         storeId: returnReq.storeId,
                         itemId: item.itemId,
@@ -516,7 +515,7 @@ export class ProjectStockIssueService {
                         quantityBefore: Number(before?.quantity ?? 0),
                         quantityChange: Number(item.quantity),
                         quantityAfter: Number(stockRow.quantity),
-                        unitPrice: Number(invItem?.unitPrice || 0),
+                        unitPrice: unitCost,
                         performedById: approvedById,
                         idempotencyKey: `PROJECT_RETURN:${returnReq.id}:${item.id}`,
                     }, tx as TransactionClient);
@@ -528,7 +527,7 @@ export class ProjectStockIssueService {
                         where: { storeId_itemId: { storeId: returnReq.storeId, itemId: item.itemId } },
                         select: { quantity: true },
                     });
-                    const invItem = await tx.inventoryItem.findUnique({ where: { id: item.itemId }, select: { unitPrice: true } });
+                    const unitCost = await unitCostOf(item.itemId);
                     await AuditLedgerService.recordEntry({
                         storeId: returnReq.storeId,
                         itemId: item.itemId,
@@ -538,7 +537,7 @@ export class ProjectStockIssueService {
                         quantityBefore: Number(stockRow?.quantity ?? 0),
                         quantityChange: 0,
                         quantityAfter: Number(stockRow?.quantity ?? 0),
-                        unitPrice: Number(invItem?.unitPrice || 0),
+                        unitPrice: unitCost,
                         performedById: approvedById,
                         idempotencyKey: `PROJECT_RETURN_DAMAGED:${returnReq.id}:${item.id}`,
                     }, tx as TransactionClient);
@@ -559,7 +558,6 @@ export class ProjectStockIssueService {
                             actualCost: { decrement: credit }
                         }
                     });
-                    totalCredit += credit;
                 }
             }
 
@@ -600,27 +598,8 @@ export class ProjectStockIssueService {
                 });
             }
 
-            // 3. Credit Project Total Cost and update variance
-            if (returnReq.projectId) {
-                const project = await tx.project.findUnique({
-                    where: { id: returnReq.projectId }
-                });
-
-                if (project) {
-                    const newActualCost = Math.max(0, Number(project.actualCost || 0) - totalCredit);
-                    const newVariance = project.budget !== null && project.budget !== undefined
-                        ? Number(project.budget) - newActualCost
-                        : null;
-
-                    await tx.project.update({
-                        where: { id: returnReq.projectId },
-                        data: {
-                            actualCost: newActualCost,
-                            variance: newVariance
-                        }
-                    });
-                }
-            }
+            // 3. Project total cost is recomputed from the ledger (issues minus returns) so it can never drift
+            if (returnReq.projectId) await syncProjectActualCost(tx as TransactionClient, returnReq.projectId);
         });
 
         return { success: true };

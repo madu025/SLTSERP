@@ -1,5 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { computeProjectCost, syncProjectActualCost } from '@/services/project/project-cost.service';
+import type { TransactionClient } from '@/types/inventory/inventory-service.types';
 
 type VarianceStatus = 'UNDER' | 'ON_TRACK' | 'OVER' | 'CRITICAL' | 'UNKNOWN';
 
@@ -8,6 +10,8 @@ export interface ProjectCostSummaryInput {
   expenseCost: number;
   laborCost: number;
   hasApprovedMaterialIssues: boolean;
+  /** Net material cost taken from the inventory ledger; when given (and the cost basis is known) it is included in the total. */
+  materialCost?: number | null;
 }
 
 /**
@@ -21,10 +25,11 @@ export function calculateProjectCostSummary({
   expenseCost,
   laborCost,
   hasApprovedMaterialIssues,
+  materialCost,
 }: ProjectCostSummaryInput) {
   const knownActualCost = expenseCost + laborCost;
 
-  if (hasApprovedMaterialIssues) {
+  if (hasApprovedMaterialIssues && (materialCost === undefined || materialCost === null)) {
     return {
       knownActualCost,
       materialCost: null,
@@ -37,13 +42,14 @@ export function calculateProjectCostSummary({
     };
   }
 
-  const actualCost = knownActualCost;
+  const material = materialCost ?? 0;
+  const actualCost = knownActualCost + material;
   const variance = budget - actualCost;
   const variancePct = budget > 0 ? (variance / budget) * 100 : 0;
 
   return {
     knownActualCost,
-    materialCost: 0,
+    materialCost: material,
     materialCostStatus: 'KNOWN' as const,
     actualCost,
     actualCostStatus: 'COMPLETE' as const,
@@ -77,64 +83,27 @@ export class BudgetTrackingService {
    * - DailyProgress labor costs
    */
   static async syncActualCost(projectId: string) {
-    const [approvedMaterialIssue, expenseCost, laborCost, project] = await Promise.all([
-      prisma.stockIssue.findFirst({
-        where: { projectId, status: 'APPROVED' },
-        select: { id: true },
-      }),
-      // Expense cost: sum of all project expenses
-      prisma.projectExpense.aggregate({
-        where: { projectId },
-        _sum: { amount: true },
-      }),
-      // Labor cost from daily progress
-      prisma.dailyProgress.aggregate({
-        where: { projectId },
-        _sum: { laborCost: true },
-      }),
-      prisma.project.findUnique({
-        where: { id: projectId },
-        select: { budget: true },
-      }),
-    ]);
-
+    const project = await prisma.project.findUnique({ where: { id: projectId }, select: { budget: true } });
     if (!project) throw AppError.badRequest('Project not found');
-
-    const summary = calculateProjectCostSummary({
+    // Fail closed: a partial total is never stored while an approved material movement has no cost basis.
+    const cost = await syncProjectActualCost(prisma as unknown as TransactionClient, projectId);
+    return calculateProjectCostSummary({
       budget: Number(project.budget ?? 0),
-      expenseCost: Number(expenseCost._sum.amount ?? 0),
-      laborCost: Number(laborCost._sum.laborCost ?? 0),
-      hasApprovedMaterialIssues: Boolean(approvedMaterialIssue),
+      expenseCost: cost.expenseCost,
+      laborCost: cost.laborCost,
+      hasApprovedMaterialIssues: !cost.materialCostKnown,
+      materialCost: cost.materialCostKnown ? cost.materialCost : null,
     });
-
-    // Fail closed: do not overwrite a project total with a partial total when
-    // approved materials have no immutable monetary value on the issue record.
-    if (summary.actualCost === null) return summary;
-
-    await prisma.project.update({
-      where: { id: projectId },
-      data: {
-        actualCost: summary.actualCost,
-        variance: summary.variance,
-      },
-    });
-
-    return summary;
   }
 
   /**
    * Get comprehensive budget dashboard for a project
    */
   static async getBudgetDashboard(projectId: string) {
-    const [project, materialIssues, expenses, dailyProgress, boqTotal] = await Promise.all([
+    const [project, expenses, dailyProgress, boqTotal] = await Promise.all([
       prisma.project.findUnique({
         where: { id: projectId },
         select: { id: true, name: true, budget: true, actualCost: true, variance: true },
-      }),
-      prisma.stockIssue.findMany({
-        where: { projectId, status: 'APPROVED' },
-        select: { id: true, createdAt: true },
-        orderBy: { createdAt: 'asc' },
       }),
       prisma.projectExpense.findMany({
         where: { projectId },
@@ -157,11 +126,13 @@ export class BudgetTrackingService {
     const expenseCost = expenses.reduce((s, e) => s + Number(e.amount), 0);
     const laborCost = dailyProgress.reduce((s, d) => s + Number(d.laborCost), 0);
     const budget = Number(project.budget ?? 0);
+    const ledgerCost = await computeProjectCost(prisma as unknown as TransactionClient, projectId);
     const costSummary = calculateProjectCostSummary({
       budget,
       expenseCost,
       laborCost,
-      hasApprovedMaterialIssues: materialIssues.length > 0,
+      hasApprovedMaterialIssues: !ledgerCost.materialCostKnown,
+      materialCost: ledgerCost.materialCostKnown ? ledgerCost.materialCost : null,
     });
     const boqEstimate = Number(boqTotal._sum.amount ?? 0);
 

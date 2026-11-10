@@ -1,5 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { syncProjectActualCost } from '@/services/project/project-cost.service';
+import type { TransactionClient } from '@/types/inventory/inventory-service.types';
 
 export interface CreateExpenseInput {
     projectId: string;
@@ -61,32 +63,8 @@ export class ProjectExpenseService {
                 }
             });
 
-            // Dynamically recalculate project actualCost and variance
-            const [project, approvedMaterialIssue] = await Promise.all([
-                tx.project.findUnique({ where: { id: projectId } }),
-                tx.stockIssue.findFirst({
-                    where: { projectId, status: 'APPROVED' },
-                    select: { id: true },
-                }),
-            ]);
-
-            // Stock issues do not preserve an immutable material unit cost.
-            // Do not turn this expense-only subtotal into a misleading project
-            // actual-cost total while material cost is unknown.
-            if (project && !approvedMaterialIssue) {
-                const newActualCost = Number(project.actualCost || 0) + amountVal;
-                const newVariance = project.budget !== null && project.budget !== undefined
-                    ? Number(project.budget) - newActualCost
-                    : null;
-
-                await tx.project.update({
-                    where: { id: projectId },
-                    data: {
-                        actualCost: newActualCost,
-                        variance: newVariance
-                    }
-                });
-            }
+            // Recomputed from all sources (expenses, labor, ledger-costed material) so it cannot drift
+            await syncProjectActualCost(tx as TransactionClient, projectId);
 
             return expense;
         });
@@ -108,7 +86,7 @@ export class ProjectExpenseService {
             }
 
             const projectId = expense.projectId;
-            const expenseAmount = parsePositiveExpenseAmount(Number(expense.amount));
+            parsePositiveExpenseAmount(Number(expense.amount));
             const voidedAt = new Date();
             const voidAuditNote = `[VOIDED ${voidedAt.toISOString()} by ${voidedById}] Original amount: ${expense.amount.toString()}.`;
 
@@ -120,29 +98,7 @@ export class ProjectExpenseService {
                 },
             });
 
-            // Dynamically recalculate project actualCost and variance
-            const [project, approvedMaterialIssue] = await Promise.all([
-                tx.project.findUnique({ where: { id: projectId } }),
-                tx.stockIssue.findFirst({
-                    where: { projectId, status: 'APPROVED' },
-                    select: { id: true },
-                }),
-            ]);
-
-            if (project && !approvedMaterialIssue) {
-                const newActualCost = Math.max(0, Number(project.actualCost || 0) - expenseAmount);
-                const newVariance = project.budget !== null && project.budget !== undefined
-                    ? Number(project.budget) - newActualCost
-                    : null;
-
-                await tx.project.update({
-                    where: { id: projectId },
-                    data: {
-                        actualCost: newActualCost,
-                        variance: newVariance
-                    }
-                });
-            }
+            await syncProjectActualCost(tx as TransactionClient, projectId);
 
             return { success: true, id, voidedAt: voidedAt.toISOString() };
         });

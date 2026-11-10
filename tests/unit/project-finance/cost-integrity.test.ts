@@ -26,6 +26,20 @@ afterEach(() => {
   db.projectExpense.findMany = originalFindMany;
 });
 
+
+// Minimal transaction client for the shared cost computation (expenses + labor + ledger-costed material)
+const costTx = (opts: { issues?: Array<{ issueNumber: string }>; ledger?: unknown[]; expenseSum?: number; onProjectUpdate?: () => void } = {}) => ({
+  stockIssue: { findMany: async () => opts.issues ?? [] },
+  projectMaterialReturn: { findMany: async () => [] },
+  inventoryLedger: { findMany: async () => opts.ledger ?? [] },
+  projectExpense: { aggregate: async () => ({ _sum: { amount: opts.expenseSum ?? 0 } }) },
+  dailyProgress: { aggregate: async () => ({ _sum: { laborCost: 0 } }) },
+  project: {
+    findUnique: async () => ({ actualCost: 100, budget: 500 }),
+    update: async () => { opts.onProjectUpdate?.(); return { id: 'project-1' }; },
+  },
+});
+
 describe('project cost integrity', () => {
   it('rejects zero, negative, non-finite, and partially numeric expense amounts', () => {
     for (const amount of [0, -1, '', '  ', '12.50abc', Number.NaN, Number.POSITIVE_INFINITY]) {
@@ -70,6 +84,7 @@ describe('project cost integrity', () => {
     let updateData: Record<string, unknown> | undefined;
 
     db.$transaction = async (callback) => callback({
+      ...costTx({ expenseSum: 100 }),
       projectExpense: {
         findUnique: async () => ({
           id: 'expense-1',
@@ -81,12 +96,8 @@ describe('project cost integrity', () => {
           updateData = data;
           return { id: 'expense-1' };
         },
+        aggregate: async () => ({ _sum: { amount: 100 } }),
       },
-      project: {
-        findUnique: async () => ({ actualCost: 125.5, budget: 500 }),
-        update: async () => ({ id: 'project-1' }),
-      },
-      stockIssue: { findFirst: async () => null },
     });
 
     const result = await ProjectExpenseService.voidExpense('expense-1', 'user-1');
@@ -100,15 +111,8 @@ describe('project cost integrity', () => {
     let projectUpdated = false;
 
     db.$transaction = async (callback) => callback({
-      projectExpense: { create: async () => ({ id: 'expense-1' }) },
-      project: {
-        findUnique: async () => ({ actualCost: 100, budget: 500 }),
-        update: async () => {
-          projectUpdated = true;
-          return { id: 'project-1' };
-        },
-      },
-      stockIssue: { findFirst: async () => ({ id: 'issue-1' }) },
+      ...costTx({ issues: [{ issueNumber: 'ISS-1' }], ledger: [], onProjectUpdate: () => { projectUpdated = true; } }),
+      projectExpense: { create: async () => ({ id: 'expense-1' }), aggregate: async () => ({ _sum: { amount: 25 } }) },
     });
 
     await ProjectExpenseService.createExpense({
@@ -118,6 +122,23 @@ describe('project cost integrity', () => {
     });
 
     assert.equal(projectUpdated, false);
+  });
+
+  it('includes ledger-costed material (batch cost) in the stored project total', async () => {
+    let stored: Record<string, unknown> | undefined;
+    const tx = costTx({
+      issues: [{ issueNumber: 'ISS-1' }],
+      ledger: [{ transactionType: 'PROJECT_ISSUE', referenceId: 'ISS-1', quantityChange: -10, unitPrice: 3000 }],
+      expenseSum: 2000,
+    });
+    tx.project.update = (async ({ data }: { data: Record<string, unknown> }) => { stored = data; return { id: 'project-1' }; }) as never;
+    db.$transaction = async (callback) => callback({ ...tx, projectExpense: { create: async () => ({ id: 'e' }), aggregate: async () => ({ _sum: { amount: 2000 } }) } });
+
+    await ProjectExpenseService.createExpense({ projectId: 'project-1', type: 'MISC', amount: 2000 });
+
+    // 10 x 3000 material + 2000 expense, never the BOQ selling rate
+    assert.equal(stored?.actualCost, 32000);
+    assert.equal(stored?.variance, 500 - 32000);
   });
 
   it('hides retained void records from the active-expense read model', async () => {

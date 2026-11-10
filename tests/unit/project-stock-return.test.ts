@@ -99,9 +99,17 @@ it('audits a damaged return without replenishing stock or crediting project cost
   let projectUpdate: any;
   AuditLedgerService.recordEntry = async (entry: any) => { ledgerEntries.push(entry); return {} as any; };
   db.$transaction = async (callback: (tx: any) => Promise<unknown>) => callback({
-    projectMaterialReturn: { updateMany: async () => ({ count: 1 }) },
     inventoryStock: { findUnique: async () => ({ quantity: 7 }) },
-    inventoryItem: { findUnique: async () => ({ unitPrice: 50 }) },
+    inventoryItem: { findUnique: async () => ({ costPrice: 50 }) },
+    inventoryLedger: {
+      findUnique: async () => ({ unitPrice: 50 }),
+      // the project's remaining material: 6 units issued at cost 50 (the damaged return credits nothing)
+      findMany: async () => [{ transactionType: 'PROJECT_ISSUE', referenceId: 'ISS-1', quantityChange: -6, unitPrice: 50 }],
+    },
+    stockIssue: { findMany: async () => [{ issueNumber: 'ISS-1' }] },
+    projectMaterialReturn: { updateMany: async () => ({ count: 1 }), findMany: async () => [] },
+    projectExpense: { aggregate: async () => ({ _sum: { amount: 0 } }) },
+    dailyProgress: { aggregate: async () => ({ _sum: { laborCost: 0 } }) },
     projectBOQItem: { findFirst: async () => { boqWrites++; return null; }, update: async () => { boqWrites++; } },
     inventoryTransaction: { create: async (args: any) => { transactions.push(args.data); } },
     project: {
