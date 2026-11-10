@@ -235,6 +235,16 @@ export const GENERIC_WORKFLOW_STAGES: GenericWorkflowStage[] = [
         tasks: [{ code: 'HANDOVER_PACKAGE', name: 'Prepare handover and as-built package', assignmentRole: 'ENGINEER', assignmentTeamKey: 'AS_BUILT' }, { code: 'HANDOVER_APPROVAL', name: 'Review and approve handover package', taskType: 'APPROVAL', assignmentRole: 'AREA_MANAGER', assignmentTeamKey: 'AS_BUILT', dependsOnCode: 'HANDOVER_PACKAGE' }],
     },
     {
+        code: 'INVOICE_SUBMISSION',
+        name: 'Invoice Submission',
+        workstream: 'FINANCE',
+        assignmentRole: 'CONTRACTOR_FINANCE',
+        assignmentTeamKey: 'PROJECT_FINANCE',
+        description: 'Submit the invoice for the completed work; the draft is generated from the BOQ and reviewed before it goes to the customer.',
+        reqDocuments: true,
+        tasks: [{ code: 'CONTRACTOR_INVOICE', name: 'Submit invoice for the completed work', assignmentRole: 'CONTRACTOR_FINANCE', assignmentTeamKey: 'PROJECT_FINANCE' }],
+    },
+    {
         code: 'CLOSEOUT',
         name: 'Invoice Follow-up & Project Closure',
         workstream: 'CLOSURE',
