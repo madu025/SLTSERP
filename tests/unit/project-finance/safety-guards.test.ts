@@ -240,6 +240,12 @@ describe('Payment voucher transition and posting guards', () => {
         assert.match(source('src/app/api/contractor-portal/issues/[id]/accept/route.ts'), /CONTRACTOR_WRITE/);
     });
 
+    it('allocates change order numbers from one system-wide series under a lock', () => {
+        const co = source('src/services/project/project-change-order.service.ts');
+        assert.match(co, /project-change-order-number/);
+        assert.doesNotMatch(co, /where:\s*\{\s*projectId\s*\},\s*orderBy:\s*\{\s*coNumber/);
+    });
+
     it('makes payment voucher postings idempotent', () => {
         const payment = methodBody(ledgerService, 'logPaymentVoucherPayment');
         assert.match(payment, /idempotencyKey:\s*`PV_PAYMENT_\$\{pvId\}`/);

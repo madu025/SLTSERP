@@ -71,41 +71,40 @@ export class ProjectChangeOrderService {
             throw AppError.badRequest('PROJECT_IS_CLOSED_NO_NEW_CHANGE_ORDERS');
         }
 
-        // Auto-generate CO number: CO-XXXXX
-        const lastCO = await prisma.projectChangeOrder.findFirst({
-            where: { projectId },
-            orderBy: { coNumber: 'desc' },
-            select: { coNumber: true },
-        });
+        // CO numbers are unique across the whole system, so they are allocated from one series under a lock
+        // (numbering per project collided on the unique constraint for every project after the first).
+        const changeOrder = await prisma.$transaction(async (tx) => {
+            await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('project-change-order-number', 0))`;
+            const lastCO = await tx.projectChangeOrder.findFirst({
+                where: { coNumber: { startsWith: 'CO-' } },
+                orderBy: { coNumber: 'desc' },
+                select: { coNumber: true },
+            });
+            const lastSeq = lastCO ? parseInt(lastCO.coNumber.slice(3), 10) : 0;
+            const coNumber = `CO-${String((Number.isNaN(lastSeq) ? 0 : lastSeq) + 1).padStart(5, '0')}`;
 
-        let nextSeq = 1;
-        if (lastCO?.coNumber) {
-            const num = parseInt(lastCO.coNumber.split('-')[1] || '0', 10);
-            nextSeq = num + 1;
-        }
-        const coNumber = `CO-${String(nextSeq).padStart(5, '0')}`;
-
-        const changeOrder = await prisma.projectChangeOrder.create({
-            data: {
-                coNumber,
-                projectId,
-                title,
-                description: description || null,
-                type: type || 'SCOPE',
-                priority: priority || 'MEDIUM',
-                reason: reason || null,
-                referenceTable: referenceTable || null,
-                referenceId: referenceId || null,
-                originalValue: originalValue != null ? originalValue : null,
-                newValue: newValue != null ? newValue : null,
-                costImpact: costImpact ?? 0,
-                timeImpact: timeImpact != null ? timeImpact : null,
-                scopeImpact: scopeImpact || null,
-                riskAssessment: riskAssessment || null,
-                requestedById: requestedById || null,
-                notes: notes || null,
-                status: 'DRAFT',
-            },
+            return tx.projectChangeOrder.create({
+                data: {
+                    coNumber,
+                    projectId,
+                    title,
+                    description: description || null,
+                    type: type || 'SCOPE',
+                    priority: priority || 'MEDIUM',
+                    reason: reason || null,
+                    referenceTable: referenceTable || null,
+                    referenceId: referenceId || null,
+                    originalValue: originalValue != null ? originalValue : null,
+                    newValue: newValue != null ? newValue : null,
+                    costImpact: costImpact ?? 0,
+                    timeImpact: timeImpact != null ? timeImpact : null,
+                    scopeImpact: scopeImpact || null,
+                    riskAssessment: riskAssessment || null,
+                    requestedById: requestedById || null,
+                    notes: notes || null,
+                    status: 'DRAFT',
+                },
+            });
         });
 
         return changeOrder;
