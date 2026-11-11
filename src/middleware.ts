@@ -18,6 +18,7 @@ const publicPaths = [
     '/contractor-registration',
     '/api/contractors/public',
     '/api/contractors/public-register',
+    '/api/banks',
     '/api/branches',
     '/api/upload',
     '/team-upload',
@@ -57,7 +58,7 @@ const publicPaths = [
 // these prefixes requires full authentication.
 // NOTE: /api/inventory/stores was removed from this list (QA audit) — the
 // store list now requires authentication.
-const publicPrefixes: Array<{ prefix: string; maxDepth: number }> = [
+const publicPrefixes: Array<{ prefix: string; maxDepth: number; methods?: string[] }> = [
     { prefix: '/api/banks', maxDepth: 2 },
     // SLT-Bridge extension reads SO data anonymously by SO number
     // (/api/service-orders/bridge-data/<soNum>). Intentionally public,
@@ -70,6 +71,13 @@ const publicPrefixes: Array<{ prefix: string; maxDepth: number }> = [
     { prefix: '/api/public/invoices', maxDepth: 1 },
     { prefix: '/public/invoices', maxDepth: 1 },
     { prefix: '/public/device-audit', maxDepth: 1 },
+    // Contractor onboarding links are /<page>/<token>. The exact-match entries above only cover the bare path, so
+    // without these the invite pages redirected every anonymous visitor to the login page and the public API
+    // (`public-register/<token>`, which saves the draft and submits the registration) answered 401.
+    { prefix: '/contractor-registration', maxDepth: 1 },
+    { prefix: '/contractor-upload', maxDepth: 1 },
+    { prefix: '/team-upload', maxDepth: 1 },
+    { prefix: '/api/contractors/public-register', maxDepth: 1, methods: ['GET', 'POST', 'PATCH'] },
 ];
 
 function isPublicPath(pathname: string, method: string): boolean {
@@ -85,9 +93,9 @@ function isPublicPath(pathname: string, method: string): boolean {
         if (pathname === '/api/upload' && method !== 'POST') return false;
         return true;
     }
-    for (const { prefix, maxDepth } of publicPrefixes) {
+    for (const { prefix, maxDepth, methods } of publicPrefixes) {
         if (pathname.startsWith(prefix + '/')) {
-            if (method !== 'GET') return false;
+            if (!(methods ?? ['GET']).includes(method)) return false;
             const extraSegments = pathname.slice(prefix.length + 1).split('/').filter(Boolean).length;
             return extraSegments <= maxDepth;
         }

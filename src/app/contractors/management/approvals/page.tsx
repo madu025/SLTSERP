@@ -31,6 +31,7 @@ interface Team {
     id: string;
     name: string;
     sltCode?: string;
+    opmc?: { rtom?: string; name?: string } | null;
     members: TeamMember[];
 }
 
@@ -439,6 +440,9 @@ function ContractorApprovals() {
                                                                         <div className="flex items-center gap-1.5">
                                                                             <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                                                                             <span className="text-[10px] font-black text-slate-900 uppercase tracking-tight">{team.name}</span>
+                                                                            {team.opmc?.rtom && (
+                                                                                <span className="text-[9px] font-bold text-slate-700 bg-slate-100 rounded px-1.5 py-0.5">RTOM: {team.opmc.rtom}</span>
+                                                                            )}
                                                                         </div>
                                                                         {team.sltCode && (
                                                                             <Badge className="bg-emerald-500 text-white border-none text-[8px] font-black h-4 px-1.5 rounded">

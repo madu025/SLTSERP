@@ -93,10 +93,20 @@ test('contractor management APIs are bound to staff scope, never to a contractor
   for (const [file, pattern] of guarded) assert.match(source(file), pattern, file);
 });
 
-test('the public registration link never chooses a team OPMC, SLT code or store assignment', () => {
+test('the public registration link validates the team OPMC and never sets the SLT code or store assignments', () => {
   const lifecycle = source('src/services/contractor/contractor.lifecycle.service.ts');
   const reg = source('src/services/contractor/contractor.registration.service.ts');
   assert.match(reg, /syncTeams\(contractor\.id, teams \|\| \[\], updated\.opmcId, tx, \{ publicSubmission: true \}\)/);
-  assert.match(lifecycle, /publicSubmission \? \{\s*name: team\.name,\s*status: 'ACTIVE',\s*\}/);
-  assert.match(lifecycle, /\(!publicSubmission && team\.opmcId/);
+  assert.match(lifecycle, /publicSubmission \? \{\s*name: team\.name,\s*opmcId: [^\n]+\s*status: 'ACTIVE',\s*\}/);
+  assert.match(reg, /INVALID_TEAM_OPMC/);
+  assert.match(lifecycle, /sltCode: publicSubmission \? undefined : team\.sltCode/);
+});
+
+test('tokenised public onboarding pages and their API are reachable without a session', () => {
+  const middleware = source('src/middleware.ts');
+  for (const prefix of ['/contractor-registration', '/contractor-upload', '/team-upload']) {
+    assert.match(middleware, new RegExp(`prefix: '${prefix}', maxDepth: 1`));
+  }
+  assert.match(middleware, /prefix: '\/api\/contractors\/public-register', maxDepth: 1, methods: \['GET', 'POST', 'PATCH'\]/);
+  assert.match(source('src/services/api/contractor-registration.api.ts'), /public-register\/lookups/);
 });

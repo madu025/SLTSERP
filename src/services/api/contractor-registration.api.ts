@@ -45,14 +45,16 @@ export class ContractorRegistrationApi {
      * Helper to fetch static lists
      */
     static async getStaticData() {
-        const [banks, branches, stores, opmcs] = await Promise.all([
+        // Everything here must be reachable without a session: the OPMC choices come from the public lookup and the
+        // store list is not offered (staff assign a team's stores after approval).
+        const asList = (value: unknown) => (Array.isArray(value) ? value : []);
+        const [banks, branches, lookups] = await Promise.all([
             fetch('/api/banks').then(r => r.json()).catch(() => []),
             fetch('/api/branches').then(r => r.json()).catch(() => []),
-            fetch('/api/inventory/stores').then(r => r.json()).catch(() => []),
-            fetch('/api/opmcs').then(r => r.json()).catch(() => [])
+            fetch('/api/contractors/public-register/lookups').then(r => r.json()).catch(() => ({ opmcs: [] })),
         ]);
-        
-        return { banks, branches, stores, opmcs };
+
+        return { banks: asList(banks), branches: asList(branches), stores: [], opmcs: asList(lookups?.opmcs) };
     }
     
     /**

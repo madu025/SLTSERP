@@ -46,7 +46,8 @@ export default function SessionManager() {
                 // Only intercept API 401s, not login/auth endpoint responses
                 if (requestUrl.includes('/api/') && !isAgentAuthEndpoint && !requestUrl.includes('/api/login') && !requestUrl.includes('/api/contractor-portal/auth') && !requestUrl.includes('/api/auth/refresh')) {
                     // Avoid redirect loops if already on login page or public pages
-                    const publicPages = ['/login', '/contractor/login', '/privacy', '/public'];
+                    // The tokenised onboarding links are opened by people with no session: a 401 there must never trigger a refresh/logout loop
+                    const publicPages = ['/login', '/contractor/login', '/privacy', '/public', '/contractor-registration', '/contractor-upload', '/team-upload'];
                     if (!publicPages.some(p => window.location.pathname === p || window.location.pathname.startsWith(p + '/'))) {
                         // Attempt token refresh before giving up
                         try {
@@ -108,7 +109,7 @@ export default function SessionManager() {
         if (timerRef.current) clearTimeout(timerRef.current);
 
         // Don't set timer if we are already on a login page
-        if (pathname === '/login' || pathname === '/contractor/login') return;
+        if (pathname === '/login' || pathname === '/contractor/login' || /^\/(contractor-registration|contractor-upload|team-upload)(\/|$)/.test(pathname)) return;
 
         timerRef.current = setTimeout(() => {
             console.log('[SESSION-MANAGER] User inactive for 30 minutes. Logging out...');

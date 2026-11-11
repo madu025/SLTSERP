@@ -294,6 +294,13 @@ export class ContractorRegistrationService {
             contactNumber: restData.contactNumber
         }, contractor.id);
 
+        // The team OPMC is chosen on the public form: it has to be a real OPMC
+        const teamOpmcIds = Array.from(new Set((teams || []).map((t) => t.opmcId).filter((v): v is string => !!v && v !== 'inherit')));
+        if (teamOpmcIds.length > 0) {
+            const known = await prisma.oPMC.count({ where: { id: { in: teamOpmcIds } } });
+            if (known !== teamOpmcIds.length) throw AppError.badRequest('INVALID_TEAM_OPMC');
+        }
+
         const result = await prisma.$transaction(async (tx) => {
             const updated = await tx.contractor.update({
                 where: { id: contractor.id },
