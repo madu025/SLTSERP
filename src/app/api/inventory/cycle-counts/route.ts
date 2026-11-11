@@ -13,11 +13,12 @@ const createCycleCountSchema = z.object({
     itemIds: z.array(z.string()).optional()
 });
 
-export const GET = apiHandler(async (request: Request) => {
+export const GET = apiHandler(async (request: Request, params) => {
     const { searchParams } = new URL(request.url);
     const storeId = searchParams.get('storeId') || undefined;
     const status = searchParams.get('status') || undefined;
-    return await InventoryService.getCycleCounts(storeId, status);
+    if (!params._userId) throw AppError.unauthorized('Authentication required');
+    return await InventoryService.getCycleCounts(storeId, status, params._userId);
 }, { permissions: [RBAC_PERMISSIONS.INVENTORY_READ], rawResponse: true });
 
 export const POST = apiHandler(async (_request: Request, params, body: Record<string, unknown>) => {

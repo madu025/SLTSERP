@@ -35,10 +35,12 @@ export class TransactionService {
         type?: string;
         startDate?: string;
         endDate?: string;
+        storeIds?: string[];
     }) {
         const where: Prisma.InventoryTransactionWhereInput = {};
 
         if (filters.storeId) where.storeId = filters.storeId;
+        else if (filters.storeIds) where.storeId = { in: filters.storeIds };
         if (filters.type) where.type = filters.type;
 
         if (filters.itemId) {

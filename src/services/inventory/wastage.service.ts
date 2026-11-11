@@ -378,7 +378,7 @@ export class WastageService {
                         quantityChange: -qty,
                         quantityAfter,
                         idempotencyKey: `WASTAGE_${txRecord.id}_${item.itemId}`,
-                        performedById: 'system',
+                        performedById: userId,
                     }, tx);
                 }
 

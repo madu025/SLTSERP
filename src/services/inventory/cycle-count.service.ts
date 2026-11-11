@@ -64,6 +64,7 @@ export class CycleCountService {
     }
 
     static async createCycleCount(data: CreateCycleCountInput) {
+        await StoreService.assertStoreWriteAccess(data.countedById, data.storeId);
         const store = await prisma.inventoryStore.findUnique({
             where: { id: data.storeId }
         });
@@ -125,9 +126,13 @@ export class CycleCountService {
         return header;
     }
 
-    static async getCycleCounts(storeId?: string, status?: string) {
+    static async getCycleCounts(storeId?: string, status?: string, userId?: string) {
         const where: Prisma.CycleCountHeaderWhereInput = {};
-        if (storeId) where.storeId = storeId;
+        if (userId) {
+            const allowed = (await StoreService.getAccessibleStores(userId)).map((st) => st.id);
+            if (storeId && !allowed.includes(storeId)) throw AppError.forbidden('STORE_SCOPE_VIOLATION');
+            where.storeId = storeId ? storeId : { in: allowed };
+        } else if (storeId) where.storeId = storeId;
         if (status) where.status = status;
 
         return await prisma.cycleCountHeader.findMany({
@@ -142,7 +147,7 @@ export class CycleCountService {
         });
     }
 
-    static async getCycleCountById(id: string) {
+    static async getCycleCountById(id: string, userId?: string) {
         const header = await prisma.cycleCountHeader.findUnique({
             where: { id },
             include: {
@@ -158,11 +163,15 @@ export class CycleCountService {
         if (!header) {
             throw AppError.notFound("Cycle count audit record not found");
         }
+        if (userId) {
+            const allowed = (await StoreService.getAccessibleStores(userId)).map((st) => st.id);
+            if (!allowed.includes(header.storeId)) throw AppError.forbidden('STORE_SCOPE_VIOLATION');
+        }
 
         return header;
     }
 
-    static async submitCountResults(headerId: string, lines: SubmitCycleCountLineInput[]) {
+    static async submitCountResults(headerId: string, lines: SubmitCycleCountLineInput[], userId?: string) {
         const header = await prisma.cycleCountHeader.findUnique({
             where: { id: headerId },
             include: { lines: true }
@@ -171,6 +180,7 @@ export class CycleCountService {
         if (!header) {
             throw AppError.notFound("Cycle count header not found");
         }
+        if (userId) await StoreService.assertStoreWriteAccess(userId, header.storeId);
 
         if (header.status !== 'DRAFT' && header.status !== 'IN_PROGRESS') {
             throw AppError.badRequest("Cannot update cycle count that is not in DRAFT or IN_PROGRESS state.");
@@ -179,6 +189,12 @@ export class CycleCountService {
         let totalVarianceValue = 0;
 
         await prisma.$transaction(async (tx) => {
+            // Claim the count first so two simultaneous submissions cannot both write results
+            const claimed = await tx.cycleCountHeader.updateMany({
+                where: { id: headerId, status: { in: ['DRAFT', 'IN_PROGRESS'] } },
+                data: { status: 'IN_PROGRESS' },
+            });
+            if (claimed.count !== 1) throw AppError.conflict('CYCLE_COUNT_ALREADY_SUBMITTED');
             for (const lineInput of lines) {
                 const existingLine = header.lines.find(l => l.id === lineInput.lineId);
                 if (!existingLine) continue;

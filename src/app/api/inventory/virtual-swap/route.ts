@@ -19,7 +19,8 @@ export const POST = apiHandler(async (_request, params) => {
     const result = await InventoryService.executeBulkSwap(userId);
     return result;
 }, {
-    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+    // Converts every contractor's SLT batches in one go: approver only
+    permissions: [RBAC_PERMISSIONS.INVENTORY_APPROVE],
     audit: { action: 'POST_ACTION', entity: 'VIRTUAL_SWAP' },
     rawResponse: true
 });

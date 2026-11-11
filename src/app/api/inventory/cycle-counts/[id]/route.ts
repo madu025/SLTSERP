@@ -18,14 +18,14 @@ const paramsSchema = z.object({
 
 export const GET = apiHandler(async (_request: Request, params: unknown) => {
     const { id } = paramsSchema.parse(params);
-    return await InventoryService.getCycleCountById(id);
+    return await InventoryService.getCycleCountById(id, (params as { _userId?: string })._userId);
 }, { rawResponse: true });
 
 export const PUT = apiHandler(async (_request: Request, params: unknown, body: unknown) => {
     const { id } = paramsSchema.parse(params);
     const { lines } = submitCountSchema.parse(body);
 
-    return await InventoryService.submitCountResults(id, lines);
+    return await InventoryService.submitCountResults(id, lines, (params as { _userId?: string })._userId);
 }, {
     audit: { action: 'SUBMIT_RESULTS', entity: 'CycleCount' },
     rawResponse: true

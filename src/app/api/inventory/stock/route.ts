@@ -46,7 +46,8 @@ export const POST = apiHandler(async (_req, params, body) => {
     const result = await InventoryService.initializeStock(storeId, items as { itemId: string; quantity: string | number }[], reason, userId);
     return { message: 'Stock updated successfully', itemsUpdated: result };
 }, {
-    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+    // Overwriting on-hand quantities bypasses the GRN/issue trail, so it is an approver action, not a storekeeper one
+    permissions: [RBAC_PERMISSIONS.INVENTORY_APPROVE],
     audit: { action: 'STOCK_INITIALIZE', entity: 'STOCK' },
     rawResponse: true
 });
