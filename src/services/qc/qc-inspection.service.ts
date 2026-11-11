@@ -76,14 +76,14 @@ export class QCInspectionService {
         const { contractorId, teamId, unreadOnly = false, page = 1, limit = 20 } = params;
         const skip = (page - 1) * limit;
 
-        const orConditions: Prisma.QCNotificationWhereInput[] = [];
-        if (contractorId) orConditions.push({ contractorId });
-        if (teamId) orConditions.push({ teamId });
+        // No contractor means no notifications (an empty filter used to return every contractor's notifications),
+        // and a team filter only counts when the team belongs to the caller's contractor.
+        if (!contractorId) return { notifications: [], unreadCount: 0, total: 0, page, limit };
+        const ownTeams = await QCInspectionService.teamIdsOf(contractorId);
+        const orConditions: Prisma.QCNotificationWhereInput[] = [{ contractorId }];
+        if (teamId && ownTeams.includes(teamId)) orConditions.push({ teamId });
 
-        const where: Prisma.QCNotificationWhereInput = {};
-        if (orConditions.length > 0) {
-            where.OR = orConditions;
-        }
+        const where: Prisma.QCNotificationWhereInput = { OR: orConditions };
         if (unreadOnly) {
             where.isRead = false;
         }
@@ -113,11 +113,21 @@ export class QCInspectionService {
     /**
      * Mark notification as read
      */
-    static async markNotificationAsRead(id: string) {
-        return await prisma.qCNotification.update({
-            where: { id },
+    static async markNotificationAsRead(id: string, contractorId?: string) {
+        if (!contractorId) throw AppError.forbidden('CONTRACTOR_CONTEXT_REQUIRED');
+        // Only a notification addressed to this contractor (directly or through one of its teams) can be touched
+        const claimed = await prisma.qCNotification.updateMany({
+            where: { id, OR: [{ contractorId }, { teamId: { in: await QCInspectionService.teamIdsOf(contractorId) } }] },
             data: { isRead: true }
         });
+        if (claimed.count !== 1) throw AppError.notFound('NOTIFICATION_NOT_FOUND');
+        return prisma.qCNotification.findUniqueOrThrow({ where: { id } });
+    }
+
+    /** Team ids that belong to a contractor (a caller may only filter notifications by its own teams). */
+    static async teamIdsOf(contractorId: string): Promise<string[]> {
+        const teams = await prisma.contractorTeam.findMany({ where: { contractorId }, select: { id: true } });
+        return teams.map((t) => t.id);
     }
 
     /**
@@ -125,14 +135,13 @@ export class QCInspectionService {
      */
     static async markAllNotificationsAsRead(params: { contractorId?: string; teamId?: string }) {
         const { contractorId, teamId } = params;
-        const orConditions: Prisma.QCNotificationWhereInput[] = [];
-        if (contractorId) orConditions.push({ contractorId });
-        if (teamId) orConditions.push({ teamId });
+        // Without a contractor there is nothing to scope the update to: never mark everybody's notifications
+        if (!contractorId) throw AppError.forbidden('CONTRACTOR_CONTEXT_REQUIRED');
+        const ownTeams = await QCInspectionService.teamIdsOf(contractorId);
+        const orConditions: Prisma.QCNotificationWhereInput[] = [{ contractorId }];
+        if (teamId && ownTeams.includes(teamId)) orConditions.push({ teamId });
 
-        const where: Prisma.QCNotificationWhereInput = { isRead: false };
-        if (orConditions.length > 0) {
-            where.OR = orConditions;
-        }
+        const where: Prisma.QCNotificationWhereInput = { isRead: false, OR: orConditions };
 
         return await prisma.qCNotification.updateMany({
             where,

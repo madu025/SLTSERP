@@ -8,6 +8,15 @@ import { RegistrationLinkParams, ContractorUpdateData, TeamMemberInput } from '@
 import { ContractorQueryService } from './contractor.query.service';
 import { eventBus } from '@/lib/events/event-bus';
 
+/** Public registration and document links come from unauthenticated callers and are later rendered as links by staff. */
+function safeDocumentUrl(value: unknown): string | undefined {
+    if (value === undefined || value === null || value === '') return undefined;
+    if (typeof value !== 'string' || value.length > 2048 || !/^(https?:\/\/|\/)/i.test(value.trim())) {
+        throw AppError.badRequest('INVALID_DOCUMENT_URL');
+    }
+    return value.trim();
+}
+
 export class ContractorRegistrationService {
     /**
      * Generate a unique registration link
@@ -298,14 +307,14 @@ export class ContractorRegistrationService {
                     bankName: restData.bankName,
                     bankBranch: restData.bankBranch,
                     bankAccountNumber: restData.bankAccountNumber,
-                    bankPassbookUrl: restData.bankPassbookUrl,
-                    photoUrl: restData.photoUrl,
-                    nicFrontUrl: restData.nicFrontUrl,
-                    nicBackUrl: restData.nicBackUrl,
-                    policeReportUrl: restData.policeReportUrl,
-                    gramaCertUrl: restData.gramaCertUrl,
-                    brCertUrl: restData.brCertUrl,
-                    registrationFeeSlipUrl: restData.registrationFeeSlipUrl,
+                    bankPassbookUrl: safeDocumentUrl(restData.bankPassbookUrl),
+                    photoUrl: safeDocumentUrl(restData.photoUrl),
+                    nicFrontUrl: safeDocumentUrl(restData.nicFrontUrl),
+                    nicBackUrl: safeDocumentUrl(restData.nicBackUrl),
+                    policeReportUrl: safeDocumentUrl(restData.policeReportUrl),
+                    gramaCertUrl: safeDocumentUrl(restData.gramaCertUrl),
+                    brCertUrl: safeDocumentUrl(restData.brCertUrl),
+                    registrationFeeSlipUrl: safeDocumentUrl(restData.registrationFeeSlipUrl),
                     status: 'ARM_PENDING' as ContractorStatus,
                     registrationDraft: Prisma.JsonNull,
                     registrationStartedAt: null,
@@ -387,20 +396,30 @@ export class ContractorRegistrationService {
             throw AppError.badRequest('TOKEN_EXPIRED');
         }
 
+        // Changing the payout bank details of a contractor that is already onboarded through this public link must
+        // not stay trusted: clear the KYC flag so finance has to re-verify before the next payment (the payment
+        // voucher flow refuses contractors that are not KYC verified).
+        const bankChanged = ['bankName', 'bankBranch', 'bankAccountNumber'].some((k) => {
+            const next = documents[k];
+            return next !== undefined && next !== (contractor as unknown as Record<string, unknown>)[k];
+        });
+        const onboarded = !['PENDING', 'REJECTED'].includes(contractor.status);
+
         return await prisma.contractor.update({
             where: { id: contractor.id },
             data: {
-                photoUrl: documents.photoUrl,
-                nicFrontUrl: documents.nicFrontUrl,
-                nicBackUrl: documents.nicBackUrl,
-                policeReportUrl: documents.policeReportUrl,
-                gramaCertUrl: documents.gramaCertUrl,
-                bankPassbookUrl: documents.bankPassbookUrl,
-                brCertUrl: documents.brCertUrl,
+                photoUrl: safeDocumentUrl(documents.photoUrl),
+                nicFrontUrl: safeDocumentUrl(documents.nicFrontUrl),
+                nicBackUrl: safeDocumentUrl(documents.nicBackUrl),
+                policeReportUrl: safeDocumentUrl(documents.policeReportUrl),
+                gramaCertUrl: safeDocumentUrl(documents.gramaCertUrl),
+                bankPassbookUrl: safeDocumentUrl(documents.bankPassbookUrl),
+                brCertUrl: safeDocumentUrl(documents.brCertUrl),
                 bankName: documents.bankName,
                 bankBranch: documents.bankBranch,
                 bankAccountNumber: documents.bankAccountNumber,
-                documentStatus: 'PENDING'
+                documentStatus: 'PENDING',
+                ...(bankChanged && onboarded ? { kycVerified: false } : {}),
             }
         });
     }

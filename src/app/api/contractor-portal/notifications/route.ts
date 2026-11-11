@@ -38,7 +38,7 @@ export const PATCH = apiHandler(async (req) => {
         return NextResponse.json({ error: 'Notification ID or markAll flag is required' }, { status: 400 });
     }
 
-    const updated = await QCInspectionService.markNotificationAsRead(id);
+    const updated = await QCInspectionService.markNotificationAsRead(id, contractorId);
     return updated;
 }, {
 });

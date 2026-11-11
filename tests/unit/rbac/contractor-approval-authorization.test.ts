@@ -56,3 +56,19 @@ test('generic contractor input types do not expose approval audit columns', () =
   assert.match(types, /export interface ContractorApprovalInput/);
   assert.match(types, /export interface ContractorRejectionInput/);
 });
+
+test('contractor portal never falls back to another contractor or an unscoped notification list', () => {
+  const dashboard = source('src/services/contractor-portal/dashboard.service.ts');
+  const qc = source('src/services/qc/qc-inspection.service.ts');
+  assert.doesNotMatch(dashboard, /findFirst\(\{\s*where: \{ status: 'ACTIVE' \}/);
+  assert.match(qc, /CONTRACTOR_CONTEXT_REQUIRED/);
+  assert.match(qc, /teamIdsOf\(contractorId\)/);
+  assert.match(qc, /if \(!contractorId\) return \{ notifications: \[\]/);
+});
+
+test('public contractor registration only stores safe document links and re-flags changed bank details', () => {
+  const reg = source('src/services/contractor/contractor.registration.service.ts');
+  assert.match(reg, /function safeDocumentUrl/);
+  assert.match(reg, /INVALID_DOCUMENT_URL/);
+  assert.match(reg, /bankChanged && onboarded \? \{ kycVerified: false \}/);
+});

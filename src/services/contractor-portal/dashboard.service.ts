@@ -21,14 +21,8 @@ const EMPTY_DASHBOARD = {
 
 export class ContractorDashboardService {
     static async getDashboardData(contractorId?: string) {
-        // Fallback: If no contractorId from token, find first ACTIVE contractor
-        if (!contractorId) {
-            const defaultContractor = await prisma.contractor.findFirst({
-                where: { status: 'ACTIVE' }
-            });
-            contractorId = defaultContractor?.id;
-        }
-
+        // An account that is not tied to a contractor gets an empty dashboard. It used to fall back to the first
+        // ACTIVE contractor, which showed that contractor's NIC, phone, teams and stock to any signed-in user.
         if (!contractorId) {
             return EMPTY_DASHBOARD;
         }
