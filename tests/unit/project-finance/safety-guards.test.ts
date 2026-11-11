@@ -232,6 +232,14 @@ describe('Payment voucher transition and posting guards', () => {
         assert.match(source('src/services/project/project-ld-penalty.service.ts'), /postRetentionAndLd/);
     });
 
+    it('lets only the issued contractor sign an issue note and keeps contractors out of return acceptance', () => {
+        const svc = source('src/services/inventory/contractor-inventory.service.ts');
+        assert.match(svc, /ONLY_THE_ISSUED_CONTRACTOR_CAN_ACCEPT_THIS_ISSUE_NOTE/);
+        assert.match(svc, /CONTRACTORS_CANNOT_ACCEPT_MATERIAL_RETURNS/);
+        assert.match(source('src/app/api/contractor-portal/returns/[id]/accept/route.ts'), /INVENTORY_APPROVE/);
+        assert.match(source('src/app/api/contractor-portal/issues/[id]/accept/route.ts'), /CONTRACTOR_WRITE/);
+    });
+
     it('makes payment voucher postings idempotent', () => {
         const payment = methodBody(ledgerService, 'logPaymentVoucherPayment');
         assert.match(payment, /idempotencyKey:\s*`PV_PAYMENT_\$\{pvId\}`/);

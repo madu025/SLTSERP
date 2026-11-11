@@ -36,6 +36,9 @@ export class ContractorInventoryService {
         userId: string | null,
         acceptedQuantities?: Record<string, number>
     ) {
+        // The storekeeper accepts a return: a contractor account must never accept its own (or another contractor's) return
+        const actor = userId ? await prisma.user.findUnique({ where: { id: userId }, select: { contractorId: true } }) : null;
+        if (!userId || actor?.contractorId) throw AppError.forbidden('CONTRACTORS_CANNOT_ACCEPT_MATERIAL_RETURNS');
         return prisma.$transaction(async (tx) => {
             const returnRecord = await tx.contractorMaterialReturn.findUnique({
                 where: { id: returnId },
@@ -147,6 +150,12 @@ export class ContractorInventoryService {
 
         if (!issue) {
             throw AppError.notFound(`Material issue '${issueId}' not found.`);
+        }
+
+        // Only the contractor the materials were issued to can sign for them
+        const acceptor = userId ? await prisma.user.findUnique({ where: { id: userId }, select: { contractorId: true } }) : null;
+        if (!acceptor?.contractorId || acceptor.contractorId !== issue.contractorId) {
+            throw AppError.forbidden('ONLY_THE_ISSUED_CONTRACTOR_CAN_ACCEPT_THIS_ISSUE_NOTE');
         }
 
         if (issue.issuedBy && userId && issue.issuedBy === userId) {

@@ -1,5 +1,6 @@
 import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 
 import { ContractorInventoryService } from '@/services/inventory/contractor-inventory.service';
@@ -19,4 +20,5 @@ export const POST = apiHandler(async (req, params, body) => {
         acceptedQuantities as any
     );
 }, {
+    permissions: [RBAC_PERMISSIONS.INVENTORY_APPROVE],
 });
