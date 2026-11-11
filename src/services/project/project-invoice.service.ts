@@ -106,6 +106,8 @@ export class ProjectInvoiceService {
                 },
             },
             orderBy: { createdAt: 'desc' },
+            // The list loads every item and SOD of every client invoice: cap it so it stays fast as invoices accumulate
+            take: 1000,
         });
         return invoices;
     }
