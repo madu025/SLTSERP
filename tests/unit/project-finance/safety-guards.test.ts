@@ -198,6 +198,13 @@ describe('Payment voucher transition and posting guards', () => {
         assert.match(create, /PROJECT_IS_CLOSED_NO_NEW_INVOICES/);
     });
 
+    it('pays only the net cash from the bank and books withheld tax and retention as liabilities', () => {
+        const payment = methodBody(ledgerService, 'logPaymentVoucherPayment');
+        assert.match(payment, /credit:\s*netCash/);
+        assert.match(payment, /ACCOUNTS\.WHT_PAYABLE/);
+        assert.match(payment, /ACCOUNTS\.RETENTION_PAYABLE/);
+    });
+
     it('makes payment voucher postings idempotent', () => {
         const payment = methodBody(ledgerService, 'logPaymentVoucherPayment');
         assert.match(payment, /idempotencyKey:\s*`PV_PAYMENT_\$\{pvId\}`/);

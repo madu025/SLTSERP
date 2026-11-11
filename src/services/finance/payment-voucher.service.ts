@@ -409,7 +409,8 @@ export class PaymentVoucherService {
         // Log payment voucher payout in General Ledger
         const { LedgerService } = await import('./ledger.service');
         await LedgerService.logPaymentVoucherPayment(
-          tx, id, Number(existing.amount), existing.type || 'CONTRACTOR', existing.pvNumber, existing.payeeName
+          tx, id, Number(existing.amount), existing.type || 'CONTRACTOR', existing.pvNumber, existing.payeeName, undefined,
+          { taxWithheld: Number(existing.taxWithheld ?? 0), retentionAmount: Number(existing.retentionAmount ?? 0) }
         );
 
         // Sync with monthly Contractor Invoice if BOM-based

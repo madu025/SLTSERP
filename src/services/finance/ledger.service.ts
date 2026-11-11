@@ -826,11 +826,19 @@ export class LedgerService {
         type: string,
         pvNumber: string,
         payeeName: string,
-        description?: string
+        description?: string,
+        deductions?: { taxWithheld?: number; retentionAmount?: number }
     ) {
         if (amount <= 0) return null;
 
         const desc = description || `Payment Voucher Paid: ${pvNumber} (Payee: ${payeeName})`;
+        // The payable is cleared at the gross amount, but only the net is paid out of the bank: withholding tax and
+        // retention stay owed (to the tax authority / to the contractor) as liabilities.
+        const round2 = (v: unknown) => Math.max(0, Math.round(Number(v ?? 0) * 100) / 100);
+        let wht = round2(deductions?.taxWithheld);
+        let retention = round2(deductions?.retentionAmount);
+        if (wht + retention >= amount) { wht = 0; retention = 0; }
+        const netCash = Math.round((amount - wht - retention) * 100) / 100;
 
         // Contractor PVs settle the vendor payable; other PVs hit G&A expense.
         const debitAccountCode = type.toUpperCase() === 'CONTRACTOR'
@@ -853,9 +861,11 @@ export class LedgerService {
                 {
                     accountCode: ACCOUNTS.BANK,
                     debit: 0,
-                    credit: amount,
+                    credit: netCash,
                     description: `Disbursement for PV ${pvNumber}`
-                }
+                },
+                ...(wht > 0 ? [{ accountCode: ACCOUNTS.WHT_PAYABLE, debit: 0, credit: wht, description: `Withholding tax held on PV ${pvNumber}` }] : []),
+                ...(retention > 0 ? [{ accountCode: ACCOUNTS.RETENTION_PAYABLE, debit: 0, credit: retention, description: `Retention held on PV ${pvNumber}` }] : []),
             ]
         });
     }
