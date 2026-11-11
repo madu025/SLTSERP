@@ -107,6 +107,22 @@ export class PaymentVoucherService {
     });
   }
 
+  /** A voucher that pays out retention must point at a real release of this project and cannot exceed it (with the other live vouchers). */
+  private static async assertRetentionReleaseCoversVoucher(projectId: string, releaseId: string, amount: number, excludeVoucherId?: string) {
+    const release = await prisma.retentionRelease.findUnique({
+      where: { id: releaseId },
+      select: { releaseAmount: true, retention: { select: { projectId: true } } },
+    });
+    if (!release) throw AppError.badRequest('RETENTION_RELEASE_NOT_FOUND');
+    if (release.retention.projectId !== projectId) throw AppError.badRequest('RETENTION_RELEASE_PROJECT_MISMATCH');
+    const others = await prisma.paymentVoucher.findMany({
+      where: { retentionReleaseId: releaseId, status: { notIn: ['CANCELLED', 'REJECTED'] }, ...(excludeVoucherId ? { id: { not: excludeVoucherId } } : {}) },
+      select: { amount: true },
+    });
+    const used = others.reduce((sum, v) => sum.plus(v.amount), new Prisma.Decimal(0));
+    if (used.plus(amount).gt(release.releaseAmount)) throw AppError.badRequest('RETENTION_PAYOUT_EXCEEDS_RELEASE');
+  }
+
   /**
    * Create new Payment Voucher with automatically generated PV number (PV-YEAR-XXXX)
    */
@@ -148,6 +164,10 @@ export class PaymentVoucherService {
       if (currentPaidSum.plus(data.amount).gt(invoice.totalAmount)) {
         throw AppError.badRequest('INVOICE_PAYMENT_EXCEEDS_TOTAL');
       }
+    }
+
+    if (data.retentionReleaseId) {
+      await this.assertRetentionReleaseCoversVoucher(data.projectId, data.retentionReleaseId, data.amount);
     }
 
     const year = new Date().getFullYear();
@@ -298,6 +318,10 @@ export class PaymentVoucherService {
       if (currentPaidSum.plus(amount).gt(invoice.totalAmount)) {
         throw AppError.badRequest('INVOICE_PAYMENT_EXCEEDS_TOTAL');
       }
+    }
+
+    if (data.retentionReleaseId) {
+      await this.assertRetentionReleaseCoversVoucher(existing.projectId, data.retentionReleaseId, Number(amount), id);
     }
 
     return prisma.paymentVoucher.update({

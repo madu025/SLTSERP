@@ -1,5 +1,6 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { AccountingPostingRegistry } from '@/services/finance/accounting-posting-registry.service';
 
 interface CreatePenaltyInput {
     projectId: string;
@@ -80,16 +81,32 @@ export class ProjectLDPenaltyService {
             throw AppError.badRequest('WAIVER_ALLOWED_ONLY_FOR_WAIVED_PENALTIES');
         }
 
-        return prisma.projectLDPenalty.update({
-            where: { id },
-            data: {
-                status,
-                approvedById: options.approvedById,
-                approvedAt: new Date(),
-                waivedAmount,
-                netAmount: amount - waivedAmount,
-                ...(options.remarks !== undefined ? { remarks: options.remarks } : {}),
-            },
+        const netAmount = amount - waivedAmount;
+        return prisma.$transaction(async (tx) => {
+            const claimed = await tx.projectLDPenalty.updateMany({
+                where: { id, status: 'PROPOSED' },
+                data: {
+                    status,
+                    approvedById: options.approvedById,
+                    approvedAt: new Date(),
+                    waivedAmount,
+                    netAmount,
+                    ...(options.remarks !== undefined ? { remarks: options.remarks } : {}),
+                },
+            });
+            if (claimed.count !== 1) throw AppError.badRequest('ONLY_PROPOSED_PENALTIES_CAN_BE_ACTIONED');
+            // An approved penalty (or the part of a waived one that still stands) is owed by the contractor: book it
+            if (status !== 'REJECTED' && netAmount > 0) {
+                await AccountingPostingRegistry.postRetentionAndLd(tx, {
+                    referenceId: id,
+                    type: 'LD_PENALTY',
+                    amount: netAmount,
+                    contractorName: existing.title,
+                    description: `LD penalty ${existing.title} (LKR ${netAmount})`,
+                    createdById: options.approvedById ?? undefined,
+                });
+            }
+            return tx.projectLDPenalty.findUniqueOrThrow({ where: { id } });
         });
     }
 

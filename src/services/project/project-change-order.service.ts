@@ -67,6 +67,9 @@ export class ProjectChangeOrderService {
         if (!project) {
             throw AppError.badRequest('PROJECT_NOT_FOUND');
         }
+        if (['COMPLETED', 'CANCELLED'].includes(project.status)) {
+            throw AppError.badRequest('PROJECT_IS_CLOSED_NO_NEW_CHANGE_ORDERS');
+        }
 
         // Auto-generate CO number: CO-XXXXX
         const lastCO = await prisma.projectChangeOrder.findFirst({
@@ -129,6 +132,9 @@ export class ProjectChangeOrderService {
             if (existing.status !== 'PENDING_APPROVAL') {
                 throw AppError.badRequest('INVALID_STATUS_PENDING_ONLY');
             }
+            if (existing.requestedById && existing.requestedById === updateData.approvedById) {
+                throw AppError.badRequest('MAKER_CANNOT_APPROVE_OWN_CHANGE_ORDER');
+            }
             data.status = 'APPROVED';
             data.approvedById = updateData.approvedById || null;
             data.approvedAt = new Date();
@@ -173,6 +179,29 @@ export class ProjectChangeOrderService {
             if (notes !== undefined) data.notes = notes;
         } else {
             throw AppError.badRequest('INVALID_ACTION');
+        }
+
+        if (action === 'IMPLEMENT') {
+            // Implementing the change order makes its cost impact part of the project budget (once: the status
+            // guard above only lets an APPROVED change order through, and the update below is conditional on it).
+            return prisma.$transaction(async (tx) => {
+                const claimed = await tx.projectChangeOrder.updateMany({ where: { id, status: 'APPROVED' }, data });
+                if (claimed.count !== 1) throw AppError.badRequest('INVALID_STATUS_APPROVED_ONLY');
+                const impact = Number(existing.costImpact ?? 0);
+                if (impact !== 0) {
+                    const project = await tx.project.findUnique({ where: { id: existing.projectId }, select: { budget: true, variance: true } });
+                    if (project && project.budget !== null) {
+                        await tx.project.update({
+                            where: { id: existing.projectId },
+                            data: {
+                                budget: { increment: impact },
+                                ...(project.variance !== null ? { variance: { increment: impact } } : {}),
+                            },
+                        });
+                    }
+                }
+                return tx.projectChangeOrder.findUniqueOrThrow({ where: { id } });
+            });
         }
 
         const updated = await prisma.projectChangeOrder.update({

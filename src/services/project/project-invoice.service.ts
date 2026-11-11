@@ -492,12 +492,12 @@ export class ProjectInvoiceService {
         const totalInvoiced = invoices.reduce((s, i) => s + Number(i.totalAmount), 0);
         const totalPaid = invoices.reduce((s, i) => s + Number(i.paidAmount), 0);
         const totalBalance = invoices.reduce((s, i) => s + Number(i.balanceAmount), 0);
+        // Retained = what is still held (a partly released retention keeps its balance); released = what has been paid out
+        const releasedOf = (r: { releases: Array<{ releaseAmount: unknown }> }) => r.releases.reduce((sum, rel) => sum + Number(rel.releaseAmount), 0);
+        const totalReleased = retentions.reduce((s, r) => s + releasedOf(r), 0);
         const totalRetained = retentions
-            .filter((r) => r.status === 'HELD')
-            .reduce((s, r) => s + Number(r.retentionAmount), 0);
-        const totalReleased = retentions
-            .filter((r) => r.status === 'RELEASED')
-            .reduce((s, r) => s + Number(r.retentionAmount), 0);
+            .filter((r) => ['HELD', 'PARTIALLY_RELEASED'].includes(r.status))
+            .reduce((s, r) => s + Math.max(0, Number(r.retentionAmount) - releasedOf(r)), 0);
 
         const boqEstimate = Number(boqTotal._sum.amount ?? 0);
         const budget = Number(project?.budget ?? 0);

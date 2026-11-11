@@ -222,6 +222,16 @@ describe('Payment voucher transition and posting guards', () => {
         assert.match(svc, /CONTRACTOR_INVOICE/);
     });
 
+    it('keeps change orders, retentions, retention payouts and LD penalties consistent', () => {
+        const co = source('src/services/project/project-change-order.service.ts');
+        assert.match(co, /MAKER_CANNOT_APPROVE_OWN_CHANGE_ORDER/);
+        assert.match(co, /PROJECT_IS_CLOSED_NO_NEW_CHANGE_ORDERS/);
+        assert.match(co, /budget:\s*\{\s*increment:\s*impact/);
+        assert.match(source('src/services/project/project-retention.service.ts'), /RETENTION_EXCEEDS_INVOICE_TOTAL/);
+        assert.match(source('src/services/finance/payment-voucher.service.ts'), /RETENTION_PAYOUT_EXCEEDS_RELEASE/);
+        assert.match(source('src/services/project/project-ld-penalty.service.ts'), /postRetentionAndLd/);
+    });
+
     it('makes payment voucher postings idempotent', () => {
         const payment = methodBody(ledgerService, 'logPaymentVoucherPayment');
         assert.match(payment, /idempotencyKey:\s*`PV_PAYMENT_\$\{pvId\}`/);

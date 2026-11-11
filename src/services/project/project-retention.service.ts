@@ -55,10 +55,14 @@ export class ProjectRetentionService {
         if (data.invoiceId) {
             const invoice = await prisma.projectInvoice.findUnique({
                 where: { id: data.invoiceId },
-                select: { projectId: true, status: true },
+                select: { projectId: true, status: true, totalAmount: true },
             });
             if (!invoice || invoice.projectId !== data.projectId) throw AppError.badRequest('INVOICE_PROJECT_MISMATCH');
             if (invoice.status === 'CANCELLED') throw AppError.badRequest('CANNOT_RETAIN_CANCELLED_INVOICE');
+            const already = await prisma.projectRetention.aggregate({ where: { invoiceId: data.invoiceId }, _sum: { retentionAmount: true } });
+            if (Number(already._sum.retentionAmount ?? 0) + Number(data.retentionAmount) > Number(invoice.totalAmount)) {
+                throw AppError.badRequest('RETENTION_EXCEEDS_INVOICE_TOTAL');
+            }
         }
 
         return prisma.projectRetention.create({
