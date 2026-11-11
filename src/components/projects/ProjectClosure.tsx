@@ -229,13 +229,15 @@ toast.error('Failed to create change order');
         }
     };
 
+    const [closeRemarks, setCloseRemarks] = useState('');
+
     const handleCloseProject = async () => {
         setClosing(true);
         try {
             const res = await fetch(`/api/projects/${project.id}/close`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({}),
+                body: JSON.stringify({ remarks: closeRemarks.trim() || undefined }),
             });
             if (res.ok) {
                 setShowConfirmClose(false);
@@ -822,6 +824,17 @@ toast.error('Failed to close project');
                                             <li>Total Cost Impact: {formatCurrency(totalCostImpact)}</li>
                                             <li>Total Time Impact: {totalTimeImpact} day{totalTimeImpact !== 1 ? 's' : ''}</li>
                                         </ul>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label htmlFor="close-remarks" className="text-sm font-medium text-slate-900">Closure remarks</label>
+                                        <textarea
+                                            id="close-remarks"
+                                            value={closeRemarks}
+                                            onChange={(e) => setCloseRemarks(e.target.value)}
+                                            rows={3}
+                                            placeholder="Required (min. 10 characters) when the project has no client invoice - administrators only"
+                                            className="w-full rounded-md border border-slate-300 bg-white p-2 text-sm text-slate-900 placeholder:text-slate-500"
+                                        />
                                     </div>
                                     <DialogFooter>
                                         <Button variant="outline" onClick={() => setShowConfirmClose(false)}>Cancel</Button>

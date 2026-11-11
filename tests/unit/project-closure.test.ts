@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { isInvoiceOpenForClosure, type ClosureInvoice } from '../../src/services/project/project-closure';
+import { hasClientInvoice, isInvoiceOpenForClosure, type ClosureInvoice } from '../../src/services/project/project-closure';
 
 const paidClient: ClosureInvoice = {
     type: 'CLIENT', status: 'PAID', submissionStatus: 'SUBMITTED_TO_SLT',
@@ -25,5 +25,14 @@ describe('project closure invoice gate', () => {
     it('accepts settled contractor invoices and excludes cancelled invoices', () => {
         assert.equal(isInvoiceOpenForClosure({ ...paidClient, type: 'CONTRACTOR', submissionStatus: 'NOT_SUBMITTED' }), false);
         assert.equal(isInvoiceOpenForClosure({ ...paidClient, status: 'CANCELLED', balanceAmount: 100 }), false);
+    });
+});
+
+describe('client invoice requirement for closure', () => {
+    it('needs at least one non-cancelled client invoice', () => {
+        assert.equal(hasClientInvoice([]), false);
+        assert.equal(hasClientInvoice([{ type: 'CONTRACTOR', status: 'PAID' }]), false);
+        assert.equal(hasClientInvoice([{ type: 'CLIENT', status: 'CANCELLED' }]), false);
+        assert.equal(hasClientInvoice([{ type: 'CLIENT', status: 'PAID' }]), true);
     });
 });

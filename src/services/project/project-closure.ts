@@ -37,3 +37,10 @@ export function isInvoiceOpenForClosure(invoice: ClosureInvoice): boolean {
     }
     return !['PAID', 'FULLY_PAID', 'COMPLETED'].includes(invoice.status);
 }
+
+export const MISSING_CLIENT_INVOICE_CHECK = 'Client Invoice Raised';
+
+/** True when at least one non-cancelled client invoice exists. */
+export function hasClientInvoice(invoices: Array<{ type: string; status: string }>): boolean {
+    return invoices.some((invoice) => invoice.type === 'CLIENT' && invoice.status !== 'CANCELLED');
+}

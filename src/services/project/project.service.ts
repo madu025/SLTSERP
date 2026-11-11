@@ -8,7 +8,9 @@ import { NIL_UUID } from '@/lib/opmc-scope';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { getProjectTypeCatalogEntry } from '@/config/project-type-catalog';
 import { assertProjectAccess } from '@/lib/project-access';
-import { getIncompleteClosureStages, isInvoiceOpenForClosure } from './project-closure';
+import { getIncompleteClosureStages, isInvoiceOpenForClosure, hasClientInvoice, MISSING_CLIENT_INVOICE_CHECK } from './project-closure';
+import { userHasPermission } from '@/lib/user-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 interface ProjectFilters {
     status?: string | null;
@@ -590,6 +592,7 @@ export class ProjectService {
         ]);
         const unpaidInvoices = invoices.filter(isInvoiceOpenForClosure).length;
         const incompleteStages = workflow ? getIncompleteClosureStages(workflow.stages) : ['Workflow is missing'];
+        const clientInvoiceRaised = hasClientInvoice(invoices);
 
         const checks = [
             {
@@ -606,6 +609,11 @@ export class ProjectService {
                 check: 'Invoices Paid',
                 passed: unpaidInvoices === 0,
                 detail: unpaidInvoices > 0 ? `${unpaidInvoices} unpaid invoices` : 'All invoices paid',
+            },
+            {
+                check: MISSING_CLIENT_INVOICE_CHECK,
+                passed: clientInvoiceRaised,
+                detail: clientInvoiceRaised ? 'Client invoice raised' : 'No client invoice was raised for this project (only an administrator can close it, with a written remark)',
             },
             {
                 check: 'Change Requests Closed',
@@ -647,7 +655,17 @@ export class ProjectService {
         await assertProjectAccess(projectId, userId);
         if (finalAsBuiltGenerated === false) throw AppError.badRequest('Final as-built generation is required');
         const readiness = await this.checkClosure(projectId, userId);
-        if (!readiness.canClose) throw AppError.badRequest('PROJECT_CLOSURE_CHECKS_FAILED');
+        const failed = readiness.checks.filter((c) => !c.passed);
+        const onlyMissingInvoice = failed.length > 0 && failed.every((c) => c.check === MISSING_CLIENT_INVOICE_CHECK);
+        let invoiceWaived = false;
+        if (failed.length > 0) {
+            if (!onlyMissingInvoice) throw AppError.badRequest('PROJECT_CLOSURE_CHECKS_FAILED');
+            // A project without any client invoice may only be closed by an administrator, with a written reason
+            const isAdmin = await userHasPermission(userId, RBAC_PERMISSIONS.ADMIN_RBAC) || await userHasPermission(userId, RBAC_PERMISSIONS.ADMIN_SUPER);
+            if (!isAdmin) throw AppError.forbidden('PROJECT_HAS_NO_CLIENT_INVOICE_ONLY_ADMIN_CAN_CLOSE');
+            if (!remarks || remarks.trim().length < 10) throw AppError.badRequest('CLOSING_WITHOUT_INVOICE_REQUIRES_A_REMARK_OF_AT_LEAST_10_CHARACTERS');
+            invoiceWaived = true;
+        }
         const { AsBuiltService } = await import('@/services/project/as-built.service');
         await AsBuiltService.generateQGIS(projectId);
         const project = await prisma.$transaction(async (tx) => {
@@ -670,7 +688,8 @@ export class ProjectService {
             ]);
             const unpaidInvoices = invoices.filter(isInvoiceOpenForClosure).length;
             const incompleteStages = workflow ? getIncompleteClosureStages(workflow.stages) : ['Workflow is missing'];
-            const totalOpen = patPending + unpaidInvoices + openChangeRequests + pendingTasks + pendingReturns + incompleteStages.length;
+            const invoiceMissingNow = hasClientInvoice(invoices) ? false : !invoiceWaived;
+            const totalOpen = patPending + unpaidInvoices + openChangeRequests + pendingTasks + pendingReturns + incompleteStages.length + (invoiceMissingNow ? 1 : 0);
             if (totalOpen > 0) {
                 const error = new Error(`Cannot close: ${totalOpen} open items remain`) as Error & { code?: string; openIssues?: Record<string, number> };
                 error.code = 'OPEN_ISSUES_REMAIN';
@@ -689,7 +708,7 @@ export class ProjectService {
                     entityId: projectId,
                     action: 'CLOSED',
                     performedById: userId,
-                    fieldChanges: { remarks, closedAt: new Date().toISOString() },
+                    fieldChanges: { remarks, closedAt: new Date().toISOString(), ...(invoiceWaived ? { closedWithoutClientInvoice: true } : {}) },
                     source: 'PROJECT_CLOSURE',
                 },
             });
