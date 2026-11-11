@@ -330,6 +330,32 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/inventory/admin/wastage',
                 icon: ClipboardCheck,
             },
+            // Contractor custody and store set-up pages that previously had no navigation entry
+            {
+                title: 'Contractor Material Issue',
+                path: '/inventory/admin/issue',
+                icon: PackageMinus,
+            },
+            {
+                title: 'Contractor Returns',
+                path: '/inventory/admin/returns',
+                icon: RefreshCw,
+            },
+            {
+                title: 'Contractor Balance Sheet',
+                path: '/inventory/admin/balance-sheet',
+                icon: ClipboardCheck,
+            },
+            {
+                title: 'Initial Stock Setup',
+                path: '/inventory/admin/initial',
+                icon: BarChart3,
+            },
+            {
+                title: 'Virtual Material Swap',
+                path: '/inventory/admin/virtual-swap',
+                icon: RefreshCw,
+            },
             // 4. Returns & Reconciliation
             {
                 title: 'Material Returns (MRN)',

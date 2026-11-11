@@ -36,6 +36,7 @@ export class TransactionService {
         startDate?: string;
         endDate?: string;
         storeIds?: string[];
+        limit?: number;
     }) {
         const where: Prisma.InventoryTransactionWhereInput = {};
 
@@ -56,7 +57,7 @@ export class TransactionService {
             };
         }
 
-        return await prisma.inventoryTransaction.findMany({
+        const rows = await prisma.inventoryTransaction.findMany({
             where,
             include: {
                 store: { select: { name: true, type: true } },
@@ -66,8 +67,15 @@ export class TransactionService {
                     }
                 },
             },
-            orderBy: { date: 'desc' }
+            orderBy: { date: 'desc' },
+            take: Math.min(Math.max(Math.trunc(filters.limit ?? 1000), 1), 5000),
         });
+        const userIds = Array.from(new Set(rows.map((r) => r.userId).filter(Boolean)));
+        const users = userIds.length
+            ? await prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true, username: true } })
+            : [];
+        const nameById = new Map(users.map((u) => [u.id, u.name || u.username]));
+        return rows.map((r) => ({ ...r, user: nameById.has(r.userId) ? { name: nameById.get(r.userId) as string } : undefined }));
     }
 
     static async saveBalanceSheet(data: {

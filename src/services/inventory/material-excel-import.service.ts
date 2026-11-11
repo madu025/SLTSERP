@@ -71,7 +71,8 @@ export class MaterialExcelImportService {
     
     if (err || !workbook) {
       const msg = err instanceof Error ? err.message : 'Unknown file error';
-      throw AppError.badRequest(`Failed to read Excel file at ${absolutePath}: ${msg}`);
+      console.error('Pre-ERP Excel read failed', absolutePath, msg);
+      throw AppError.badRequest('PRE_ERP_IMPORT_FILE_UNREADABLE: the legacy Excel import file could not be read');
     }
 
     const sheetName = workbook.SheetNames[0];

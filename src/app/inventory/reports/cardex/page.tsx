@@ -68,9 +68,9 @@ export default function CardexReportPage() {
     const getItemQty = (tx: Transaction, itemId: string) => {
         if (itemId !== 'ALL') {
             const line = tx.items.find((i) => i.itemId === itemId);
-            return line ? line.quantity : '-';
+            return line ? Number(line.quantity) : null;
         }
-        return tx.items.reduce((acc: number, curr) => acc + curr.quantity, 0);
+        return tx.items.reduce((acc: number, curr) => acc + Number(curr.quantity), 0);
     };
 
     return (
@@ -190,13 +190,23 @@ export default function CardexReportPage() {
                                                     </td>
                                                     <td className="text-slate-700 font-medium">{tx.store.name}</td>
                                                     <td className="text-slate-500 font-medium">{tx.user?.name || '-'}</td>
-                                                    <td className={cn(
-                                                        "text-right pr-6 font-bold font-mono text-xs",
-                                                        ['GRN_IN', 'TRANSFER_IN'].includes(tx.type) ? 'text-emerald-600' : 'text-red-500'
-                                                    )}>
-                                                        {['GRN_IN', 'TRANSFER_IN'].includes(tx.type) ? '+' : '-'}
-                                                        {getItemQty(tx, selectedItemId)}
-                                                    </td>
+                                                    {(() => {
+                                                        // Some movement types store a positive quantity for stock going out (issues, wastage), so the
+                                                        // direction comes from the movement type, falling back to the stored sign for other types
+                                                        const raw = getItemQty(tx, selectedItemId);
+                                                        const outboundType = /(_OUT|ISSUE|WASTAGE)/.test(tx.type);
+                                                        const inboundType = /(_IN$|RETURN|GRN)/.test(tx.type);
+                                                        const qty = raw === null ? null : outboundType ? -Math.abs(raw) : inboundType ? Math.abs(raw) : raw;
+                                                        const inbound = qty !== null && qty > 0;
+                                                        return (
+                                                            <td className={cn(
+                                                                "text-right pr-6 font-bold font-mono text-xs",
+                                                                inbound ? 'text-emerald-600' : 'text-red-500'
+                                                            )}>
+                                                                {qty === null ? '-' : `${inbound ? '+' : ''}${qty}`}
+                                                            </td>
+                                                        );
+                                                    })()}
                                                 </tr>
                                             ))}
                                         </tbody>

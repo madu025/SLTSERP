@@ -183,9 +183,7 @@ export default function PreErpReconciliationPage() {
             const res = await fetch('/api/inventory/pre-erp-reconciliation/import', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    filePath: 'D:/MyProject/SLTSERP/Material Report Summary -From  June.xlsx',
-                }),
+                body: JSON.stringify({}),
             });
             if (!res.ok) throw new Error('Import failed');
             return res.json() as Promise<{ totalRecordsProcessed: number; monthsProcessed: number }>;
@@ -409,7 +407,7 @@ export default function PreErpReconciliationPage() {
                                     <div className="rounded-xl border border-slate-200 bg-white p-12 text-center text-slate-500 shadow-sm">
                                         <FileSpreadsheet className="w-12 h-12 text-slate-400 mx-auto mb-3" />
                                         <p className="text-sm font-semibold text-slate-700">No monthly material records found</p>
-                                        <p className="text-xs text-slate-500 mt-1">Click "Re-Import Excel" to load legacy report from D:\MyProject\SLTSERP\Material Report Summary -From June.xlsx</p>
+                                        <p className="text-xs text-slate-500 mt-1">Click "Re-Import Excel" to load the legacy report configured on the server</p>
                                     </div>
                                 ) : (
                                     monthlyBlocks.map((block) => {

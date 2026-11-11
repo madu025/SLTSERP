@@ -7,7 +7,6 @@ import { z } from 'zod';
 export const dynamic = 'force-dynamic';
 
 const ImportSchema = z.object({
-  filePath: z.string().min(1).default('D:/MyProject/SLTSERP/Material Report Summary -From  June.xlsx'),
   opmcId: z.string().optional(),
 });
 
@@ -15,8 +14,13 @@ export const POST = apiHandler(async (_req, params, body) => {
   const userId = params._userId;
   if (!userId) throw AppError.unauthorized('Authentication required');
 
+  // The legacy workbook is a server-side file chosen by the deployment, never by the caller (a client-supplied
+  // path would let any inventory writer make the server open arbitrary files).
+  const filePath = process.env.PRE_ERP_IMPORT_FILE;
+  if (!filePath) throw AppError.badRequest('PRE_ERP_IMPORT_FILE_NOT_CONFIGURED: the legacy Excel import file is not set up on this server');
+
   const result = await MaterialExcelImportService.importMaterialReport(
-    body.filePath,
+    filePath,
     body.opmcId,
     userId
   );
