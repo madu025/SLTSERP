@@ -1,6 +1,8 @@
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
+import { ContractorAccess } from '@/services/contractor/contractor-access';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { TransactionService } from '@/services/inventory/transaction.service';
 import { AppError } from '@/lib/error';
 
@@ -15,6 +17,7 @@ export const GET = apiHandler(async (req) => {
         throw AppError.badRequest('contractorId, storeId, and month are required');
     }
 
+    await ContractorAccess.assertStaffManagesContractor(getAuthenticatedUserId(), contractorId);
     const previewData = await TransactionService.previewBalanceSheet(contractorId, storeId, month);
     return Response.json(previewData);
 });

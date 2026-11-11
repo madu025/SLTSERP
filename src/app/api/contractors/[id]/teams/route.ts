@@ -1,4 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
+import { ContractorAccess } from '@/services/contractor/contractor-access';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { ContractorService } from '@/services/contractor/contractor.service';
 import { TeamInput } from '@/types/contractor/contractor.types';
 import { z } from 'zod';
@@ -26,12 +28,14 @@ const saveTeamsSchema = z.object({
 
 export const GET = apiHandler(async (_req, params) => {
     const { id } = params;
+    await ContractorAccess.assertStaffManagesContractor(getAuthenticatedUserId(), id);
     const { teams, contractor } = await ContractorService.getContractorTeams(id);
     return { teams, contractor };
 });
 
 export const POST = apiHandler(async (_req, params, body) => {
     const { id } = params;
+    await ContractorAccess.assertStaffManagesContractor(getAuthenticatedUserId(), id);
     const data = saveTeamsSchema.parse(body);
     await ContractorService.saveContractorTeams(id, data.teams as TeamInput[]);
     return { success: true, message: 'Teams saved successfully' };

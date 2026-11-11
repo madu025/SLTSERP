@@ -1,6 +1,8 @@
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
+import { ContractorAccess } from '@/services/contractor/contractor-access';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { ContractorService } from '@/services/contractor/contractor.service';
 import { z } from 'zod';
 
@@ -15,6 +17,7 @@ const removeStoreSchema = z.object({
 
 export const GET = apiHandler(async (_req, params) => {
     const { teamId } = params;
+    await ContractorAccess.assertStaffManagesTeam(getAuthenticatedUserId(), teamId);
     const team = await ContractorService.getTeamStores(teamId);
     return Response.json(team);
 }, {
@@ -22,6 +25,7 @@ export const GET = apiHandler(async (_req, params) => {
 
 export const POST = apiHandler(async (_req, params, body) => {
     const { teamId } = params;
+    await ContractorAccess.assertStaffManagesTeam(getAuthenticatedUserId(), teamId);
     const data = assignStoreSchema.parse(body);
     const assignment = await ContractorService.assignTeamStore(teamId, data.storeId, data.isPrimary);
     return Response.json(assignment);
@@ -31,6 +35,7 @@ export const POST = apiHandler(async (_req, params, body) => {
 
 export const DELETE = apiHandler(async (_req, params, body) => {
     const { teamId } = params;
+    await ContractorAccess.assertStaffManagesTeam(getAuthenticatedUserId(), teamId);
     const data = removeStoreSchema.parse(body);
     await ContractorService.removeTeamStore(teamId, data.storeId);
     return Response.json({ success: true });

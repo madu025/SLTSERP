@@ -1,4 +1,5 @@
 import { getAuthenticatedUserId } from '@/lib/request-context';
+import { ContractorAccess } from '@/services/contractor/contractor-access';
  
 import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor/contractor.service';
@@ -45,6 +46,7 @@ export const GET = apiHandler(
  */
 export const POST = apiHandler(
     async (req) => {
+        await ContractorAccess.assertStaff(getAuthenticatedUserId());
         const body = await req.json();
         return await ContractorService.createContractor(body);
     },
@@ -64,6 +66,7 @@ export const PUT = apiHandler(
     async (req) => {
         const body = await req.json();
         const { id, ...data } = body;
+        await ContractorAccess.assertStaffManagesContractor(getAuthenticatedUserId(), String(id ?? ''));
         return await ContractorService.updateContractor(id, data);
     },
     {
@@ -83,6 +86,7 @@ export const DELETE = apiHandler(
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');
         if (!id) throw AppError.badRequest('ID_REQUIRED');
+        await ContractorAccess.assertStaffManagesContractor(getAuthenticatedUserId(), id);
 
         const result = await ContractorService.deleteContractor(id);
         return {

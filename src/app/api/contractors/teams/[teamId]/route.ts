@@ -1,10 +1,13 @@
 import { apiHandler } from '@/lib/api-handler';
+import { ContractorAccess } from '@/services/contractor/contractor-access';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { ContractorService } from '@/services/contractor/contractor.service';
 
 export const dynamic = 'force-dynamic';
 
 export const DELETE = apiHandler(async (_req, params) => {
     const { teamId } = params;
+    await ContractorAccess.assertStaffManagesTeam(getAuthenticatedUserId(), teamId);
     await ContractorService.deleteTeam(teamId);
     return { success: true, message: `Team ${teamId} deleted successfully` };
 }, {

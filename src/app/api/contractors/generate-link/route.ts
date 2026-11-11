@@ -1,11 +1,14 @@
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
+import { ContractorAccess } from '@/services/contractor/contractor-access';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { ContractorService } from '@/services/contractor/contractor.service';
 import { AppError, ErrorCode } from '@/lib/error';
 import { registrationInviteSchema, RegistrationInviteSchema } from '@/lib/validations/contractor.schema';
 
 export const POST = apiHandler<unknown, RegistrationInviteSchema>(
     async (req, params, body) => {
+        await ContractorAccess.assertStaff(getAuthenticatedUserId());
         const protocol = req.headers.get('x-forwarded-proto') || 'http';
         const host = req.headers.get('host');
         // Prefer 'origin' header if available, fallback to reconstructed host-based origin, then to env

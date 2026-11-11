@@ -1,5 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
+import { ContractorAccess } from '@/services/contractor/contractor-access';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { TransactionService } from '@/services/inventory/transaction.service';
 import { z } from 'zod';
 
@@ -12,6 +14,7 @@ const generateSchema = z.object({
 // POST - Generate contractor balance sheet for a month
 export const POST = apiHandler(async (_req, _params, body) => {
     const data = generateSchema.parse(body);
+    await ContractorAccess.assertStaffManagesContractor(getAuthenticatedUserId(), data.contractorId);
 
     await TransactionService.generateBalanceSheet(data.contractorId, data.storeId, data.month);
     const balanceSheet = await TransactionService.getBalanceSheet(data.contractorId, data.storeId, data.month);

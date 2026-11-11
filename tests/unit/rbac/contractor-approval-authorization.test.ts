@@ -72,3 +72,31 @@ test('public contractor registration only stores safe document links and re-flag
   assert.match(reg, /INVALID_DOCUMENT_URL/);
   assert.match(reg, /bankChanged && onboarded \? \{ kycVerified: false \}/);
 });
+
+test('contractor management APIs are bound to staff scope, never to a contractor account', () => {
+  const access = source('src/services/contractor/contractor-access.ts');
+  assert.match(access, /CONTRACTOR_ACCOUNT_CANNOT_MANAGE_CONTRACTORS/);
+  assert.match(access, /opmcIds\.some\(\(id\) => scope\.includes\(id\)\)/);
+  const guarded: Array<[string, RegExp]> = [
+    ['src/app/api/contractors/route.ts', /assertStaffManagesContractor\(getAuthenticatedUserId\(\), String\(id/],
+    ['src/app/api/contractors/[id]/teams/route.ts', /assertStaffManagesContractor/],
+    ['src/app/api/contractors/[id]/resend-link/route.ts', /assertStaffManagesContractor/],
+    ['src/app/api/contractors/renew-link/route.ts', /assertStaffManagesContractor/],
+    ['src/app/api/contractors/generate-link/route.ts', /assertStaff\(/],
+    ['src/app/api/contractors/teams/route.ts', /assertStaff\(/],
+    ['src/app/api/contractors/teams/[teamId]/route.ts', /assertStaffManagesTeam/],
+    ['src/app/api/contractors/teams/[teamId]/stores/route.ts', /assertStaffManagesTeam/],
+    ['src/app/api/contractors/balance-sheet/route.ts', /assertStaffManagesContractor/],
+    ['src/app/api/contractors/balance-sheet/preview/route.ts', /assertStaffManagesContractor/],
+    ['src/app/api/contractors/balance-sheet/generate/route.ts', /assertStaffManagesContractor/],
+  ];
+  for (const [file, pattern] of guarded) assert.match(source(file), pattern, file);
+});
+
+test('the public registration link never chooses a team OPMC, SLT code or store assignment', () => {
+  const lifecycle = source('src/services/contractor/contractor.lifecycle.service.ts');
+  const reg = source('src/services/contractor/contractor.registration.service.ts');
+  assert.match(reg, /syncTeams\(contractor\.id, teams \|\| \[\], updated\.opmcId, tx, \{ publicSubmission: true \}\)/);
+  assert.match(lifecycle, /publicSubmission \? \{\s*name: team\.name,\s*status: 'ACTIVE',\s*\}/);
+  assert.match(lifecycle, /\(!publicSubmission && team\.opmcId/);
+});

@@ -325,7 +325,7 @@ export class ContractorRegistrationService {
 
             // Sync teams instead of deleting blindly (prevents database FK violations on renewal/re-registration)
             const { ContractorLifecycleService } = await import('./contractor.lifecycle.service');
-            await ContractorLifecycleService.syncTeams(contractor.id, teams || [], updated.opmcId, tx);
+            await ContractorLifecycleService.syncTeams(contractor.id, teams || [], updated.opmcId, tx, { publicSubmission: true });
 
             return updated;
         }, {

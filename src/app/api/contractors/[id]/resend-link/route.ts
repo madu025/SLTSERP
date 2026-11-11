@@ -1,5 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
+import { ContractorAccess } from '@/services/contractor/contractor-access';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { ContractorService } from '@/services/contractor/contractor.service';
 import { AppError } from '@/lib/error';
 
@@ -12,6 +14,7 @@ export const POST = apiHandler(async (req, params) => {
     if (!id) {
         throw AppError.badRequest('Contractor ID is required');
     }
+    await ContractorAccess.assertStaffManagesContractor(getAuthenticatedUserId(), id);
 
     const result = await ContractorService.resendRegistrationLink(id, origin);
     return Response.json({ success: true, ...result });

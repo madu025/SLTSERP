@@ -1,5 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
+import { ContractorAccess } from '@/services/contractor/contractor-access';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { ContractorService } from '@/services/contractor/contractor.service';
 import { z } from 'zod';
 import { AppError } from '@/lib/error';
@@ -10,6 +12,7 @@ const renewSchema = z.object({
 
 export const POST = apiHandler(async (req, _params, body) => {
     const data = renewSchema.parse(body);
+    await ContractorAccess.assertStaffManagesContractor(getAuthenticatedUserId(), data.id);
     
     const protocol = req.headers.get('x-forwarded-proto') || 'http';
     const host = req.headers.get('host');

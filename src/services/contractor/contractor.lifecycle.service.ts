@@ -367,7 +367,14 @@ export class ContractorLifecycleService {
     /**
      * Sync Teams and Members
      */
-    public static async syncTeams(contractorId: string, teams: TeamInput[], defaultOpmcId: string | null, tx: TransactionClient) {
+    /**
+     * `publicSubmission` is the unauthenticated registration/renewal link. The public form only collects the team name
+     * and its members, so on that path the team's OPMC, SLT code and store assignments are never taken from the
+     * payload: existing teams keep theirs (a renewal used to wipe the store assignments, because the form does not
+     * send them) and new teams inherit the contractor's OPMC with no stores; staff set those afterwards in Manage Teams.
+     */
+    public static async syncTeams(contractorId: string, teams: TeamInput[], defaultOpmcId: string | null, tx: TransactionClient, options: { publicSubmission?: boolean } = {}) {
+        const publicSubmission = options.publicSubmission === true;
         const existingTeams = await prisma.contractorTeam.findMany({
             where: { contractorId },
             select: { id: true }
@@ -385,7 +392,10 @@ export class ContractorLifecycleService {
 
         for (const team of teams) {
             if (team.id && existingTeamIds.includes(team.id)) {
-                await ContractorRepository.updateTeam(team.id, {
+                await ContractorRepository.updateTeam(team.id, publicSubmission ? {
+                    name: team.name,
+                    status: 'ACTIVE',
+                } : {
                     name: team.name,
                     opmcId: (team.opmcId && team.opmcId !== 'inherit') ? team.opmcId : (defaultOpmcId || null),
                     sltCode: team.sltCode,
@@ -424,10 +434,10 @@ export class ContractorLifecycleService {
                 await ContractorRepository.createTeam({
                     name: team.name,
                     contractorId,
-                    opmcId: (team.opmcId && team.opmcId !== 'inherit') ? team.opmcId : (defaultOpmcId || null),
-                    sltCode: team.sltCode,
+                    opmcId: (!publicSubmission && team.opmcId && team.opmcId !== 'inherit') ? team.opmcId : (defaultOpmcId || null),
+                    sltCode: publicSubmission ? undefined : team.sltCode,
                     storeAssignments: {
-                        create: team.storeIds?.map((storeId: string) => ({
+                        create: publicSubmission ? [] : team.storeIds?.map((storeId: string) => ({
                             storeId,
                             isPrimary: storeId === team.primaryStoreId
                         }))
