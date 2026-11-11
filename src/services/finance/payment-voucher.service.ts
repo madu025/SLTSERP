@@ -412,7 +412,7 @@ export class PaymentVoucherService {
         const { LedgerService } = await import('./ledger.service');
         await LedgerService.logPaymentVoucherPayment(
           tx, id, Number(existing.amount), existing.type || 'CONTRACTOR', existing.pvNumber, existing.payeeName, undefined,
-          { taxWithheld: Number(existing.taxWithheld ?? 0), retentionAmount: Number(existing.retentionAmount ?? 0) }
+          { taxWithheld: Number(existing.taxWithheld ?? 0), retentionAmount: Number(existing.retentionAmount ?? 0), releasesRetention: !!existing.retentionReleaseId }
         );
 
         // Sync with monthly Contractor Invoice if BOM-based

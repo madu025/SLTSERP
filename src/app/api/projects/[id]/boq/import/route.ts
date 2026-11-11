@@ -2,6 +2,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { SltBoqService } from '@/services/project/slt-boq.service';
+import { userHasPermission } from '@/lib/user-permissions';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -13,6 +14,10 @@ export const POST = apiHandler(async (request, params) => {
     const { id: projectId } = params;
     const userId = params._userId;
     if (!userId) throw AppError.unauthorized('Unauthorized');
+    // The BOQ is the pricing basis of every invoice: only project approvers and project finance may replace it
+    const mayImport = await userHasPermission(userId, RBAC_PERMISSIONS.PROJECT_APPROVE)
+        || await userHasPermission(userId, RBAC_PERMISSIONS.PROJECT_FINANCE_WRITE);
+    if (!mayImport) throw AppError.forbidden('Only a project approver or project finance can import a BOQ');
     if (!(request.headers.get('content-type') || '').includes('multipart/form-data')) {
         throw AppError.badRequest('Expected multipart/form-data with an Excel file (key: "file")');
     }

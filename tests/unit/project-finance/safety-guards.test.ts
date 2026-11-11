@@ -205,6 +205,23 @@ describe('Payment voucher transition and posting guards', () => {
         assert.match(payment, /ACCOUNTS\.RETENTION_PAYABLE/);
     });
 
+    it('clears the retention payable when a voucher releases held retention', () => {
+        const payment = methodBody(ledgerService, 'logPaymentVoucherPayment');
+        assert.match(payment, /releasesRetention[\s\S]{0,30}ACCOUNTS\.RETENTION_PAYABLE/);
+    });
+
+    it('limits BOQ import to project approvers and project finance', () => {
+        const route = source('src/app/api/projects/[id]/boq/import/route.ts');
+        assert.match(route, /PROJECT_APPROVE/);
+        assert.match(route, /PROJECT_FINANCE_WRITE/);
+    });
+
+    it('completes the invoice submission workflow task when an invoice is submitted to SLT', () => {
+        const svc = source('src/services/project/project-invoice.service.ts');
+        assert.match(svc, /completeInvoiceSubmissionTask/);
+        assert.match(svc, /CONTRACTOR_INVOICE/);
+    });
+
     it('makes payment voucher postings idempotent', () => {
         const payment = methodBody(ledgerService, 'logPaymentVoucherPayment');
         assert.match(payment, /idempotencyKey:\s*`PV_PAYMENT_\$\{pvId\}`/);

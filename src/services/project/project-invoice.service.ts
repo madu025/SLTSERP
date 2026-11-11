@@ -371,7 +371,38 @@ export class ProjectInvoiceService {
 
         const handOff = updateFields.status ? INVOICE_HAND_OFFS[updateFields.status] : undefined;
         if (handOff) void ProjectFinanceNotificationService.notifyHandOff(invoice, handOff, actorUserId);
+        if (updateFields.status === 'SUBMIT_TO_SLT') await this.completeInvoiceSubmissionTask(invoice.projectId);
         return invoice;
+    }
+
+    /**
+     * Submitting a client invoice to SLT is the work of the "Invoice Submission" workflow task, so mark that task done
+     * while its stage is the current one. Best effort: the invoice itself is already submitted, and completing the
+     * stage (approvals, documents) stays with the stage owner.
+     */
+    private static async completeInvoiceSubmissionTask(projectId: string) {
+        try {
+            const instance = await prisma.projectWorkflowInstance.findUnique({
+                where: { projectId },
+                select: { currentStageId: true },
+            });
+            if (!instance?.currentStageId) return;
+            const task = await prisma.projectTaskInstance.findFirst({
+                where: {
+                    stageId: instance.currentStageId,
+                    code: 'CONTRACTOR_INVOICE',
+                    isEnabled: true,
+                    status: { not: 'COMPLETED' },
+                    stage: { is: { code: 'INVOICE_SUBMISSION', status: 'IN_PROGRESS' } },
+                },
+                select: { id: true },
+            });
+            if (!task) return;
+            const { WorkflowEngine } = await import('@/services/core/WorkflowEngine');
+            await WorkflowEngine.updateTaskStatus(task.id, 'COMPLETED', 100, projectId);
+        } catch (error) {
+            console.warn('Invoice submission task was not auto-completed:', error);
+        }
     }
 
     /**

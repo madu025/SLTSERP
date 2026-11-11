@@ -827,7 +827,7 @@ export class LedgerService {
         pvNumber: string,
         payeeName: string,
         description?: string,
-        deductions?: { taxWithheld?: number; retentionAmount?: number }
+        deductions?: { taxWithheld?: number; retentionAmount?: number; releasesRetention?: boolean }
     ) {
         if (amount <= 0) return null;
 
@@ -841,9 +841,12 @@ export class LedgerService {
         const netCash = Math.round((amount - wht - retention) * 100) / 100;
 
         // Contractor PVs settle the vendor payable; other PVs hit G&A expense.
-        const debitAccountCode = type.toUpperCase() === 'CONTRACTOR'
-            ? ACCOUNTS.AP_VENDOR
-            : ACCOUNTS.PETTY_CASH_EXPENSE;
+        // A retention release pays out money that was held earlier, so it clears the retention payable instead.
+        const debitAccountCode = deductions?.releasesRetention
+            ? ACCOUNTS.RETENTION_PAYABLE
+            : type.toUpperCase() === 'CONTRACTOR'
+                ? ACCOUNTS.AP_VENDOR
+                : ACCOUNTS.PETTY_CASH_EXPENSE;
 
         return await this.postTransaction(tx, {
             referenceId: pvId,
