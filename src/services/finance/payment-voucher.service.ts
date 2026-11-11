@@ -151,17 +151,7 @@ export class PaymentVoucherService {
     }
 
     const year = new Date().getFullYear();
-    const count = await prisma.paymentVoucher.count({
-      where: {
-        createdAt: {
-          gte: new Date(`${year}-01-01`),
-          lt: new Date(`${year + 1}-01-01`)
-        }
-      }
-    });
 
-    const pvNumber = `PV-${year}-${(count + 1).toString().padStart(4, '0')}`;
-    
     // Vendor Compliance Integration (Oracle Fusion Upgrade)
     let autoTaxWithheld = data.taxWithheld || 0;
     if (data.type === 'CONTRACTOR' && data.payeeId) {
@@ -191,7 +181,18 @@ export class PaymentVoucherService {
       finalDescription = `BOM_INVOICING_REF:${data.contractorInvoiceId}${data.description ? ` - ${data.description}` : ''}`;
     }
 
-    return prisma.paymentVoucher.create({
+    // The PV number is allocated under a lock on the series: two vouchers created together used to read the same
+    // count and one failed on the unique constraint.
+    return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('payment-voucher-number', 0))`;
+    const last = await tx.paymentVoucher.findFirst({
+      where: { pvNumber: { startsWith: `PV-${year}-` } },
+      orderBy: { pvNumber: 'desc' },
+      select: { pvNumber: true },
+    });
+    const lastSeq = last ? parseInt(last.pvNumber.slice(`PV-${year}-`.length), 10) : 0;
+    const pvNumber = `PV-${year}-${((Number.isNaN(lastSeq) ? 0 : lastSeq) + 1).toString().padStart(4, '0')}`;
+    return tx.paymentVoucher.create({
       data: {
         pvNumber,
         projectId: data.projectId,
@@ -218,6 +219,7 @@ export class PaymentVoucherService {
         createdById: data.createdById || null
       },
       include: { invoice: true }
+    });
     });
   }
 

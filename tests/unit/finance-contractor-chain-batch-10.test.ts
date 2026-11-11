@@ -47,6 +47,12 @@ test('contractor billing to payment voucher, bank reconciliation, and GL complet
         return { count: 1 };
       },
       findUniqueOrThrow: async ({ where }: any) => vouchers.get(where.id),
+      findFirst: async () => null,
+      create: async ({ data }: any) => {
+        const voucher = { id: `pv-${activeBatch}`, ...data };
+        vouchers.set(voucher.id, voucher);
+        return voucher;
+      },
     },
     bankStatementLine: {
       findUnique: async ({ where }: any) => {
@@ -64,6 +70,7 @@ test('contractor billing to payment voucher, bank reconciliation, and GL complet
       findUnique: async ({ where }: any) => journalLines.get(where.id) || null,
     },
     $queryRaw: async () => [],
+    $executeRaw: async () => 0,
   };
 
   stub(prisma, '$transaction', async (callback: (client: typeof tx) => unknown) => callback(tx));
