@@ -60,6 +60,7 @@ test('Petty Cash write chain creates, approves, reimburses, and replenishes the 
   let reimbursement: any = null;
   const ledgerEvents: string[] = [];
   const tx = {
+    paymentVoucher: { findUnique: async () => ({ status: 'PAID' }) },
     pettyCashAccount: {
       findUnique: async () => account,
       update: async ({ data }: any) => { Object.assign(account, data); return account; },
@@ -79,6 +80,8 @@ test('Petty Cash write chain creates, approves, reimburses, and replenishes the 
     },
   };
 
+  // The actors are scoped staff of the account's OPMC
+  stub(prisma.user, 'findUnique', async () => ({ permissions: null, accessibleOpmcs: [{ id: 'opmc-1' }], systemRole: null, sectionAssignments: [] }));
   stub(prisma.pettyCashAccount, 'findUnique', async () => account);
   stub(prisma.pettyCashVoucher, 'count', async () => 0);
   stub(prisma.pettyCashVoucher, 'create', async ({ data }: any) => { Object.assign(voucher, data); return voucher; });
