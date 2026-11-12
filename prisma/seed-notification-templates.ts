@@ -23,11 +23,11 @@ function actionButtons(approveUrl: string, rejectUrl: string, viewUrl?: string) 
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:24px auto 0;">
           ${viewRow}
           <tr>
-            <td style="padding:0 8px;">
-              <a href="${approveUrl}" style="display:inline-block;padding:12px 32px;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;background-color:#22c55e;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;">Approve</a>
+            <td style="padding:0 6px;white-space:nowrap;">
+              <a href="${approveUrl}" style="display:inline-block;padding:12px 22px;white-space:nowrap;text-align:center;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;background-color:#22c55e;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;">Approve</a>
             </td>
-            <td style="padding:0 8px;">
-              <a href="${rejectUrl}" style="display:inline-block;padding:12px 32px;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;background-color:#ef4444;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;">Reject</a>
+            <td style="padding:0 6px;white-space:nowrap;">
+              <a href="${rejectUrl}" style="display:inline-block;padding:12px 22px;white-space:nowrap;text-align:center;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;background-color:#ef4444;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;">Reject</a>
             </td>
           </tr>
         </table>`;
@@ -229,7 +229,7 @@ const DEFAULT_TEMPLATES = [
               <p style="color:#94a3b8;font-size:12px;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">{{date}}</p>
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:24px auto 0;">
                 <tr><td>
-                  <a href="{{actionUrl}}" style="display:inline-block;padding:12px 32px;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;background-color:#7c3aed;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;">View Details</a>
+                  <a href="{{actionUrl}}" style="display:inline-block;padding:12px 22px;white-space:nowrap;text-align:center;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;background-color:#7c3aed;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;">View Details</a>
                 </td></tr>
               </table>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
@@ -362,7 +362,7 @@ const DEFAULT_TEMPLATES = [
               <p style="color:#94a3b8;font-size:12px;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">{{date}}</p>
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:24px auto 0;">
                 <tr><td>
-                  <a href="{{actionUrl}}" style="display:inline-block;padding:12px 32px;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;background-color:#3b82f6;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;">View Details</a>
+                  <a href="{{actionUrl}}" style="display:inline-block;padding:12px 22px;white-space:nowrap;text-align:center;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;background-color:#3b82f6;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;">View Details</a>
                 </td></tr>
               </table>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
