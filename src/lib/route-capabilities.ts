@@ -51,7 +51,7 @@ export function resolveRouteCapability(pathname: string, method: string): RbacPe
     if (path.startsWith('/api/profile')) return RBAC_PERMISSIONS.DASHBOARD_READ;
 
     if (path.startsWith('/api/service-orders')) {
-        if (path.startsWith('/api/service-orders/extension-push') || path.startsWith('/api/service-orders/bridge-sync')) {
+        if (path.startsWith('/api/service-orders/extension-push') || path.startsWith('/api/service-orders/bridge-sync') || path.startsWith('/api/service-orders/bridge-data')) {
             return undefined;
         }
         if (path.includes('/verify-invoicable') || path.includes('/invoices/generate')) {
