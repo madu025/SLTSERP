@@ -1,6 +1,7 @@
 'use client';
 
 import {  useState, useEffect  } from 'react';
+import { isGateModuleConnected } from '@/config/process-gate-modules';
 import {
   X,
   ChevronRight,
@@ -330,6 +331,12 @@ export function StepByStepGateWizard({
                     </button>
                   ))}
                 </div>
+                {!isGateModuleConnected(formData.entityType) && (
+                  <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
+                    <strong>Warning:</strong> {formData.entityType} does not start this gate in any screen yet, so saving it will not
+                    stop or route any request. Only Material Requests and Service Orders are driven by process gates today.
+                  </div>
+                )}
               </div>
 
               {/* Status Transition Selectors */}

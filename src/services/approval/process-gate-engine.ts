@@ -110,13 +110,16 @@ async function findCanonicalApprover(
         },
     });
 
-    return users.find((user) => {
+    const candidates = users.filter((user) => {
         if (level.specificUserId && user.id !== level.specificUserId) return false;
-        const capabilities = deriveEffectivePermissions(user);
-        if (!capabilities.includes(requiredPermission)) return false;
-        return hasEligibleCanonicalRole(user, eligibleRoles)
-            || capabilities.includes(RBAC_PERMISSIONS.ADMIN_RBAC);
-    }) ?? null;
+        return deriveEffectivePermissions(user).includes(requiredPermission);
+    });
+    // The person who holds the eligible role gets the approval. An RBAC admin can always act, but is only the
+    // assignee when nobody with the role exists: taking the first match in table order used to hand approvals that
+    // a role holder could have actioned to an admin account instead.
+    return candidates.find((user) => hasEligibleCanonicalRole(user, eligibleRoles))
+        ?? candidates.find((user) => deriveEffectivePermissions(user).includes(RBAC_PERMISSIONS.ADMIN_RBAC))
+        ?? null;
 }
 
 export class ProcessGateEngine {

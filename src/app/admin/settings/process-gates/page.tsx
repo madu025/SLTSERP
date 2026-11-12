@@ -14,6 +14,8 @@ type GatePolicyWithLevels = ProcessGatePolicy & {
   approvalLevels: ProcessApprovalLevel[];
 };
 
+import { isGateModuleConnected } from '@/config/process-gate-modules';
+
 const MODULE_CATEGORIES = [
   { id: 'MATERIAL_REQUEST', label: 'Material Requisitions', icon: '📦', desc: 'Sub-store transfers, Vendor procurement, MIN release' },
   { id: 'SERVICE_ORDER', label: 'Service Orders (SOD)', icon: '📋', desc: 'SOD completion, OPMC PAT verification, HO PAT' },
@@ -138,6 +140,11 @@ export default function ProcessGatesAdminPage() {
                         </span>
                       </div>
                       <h3 className="font-bold text-xs mt-2 truncate">{mod.label}</h3>
+                      {mod.id !== 'ALL' && !isGateModuleConnected(mod.id) && (
+                        <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${isSelected ? 'bg-amber-200 text-amber-950' : 'bg-amber-100 text-amber-900 border border-amber-300'}`}>
+                          Not connected to a workflow
+                        </span>
+                      )}
                       <p className={`text-[10px] mt-0.5 line-clamp-2 leading-tight ${isSelected ? 'text-indigo-100' : 'text-slate-400'}`}>
                         {mod.desc}
                       </p>

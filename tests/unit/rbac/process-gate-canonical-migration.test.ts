@@ -54,3 +54,18 @@ test('the gate wizard status catalogue lists every status the seeded gates use',
     assert.match(catalogue, new RegExp(`value: '${status}'`));
   }
 });
+
+test('approvals go to the eligible role holder before any admin fallback', () => {
+  const engine = fs.readFileSync('src/services/approval/process-gate-engine.ts', 'utf8');
+  assert.match(engine, /candidates\.find\(\(user\) => hasEligibleCanonicalRole\(user, eligibleRoles\)\)\s*\?\? candidates\.find\(/);
+});
+
+test('a gate with work in flight cannot be switched off or moved, and unconnected modules are flagged', () => {
+  const service = fs.readFileSync('src/services/admin/process-gate.service.ts', 'utf8');
+  assert.match(service, /GATE_IN_USE/);
+  assert.match(service, /universalApprovalInstance\.count\(\{ where: \{ policyId: id, status: 'PENDING' \}/);
+  const modules = fs.readFileSync('src/config/process-gate-modules.ts', 'utf8');
+  assert.match(modules, /\['MATERIAL_REQUEST', 'SERVICE_ORDER'\]/);
+  assert.match(fs.readFileSync('src/app/admin/settings/process-gates/page.tsx', 'utf8'), /Not connected to a workflow/);
+  assert.match(fs.readFileSync('src/app/admin/settings/process-gates/StepByStepGateWizard.tsx', 'utf8'), /isGateModuleConnected\(formData\.entityType\)/);
+});

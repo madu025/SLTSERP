@@ -147,9 +147,32 @@ export class ProcessGateAdminService {
    * Update an existing Process Gate Policy
    */
   static async updateGate(id: string, data: Prisma.ProcessGatePolicyUpdateInput) {
-    const gate = await prisma.processGatePolicy.findUnique({ where: { id }, select: { id: true } });
+    const gate = await prisma.processGatePolicy.findUnique({
+      where: { id },
+      select: { id: true, entityType: true, fromStatus: true, toStatus: true, isEnabled: true },
+    });
     if (!gate) {
       throw AppError.notFound('Process Gate Policy not found');
+    }
+
+    // Switching a gate off, or moving it to another transition, strands whatever is waiting on it: pending approval
+    // instances and, for material requests, requests parked at this stage (they fail with NO_PROCESS_GATE_POLICY).
+    const plain = (value: unknown) => (typeof value === 'string' ? value : undefined);
+    const disables = data.isEnabled === false && gate.isEnabled;
+    const rekeys = (plain(data.entityType) !== undefined && plain(data.entityType) !== gate.entityType)
+      || (plain(data.fromStatus) !== undefined && plain(data.fromStatus) !== gate.fromStatus)
+      || (plain(data.toStatus) !== undefined && plain(data.toStatus) !== gate.toStatus);
+    if (disables || rekeys) {
+      const pendingInstances = await prisma.universalApprovalInstance.count({ where: { policyId: id, status: 'PENDING' } });
+      const parkedRequests = gate.entityType === 'MATERIAL_REQUEST'
+        ? await prisma.stockRequest.count({ where: { workflowStage: gate.fromStatus } })
+        : 0;
+      if (pendingInstances + parkedRequests > 0) {
+        throw AppError.conflict(
+          `GATE_IN_USE: ${pendingInstances} pending approval(s) and ${parkedRequests} request(s) are waiting on this gate. ` +
+          'Resolve them first, or change the approvers instead of switching the gate off or moving its transition.'
+        );
+      }
     }
 
     // Normalize empty webhook selection to NULL
