@@ -107,6 +107,24 @@ export default function ProcurementOrdersPage() {
         }
     });
     const requests = Array.isArray(rawRequests) ? rawRequests : [];
+    // The summary tiles describe all three stages, so they must not depend on which tab is open
+    const { data: stageCounts } = useQuery<{ pending: number; inProgress: number; ready: number }>({
+        queryKey: ["procurement-orders", "counts"],
+        queryFn: async () => {
+            const count = async (query: string) => {
+                const res = await fetch(`/api/inventory/requests?${query}&_t=${Date.now()}`, { cache: 'no-store' });
+                const json = await res.json();
+                const list = Array.isArray(json) ? json : Array.isArray(json?.data) ? json.data : [];
+                return list.length;
+            };
+            const [pending, inProgress, ready] = await Promise.all([
+                count("workflowStage=PROCUREMENT_PROCESSING,PROCUREMENT&procurementStatus=PENDING"),
+                count("workflowStage=PROCUREMENT_PROCESSING,PROCUREMENT&procurementStatus=PO_CREATED,PO_SENT,PO_CONFIRMED"),
+                count("workflowStage=GRN_PENDING,STORE_RECEIVING&procurementStatus=COMPLETED"),
+            ]);
+            return { pending, inProgress, ready };
+        },
+    });
     // Create PO Mutation
     const createPOMutation = useMutation({
         mutationFn: async (data: { poNumber: string, vendor: string, expectedDelivery?: string, remarks?: string, items: any[] }) => {
@@ -207,7 +225,7 @@ export default function ProcurementOrdersPage() {
                 po.items?.some(pi => pi.stockRequestItemId === item.id)
             );
             initSelected[item.id] = !isAlreadyOrdered;
-            initQtys[item.id] = item.requestedQty;
+            initQtys[item.id] = Number(item.requestedQty);
             initPrices[item.id] = 0;
         });
         setSelectedItemIds(initSelected);
@@ -223,7 +241,7 @@ export default function ProcurementOrdersPage() {
         const selectedItemsPayload = (selectedRequest?.items || [])
             .filter((item) => selectedItemIds[item.id])
             .map((item) => {
-                const qty = itemOrderQtys[item.id] ?? item.requestedQty;
+                const qty = Number(itemOrderQtys[item.id] ?? item.requestedQty) || 0;
                 const unitPrice = itemUnitPrices[item.id] ?? 0;
                 return {
                     id: item.id,
@@ -337,7 +355,7 @@ export default function ProcurementOrdersPage() {
                                     <Clock className="w-4 h-4 text-amber-500" />
                                 </div>
                                 <div className="text-xl font-black text-slate-900 dark:text-white">
-                                    {requests.filter(r => r.procurementStatus === 'PENDING' || !r.procurementStatus).length}
+                                    {stageCounts?.pending ?? requests.filter(r => r.procurementStatus === 'PENDING' || !r.procurementStatus).length}
                                 </div>
                                 <p className="text-[10px] text-slate-400">Approved PRNs awaiting PO issue</p>
                             </div>
@@ -347,7 +365,7 @@ export default function ProcurementOrdersPage() {
                                     <FileText className="w-4 h-4 text-blue-500" />
                                 </div>
                                 <div className="text-xl font-black text-slate-900 dark:text-white">
-                                    {requests.filter(r => ['PO_CREATED', 'PO_SENT', 'PO_CONFIRMED'].includes(r.procurementStatus || '')).length}
+                                    {stageCounts?.inProgress ?? requests.filter(r => ['PO_CREATED', 'PO_SENT', 'PO_CONFIRMED'].includes(r.procurementStatus || '')).length}
                                 </div>
                                 <p className="text-[10px] text-slate-400">POs created & in vendor fulfillment</p>
                             </div>
@@ -357,7 +375,7 @@ export default function ProcurementOrdersPage() {
                                     <Package className="w-4 h-4 text-emerald-500" />
                                 </div>
                                 <div className="text-xl font-black text-slate-900 dark:text-white">
-                                    {requests.filter(r => r.procurementStatus === 'COMPLETED').length}
+                                    {stageCounts?.ready ?? requests.filter(r => r.procurementStatus === 'COMPLETED').length}
                                 </div>
                                 <p className="text-[10px] text-slate-400">Delivered & ready for store GRN</p>
                             </div>
@@ -367,7 +385,7 @@ export default function ProcurementOrdersPage() {
                                     <ClipboardList className="w-4 h-4 text-indigo-500" />
                                 </div>
                                 <div className="text-xl font-black text-slate-900 dark:text-white">
-                                    {requests.length}
+                                    {stageCounts ? stageCounts.pending + stageCounts.inProgress + stageCounts.ready : requests.length}
                                 </div>
                                 <p className="text-[10px] text-slate-400">Total requests in procurement stage</p>
                             </div>
@@ -801,13 +819,13 @@ export default function ProcurementOrdersPage() {
                                             const qtyByUnit: Record<string, number> = {};
                                             (selectedRequest.items || []).forEach(item => {
                                                 const unit = item.item?.unit || 'Nos';
-                                                qtyByUnit[unit] = (qtyByUnit[unit] || 0) + (item.requestedQty || 0);
+                                                qtyByUnit[unit] = (qtyByUnit[unit] || 0) + (Number(item.requestedQty) || 0);
                                             });
                                             const formattedTotalQty = Object.entries(qtyByUnit)
                                                 .map(([unit, val]) => `${val.toLocaleString()} ${unit}`)
                                                 .join(', ') || '0';
                                             const totalPOVal = selectedRequest.purchaseOrders?.reduce((sum, po) => {
-                                                const itemsSum = po.items?.reduce((iSum, pi) => iSum + (pi.totalAmount || (pi.quantity * pi.unitPrice) || 0), 0) || 0;
+                                                const itemsSum = po.items?.reduce((iSum, pi) => iSum + (Number(pi.totalAmount) || (Number(pi.quantity) * Number(pi.unitPrice)) || 0), 0) || 0;
                                                 return sum + (po.totalAmount || itemsSum || 0);
                                             }, 0) || 0;
                                             return (
@@ -1031,7 +1049,7 @@ export default function ProcurementOrdersPage() {
                                                             po.items?.some(pi => pi.stockRequestItemId === item.id)
                                                         );
                                                         const isChecked = selectedItemIds[item.id] ?? !prevPO;
-                                                        const qty = itemOrderQtys[item.id] ?? item.requestedQty;
+                                                        const qty = Number(itemOrderQtys[item.id] ?? item.requestedQty) || 0;
                                                         const unitPrice = itemUnitPrices[item.id] ?? 0;
                                                         const lineTotal = qty * unitPrice;
                                                         return (
@@ -1099,7 +1117,7 @@ export default function ProcurementOrdersPage() {
                                             let totalPOAmount = 0;
                                             selectedItems.forEach(item => {
                                                 const unit = item.item?.unit || 'Nos';
-                                                const qty = itemOrderQtys[item.id] ?? item.requestedQty;
+                                                const qty = Number(itemOrderQtys[item.id] ?? item.requestedQty) || 0;
                                                 const unitPrice = itemUnitPrices[item.id] ?? 0;
                                                 qtyByUnit[unit] = (qtyByUnit[unit] || 0) + qty;
                                                 totalPOAmount += (qty * unitPrice);

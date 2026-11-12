@@ -397,7 +397,7 @@ export default function GRNPage() {
         
         const groupedOrdered = receivedItems.reduce((acc, item) => {
             const unit = item.unit || 'Nos';
-            acc[unit] = (acc[unit] || 0) + item.requestedQty;
+            acc[unit] = (acc[unit] || 0) + (Number(item.requestedQty) || 0);
             return acc;
         }, {} as Record<string, number>);
 
@@ -494,15 +494,15 @@ export default function GRNPage() {
                                                         <td className="px-3 py-1.5 min-w-[120px]">
                                                             <div className="flex flex-col gap-1 w-full max-w-[140px]">
                                                                 <div className="flex justify-between items-center text-[9px] font-bold">
-                                                                    <span className="text-slate-500">{req.items?.reduce((acc, item) => acc + (item.receivedQty || 0), 0) || 0} / {req.items?.reduce((acc, item) => acc + (item.requestedQty || 0), 0) || 0} Items</span>
+                                                                    <span className="text-slate-500">{req.items?.reduce((acc, item) => acc + (Number(item.receivedQty) || 0), 0) || 0} / {req.items?.reduce((acc, item) => acc + (Number(item.requestedQty) || 0), 0) || 0} Items</span>
                                                                     <span className="text-blue-600">
-                                                                        {Math.round(((req.items?.reduce((acc, item) => acc + (item.receivedQty || 0), 0) || 0) / (req.items?.reduce((acc, item) => acc + (item.requestedQty || 0), 0) || 1)) * 100)}%
+                                                                        {Math.round(((req.items?.reduce((acc, item) => acc + (Number(item.receivedQty) || 0), 0) || 0) / (req.items?.reduce((acc, item) => acc + (Number(item.requestedQty) || 0), 0) || 1)) * 100)}%
                                                                     </span>
                                                                 </div>
                                                                 <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                                                                     <div 
                                                                         className="h-full bg-blue-500 rounded-full" 
-                                                                        style={{ width: `${Math.min(100, Math.round(((req.items?.reduce((acc, item) => acc + (item.receivedQty || 0), 0) || 0) / (req.items?.reduce((acc, item) => acc + (item.requestedQty || 0), 0) || 1)) * 100))}%` }}
+                                                                        style={{ width: `${Math.min(100, Math.round(((req.items?.reduce((acc, item) => acc + (Number(item.receivedQty) || 0), 0) || 0) / (req.items?.reduce((acc, item) => acc + (Number(item.requestedQty) || 0), 0) || 1)) * 100))}%` }}
                                                                     />
                                                                 </div>
                                                             </div>
@@ -1108,7 +1108,7 @@ export default function GRNPage() {
                                         </h4>
                                         {(() => {
                                             const totalItems = selectedRequest.items?.length || 0;
-                                            const totalQty = selectedRequest.items?.reduce((sum, item) => sum + item.requestedQty, 0) || 0;
+                                            const totalQty = selectedRequest.items?.reduce((sum, item) => sum + (Number(item.requestedQty) || 0), 0) || 0;
                                             return (
                                                 <div className="space-y-3 text-xs">
                                                     <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">

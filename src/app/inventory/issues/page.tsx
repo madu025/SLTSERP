@@ -831,7 +831,7 @@ export default function StockIssuePage() {
                                         </h4>
                                         {(() => {
                                             const totalItems = selectedIssue.items?.length || 0;
-                                            const totalQty = selectedIssue.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+                                            const totalQty = selectedIssue.items?.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0) || 0;
                                             return (
                                                 <div className="space-y-3 text-xs">
                                                     <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">

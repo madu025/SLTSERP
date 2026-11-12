@@ -746,7 +746,7 @@ export default function RequestsPage() {
                                                     .map(([unit, val]) => `${val.approved.toLocaleString()} ${unit}`)
                                                     .join(', ');
 
-                                                const estimatedCost = selectedRequest.items.reduce((sum, item) => sum + (item.requestedQty * (item.item?.price || item.item?.unitPrice || 0)), 0);
+                                                const estimatedCost = selectedRequest.items.reduce((sum, item) => sum + (Number(item.requestedQty) * Number(item.item?.price || item.item?.unitPrice || 0)), 0);
                                                 
                                                 const allInStock = selectedRequest.items.every(i => (stockLevels[i.itemId] ?? 0) >= i.requestedQty);
                                                 const someInStock = selectedRequest.items.some(i => (stockLevels[i.itemId] ?? 0) > 0);

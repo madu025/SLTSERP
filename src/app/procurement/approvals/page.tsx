@@ -596,7 +596,7 @@ export default function ApprovalsPage() {
                                         
                                         {(() => {
                                             const totalItems = selectedRequest.items?.length || 0;
-                                            const totalQty = selectedRequest.items?.reduce((sum, item) => sum + item.requestedQty, 0) || 0;
+                                            const totalQty = selectedRequest.items?.reduce((sum, item) => sum + (Number(item.requestedQty) || 0), 0) || 0;
                                             const estimatedCost = totalQty * 3800;
                                             return (
                                                 <div className="space-y-3 text-xs">

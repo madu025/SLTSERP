@@ -292,7 +292,7 @@ export default function MRNDashboardPage() {
                                                         </Badge>
                                                     </td>
                                                     <td className="px-3 py-1.5 text-slate-600">
-                                                        {mrn.returnTo || mrn.supplier || "-"}
+                                                        {[mrn.returnTo, mrn.supplier].filter(Boolean).join(" — ") || "-"}
                                                     </td>
                                                     <td className="px-3 py-1.5">
                                                         <div className="flex flex-col">
@@ -346,7 +346,7 @@ export default function MRNDashboardPage() {
                                 </div>
                                 <div>
                                     <span className="font-bold text-slate-500 uppercase block tracking-wider text-[9px] mb-0.5">Destination / Supplier</span>
-                                    <span className="font-medium text-slate-800">{selectedMRN.returnTo || selectedMRN.supplier || "N/A"}</span>
+                                    <span className="font-medium text-slate-800">{[selectedMRN.returnTo, selectedMRN.supplier].filter(Boolean).join(" — ") || "N/A"}</span>
                                 </div>
                                 <div>
                                     <span className="font-bold text-slate-500 uppercase block tracking-wider text-[9px] mb-0.5">Status</span>
