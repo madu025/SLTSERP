@@ -41,3 +41,16 @@ test('workflow approval cleanup backfills canonical snapshots before seed verifi
   assert.match(workflowSeed, /RBAC_PERMISSIONS\.PROJECT_APPROVE/);
   assert.doesNotMatch(workflowSeed, /workflowPermissionForRole\(template\.role/);
 });
+
+test('the Head of Section gate names a real system role and repairs waiting approvals', () => {
+  const migration = fs.readFileSync('prisma/migrations/20261116000000_fix_process_gate_role_codes/migration.sql', 'utf8');
+  assert.match(migration, /'HEAD_OF_SECTION'/);
+  assert.match(migration, /"status" = 'PENDING'/);
+});
+
+test('the gate wizard status catalogue lists every status the seeded gates use', () => {
+  const catalogue = fs.readFileSync('src/config/process-gate-statuses.ts', 'utf8');
+  for (const status of ['HOS_APPROVAL', 'MAIN_STORE_RELEASE', 'ISSUED', 'INPROGRESS']) {
+    assert.match(catalogue, new RegExp(`value: '${status}'`));
+  }
+});
