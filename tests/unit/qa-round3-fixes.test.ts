@@ -59,3 +59,14 @@ test('approval email link only records a decision on POST', () => {
   assert.match(s, /confirmPage\(token\)/);
   assert.match(s, /domainActionAlreadyDispatched/);
 });
+
+test('profile and notifications pages have a route capability, preferences load as a list', () => {
+  assert.match(src('src/config/page-capabilities.ts'), /prefix: '\/profile'/);
+  assert.match(src('src/config/page-capabilities.ts'), /prefix: '\/notifications'/);
+  assert.match(src('src/app/profile/page.tsx'), /Array\.isArray\(list\) \? list : \[\]/);
+});
+
+test('apiHandler passes a returned Response through instead of dropping its body', () => {
+  const s = src('src/lib/api-handler.ts');
+  assert.doesNotMatch(s, /status \$\{result\.status\} and body are being dropped/);
+});

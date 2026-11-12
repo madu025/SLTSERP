@@ -1,7 +1,6 @@
 import { getAuthenticatedUserId } from '@/lib/request-context';
 export const dynamic = 'force-dynamic';
 
-import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
@@ -49,10 +48,8 @@ export const GET = apiHandler(async (req: Request) => {
         where: { userId }
     });
 
-    return NextResponse.json({
-        success: true,
-        data: preferences
-    });
+    // apiHandler wraps the value as { success, data }; returning a NextResponse here made `data` an empty object
+    return preferences;
 });
 
 export const POST = apiHandler(async (req: Request) => {
@@ -87,8 +84,5 @@ export const POST = apiHandler(async (req: Request) => {
         }
     });
 
-    return NextResponse.json({
-        success: true,
-        data: preference
-    });
+    return preference;
 });

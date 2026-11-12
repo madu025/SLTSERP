@@ -43,6 +43,9 @@ const PAGE_RULES: ReadonlyArray<{ prefix: string; permission: RbacPermission }> 
     { prefix: '/finance/budget', permission: RBAC_PERMISSIONS.PROJECT_FINANCE_READ },
     { prefix: '/finance', permission: RBAC_PERMISSIONS.FINANCE_READ },
     { prefix: '/dashboard', permission: RBAC_PERMISSIONS.DASHBOARD_READ },
+    // Personal pages every signed-in staff user needs; without a rule the route gate redirected them to /dashboard
+    { prefix: '/profile', permission: RBAC_PERMISSIONS.DASHBOARD_READ },
+    { prefix: '/notifications', permission: RBAC_PERMISSIONS.DASHBOARD_READ },
 ];
 
 function normalizePath(pathname: string): string {

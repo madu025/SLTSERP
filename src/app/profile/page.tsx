@@ -186,7 +186,10 @@ export default function ProfilePage() {
         queryFn: async () => {
             const res = await fetch("/api/notifications/preferences");
             if (!res.ok) return [];
-            return res.json();
+            const json = await res.json();
+            // The API wraps the list as { success, data }
+            const list = Array.isArray(json) ? json : json?.data;
+            return Array.isArray(list) ? list : [];
         },
         enabled: !!user,
     });
@@ -196,7 +199,8 @@ export default function ProfilePage() {
             const res = await fetch("/api/notifications/preferences", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ type, enabled }),
+                // The preferences API stores per-channel flags; the in-app flag is the on/off switch shown here
+                body: JSON.stringify({ type, inApp: enabled }),
             });
             if (!res.ok) throw new Error("Failed");
             return res.json();
@@ -215,8 +219,8 @@ export default function ProfilePage() {
     };
 
     const isEnabled = (type: string) => {
-        const pref = notificationPrefs?.find((p: { type: string; enabled: boolean }) => p.type === type);
-        return pref ? pref.enabled : true; // Default to true if not set
+        const pref = notificationPrefs?.find((p: { type: string; enabled?: boolean; inApp?: boolean }) => p.type === type);
+        return pref ? (pref.inApp ?? pref.enabled ?? true) : true; // Default to true if not set
     };
 
     if (!mounted || !user) return null;
