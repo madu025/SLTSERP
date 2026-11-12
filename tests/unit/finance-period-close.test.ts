@@ -80,11 +80,11 @@ test('year-end close posts net P&L once and locks periods inside the same transa
   assert.deepEqual(locked, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
 });
 
-test('official trial balance excludes draft, pending and reversed journals', async () => {
+test('official trial balance excludes draft and pending journals and counts reversed originals with their reversals', async () => {
   let entryFilter: unknown;
   db.chartOfAccount.findMany = async () => [];
   db.journalLine.groupBy = async ({ where }: any) => { entryFilter = where.entry; return []; };
   const report = await LedgerReportService.getAccountBalances();
-  assert.deepEqual(entryFilter, { status: 'POSTED' });
+  assert.deepEqual(entryFilter, { status: { in: ['POSTED', 'REVERSED'] } });
   assert.equal(report.isBalanced, true);
 });
