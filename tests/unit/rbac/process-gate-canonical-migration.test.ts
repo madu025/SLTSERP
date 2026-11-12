@@ -69,3 +69,12 @@ test('a gate with work in flight cannot be switched off or moved, and unconnecte
   assert.match(fs.readFileSync('src/app/admin/settings/process-gates/page.tsx', 'utf8'), /Not connected to a workflow/);
   assert.match(fs.readFileSync('src/app/admin/settings/process-gates/StepByStepGateWizard.tsx', 'utf8'), /isGateModuleConnected\(formData\.entityType\)/);
 });
+
+test('Head of Section holds inventory.approve, the permission its material request gate requires', () => {
+  const bootstrap = fs.readFileSync('src/config/rbac-bootstrap.ts', 'utf8');
+  assert.match(bootstrap, /INVENTORY_APPROVE\]: \[[^\]]*'HEAD_OF_SECTION'/);
+  const migration = fs.readFileSync('prisma/migrations/20261117000000_head_of_section_inventory_approve/migration.sql', 'utf8');
+  assert.match(migration, /'inventory\.approve'/);
+  assert.match(migration, /HEAD_OF_SECTION_GLOBAL/);
+  assert.match(migration, /ON CONFLICT \("roleId", "permission"\) DO NOTHING/);
+});
