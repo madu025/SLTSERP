@@ -53,7 +53,8 @@ export const POST = apiHandler(
     return await HelpdeskAuditService.submitAudit(body);
   },
   {
-    schema: CreateAuditSchema
+    schema: CreateAuditSchema,
+    publicRoute: true
   }
 );
 

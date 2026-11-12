@@ -55,9 +55,16 @@ export default function FleetReportsPage() {
             const res = await fetch(`/api/reports/payments?${params}`);
             if (!res.ok) throw new Error('Failed');
             const data = await res.json();
-            setSummary(data.summary || null);
-            setByType(data.by_type || []);
-            setPayments(data.recent_payments || []);
+            const body = data?.data ?? data;
+            const s = body?.summary;
+            setSummary(s ? {
+                total_transactions: Number(s.total_count ?? s.total_transactions ?? 0),
+                total_base_amount: Number(s.total_base_amount ?? 0),
+                total_tax: Number(s.total_tax_amount ?? s.total_tax ?? 0),
+                total_amount: Number(s.total_amount ?? 0),
+            } : null);
+            setByType(body?.by_type || []);
+            setPayments(body?.payments || body?.recent_payments || []);
         } catch (e) { console.error(e); } finally { setLoading(false); }
     }, [fromDate, toDate]);
 

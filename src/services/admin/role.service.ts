@@ -25,6 +25,10 @@ function assertValidPermissionsJson(permissions: string) {
         if (typeof item !== 'string' || !allowed.has(item)) {
             throw AppError.badRequest(`Unknown permission key: ${typeof item === 'string' ? item : JSON.stringify(item)}`);
         }
+        // Super-admin capability is only ever held by the seeded SUPER_ADMIN role; custom roles cannot carry it
+        if (item === 'admin.super') {
+            throw AppError.forbidden('The admin.super capability cannot be assigned through a role payload.');
+        }
     }
 }
 

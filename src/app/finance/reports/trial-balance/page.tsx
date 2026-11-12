@@ -126,7 +126,7 @@ export default function TrialBalancePage() {
                                                         {acc.totalCredit > 0 ? acc.totalCredit.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
                                                     </td>
                                                     <td className="py-3.5 px-4 text-center">
-                                                        <Link href={`/admin/finance/reports/gl-viewer?accountCode=${acc.code}`}>
+                                                        <Link href={`/finance/reports/gl-viewer?accountCode=${acc.code}`}>
                                                             <Button variant="ghost" size="sm" className="h-8 text-indigo-600 hover:text-indigo-800">
                                                                 Drill-down <ArrowRight className="w-3.5 h-3.5 ml-1" />
                                                             </Button>

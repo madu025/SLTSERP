@@ -920,7 +920,7 @@ export class LedgerService {
         const entryWhere: Record<string, unknown> = {
             // Only reflect authoritative postings in official reports: exclude
             // reversed entries and any awaiting maker-checker approval.
-            status: { notIn: ['REVERSED', 'PENDING_APPROVAL'] },
+            status: { in: ['POSTED', 'REVERSED'] },
             ...(Object.keys(dateFilter).length > 0 && { date: dateFilter })
         };
 

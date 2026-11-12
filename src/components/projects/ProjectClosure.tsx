@@ -255,7 +255,7 @@ toast.error('Failed to close project');
 
     // Compute summary stats
     const pendingApprovals = changeOrders.filter(co => co.status === 'PENDING_APPROVAL').length;
-    const totalCostImpact = changeOrders.reduce((sum, co) => sum + (co.costImpact || 0), 0);
+    const totalCostImpact = changeOrders.reduce((sum, co) => sum + Number(co.costImpact || 0), 0);
     const totalTimeImpact = changeOrders.reduce((sum, co) => sum + (co.timeImpact || 0), 0);
     const unresolvedCOs = changeOrders.filter(co => !['IMPLEMENTED', 'CANCELLED', 'REJECTED'].includes(co.status)).length;
 

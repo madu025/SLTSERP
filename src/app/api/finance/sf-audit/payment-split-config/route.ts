@@ -1,5 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { z } from 'zod';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { SfAuditService } from '@/services/finance/sf-audit.service';
 
 export const dynamic = 'force-dynamic';
@@ -8,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export const GET = apiHandler(async () => {
     const config = await SfAuditService.getPaymentSplitConfig();
     return { success: true, data: config };
-});
+}, { permissions: [RBAC_PERMISSIONS.FINANCE_AUDIT] });
 
 // POST Schema
 const postSchema = z.object({
@@ -32,6 +33,7 @@ export const POST = apiHandler(async (req) => {
 
     return { success: true, message: 'Payment split configuration saved successfully', data: payload };
 }, {
+    permissions: [RBAC_PERMISSIONS.FINANCE_AUDIT],
     // Payment split ratios drive auditor claim payouts — SF Audit + finance scope
     audit: { action: 'SAVE_CONFIG', entity: 'SF_PAYMENT_SPLIT' }
 });

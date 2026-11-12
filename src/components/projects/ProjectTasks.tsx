@@ -1146,7 +1146,7 @@ function TimesheetView({ projectId }: { projectId: string }) {
         fetchTimesheets();
     }, [projectId, fetchTimesheets]);
 
-    const totalHours = timesheets.reduce((sum, t) => sum + t.hours, 0);
+    const totalHours = timesheets.reduce((sum, t) => sum + Number(t.hours || 0), 0);
 
     return (
         <div className="space-y-4">

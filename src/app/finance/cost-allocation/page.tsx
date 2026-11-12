@@ -136,10 +136,10 @@ export default function CostAllocationPage() {
     };
 
     // Calculate Summary Stats
-    const totalAllocated = memos.reduce((sum, m) => sum + m.totalCost, 0);
-    const totalItemsCount = memos.reduce((sum, m) => sum + m.items.reduce((iSum, item) => iSum + item.quantity, 0), 0);
+    const totalAllocated = memos.reduce((sum, m) => sum + Number(m.totalCost || 0), 0);
+    const totalItemsCount = memos.reduce((sum, m) => sum + m.items.reduce((iSum, item) => iSum + Number(item.quantity || 0), 0), 0);
 
-    const calculatedTotalCost = formItems.reduce((sum, item) => sum + (item.quantity * item.unitCost), 0);
+    const calculatedTotalCost = formItems.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unitCost)), 0);
 
     return (
         <div className="erp-page-wrapper flex-row overflow-hidden">

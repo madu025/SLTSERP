@@ -103,7 +103,7 @@ export class BudgetTrackingService {
     const [project, expenses, dailyProgress, boqTotal] = await Promise.all([
       prisma.project.findUnique({
         where: { id: projectId },
-        select: { id: true, name: true, budget: true, actualCost: true, variance: true },
+        select: { id: true, name: true, budget: true, actualCost: true, variance: true, progress: true },
       }),
       prisma.projectExpense.findMany({
         where: { projectId },
@@ -162,7 +162,7 @@ export class BudgetTrackingService {
       monthlyTrend: costSummary.actualCost === null ? [] : knownMonthlyTrendEntries,
       knownMonthlyTrend: knownMonthlyTrendEntries,
       monthlyTrendStatus: costSummary.actualCost === null ? 'MATERIAL_COST_UNKNOWN' : 'COMPLETE',
-      progressPct: dailyProgress.at(-1)?.progressPct ?? project.actualCost,
+      progressPct: dailyProgress.at(-1)?.progressPct ?? project.progress,
     };
   }
 

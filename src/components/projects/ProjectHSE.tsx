@@ -28,7 +28,8 @@ export default function ProjectHSE({ project }: ProjectHSEProps) {
       const params = filter !== 'ALL' ? `?logType=${filter}` : '';
       const res = await fetch(`/api/projects/${project.id}/hse${params}`);
       const data = await res.json();
-      setLogs(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : (data?.safetyLogs ?? data?.data?.safetyLogs ?? []);
+      setLogs(filter !== 'ALL' ? list.filter((l: any) => l.logType === filter) : list);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
@@ -48,11 +49,13 @@ export default function ProjectHSE({ project }: ProjectHSEProps) {
     if (!form.logType || !form.title) return;
     setSaving(true);
     try {
-      await fetch(`/api/projects/${project.id}/hse`, {
+      const { logType, title, description, severity } = form;
+      const res = await fetch(`/api/projects/${project.id}/hse`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, date: form.date || new Date().toISOString().split('T')[0] }),
+        body: JSON.stringify({ logType, title, description: description || undefined, severity }),
       });
+      if (!res.ok) { console.error('HSE log was not saved', res.status); return; }
       setDialogOpen(false);
       setForm({ logType: '', title: '', description: '', date: '', severity: 'LOW', blocksStage: false });
       fetchLogs();

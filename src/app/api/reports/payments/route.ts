@@ -25,8 +25,8 @@ export const GET = apiHandler(async (request) => {
         to_date: searchParams.get('to_date'),
         payment_type: searchParams.get('payment_type'),
         status: searchParams.get('status'),
-        page: searchParams.get('page'),
-        limit: searchParams.get('limit'),
+        page: searchParams.get('page') ?? undefined,
+        limit: searchParams.get('limit') ?? undefined,
     });
 
     if (!parsed.success) {

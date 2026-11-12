@@ -733,17 +733,17 @@ export default function InvoicesPage() {
         }).format(amount || 0);
     };
 
-    const totalAmount = invoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
+    const totalAmount = invoices.reduce((sum, inv) => sum + Number(inv.totalAmount || 0), 0);
     const paidAmount = invoices.reduce((sum, inv) => {
         let paid = 0;
-        if (inv.statusA === 'PAID') paid += inv.amountA;
-        if (inv.statusB === 'PAID') paid += inv.amountB;
+        if (inv.statusA === 'PAID') paid += Number(inv.amountA || 0);
+        if (inv.statusB === 'PAID') paid += Number(inv.amountB || 0);
         return sum + paid;
     }, 0);
     const pendingAmount = invoices.reduce((sum, inv) => {
         let pending = 0;
-        if (inv.statusA !== 'PAID') pending += inv.amountA;
-        if (inv.statusB !== 'PAID') pending += inv.amountB;
+        if (inv.statusA !== 'PAID') pending += Number(inv.amountA || 0);
+        if (inv.statusB !== 'PAID') pending += Number(inv.amountB || 0);
         return sum + pending;
     }, 0);
 

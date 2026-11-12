@@ -74,6 +74,40 @@ function hasEligibleCanonicalRole(
     }));
 }
 
+/**
+ * In-app approvals (no approval-instance row) must honour the same eligibility the gate policy defines:
+ * the actor needs an eligible role for the stage, unless they administer RBAC or the level names them.
+ * Levels without canonical role data are left to the existing permission check.
+ */
+export async function assertActorEligibleForGateLevel(
+    client: Prisma.TransactionClient,
+    userId: string,
+    level: ApprovalPolicyLevel | undefined,
+    stage: string,
+) {
+    if (!level) return;
+    const eligibleRoles = parseEligibleRoles(level.eligibleRoles);
+    if (eligibleRoles.length === 0 && !level.specificUserId) return;
+    const user = await client.user.findUnique({
+        where: { id: userId },
+        select: {
+            id: true,
+            status: true,
+            permissions: true,
+            systemRole: { select: { code: true, isActive: true, permissions: true, rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } } } },
+            sectionAssignments: { select: { role: { select: { code: true, isActive: true, permissions: true, rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } } } } } },
+        },
+    });
+    if (!user || user.status !== 'active') {
+        throw AppError.unauthorized('Authenticated approval actor is not active.');
+    }
+    const isAdmin = deriveEffectivePermissions(user).includes(RBAC_PERMISSIONS.ADMIN_RBAC);
+    if (isAdmin || level.specificUserId === userId) return;
+    if (!hasEligibleCanonicalRole(user, eligibleRoles)) {
+        throw AppError.forbidden(`APPROVER_ROLE_NOT_ELIGIBLE: stage ${stage} can only be actioned by ${eligibleRoles.join(', ')}.`);
+    }
+}
+
 async function findCanonicalApprover(
     client: Prisma.TransactionClient,
     level: ApprovalPolicyLevel,
@@ -456,6 +490,7 @@ export class ProcessGateEngine {
                     eligibleRoles: nextLevelPolicy.eligibleRoles,
                     policyVariant: instance.policyVariant,
                     assignedUserId: nextApproverId,
+                    makerId: (instance as typeof instance & { makerId?: string | null }).makerId ?? undefined,
                     status: 'PENDING'
                 };
 

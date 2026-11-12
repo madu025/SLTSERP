@@ -57,7 +57,7 @@ function GlViewerPageInner() {
             {/* Top Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <Link href="/admin/finance/reports/trial-balance">
+                    <Link href="/finance/reports/trial-balance">
                         <Button variant="ghost" size="sm" className="mb-2 text-slate-500 hover:text-slate-900 pl-0">
                             <ArrowLeft className="w-4 h-4 mr-1" /> Back to Trial Balance
                         </Button>

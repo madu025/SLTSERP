@@ -21,7 +21,7 @@ export const POST = apiHandler(async (req: Request) => {
 
     const body = await req.json().catch(() => ({}));
     const schema = z.object({
-        period: z.string().optional()
+        period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'period must be YYYY-MM').optional()
     });
 
     const parsed = schema.parse(body);

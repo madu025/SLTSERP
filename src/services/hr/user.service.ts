@@ -778,7 +778,12 @@ export class UserService {
         });
 
         if (!user) throw AppError.notFound('USER_NOT_FOUND');
-        return user;
+        // Never hand credential material or raw audit payloads to the browser
+        const { password: _password, securityAnswer: _securityAnswer, tokenVersion: _tokenVersion, auditLogs, ...safeUser } = user as typeof user & { securityAnswer?: unknown; tokenVersion?: unknown };
+        return {
+            ...safeUser,
+            auditLogs: (auditLogs ?? []).map(({ oldValue: _old, newValue: _new, ...log }) => log),
+        };
     }
 
     /**

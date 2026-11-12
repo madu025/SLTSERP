@@ -453,7 +453,10 @@ export class NotificationService {
     /**
      * Mark notification as read
      */
-    static async markAsRead(id: string) {
+    static async markAsRead(id: string, userId?: string) {
+        if (userId) {
+            return await NotificationRepository.updateMany({ id, userId }, { isRead: true });
+        }
         return await NotificationRepository.update(id, { isRead: true });
     }
 

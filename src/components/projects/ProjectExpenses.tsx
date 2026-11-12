@@ -147,7 +147,7 @@ export default function ProjectExpenses({ project, refreshProject }: ProjectExpe
         }
     };
 
-    const totalExpenses = expenses.reduce((sum, item) => sum + item.amount, 0);
+    const totalExpenses = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
     return (
         <div className="space-y-6">

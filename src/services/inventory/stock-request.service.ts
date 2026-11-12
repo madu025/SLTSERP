@@ -8,7 +8,7 @@ import { eventBus } from '@/lib/events/event-bus';
 import { StockService } from './stock.service';
 import { StockRequestActionData, TransactionClient } from '@/types/inventory/inventory-service.types';
 import { prisma } from '@/lib/prisma';
-import { ProcessGateEngine } from '../approval/process-gate-engine';
+import { ProcessGateEngine, assertActorEligibleForGateLevel } from '../approval/process-gate-engine';
 import { AuditLedgerService } from './audit-ledger.service';
 import { StoreService } from './store.service';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
@@ -434,6 +434,24 @@ export class StockRequestService {
                 throw AppError.badRequest(`NO_PROCESS_GATE_POLICY: No active Process Gate Policy configured for stage '${stockReq.workflowStage}'. Please configure policy under Admin > Process Gates.`);
             }
 
+            // A request that was rejected, returned or already released cannot be approved again
+            if (stockReq.status !== 'PENDING') {
+                throw AppError.badRequest(`INVALID_STATE: Request is ${stockReq.status}; only pending requests can pass an approval gate.`);
+            }
+
+            // The stage's eligible-role list applies to in-app approvals exactly as it does to email approvals
+            const firstLevel = [...(policy.approvalLevels ?? [])].sort((a, b) => a.level - b.level)[0];
+            await assertActorEligibleForGateLevel(tx as unknown as Prisma.TransactionClient, userId, firstLevel as never, effectiveStage);
+
+            // Claim the request at this stage: a concurrent second approval waits on the row lock and then finds the stage moved
+            const claimed = await tx.stockRequest.updateMany({
+                where: { id: requestId, workflowStage: stockReq.workflowStage, status: 'PENDING' },
+                data: { updatedAt: new Date() }
+            });
+            if (claimed.count !== 1) {
+                throw AppError.conflict('REQUEST_ALREADY_ACTIONED: This request has already been actioned at this stage.');
+            }
+
             const nextStage = policy.toStatus;
 
             // Condition-Based Domain Routing (Zero-Hardcoding via Event Bus Pattern)
@@ -495,6 +513,11 @@ export class StockRequestService {
 
     private static async handleReturn(data: StockRequestActionData) {
         const { requestId, remarks } = data;
+        const current = await StockRequestRepository.findById(requestId);
+        if (!current) throw AppError.badRequest('REQUEST_NOT_FOUND');
+        if (current.status !== 'PENDING') {
+            throw AppError.badRequest(`INVALID_STATE: Request is ${current.status}; only pending requests can be returned.`);
+        }
         const updated = await StockRequestRepository.update(requestId, {
             workflowStage: 'RETURNED',
             status: 'RETURNED',
@@ -507,7 +530,13 @@ export class StockRequestService {
 
     private static async handleReject(data: StockRequestActionData) {
         const { requestId, userId, remarks } = data;
+        const current = await StockRequestRepository.findById(requestId);
+        if (!current) throw AppError.badRequest('REQUEST_NOT_FOUND');
+        if (current.status !== 'PENDING' && current.status !== 'APPROVED') {
+            throw AppError.badRequest(`INVALID_STATE: Request is ${current.status} and can no longer be rejected.`);
+        }
         const updated = await StockRequestRepository.update(requestId, {
+            workflowStage: 'REJECTED',
             status: 'REJECTED',
             approvedById: userId,
             remarks: remarks || null

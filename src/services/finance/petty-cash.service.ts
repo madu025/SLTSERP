@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { LedgerService } from './ledger.service';
@@ -139,7 +140,7 @@ export class PettyCashService {
       if (account.status !== 'ACTIVE') throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_ACTIVE');
 
       // Check if enough funds in petty cash
-      if (account.currentBalance < voucher.amount) {
+      if (new Prisma.Decimal(account.currentBalance).lt(new Prisma.Decimal(voucher.amount))) {
         throw AppError.badRequest('INSUFFICIENT_PETTY_CASH_BALANCE');
       }
 

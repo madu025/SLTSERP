@@ -75,13 +75,13 @@ export class ProjectDashboardService {
         }
 
         const expensesByType = expenseTypeCounts as unknown as { type: string; _sum: { amount: number | null } }[];
-        const totalExpenseAmount = expensesByType.reduce((sum, expense) => sum + (expense._sum.amount || 0), 0) || 1;
+        const totalExpenseAmount = expensesByType.reduce((sum, expense) => sum + Number(expense._sum.amount ?? 0), 0) || 1;
         const categoryColors = ['bg-blue-500', 'bg-indigo-500', 'bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-slate-400'];
         const topExpenses = expensesByType
             .map((expense, index) => ({
                 category: expense.type || 'Uncategorized',
-                amount: expense._sum.amount || 0,
-                percentage: Math.round(((expense._sum.amount || 0) / totalExpenseAmount) * 100),
+                amount: Number(expense._sum.amount ?? 0),
+                percentage: Math.round((Number(expense._sum.amount ?? 0) / totalExpenseAmount) * 100),
                 color: categoryColors[index % categoryColors.length],
             }))
             .sort((a, b) => b.amount - a.amount)
@@ -192,13 +192,13 @@ export class ProjectDashboardService {
             _sum: { amount: true }
         });
         const expensesByType = expenseTypeCounts as unknown as { type: string; _sum: { amount: number | null } }[];
-        const totalExpenseAmount = expensesByType.reduce((sum, e) => sum + (e._sum.amount || 0), 0) || 1;
+        const totalExpenseAmount = expensesByType.reduce((sum, e) => sum + Number(e._sum.amount ?? 0), 0) || 1;
         const categoryColors = ['bg-blue-500', 'bg-indigo-500', 'bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-slate-400'];
         const topExpenses = expensesByType
             .map((e, i) => ({
                 category: e.type || 'Uncategorized',
-                amount: e._sum.amount || 0,
-                percentage: Math.round(((e._sum.amount || 0) / totalExpenseAmount) * 100),
+                amount: Number(e._sum.amount ?? 0),
+                percentage: Math.round((Number(e._sum.amount ?? 0) / totalExpenseAmount) * 100),
                 color: categoryColors[i % categoryColors.length]
             }))
             .sort((a, b) => b.amount - a.amount)

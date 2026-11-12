@@ -81,8 +81,7 @@ export default function ProjectRisks({ project }: ProjectRisksProps) {
                     description,
                     probability: Number(probability),
                     impact: Number(impact),
-                    mitigationPlan,
-                    identifiedById
+                    mitigationPlan
                 })
             });
 

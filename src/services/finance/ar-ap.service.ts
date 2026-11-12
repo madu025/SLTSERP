@@ -251,7 +251,7 @@ export class ArApService {
         const arGlLines = scope === undefined ? await prisma.journalLine.findMany({
             where: {
                 accountCode: ACCOUNTS.AR_CLIENT,
-                entry: { status: { not: 'REVERSED' } }
+                entry: { status: { in: ['POSTED', 'REVERSED'] } }
             }
         }) : [];
 
@@ -331,7 +331,7 @@ export class ArApService {
         const apGlLines = scope === undefined ? await prisma.journalLine.findMany({
             where: {
                 accountCode: { in: [ACCOUNTS.AP_ACCRUED, ACCOUNTS.AP_VENDOR, ACCOUNTS.AP_CONTRACTOR] },
-                entry: { status: { not: 'REVERSED' } }
+                entry: { status: { in: ['POSTED', 'REVERSED'] } }
             }
         }) : [];
 

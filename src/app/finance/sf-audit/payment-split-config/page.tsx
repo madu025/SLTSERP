@@ -28,12 +28,13 @@ function SFAuditPaymentSplitConfigContent() {
             const res = await fetch('/api/finance/sf-audit/payment-split-config');
             if (res.ok) {
                 const json = await res.json();
-                if (json.data) {
-                    setSplitMode(json.data.splitMode || 'SPLIT_AB');
-                    setClaimAPercent(json.data.claimAPercent ?? 90);
-                    setClaimBPercent(json.data.claimBPercent ?? 10);
-                    setClaimCPercent(json.data.claimCPercent ?? 0);
-                    setDescription(json.data.description || '');
+                const cfg = json.data?.data ?? json.data;
+                if (cfg) {
+                    setSplitMode(cfg.splitMode || 'SPLIT_AB');
+                    setClaimAPercent(cfg.claimAPercent ?? 90);
+                    setClaimBPercent(cfg.claimBPercent ?? 10);
+                    setClaimCPercent(cfg.claimCPercent ?? 0);
+                    setDescription(cfg.description || '');
                 }
             }
         } catch (err) {

@@ -104,7 +104,7 @@ export class TaxService {
         if (fromDate) dateFilter.gte = fromDate;
         if (toDate) dateFilter.lte = toDate;
         const entryWhere = {
-            status: { not: 'REVERSED' },
+            status: { in: ['POSTED', 'REVERSED'] },
             ...(Object.keys(dateFilter).length > 0 && { date: dateFilter })
         };
         const vatLines = await prisma.journalLine.findMany({
@@ -164,7 +164,7 @@ export class TaxService {
         }
         const whtFraction = whtRatePct / 100;
         const entryWhere = {
-            status: { not: 'REVERSED' },
+            status: { in: ['POSTED', 'REVERSED'] },
             ...(Object.keys(dateFilter).length > 0 && { date: dateFilter })
         };
         const whtLines = await prisma.journalLine.findMany({

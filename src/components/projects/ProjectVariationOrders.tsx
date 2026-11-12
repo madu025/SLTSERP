@@ -39,17 +39,19 @@ export default function ProjectVariationOrders({ project }: ProjectVariationOrde
 
   const formatCurrency = (amount: number) => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(amount || 0);
 
-  const totalVariation = orders.reduce((sum: number, o: any) => sum + (o.costImpact || 0), 0);
+  const totalVariation = orders.reduce((sum: number, o: any) => sum + Number(o.costImpact || 0), 0);
 
   const handleCreate = async () => {
     if (!form.title) return;
     setSaving(true);
     try {
-      await fetch(`/api/projects/${project.id}/variations`, {
+      const { variationType, ...rest } = form;
+      const res = await fetch(`/api/projects/${project.id}/variations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...rest, type: variationType }),
       });
+      if (!res.ok) { console.error('Variation order was not saved', res.status); return; }
       setDialogOpen(false);
       setForm({ title: '', description: '', variationType: 'SCOPE_CHANGE', costImpact: 0, reason: '' });
       fetchOrders();
@@ -84,9 +86,9 @@ export default function ProjectVariationOrders({ project }: ProjectVariationOrde
             <TableBody>
               {orders.map((vo: any) => (
                 <TableRow key={vo.id}>
-                  <TableCell className="font-mono text-xs">{vo.variationNumber || vo.id.slice(0, 8)}</TableCell>
+                  <TableCell className="font-mono text-xs">{vo.coNumber || vo.variationNumber || vo.id.slice(0, 8)}</TableCell>
                   <TableCell className="font-medium">{vo.title || vo.description}</TableCell>
-                  <TableCell><Badge variant="outline">{vo.variationType || 'SCOPE_CHANGE'}</Badge></TableCell>
+                  <TableCell><Badge variant="outline">{vo.type || vo.variationType || 'SCOPE_CHANGE'}</Badge></TableCell>
                   <TableCell className={vo.costImpact >= 0 ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
                     {vo.costImpact >= 0 ? '+' : ''}{formatCurrency(vo.costImpact || 0)}
                   </TableCell>

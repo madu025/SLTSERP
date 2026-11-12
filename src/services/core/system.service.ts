@@ -1,6 +1,23 @@
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 import { safe } from '@/utils/safe-await.util';
 import { NotificationRepository } from '@/repositories/notification.repository';
+
+/** Credential material must never be written into the immutable audit trail. */
+function redactSensitiveFields(data: unknown): unknown {
+    if (!data || typeof data !== 'object') return data;
+    if (Array.isArray(data)) return data.map(redactSensitiveFields);
+    const out: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+        const k = key.toLowerCase();
+        if (k.includes('password') || k.includes('token') || k.includes('secret') || k === 'securityanswer' || k === 'apikey' || k === 'jwt') {
+            out[key] = '[REDACTED]';
+        } else {
+            out[key] = typeof value === 'object' && value !== null ? redactSensitiveFields(value) : value;
+        }
+    }
+    return out;
+}
 
 export interface SystemEvent {
     userId: string;
@@ -44,8 +61,8 @@ export class SystemService {
                     action: event.action,
                     entity: event.entity,
                     entityId: event.entityId,
-                    oldValue: event.oldValue ? JSON.parse(JSON.stringify(event.oldValue)) : undefined,
-                    newValue: event.newValue ? JSON.parse(JSON.stringify(event.newValue)) : undefined,
+                    oldValue: event.oldValue ? redactSensitiveFields(JSON.parse(JSON.stringify(event.oldValue))) as Prisma.InputJsonValue : undefined,
+                    newValue: event.newValue ? redactSensitiveFields(JSON.parse(JSON.stringify(event.newValue))) as Prisma.InputJsonValue : undefined,
                     ipAddress: event.ipAddress,
                     userAgent: event.userAgent,
                 }

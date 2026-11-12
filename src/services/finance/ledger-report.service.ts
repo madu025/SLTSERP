@@ -69,8 +69,8 @@ export class LedgerReportService {
 
         const entryWhere = {
             ...(Object.keys(dateFilter).length > 0 && { date: dateFilter }),
-            // Financial reports include only authoritative posted entries.
-            status: 'POSTED'
+            // Financial reports include posted entries and their reversed originals (the reversal entry cancels the original, so both must be counted).
+            status: { in: ['POSTED', 'REVERSED'] }
         };
 
         // Fetch all CoA records for catalog names & types

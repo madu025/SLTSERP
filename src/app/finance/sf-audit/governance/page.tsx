@@ -63,7 +63,7 @@ export default function SFAuditGovernancePage() {
             const res = await fetch('/api/invoices/amendments/pending');
             if (res.ok) {
                 const data = await res.json();
-                setRequests(data.requests || []);
+                setRequests(data.data?.requests || data.requests || []);
             }
         } catch (e) {
             console.error(e);
@@ -78,7 +78,7 @@ export default function SFAuditGovernancePage() {
             const res = await fetch('/api/finance/sf-audit/mapping-config');
             if (res.ok) {
                 const data = await res.json();
-                setMappingColumns(data.columns || []);
+                setMappingColumns(data.data?.columns || data.columns || []);
             }
         } catch (e) {
             console.error(e);

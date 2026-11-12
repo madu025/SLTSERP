@@ -47,8 +47,9 @@ export default function InvoiceApprovalPage() {
         })
             .then(res => res.json())
             .then(data => {
-                if (data.success) {
-                    setInvoices(data.data.invoices);
+                const list = data?.invoices ?? data?.data?.invoices;
+                if (Array.isArray(list)) {
+                    setInvoices(list);
                 }
             })
             .catch(err => console.error(err))

@@ -45,6 +45,7 @@ export class ITAssetDepreciationService {
         const jvInput: PostTransactionInput = {
             date: new Date(),
             referenceId: `DEPR-IT-${period}`,
+            idempotencyKey: `DEPR-IT-${period}`,
             referenceType: 'DEPRECIATION',
             description: `Monthly Depreciation for IT Assets - ${period}`,
             createdById: userId,

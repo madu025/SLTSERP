@@ -743,7 +743,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Vehicle & Fleet Management',
         path: '/fleet/vehicles',
         icon: Car,
-        permissionId: 'administration',
         submenu: [
             {
                 title: 'All Vehicles',

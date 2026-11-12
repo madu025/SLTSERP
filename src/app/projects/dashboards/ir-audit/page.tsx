@@ -238,10 +238,10 @@ export default function IRAuditDashboard() {
   };
 
   // Aggregated KPIs
-  const totalReceived = ledger.reduce((acc, curr) => acc + curr.receivedQty, 0);
-  const totalIssued = ledger.reduce((acc, curr) => acc + curr.issuedQty, 0);
-  const totalWasted = ledger.reduce((acc, curr) => acc + curr.wastedQty, 0);
-  const totalLeftover = ledger.reduce((acc, curr) => acc + curr.leftoverQty, 0);
+  const totalReceived = ledger.reduce((acc, curr) => acc + Number(curr.receivedQty || 0), 0);
+  const totalIssued = ledger.reduce((acc, curr) => acc + Number(curr.issuedQty || 0), 0);
+  const totalWasted = ledger.reduce((acc, curr) => acc + Number(curr.wastedQty || 0), 0);
+  const totalLeftover = ledger.reduce((acc, curr) => acc + Number(curr.leftoverQty || 0), 0);
 
   // Filtered Ledger
   const filteredLedger = ledger.filter(entry => {
