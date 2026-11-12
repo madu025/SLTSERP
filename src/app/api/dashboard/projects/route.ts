@@ -15,8 +15,10 @@ export const GET = apiHandler(async (request, params) => {
     const { searchParams } = new URL(request.url);
     const fullView = searchParams.get('view') === 'full';
     const includeRecentActivities = searchParams.get('includeRecentActivities') !== 'false';
+    const region = searchParams.get('region') || undefined;
+    const rtom = searchParams.get('rtom') || undefined;
     const data = fullView
         ? await ProjectDashboardService.getProjectOverview(userId)
-        : await ProjectDashboardService.getProjectOverviewSummary(userId, { includeRecentActivities });
+        : await ProjectDashboardService.getProjectOverviewSummary(userId, { includeRecentActivities, region, rtom });
     return data;
 }, { permissions: [RBAC_PERMISSIONS.PROJECT_READ], rawResponse: true });

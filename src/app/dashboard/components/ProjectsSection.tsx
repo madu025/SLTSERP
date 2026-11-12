@@ -23,6 +23,8 @@ interface ProjectOverview {
 interface ProjectsSectionProps {
     user: { id: string; role: string };
     enabled?: boolean;
+    region?: string;
+    rtom?: string;
 }
 
 const PROJECTS_REQUEST_TIMEOUT_MS = 12_000;
@@ -71,9 +73,9 @@ function ProjectsErrorState({ error, onRetry, isRetrying }: { error: Error; onRe
     );
 }
 
-export default function ProjectsSection({ user, enabled = true }: ProjectsSectionProps) {
+export default function ProjectsSection({ user, enabled = true, region = 'ALL', rtom = 'ALL' }: ProjectsSectionProps) {
     const { data, isLoading, isFetching, error, refetch } = useQuery<ProjectOverview>({
-        queryKey: ['dashboard-projects', user.id],
+        queryKey: ['dashboard-projects', user.id, region, rtom],
         queryFn: async ({ signal }) => {
             const controller = new AbortController();
             let timedOut = false;
@@ -86,7 +88,7 @@ export default function ProjectsSection({ user, enabled = true }: ProjectsSectio
             signal.addEventListener('abort', abortFromQuery, { once: true });
 
             try {
-                const resp = await fetch(`/api/dashboard/projects?includeRecentActivities=false`, {
+                const resp = await fetch(`/api/dashboard/projects?includeRecentActivities=false&region=${encodeURIComponent(region)}&rtom=${encodeURIComponent(rtom)}`, {
                     signal: controller.signal,
                 });
                 if (!resp.ok) {

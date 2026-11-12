@@ -328,7 +328,7 @@ export default function InventorySection({ rtom = 'ALL', enabled = true }: Inven
                     <CardContent>
                         <div className="text-3xl font-bold text-rose-900 dark:text-rose-200">{pendingMaterialReturnNotes}</div>
                         <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">Pending MRN approvals</p>
-                        <Link href="/inventory/admin/mrns" className="mt-2 inline-flex text-xs font-bold text-primary hover:underline">Review returns â†’</Link>
+                        <Link href="/inventory/admin/mrns" className="mt-2 inline-flex text-xs font-bold text-primary hover:underline">Review returns →</Link>
                         {(pendingProjectReceipts > 0 || pendingContractorReturns > 0) && (
                             <p className="mt-2 text-[11px] text-slate-700 dark:text-slate-300">
                                 Project receipts: {pendingProjectReceipts} Â· Contractor returns: {pendingContractorReturns}

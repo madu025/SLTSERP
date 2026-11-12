@@ -213,7 +213,7 @@ export default function ExecutiveControlTower({ enabled = true, operationalStats
                 <div>
                     <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Executive control tower</p>
                     <h2 className="mt-1 text-xl font-black text-foreground">Portfolio health, delivery and financial control</h2>
-                    <p className="mt-1 text-xs text-muted-foreground">Only metrics returned by the scoped executive API are shown.</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Only metrics returned by the scoped executive API are shown. This overview covers your whole access scope; the Region and RTOM filters apply to the other tabs.</p>
                 </div>
                 <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground" title={data.generatedAt || undefined}>
                     <Clock3 className="h-3.5 w-3.5" />

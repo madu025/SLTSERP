@@ -70,3 +70,14 @@ test('apiHandler passes a returned Response through instead of dropping its body
   const s = src('src/lib/api-handler.ts');
   assert.doesNotMatch(s, /status \$\{result\.status\} and body are being dropped/);
 });
+
+test('projects dashboard honours region and RTOM filters without widening the caller scope', () => {
+  const s = src('src/services/project/project-dashboard.service.ts');
+  assert.match(s, /AND: \[scopeWhere, filterWhere\]/);
+  assert.match(src('src/app/dashboard/page.tsx'), /<ProjectsSection[^>]*region=\{selectedRegion\}[^>]*rtom=\{selectedRtom\}/);
+});
+
+test('sidebar has no link to a page that does not exist', () => {
+  assert.doesNotMatch(src('src/config/sidebar-menu.ts'), /\/eam\/assets/);
+  assert.doesNotMatch(src('src/app/dashboard/components/InventorySection.tsx'), /â/);
+});

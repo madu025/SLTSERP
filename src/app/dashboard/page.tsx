@@ -428,7 +428,7 @@ export default function DashboardPage() {
                                             title="Projects delivery"
                                             description="Review project progress, budget movement, schedule variance, and delayed-project actions."
                                         />
-                                        <ProjectsSection user={user} enabled={activeTab === 'projects'} />
+                                        <ProjectsSection user={user} enabled={activeTab === 'projects'} region={selectedRegion} rtom={selectedRtom} />
                                     </TabsContent>
                                 )}
 

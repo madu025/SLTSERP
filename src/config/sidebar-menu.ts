@@ -321,11 +321,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: PackageMinus,
             },
             {
-                title: 'Office Assets (EAM)',
-                path: '/eam/assets',
-                icon: HardHat,
-            },
-            {
                 title: 'Inventory Adjustments (Wastage)',
                 path: '/inventory/admin/wastage',
                 icon: ClipboardCheck,

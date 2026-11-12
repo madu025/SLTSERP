@@ -503,10 +503,16 @@ export class ProjectDashboardService {
      */
     static async getProjectOverviewSummary(
         userId: string,
-        options: { includeRecentActivities?: boolean } = {}
+        options: { includeRecentActivities?: boolean; region?: string; rtom?: string } = {}
     ) {
         const includeRecentActivities = options.includeRecentActivities !== false;
-        const projectWhere = await this.getProjectScope(userId);
+        const scopeWhere = await this.getProjectScope(userId);
+        // Dashboard region / RTOM filters narrow the caller's scope, they never widen it
+        const filterWhere: Prisma.ProjectWhereInput | undefined =
+            options.rtom && options.rtom !== 'ALL' ? { opmc: { rtom: options.rtom } }
+            : options.region && options.region !== 'ALL' ? { opmc: { region: options.region } }
+            : undefined;
+        const projectWhere: Prisma.ProjectWhereInput = filterWhere ? { AND: [scopeWhere, filterWhere] } : scopeWhere;
         const projectIdsPromise = includeRecentActivities
             ? this.getProjectIdsForScope(projectWhere)
             : Promise.resolve<string[]>([]);
