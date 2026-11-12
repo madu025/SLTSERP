@@ -1,5 +1,12 @@
 import nodemailer from 'nodemailer';
 import { prisma } from '@/lib/prisma';
+import { getAuthenticatedUserId } from '@/lib/request-context';
+
+/** Everything sent while testing goes to this one mailbox, whoever the real recipient would have been. */
+export const TEST_MAIL_RECIPIENT = process.env.EMAIL_TEST_RECIPIENT || 'prasad@slts.lk';
+
+/** Accounts that exist only for testing: mail caused by their actions is test mail, even on production. */
+export const TEST_ACCOUNT_PATTERN = /^(qa3b_|qa_|rbac_qa_|prod_smoke_|testadmin$)/i;
 
 interface SmtpConfig {
     host: string;
@@ -69,9 +76,25 @@ export class EmailService {
         return { transporter, config };
     }
 
+    /** True when the action that caused this mail was performed by a test account (see TEST_ACCOUNT_PATTERN). */
+    private static async isTestActor(): Promise<boolean> {
+        try {
+            const userId = getAuthenticatedUserId();
+            if (!userId) return false;
+            const user = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+            return !!user?.username && TEST_ACCOUNT_PATTERN.test(user.username);
+        } catch {
+            return false;
+        }
+    }
+
     /**
-     * Send a production-ready transactional email
-     * TESTING OVERRIDE: All emails redirected to prasad@slts.lk with sender sltsqms@gmail.com
+     * Send a production-ready transactional email.
+     * TEST MAIL RULE: mail is redirected to TEST_MAIL_RECIPIENT (prasad@slts.lk) whenever it is test traffic, i.e. when
+     *  - the server is not running in production (local/dev runs), or
+     *  - EMAIL_REDIRECT_ALL_TO is set, or
+     *  - the user whose action triggered it is a test account (QA/smoke accounts), even on the production server.
+     * The subject names the address the mail would really have gone to.
      */
     static async sendMail(options: {
         to: string;
@@ -79,11 +102,12 @@ export class EmailService {
         text: string;
         html?: string;
     }) {
-        // TESTING OVERRIDE - Redirect all emails to prasad@slts.lk in development
         const originalTo = options.to;
         const isDev = process.env.NODE_ENV !== 'production';
-        if (isDev) {
-            options.to = 'prasad@slts.lk';
+        const isTestMail = isDev || !!process.env.EMAIL_REDIRECT_ALL_TO || await this.isTestActor();
+        if (isTestMail && originalTo.trim().toLowerCase() !== TEST_MAIL_RECIPIENT.toLowerCase()) {
+            options.to = TEST_MAIL_RECIPIENT;
+            options.subject = `[TEST - for ${originalTo}] ${options.subject}`;
         }
         
         const { transporter, config } = await this.getTransporter();
@@ -97,7 +121,7 @@ Body: ${options.text}`);
         }
 
         try {
-            const sender = isDev ? '"SLTS QMS" <sltsqms@gmail.com>' : (config.from || '"SLTS Nexus ERP" <noreply@slt.lk>');
+            const sender = isTestMail ? '"SLTS QMS" <sltsqms@gmail.com>' : (config.from || '"SLTS Nexus ERP" <noreply@slt.lk>');
             const info = await transporter.sendMail({
                 from: sender,
                 to: options.to,

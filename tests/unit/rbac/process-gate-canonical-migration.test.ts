@@ -78,3 +78,18 @@ test('Head of Section holds inventory.approve, the permission its material reque
   assert.match(migration, /HEAD_OF_SECTION_GLOBAL/);
   assert.match(migration, /ON CONFLICT \("roleId", "permission"\) DO NOTHING/);
 });
+
+test('Head of Section can read inventory so it can open the requests it approves', () => {
+  assert.match(fs.readFileSync('src/config/rbac-bootstrap.ts', 'utf8'), /INVENTORY_READ\]: \[[^\]]*'HEAD_OF_SECTION'/);
+  const migration = fs.readFileSync('prisma/migrations/20261118000000_head_of_section_inventory_read/migration.sql', 'utf8');
+  assert.match(migration, /'inventory\.read'/);
+  assert.match(migration, /ON CONFLICT \("roleId", "permission"\) DO NOTHING/);
+});
+
+test('test mail is redirected to the single test mailbox, also for test accounts on production', () => {
+  const mail = fs.readFileSync('src/services/notification/email.service.ts', 'utf8');
+  assert.match(mail, /EMAIL_TEST_RECIPIENT \|\| 'prasad@slts\.lk'/);
+  assert.match(mail, /isDev \|\| !!process\.env\.EMAIL_REDIRECT_ALL_TO \|\| await this\.isTestActor\(\)/);
+  assert.match(mail, /\[TEST - for \$\{originalTo\}\]/);
+  assert.match(mail, /qa3b_\|qa_\|rbac_qa_\|prod_smoke_\|testadmin/);
+});
