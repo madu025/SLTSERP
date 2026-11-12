@@ -1,4 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
+import { requireExtensionOrSession, getSessionPermissionsFromCookie } from '@/lib/mixed-auth';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -94,7 +95,8 @@ async function saveBomsToStore(boms: BOMItem[]) {
     }
 }
 
-export const GET = apiHandler(async () => {
+export const GET = apiHandler(async (req) => {
+    await requireExtensionOrSession(req, [RBAC_PERMISSIONS.FINANCE_APPROVE, RBAC_PERMISSIONS.SOD_INVOICE]);
     const cachedBoms: BOMItem[] = await getCachedBoms();
     let cookieSaved = false;
     let sltCookie = '';
@@ -169,7 +171,8 @@ export const POST = apiHandler(async (req, params, body) => {
     const extensionSecret = process.env.EXTENSION_SECRET;
     const isExtension = !!extensionSecret && extensionKey === extensionSecret;
 
-    const hasAllowedPermission = params._permissions.includes(RBAC_PERMISSIONS.FINANCE_APPROVE);
+    const cookieSession = isExtension ? null : await getSessionPermissionsFromCookie();
+    const hasAllowedPermission = (cookieSession?.permissions ?? params._permissions).includes(RBAC_PERMISSIONS.FINANCE_APPROVE);
 
     if (!isExtension && !hasAllowedPermission) {
         throw AppError.forbidden('Permission Denied: Unauthorized.');

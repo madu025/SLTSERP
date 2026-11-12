@@ -458,7 +458,7 @@ export class StockRequestService {
             const notificationAudience = resolveProcessGateAudience(policy.notificationAudience);
             const domainAction = policy.domainAction;
 
-            if (domainAction) {
+            if (domainAction && !data.domainActionAlreadyDispatched) {
                 const { DomainActionDispatcher } = await import('@/services/approval/domain-dispatcher.service');
                 await DomainActionDispatcher.dispatch({
                     action: domainAction,

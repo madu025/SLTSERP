@@ -1,6 +1,7 @@
 import { getAuthenticatedUserId } from '@/lib/request-context';
 import { AppError } from '@/lib/error';
 import { apiHandler } from '@/lib/api-handler';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { PettyCashService } from '@/services/finance/petty-cash.service';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +11,7 @@ export const GET = apiHandler(async (req) => {
     const { searchParams } = new URL(req.url);
     const accountId = searchParams.get('accountId') || undefined;
 
-    return await PettyCashService.getReimbursements(accountId);
+    return await PettyCashService.getReimbursements(accountId, getAuthenticatedUserId());
 }, {
     rawResponse: true
 });
@@ -42,6 +43,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
 
     return await PettyCashService.completeReimbursement(id, paymentVoucherId, userId);
 }, {
+    permissions: [RBAC_PERMISSIONS.FINANCE_APPROVE],
     audit: { action: 'COMPLETE_REIMBURSEMENT', entity: 'PETTY_CASH_REIMBURSEMENT' },
     rawResponse: true
 });

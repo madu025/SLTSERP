@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
+import { getSessionPermissionsFromCookie } from '@/lib/mixed-auth';
 import { BOMInvoiceService } from '@/services/finance/bom-invoice.service';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { z } from 'zod';
@@ -30,7 +31,8 @@ export const POST = apiHandler(async (req, params, body) => {
     const isExtension = !!extensionSecret && extensionKey === extensionSecret;
 
     const userId = params._userId ?? 'EXTENSION_SYNC';
-    const hasAllowedPermission = params._permissions.includes(RBAC_PERMISSIONS.FINANCE_APPROVE);
+    const cookieSession = isExtension ? null : await getSessionPermissionsFromCookie();
+    const hasAllowedPermission = (cookieSession?.permissions ?? params._permissions).includes(RBAC_PERMISSIONS.FINANCE_APPROVE);
 
     if (!isExtension && !hasAllowedPermission) {
         throw AppError.forbidden('Permission Denied: Unauthorized to import BOM invoices.');

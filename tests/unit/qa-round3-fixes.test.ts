@@ -40,3 +40,22 @@ test('SF audit config is guarded by finance.audit', () => {
   assert.match(src('src/app/api/finance/sf-audit/mapping-config/route.ts'), /FINANCE_AUDIT/);
   assert.match(src('src/app/api/finance/sf-audit/payment-split-config/route.ts'), /FINANCE_AUDIT/);
 });
+
+test('extension bridge routes need the extension key or a session', () => {
+  for (const f of ['src/app/api/service-orders/bridge-sync/route.ts', 'src/app/api/service-orders/bridge-data/[soNum]/route.ts', 'src/app/api/invoices/slt-registry/route.ts']) {
+    assert.match(src(f), /requireExtensionOrSession/);
+  }
+});
+
+test('petty cash enforces OPMC scope, maker-checker and a paid voucher', () => {
+  const s = src('src/services/finance/petty-cash.service.ts');
+  assert.match(s, /assertPettyCashOpmcAccess/);
+  assert.match(s, /MAKER_CANNOT_APPROVE_OWN_VOUCHER/);
+  assert.match(s, /PAYMENT_VOUCHER_NOT_PAID/);
+});
+
+test('approval email link only records a decision on POST', () => {
+  const s = src('src/app/api/approvals/webhook/route.ts');
+  assert.match(s, /confirmPage\(token\)/);
+  assert.match(s, /domainActionAlreadyDispatched/);
+});

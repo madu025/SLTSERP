@@ -2,6 +2,15 @@ import { Prisma } from '@prisma/client';
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { LedgerService } from './ledger.service';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
+
+/** Petty cash is per OPMC: the actor must be global or have the account's OPMC in scope. */
+async function assertPettyCashOpmcAccess(actorId: string | null | undefined, opmcId: string) {
+  const scope = await resolveOpmcScope(actorId);
+  if (scope !== undefined && !scope.includes(opmcId)) {
+    throw AppError.forbidden('OPMC_SCOPE_VIOLATION: Petty cash account is outside your OPMC scope.');
+  }
+}
 
 export class PettyCashService {
   /**
@@ -16,6 +25,8 @@ export class PettyCashService {
     if (data.imprestLimit <= 0) {
       throw AppError.badRequest('INVALID_IMPREST_LIMIT');
     }
+
+    await assertPettyCashOpmcAccess(data.createdById, data.opmcId);
 
     // Check if account already exists for OPMC
     const existing = await prisma.pettyCashAccount.findUnique({
@@ -40,8 +51,10 @@ export class PettyCashService {
   /**
    * List all petty cash accounts
    */
-  static async getPettyCashAccounts() {
+  static async getPettyCashAccounts(actorId?: string | null) {
+    const scope = actorId ? await resolveOpmcScope(actorId) : undefined;
     return prisma.pettyCashAccount.findMany({
+      where: scope === undefined ? undefined : { opmcId: { in: scope.length > 0 ? scope : ['00000000-0000-0000-0000-000000000000'] } },
       include: {
         opmc: {
           select: { name: true, rtom: true }
@@ -53,8 +66,8 @@ export class PettyCashService {
   /**
    * Get petty cash account by ID or OPMC ID
    */
-  static async getPettyCashAccount(id: string) {
-    return prisma.pettyCashAccount.findUnique({
+  static async getPettyCashAccount(id: string, actorId?: string | null) {
+    const account = await prisma.pettyCashAccount.findUnique({
       where: { id },
       include: {
         opmc: true,
@@ -63,6 +76,8 @@ export class PettyCashService {
         }
       }
     });
+    if (account && actorId) await assertPettyCashOpmcAccess(actorId, account.opmcId);
+    return account;
   }
 
   /**
@@ -87,6 +102,7 @@ export class PettyCashService {
       include: { opmc: true }
     });
     if (!account) throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_FOUND');
+    await assertPettyCashOpmcAccess(data.createdById, account.opmcId);
     if (account.status !== 'ACTIVE') throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_ACTIVE');
 
     if (data.amount > Number(account.imprestLimit)) {
@@ -137,6 +153,8 @@ export class PettyCashService {
       if (voucher.status !== 'DRAFT') throw AppError.badRequest('VOUCHER_ALREADY_PROCESSED');
 
       const account = voucher.account;
+      await assertPettyCashOpmcAccess(approvedById, account.opmcId);
+      if (voucher.createdById === approvedById) throw AppError.badRequest('MAKER_CANNOT_APPROVE_OWN_VOUCHER');
       if (account.status !== 'ACTIVE') throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_ACTIVE');
 
       // Check if enough funds in petty cash
@@ -174,9 +192,12 @@ export class PettyCashService {
    */
   static async rejectVoucher(voucherId: string, rejectionReason: string, approvedById: string) {
     const voucher = await prisma.pettyCashVoucher.findUnique({
-      where: { id: voucherId }
+      where: { id: voucherId },
+      include: { account: { select: { opmcId: true } } }
     });
     if (!voucher) throw AppError.badRequest('VOUCHER_NOT_FOUND');
+    await assertPettyCashOpmcAccess(approvedById, voucher.account.opmcId);
+    if (voucher.createdById === approvedById) throw AppError.badRequest('MAKER_CANNOT_REJECT_OWN_VOUCHER');
     if (voucher.status !== 'DRAFT') throw AppError.badRequest('VOUCHER_ALREADY_PROCESSED');
 
     return prisma.pettyCashVoucher.update({
@@ -201,6 +222,7 @@ export class PettyCashService {
         include: { opmc: true }
       });
       if (!account) throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_FOUND');
+      await assertPettyCashOpmcAccess(createdById, account.opmcId);
 
       const pendingReimbursement = await tx.pettyCashReimbursement.findFirst({
         where: { accountId, status: 'PENDING' }
@@ -269,6 +291,13 @@ export class PettyCashService {
       });
       if (!reimbursement) throw AppError.badRequest('REIMBURSEMENT_NOT_FOUND');
       if (reimbursement.status !== 'PENDING') throw AppError.badRequest('REIMBURSEMENT_ALREADY_PROCESSED');
+      await assertPettyCashOpmcAccess(userId, reimbursement.account.opmcId);
+      if (reimbursement.createdById === userId) throw AppError.badRequest('MAKER_CANNOT_COMPLETE_OWN_REIMBURSEMENT');
+
+      // The reimbursement must be backed by a real, paid payment voucher
+      const pv = await tx.paymentVoucher.findUnique({ where: { id: paymentVoucherId }, select: { status: true } });
+      if (!pv) throw AppError.badRequest('PAYMENT_VOUCHER_NOT_FOUND');
+      if (pv.status !== 'PAID') throw AppError.badRequest('PAYMENT_VOUCHER_NOT_PAID');
 
       // 1. Update Reimbursement status
       const updatedReimbursement = await tx.pettyCashReimbursement.update({
@@ -310,12 +339,14 @@ export class PettyCashService {
   /**
    * Get petty cash reimbursements
    */
-  static async getReimbursements(accountId?: string) {
+  static async getReimbursements(accountId?: string, actorId?: string | null) {
+    const scope = actorId ? await resolveOpmcScope(actorId) : undefined;
     if (accountId) {
       const account = await prisma.pettyCashAccount.findUnique({
         where: { id: accountId }
       });
       if (!account) throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_FOUND');
+      if (actorId) await assertPettyCashOpmcAccess(actorId, account.opmcId);
       return prisma.pettyCashReimbursement.findMany({
         where: { accountId },
         orderBy: { createdAt: 'desc' }
@@ -323,6 +354,7 @@ export class PettyCashService {
     }
 
     return prisma.pettyCashReimbursement.findMany({
+      where: scope === undefined ? undefined : { account: { opmcId: { in: scope.length > 0 ? scope : ['00000000-0000-0000-0000-000000000000'] } } },
       include: {
         account: {
           select: { name: true }

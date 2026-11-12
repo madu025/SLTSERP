@@ -91,6 +91,8 @@ export interface StockRequestActionData {
     userId: string;
     remarks?: string;
     instanceId?: string;
+    /** True when the gate engine already ran the policy's domain action for this approval (email path). */
+    domainActionAlreadyDispatched?: boolean;
     procurementStatus?: string;
     items?: {
         id: string;

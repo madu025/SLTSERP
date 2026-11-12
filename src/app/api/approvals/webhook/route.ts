@@ -5,12 +5,43 @@ import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
+type GateResult = Awaited<ReturnType<typeof DynamicApprovalService.processApprovalWebhook>>;
+
+/** Moves the material request after the gate decision. Throws when the request could not be moved. */
+async function applyDomainStep(result: GateResult) {
+    if (result.entityType !== 'MATERIAL_REQUEST') return;
+    const { StockRequestService } = await import('@/services/inventory/stock-request.service');
+    if (result.status === 'GATE_PASSED' || result.status === 'GATE_ADVANCED') {
+        await StockRequestService.processStockRequestAction({
+            requestId: result.entityId,
+            action: 'GATE_PASSED',
+            userId: result.actionedById!,
+            instanceId: result.instanceId,
+            // advanceGate already ran the policy's domain action when the final level passed
+            domainActionAlreadyDispatched: result.status === 'GATE_PASSED',
+        });
+    } else if (result.status === 'GATE_REJECTED') {
+        await StockRequestService.processStockRequestAction({
+            requestId: result.entityId,
+            action: 'REJECT',
+            userId: result.actionedById!,
+            instanceId: result.instanceId,
+        });
+    }
+}
+
+function confirmPage(token: string) {
+    const safe = token.replace(/[^A-Za-z0-9._-]/g, '');
+    return generateHtmlResponse('Confirm your decision', 'Press the button to record this approval decision.', true)
+        .replace('</p>', `</p><form method="POST" action="/api/approvals/webhook?token=${safe}" style="margin-top:20px"><button type="submit" style="background:#0f172a;color:#fff;border:0;border-radius:8px;padding:12px 24px;font-size:15px;cursor:pointer">Confirm</button></form>`);
+}
+
 /**
  * Handle HTTP GET from regular email links
  */
 export const GET = apiHandler(async (req: Request) => {
     const token = new URL(req.url).searchParams.get('token');
-    
+
     if (!token) {
         return new NextResponse(
             generateHtmlResponse('Error', 'Missing action token.', false),
@@ -18,49 +49,8 @@ export const GET = apiHandler(async (req: Request) => {
         );
     }
 
-    try {
-        const result = await DynamicApprovalService.processApprovalWebhook(token);
-        
-        // --- INTEGRATION: TRIGGER NEXT DOMAIN STAGE ---
-        if (result.entityType === 'MATERIAL_REQUEST' && (result.status === 'GATE_PASSED' || result.status === 'GATE_ADVANCED')) {
-            const { StockRequestService } = await import('@/services/inventory/stock-request.service');
-            await StockRequestService.processStockRequestAction({
-                requestId: result.entityId,
-                action: 'GATE_PASSED',
-                userId: result.actionedById!,
-                instanceId: result.instanceId
-            }).catch(err => console.error(`[Webhook GET] Domain integration failed:`, err));
-        } else if (result.entityType === 'MATERIAL_REQUEST' && result.status === 'GATE_REJECTED') {
-            const { StockRequestService } = await import('@/services/inventory/stock-request.service');
-            await StockRequestService.processStockRequestAction({
-                requestId: result.entityId,
-                action: 'REJECT',
-                userId: result.actionedById!,
-                instanceId: result.instanceId
-            }).catch(err => console.error('[Webhook GET] Domain integration reject failed:', err));
-        }
-
-        const isApproved = result.status === 'GATE_PASSED' || result.status === 'GATE_ADVANCED';
-        const title = isApproved
-            ? (result.status === 'GATE_ADVANCED' ? 'Level Approved' : 'Approval Successful')
-            : 'Request Rejected';
-        const message = isApproved
-            ? (result.status === 'GATE_ADVANCED'
-                ? 'This level has been approved. The request has been forwarded to the next approver.'
-                : 'The request has been successfully approved.')
-            : 'The request has been rejected.';
-
-        return new NextResponse(
-            generateHtmlResponse(title, message, isApproved),
-            { status: 200, headers: { 'Content-Type': 'text/html' } }
-        );
-    } catch (error: unknown) {
-        const message = error instanceof AppError ? error.message : 'An unexpected error occurred.';
-        return new NextResponse(
-            generateHtmlResponse('Action Failed', message, false),
-            { status: 400, headers: { 'Content-Type': 'text/html' } }
-        );
-    }
+    // Email scanners and link previewers open links with GET; the decision is only recorded by the POST below.
+    return new NextResponse(confirmPage(token), { status: 200, headers: { 'Content-Type': 'text/html' } });
 }, { rawResponse: true, publicRoute: true });
 
 /**
@@ -68,41 +58,47 @@ export const GET = apiHandler(async (req: Request) => {
  */
 export const POST = apiHandler(async (req: Request) => {
     const token = new URL(req.url).searchParams.get('token');
-    
+    const wantsHtml = (req.headers.get('content-type') || '').includes('application/x-www-form-urlencoded');
+
     if (!token) {
         throw AppError.badRequest('Missing action token.');
     }
 
-    const result = await DynamicApprovalService.processApprovalWebhook(token);
-    
-    // --- INTEGRATION: TRIGGER NEXT DOMAIN STAGE ---
-    if (result.entityType === 'MATERIAL_REQUEST' && (result.status === 'GATE_PASSED' || result.status === 'GATE_ADVANCED')) {
-        const { StockRequestService } = await import('@/services/inventory/stock-request.service');
-        await StockRequestService.processStockRequestAction({
-            requestId: result.entityId,
-            action: 'GATE_PASSED',
-            userId: result.actionedById!,
-            instanceId: result.instanceId
-        }).catch(err => console.error(`[Webhook POST] Domain integration failed:`, err));
-    } else if (result.entityType === 'MATERIAL_REQUEST' && result.status === 'GATE_REJECTED') {
-        const { StockRequestService } = await import('@/services/inventory/stock-request.service');
-        await StockRequestService.processStockRequestAction({
-            requestId: result.entityId,
-            action: 'REJECT',
-            userId: result.actionedById!,
-            instanceId: result.instanceId
-        }).catch(err => console.error('[Webhook POST] Domain integration reject failed:', err));
+    try {
+        const result = await DynamicApprovalService.processApprovalWebhook(token);
+        try {
+            await applyDomainStep(result);
+        } catch (err) {
+            console.error('[Webhook] Domain integration failed after the gate decision was recorded:', err);
+            const msg = 'Your decision was recorded but the request could not move to its next stage. Please contact an administrator.';
+            if (wantsHtml) {
+                return new NextResponse(generateHtmlResponse('Action Incomplete', msg, false), { status: 500, headers: { 'Content-Type': 'text/html' } });
+            }
+            throw AppError.internal(msg);
+        }
+
+        if (wantsHtml) {
+            const isApproved = result.status === 'GATE_PASSED' || result.status === 'GATE_ADVANCED';
+            const title = isApproved ? (result.status === 'GATE_ADVANCED' ? 'Level Approved' : 'Approval Successful') : 'Request Rejected';
+            const message = isApproved
+                ? (result.status === 'GATE_ADVANCED' ? 'This level has been approved. The request has been forwarded to the next approver.' : 'The request has been successfully approved.')
+                : 'The request has been rejected.';
+            return new NextResponse(generateHtmlResponse(title, message, isApproved), { status: 200, headers: { 'Content-Type': 'text/html' } });
+        }
+
+        // Outlook requires a 200 OK and optionally a CARD-ACTION-STATUS header
+        const response = NextResponse.json({
+            success: true,
+            message: `Successfully ${result.status.toLowerCase()}`
+        });
+        response.headers.set('CARD-ACTION-STATUS', `Successfully ${result.status.toLowerCase()}`);
+        return response;
+    } catch (error: unknown) {
+        if (!wantsHtml) throw error;
+        const message = error instanceof AppError ? error.message : 'An unexpected error occurred.';
+        return new NextResponse(generateHtmlResponse('Action Failed', message, false), { status: 400, headers: { 'Content-Type': 'text/html' } });
     }
-    
-    // Outlook requires a 200 OK and optionally a CARD-ACTION-STATUS header
-    const response = NextResponse.json({
-        success: true,
-        message: `Successfully ${result.status.toLowerCase()}`
-    });
-    
-    response.headers.set('CARD-ACTION-STATUS', `Successfully ${result.status.toLowerCase()}`);
-    return response;
-}, { publicRoute: true }); // authenticated by the signed action token, like the GET handler above
+}, { publicRoute: true }); // authenticated by the signed action token // authenticated by the signed action token, like the GET handler above
 
 function generateHtmlResponse(title: string, message: string, isSuccess: boolean) {
     const color = isSuccess ? '#22c55e' : '#ef4444';

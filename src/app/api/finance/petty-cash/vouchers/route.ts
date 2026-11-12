@@ -1,6 +1,7 @@
 import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { PettyCashService } from '@/services/finance/petty-cash.service';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +15,7 @@ export const GET = apiHandler(async (req) => {
         throw AppError.badRequest('accountId query parameter is required');
     }
 
-    const account = await PettyCashService.getPettyCashAccount(accountId);
+    const account = await PettyCashService.getPettyCashAccount(accountId, getAuthenticatedUserId());
     if (!account) {
         throw AppError.notFound('Petty cash account not found');
     }
@@ -73,6 +74,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
         throw AppError.badRequest('Invalid action. Must be APPROVE or REJECT');
     }
 }, {
+    permissions: [RBAC_PERMISSIONS.FINANCE_APPROVE],
     audit: { action: 'UPDATE_STATUS', entity: 'PETTY_CASH_VOUCHER' },
     rawResponse: true
 });

@@ -6,6 +6,8 @@ import { bridgeSyncSchema } from '@/lib/validations/service-order.schema';
 import { z } from 'zod';
 import { AppError } from '@/lib/error';
 import { redis } from '@/lib/redis';
+import { requireExtensionOrSession } from '@/lib/mixed-auth';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export async function OPTIONS() {
     return new Response(null, {
@@ -19,6 +21,7 @@ export async function OPTIONS() {
 }
 
 export const GET = apiHandler(async (request: Request) => {
+    await requireExtensionOrSession(request, [RBAC_PERMISSIONS.SOD_READ, RBAC_PERMISSIONS.SOD_WRITE]);
     const { searchParams } = new URL(request.url);
     const soNum = searchParams.get('soNum');
 
@@ -65,6 +68,7 @@ export const GET = apiHandler(async (request: Request) => {
 }, { publicRoute: true });
 
 export const POST = apiHandler(async (_req, _params, payload: z.infer<typeof bridgeSyncSchema>) => {
+    await requireExtensionOrSession(_req, [RBAC_PERMISSIONS.SOD_WRITE]);
     const soNum = payload.soNum;
     if (!soNum) {
         throw AppError.badRequest('Service Order Number is required for sync.');

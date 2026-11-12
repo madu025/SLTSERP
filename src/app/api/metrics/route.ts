@@ -7,6 +7,10 @@ export async function GET(req: Request) {
     try {
         // Optional Bearer Token Security check if PROMETHEUS_BEARER_TOKEN is configured in .env
         const secretToken = process.env.PROMETHEUS_BEARER_TOKEN;
+        // Deny by default in production: metrics expose heap, DB latency and error counts
+        if (!secretToken && process.env.NODE_ENV === 'production') {
+            return new Response('Metrics endpoint is not configured', { status: 403 });
+        }
         if (secretToken) {
             const authHeader = req.headers.get('authorization');
             if (!authHeader || authHeader !== `Bearer ${secretToken}`) {

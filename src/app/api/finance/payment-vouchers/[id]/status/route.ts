@@ -17,6 +17,10 @@ const updateStatusSchema = z.object({
 // PATCH /api/finance/payment-vouchers/[id]/status - Update payment voucher status
 export const PATCH = apiHandler(async (req, params, body) => {
     const { status, rejectionReason, cancelledReason } = body;
+    // Makers (finance.write) submit or cancel their own vouchers; every other transition is an approver action
+    if (status !== 'PENDING_APPROVAL' && status !== 'CANCELLED' && !(params._permissions ?? []).includes(RBAC_PERMISSIONS.FINANCE_APPROVE)) {
+        throw AppError.forbidden('finance.approve is required for this voucher transition.');
+    }
     const userId = getAuthenticatedUserId();
 
     if (!userId) throw AppError.unauthorized('Authentication required');
@@ -30,7 +34,7 @@ export const PATCH = apiHandler(async (req, params, body) => {
     });
 }, {
     schema: updateStatusSchema,
-    permissions: [RBAC_PERMISSIONS.FINANCE_APPROVE],
+    permissions: [RBAC_PERMISSIONS.FINANCE_WRITE, RBAC_PERMISSIONS.FINANCE_APPROVE],
     audit: { action: 'UPDATE_STATUS', entity: 'PAYMENT_VOUCHER' },
     rawResponse: true
 });

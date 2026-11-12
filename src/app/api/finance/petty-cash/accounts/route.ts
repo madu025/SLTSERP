@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 // GET /api/finance/petty-cash/accounts - List petty cash accounts (rawResponse for compatibility)
 export const GET = apiHandler(async () => {
-    return await PettyCashService.getPettyCashAccounts();
+    return await PettyCashService.getPettyCashAccounts(getAuthenticatedUserId());
 }, {
     rawResponse: true
 });
