@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 
 export interface MaterialSummaryFilters {
@@ -60,7 +61,7 @@ interface Bucket {
   unit: string;
   totalQuantity: number;
   totalCostLkr: number;
-  sodIds: Set<string>;
+  sodCount: number;
   exceedsLimitCount: number;
 }
 
@@ -94,79 +95,64 @@ export class MaterialSummaryReportService {
       }
     }
 
-    const usageLines = await prisma.sODMaterialUsage.findMany({
-      where: {
-        serviceOrder: {
-          ...(effectiveRtoms
-            ? { rtom: effectiveRtoms.length === 1 ? effectiveRtoms[0] : { in: effectiveRtoms } }
-            : {}),
-          ...(completedFrom && completedTo
-            ? { completedDate: { gte: completedFrom, lte: completedTo } }
-            : { completedDate: { not: null } }),
-        },
-        ...(filters.itemCode ? { item: { code: filters.itemCode } } : {}),
-      },
-      select: {
-        id: true,
-        quantity: true,
-        unitPrice: true,
-        costPrice: true,
-        unit: true,
-        exceedsLimit: true,
-        serviceOrder: {
-          select: { id: true, rtom: true, completedDate: true },
-        },
-        item: {
-          select: { code: true, name: true },
-        },
-      },
-    });
+    // Grouped in the database: pulling every SOD material line into Node to sum it there did not finish within 25 s
+    // on the production data set. Only the finished buckets (RTOM x month x item) come back.
+    const conditions: Prisma.Sql[] = [Prisma.sql`s."completedDate" IS NOT NULL`];
+    if (completedFrom && completedTo) {
+      conditions.push(Prisma.sql`s."completedDate" >= ${completedFrom} AND s."completedDate" <= ${completedTo}`);
+    }
+    if (effectiveRtoms) conditions.push(Prisma.sql`s."rtom" = ANY(${effectiveRtoms}::text[])`);
+    if (filters.itemCode) conditions.push(Prisma.sql`i."code" = ${filters.itemCode}`);
+
+    const aggregated = await prisma.$queryRaw<Array<{
+      rtom: string; year: number; month: number; code: string; name: string; unit: string;
+      qty: number; cost: number; sods: number; exceeds: number;
+    }>>(Prisma.sql`
+      SELECT s."rtom" AS rtom,
+             EXTRACT(YEAR FROM s."completedDate")::int AS year,
+             EXTRACT(MONTH FROM s."completedDate")::int AS month,
+             i."code" AS code,
+             MIN(i."name") AS name,
+             MIN(u."unit") AS unit,
+             SUM(u."quantity")::float8 AS qty,
+             SUM(COALESCE(u."costPrice", u."unitPrice", 0) * u."quantity")::float8 AS cost,
+             COUNT(DISTINCT s."id")::int AS sods,
+             COUNT(*) FILTER (WHERE u."exceedsLimit")::int AS exceeds
+      FROM "SODMaterialUsage" u
+      JOIN "ServiceOrder" s ON s."id" = u."serviceOrderId"
+      JOIN "InventoryItem" i ON i."id" = u."itemId"
+      WHERE ${Prisma.join(conditions, ' AND ')}
+      GROUP BY s."rtom", EXTRACT(YEAR FROM s."completedDate"), EXTRACT(MONTH FROM s."completedDate"), i."code"
+    `);
 
     const buckets = new Map<string, Bucket>();
     const distinctRtomsSet = new Set<string>();
     const distinctItemsMap = new Map<string, string>();
     const distinctMonthsSet = new Set<string>();
 
-    for (const line of usageLines) {
-      if (!line.serviceOrder.completedDate) continue;
-
-      const d        = line.serviceOrder.completedDate;
-      const year     = d.getFullYear();
-      const month    = d.getMonth() + 1;
-      const rtom     = line.serviceOrder.rtom;
-      const itemCode = line.item.code;
-      const key      = `${rtom}|${year}|${month}|${itemCode}`;
-      const qty      = Number(line.quantity);
-      const cost     = Number(line.costPrice ?? line.unitPrice ?? 0) * qty;
-
-      distinctRtomsSet.add(rtom);
-      distinctItemsMap.set(itemCode, line.item.name);
-      distinctMonthsSet.add(`${year}|${month}`);
-
-      const b = buckets.get(key);
-      if (b) {
-        b.totalQuantity += qty;
-        b.totalCostLkr  += cost;
-        b.sodIds.add(line.serviceOrder.id);
-        if (line.exceedsLimit) b.exceedsLimitCount++;
-      } else {
-        buckets.set(key, {
-          rtom, year, month, itemCode,
-          itemName: line.item.name,
-          unit: line.unit,
-          totalQuantity: qty,
-          totalCostLkr: cost,
-          sodIds: new Set([line.serviceOrder.id]),
-          exceedsLimitCount: line.exceedsLimit ? 1 : 0,
-        });
-      }
+    for (const row of aggregated) {
+      distinctRtomsSet.add(row.rtom);
+      distinctItemsMap.set(row.code, row.name);
+      distinctMonthsSet.add(`${row.year}|${row.month}`);
+      buckets.set(`${row.rtom}|${row.year}|${row.month}|${row.code}`, {
+        rtom: row.rtom,
+        year: row.year,
+        month: row.month,
+        itemCode: row.code,
+        itemName: row.name,
+        unit: row.unit,
+        totalQuantity: Number(row.qty),
+        totalCostLkr: Number(row.cost),
+        sodCount: Number(row.sods),
+        exceedsLimitCount: Number(row.exceeds),
+      });
     }
 
     const rows: MaterialSummaryRow[] = [];
     let grandQty = 0, grandCost = 0, grandSods = 0;
 
     for (const b of buckets.values()) {
-      const sodCount = b.sodIds.size;
+      const sodCount = b.sodCount;
       rows.push({
         rtom: b.rtom,
         year: b.year,

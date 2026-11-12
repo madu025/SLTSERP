@@ -308,6 +308,22 @@ export class InvoiceService {
             whereClause.rtom = rtomParam;
         }
 
+        // Narrow to the orders the delay rules below can keep, in the database: every order ever received up to month end
+        // used to be loaded (with its OPMC and contractor) and filtered in Node, which did not finish within 25 s.
+        // The exact rules still run on what comes back.
+        const completedCondition: Prisma.ServiceOrderWhereInput = { OR: [{ status: 'INSTALL_CLOSED' }, { sltsStatus: 'COMPLETED' }] };
+        whereClause.AND = [{
+            OR: [
+                { NOT: completedCondition },
+                {
+                    AND: [
+                        completedCondition,
+                        { OR: [{ completedDate: { gt: endOfMonth } }, { stbShortage: true }, { ontShortage: true }, { delayReasonsRaw: { not: Prisma.DbNull } }] },
+                    ],
+                },
+            ],
+        }];
+
         const serviceOrders = await prisma.serviceOrder.findMany({
             where: whereClause,
             include: {

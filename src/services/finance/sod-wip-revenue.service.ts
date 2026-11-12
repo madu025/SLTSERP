@@ -1,6 +1,11 @@
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { safe } from '@/utils/safe-await.util';
 import { safeJsonParse } from '@/utils/safeJsonParse';
+
+/** Largest job list returned to the browser; totals and breakdowns always cover every order. */
+const MAX_WIP_ITEMS = 2000;
+const MAX_SNAPSHOT_ISSUES = 200;
 import { UUID } from '@/types/common';
 
 export interface MonthlyWipBuildupItem {
@@ -129,6 +134,10 @@ export class SODWipRevenueService {
         metrics: WipSummaryMetrics;
         items: WipSodItem[];
         snapshotIssues: WipSnapshotIssue[];
+        /** True when more unbilled jobs exist than the `items` list carries (the metrics still cover all of them). */
+        itemsTruncated: boolean;
+        /** Orders excluded for missing financial snapshots; `snapshotIssues` lists only a sample of them. */
+        snapshotIssueCount: number;
     }> {
         const splitConfig = await this.getPaymentSplitConfig();
 
@@ -157,37 +166,55 @@ export class SODWipRevenueService {
             whereClause.opmcId = opmcId;
         }
 
-        // 1. Fetch Unbilled Completed SODs
+        // Orders without both persisted financial snapshots cannot be reported. They are counted (and a sample listed)
+        // instead of being loaded and returned one by one: tens of thousands of them made this call time out.
+        const missingSnapshotWhere = { AND: [whereClause, { OR: [{ revenueAmount: null }, { contractorAmount: null }] }] };
+        const [snapshotIssueCount, missingSample] = await Promise.all([
+            prisma.serviceOrder.count({ where: missingSnapshotWhere as never }),
+            prisma.serviceOrder.findMany({ where: missingSnapshotWhere as never, select: { soNum: true }, orderBy: { createdAt: 'desc' }, take: MAX_SNAPSHOT_ISSUES }),
+        ]);
+
+        // 1. Fetch Unbilled Completed SODs that carry both financial snapshots
         const orders = await prisma.serviceOrder.findMany({
-            where: whereClause,
+            where: { AND: [whereClause, { revenueAmount: { not: null } }, { contractorAmount: { not: null } }] } as never,
+            // Only what the totals need: the per-job columns are read below for the jobs that are actually listed
             select: {
                 id: true,
-                soNum: true,
-                voiceNumber: true,
-                customerName: true,
                 sltsStatus: true,
                 status: true,
                 opmcId: true,
-                opmc: { select: { id: true, rtom: true, name: true } },
                 receivedDate: true,
-                scheduledDate: true,
                 completedDate: true,
                 createdAt: true,
-                dropWireDistance: true,
                 revenueAmount: true,
                 contractorAmount: true,
                 isInvoicable: true,
-                sltsPatStatus: true,
-                opmcPatStatus: true,
-                materialUsage: {
-                    select: {
-                        quantity: true,
-                        costPrice: true
-                    }
-                }
             },
             orderBy: { createdAt: 'desc' }
         });
+        const opmcRows = await prisma.oPMC.findMany({ select: { id: true, rtom: true, name: true } });
+        const opmcById = new Map(opmcRows.map((o) => [o.id, o]));
+
+        // Material cost per order, summed in the database (one row per order). Reading the ~540k usage lines of this pool
+        // into Node to add them up there took 16 s on its own.
+        const opmcFilter = whereClause.opmcId as string | { in: string[] } | undefined;
+        const opmcSql = opmcFilter === undefined
+            ? Prisma.empty
+            : typeof opmcFilter === 'string'
+                ? Prisma.sql`AND s."opmcId" = ${opmcFilter}::uuid`
+                : Prisma.sql`AND s."opmcId" = ANY(${opmcFilter.in}::uuid[])`;
+        const usageSums = await prisma.$queryRaw<Array<{ id: string; cost: number }>>(Prisma.sql`
+            SELECT u."serviceOrderId" AS id, SUM(u."quantity" * COALESCE(u."costPrice", 0))::float8 AS cost
+            FROM "SODMaterialUsage" u
+            JOIN "ServiceOrder" s ON s."id" = u."serviceOrderId"
+            WHERE (s."sltsStatus" IN ('COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED')
+                   OR s."status" IN ('COMPLETED', 'INSTALL_CLOSED', 'PAT_OPMC_PASSED', 'PAT_CORRECTED'))
+              AND s."invoiced" IS DISTINCT FROM TRUE
+              AND s."invoiceId" IS NULL
+              ${opmcSql}
+            GROUP BY u."serviceOrderId"
+        `);
+        const materialCostByOrder = new Map<string, number>(usageSums.map((r) => [r.id, Number(r.cost)]));
 
         // 2. Fetch Additional Operational Overhead Expenses (Vehicle, Site Office, Payroll)
         const [[, rawPettyCashMemos], [, rawPayrollExpenses]] = await Promise.all([
@@ -230,11 +257,11 @@ export class SODWipRevenueService {
         };
 
         const items: WipSodItem[] = [];
-        const snapshotIssues: WipSnapshotIssue[] = [];
+        let unbilledCount = 0;
+        const snapshotIssues: WipSnapshotIssue[] = missingSample.map((o) => ({ soNum: o.soNum, reason: 'SOD_FINANCIAL_SNAPSHOT_MISSING' }));
 
         for (const order of orders) {
-            const rawDist = Number(order.dropWireDistance || 0);
-            const rtomCode = order.opmc?.rtom || 'OTHER';
+            const rtomCode = (order.opmcId && opmcById.get(order.opmcId)?.rtom) || 'OTHER';
 
             const accruedRevenue = Number(order.revenueAmount);
             const contractorCost = Number(order.contractorAmount);
@@ -242,23 +269,10 @@ export class SODWipRevenueService {
             // WIP is a historical accounting report. Never recalculate a
             // completed SOD with today's rate matrix; completion must have
             // persisted both financial snapshots already.
-            if (order.revenueAmount === null || order.contractorAmount === null) {
-                snapshotIssues.push({
-                    soNum: order.soNum,
-                    reason: 'SOD_FINANCIAL_SNAPSHOT_MISSING',
-                });
-                continue;
-            }
+            if (order.revenueAmount === null || order.contractorAmount === null) continue; // filtered out above
 
             // Calculate Material COGS for this SOD from inventory material usage records
-            let materialCost = 0;
-            if (order.materialUsage && Array.isArray(order.materialUsage)) {
-                for (const mu of order.materialUsage) {
-                    const qty = parseFloat(String(mu.quantity || '0'));
-                    const price = parseFloat(String(mu.costPrice || '0'));
-                    materialCost += qty * price;
-                }
-            }
+            const materialCost = materialCostByOrder.get(order.id) ?? 0;
 
             totalWipValue += accruedRevenue;
             totalContractorFees += contractorCost;
@@ -317,7 +331,7 @@ export class SODWipRevenueService {
             const opKey = order.opmcId || 'UNASSIGNED';
             const existingOp = opmcMap.get(opKey) || {
                 rtom: rtomCode,
-                name: order.opmc?.name || 'Unassigned OPMC',
+                name: (order.opmcId && opmcById.get(order.opmcId)?.name) || 'Unassigned OPMC',
                 wipValue: 0,
                 count: 0
             };
@@ -325,18 +339,22 @@ export class SODWipRevenueService {
             existingOp.count++;
             opmcMap.set(opKey, existingOp);
 
-            const patStatus = order.sltsPatStatus || order.opmcPatStatus || (order.isInvoicable ? 'PASSED' : 'PENDING');
+
+            unbilledCount++;
+            // Orders arrive newest first. Shipping all ~90k jobs to the browser made this screen time out, so the
+            // list is the newest MAX_WIP_ITEMS and the metrics above (computed from every order) carry the totals.
+            if (items.length >= MAX_WIP_ITEMS) continue;
 
             items.push({
                 id: order.id,
-                soNum: order.soNum,
-                voiceNumber: order.voiceNumber,
-                customerName: order.customerName,
+                soNum: '',
+                voiceNumber: null,
+                customerName: null,
                 rtom: rtomCode,
                 sltsStatus: order.sltsStatus || order.status || 'COMPLETED',
-                scheduledDate: order.scheduledDate ? new Date(order.scheduledDate) : null,
+                scheduledDate: null,
                 completedDate: order.completedDate ? new Date(order.completedDate) : null,
-                dropWireDistance: rawDist,
+                dropWireDistance: 0,
                 accruedRevenue,
                 contractorCost,
                 materialCost,
@@ -345,9 +363,27 @@ export class SODWipRevenueService {
                 claimAAmount,
                 claimBAmount,
                 isInvoicable: !!order.isInvoicable,
-                patStatus,
+                patStatus: order.isInvoicable ? 'PASSED' : 'PENDING', // refined below from the PAT columns
                 ageDays
             });
+        }
+
+        if (items.length > 0) {
+            const details = await prisma.serviceOrder.findMany({
+                where: { id: { in: items.map((i) => i.id) } },
+                select: { id: true, soNum: true, voiceNumber: true, customerName: true, scheduledDate: true, dropWireDistance: true, sltsPatStatus: true, opmcPatStatus: true },
+            });
+            const detailById = new Map(details.map((d) => [d.id, d]));
+            for (const item of items) {
+                const d = detailById.get(item.id);
+                if (!d) continue;
+                item.soNum = d.soNum;
+                item.voiceNumber = d.voiceNumber;
+                item.customerName = d.customerName;
+                item.scheduledDate = d.scheduledDate ? new Date(d.scheduledDate) : null;
+                item.dropWireDistance = Number(d.dropWireDistance || 0);
+                item.patStatus = d.sltsPatStatus || d.opmcPatStatus || (item.isInvoicable ? 'PASSED' : 'PENDING');
+            }
         }
 
         const opmcBreakdown = Array.from(opmcMap.entries()).map(([opmcId, data]) => ({
@@ -379,7 +415,7 @@ export class SODWipRevenueService {
         const metrics: WipSummaryMetrics = {
             totalWipValue,
             invoicablePoolValue,
-            unbilledSodCount: items.length,
+            unbilledSodCount: unbilledCount,
             invoicableSodCount,
             completedSodCount,
             completedSodValue,
@@ -403,7 +439,7 @@ export class SODWipRevenueService {
             agingBreakdown
         };
 
-        return { metrics, items, snapshotIssues };
+        return { metrics, items, snapshotIssues, snapshotIssueCount, itemsTruncated: unbilledCount > items.length };
     }
 
 }

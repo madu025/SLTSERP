@@ -102,7 +102,7 @@ export const POST = apiHandler(async (req: Request) => {
     
     response.headers.set('CARD-ACTION-STATUS', `Successfully ${result.status.toLowerCase()}`);
     return response;
-});
+}, { publicRoute: true }); // authenticated by the signed action token, like the GET handler above
 
 function generateHtmlResponse(title: string, message: string, isSuccess: boolean) {
     const color = isSuccess ? '#22c55e' : '#ef4444';

@@ -26,7 +26,9 @@ export default function WipRevenueDashboardPage() {
     const [loading, setLoading] = useState(true);
     const [metrics, setMetrics] = useState<WipSummaryMetrics | null>(null);
     const [items, setItems] = useState<WipSodItem[]>([]);
+    const [itemsTruncated, setItemsTruncated] = useState(false);
     const [snapshotIssues, setSnapshotIssues] = useState<WipSnapshotIssue[]>([]);
+    const [snapshotIssueCount, setSnapshotIssueCount] = useState(0);
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
 
     const fetchData = async () => {
@@ -40,7 +42,9 @@ export default function WipRevenueDashboardPage() {
                 const data = await res.json();
                 setMetrics(data.metrics);
                 setItems(data.items);
+                setItemsTruncated(!!data.itemsTruncated);
                 setSnapshotIssues(data.snapshotIssues || []);
+                setSnapshotIssueCount(Number(data.snapshotIssueCount ?? (data.snapshotIssues || []).length));
             }
         } catch (err) {
             console.error('Failed to fetch WIP Revenue data:', err);
@@ -99,7 +103,7 @@ export default function WipRevenueDashboardPage() {
                             <div className="p-4 bg-amber-50 border border-amber-300 text-amber-950 rounded-xl text-sm" role="alert">
                                 <p className="font-semibold">Financial snapshot review required</p>
                                 <p className="mt-1">
-                                    {snapshotIssues.length} completed SOD record(s) are excluded until their persisted revenue and contractor snapshots are repaired.
+                                    {snapshotIssueCount.toLocaleString()} completed SOD record(s) are excluded until their persisted revenue and contractor snapshots are repaired.
                                 </p>
                             </div>
                         )}
@@ -288,7 +292,7 @@ export default function WipRevenueDashboardPage() {
                                                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                         }`}
                                     >
-                                        All WIP Jobs ({items.length})
+                                        All WIP Jobs ({itemsTruncated && metrics ? `newest ${items.length} of ${metrics.unbilledSodCount.toLocaleString()}` : items.length})
                                     </button>
                                     <button
                                         onClick={() => setFilterStatus('COMPLETED')}
