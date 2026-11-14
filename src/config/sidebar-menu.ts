@@ -296,6 +296,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/inventory',
                 icon: LayoutDashboard,
             },
+            {
+                title: 'Inventory Health',
+                path: '/inventory/health',
+                icon: TrendingUp,
+                permissionId: RBAC_PERMISSIONS.INVENTORY_READ
+            },
             // 1. Setup & Master Data
             {
                 title: 'Item Master Data', // Merged Material Registration + Bulk Import
@@ -434,6 +440,18 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'AI Forecast & PO Builder',
                 path: '/procurement/forecast',
                 icon: FileText,
+            },
+            {
+                title: 'Procurement Performance',
+                path: '/procurement/performance',
+                icon: TrendingUp,
+                permissionId: RBAC_PERMISSIONS.PROCUREMENT_READ
+            },
+            {
+                title: 'Vendor Scorecard',
+                path: '/procurement/vendors',
+                icon: TrendingUp,
+                permissionId: RBAC_PERMISSIONS.PROCUREMENT_READ
             }
         ]
     },

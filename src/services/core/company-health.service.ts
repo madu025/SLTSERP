@@ -8,6 +8,10 @@ import { SPI_ALERT_THRESHOLD } from '@/lib/project-evm';
 import { SodPerformanceService } from '@/services/service-order/sod-performance.service';
 import { ContractorScorecardService } from '@/services/contractor/contractor-scorecard.service';
 import { OpsScoreboardService } from '@/services/service-order/ops-scoreboard.service';
+import { ProcurementPerformanceService } from '@/services/procurement/procurement-performance.service';
+import { InventoryHealthService } from '@/services/inventory/inventory-health.service';
+import { VendorScorecardService } from '@/services/procurement/vendor-scorecard.service';
+import { buildSupplyChainExceptions } from '@/services/procurement/supply-chain-exceptions';
 
 /**
  * One-page company health for management (CEO / GM).
@@ -22,7 +26,7 @@ export type Severity = 'critical' | 'warning' | 'info';
 export interface HealthException {
     id: string;
     severity: Severity;
-    area: 'Finance' | 'Operations' | 'Projects' | 'Fleet' | 'Helpdesk' | 'Inventory';
+    area: 'Finance' | 'Operations' | 'Projects' | 'Fleet' | 'Helpdesk' | 'Inventory' | 'Procurement';
     title: string;
     detail: string;
     href: string;
@@ -116,6 +120,14 @@ export interface CompanyHealth {
     fleet: null | { insuranceExpired: number; insuranceExpiring30d: number };
     helpdesk: null | { openTickets: number; slaBreached: number };
     inventory: null | { pendingRequests: number; pendingOver3Days: number };
+    /** Procurement and stock charts; each part is null when the caller lacks that module's capability. */
+    supplyChain: null | {
+        lateBuckets: { bucket: string; count: number }[] | null;
+        dead: { bucket: string; skus: number; value: number | null }[] | null;
+        topVendors: { name: string; spend: number; score: number | null }[] | null;
+        stockValue: number | null;
+        belowReorder: number | null;
+    };
     exceptions: HealthException[];
 }
 
@@ -160,6 +172,9 @@ export class CompanyHealthService {
         const fleet = has(RBAC_PERMISSIONS.FLEET_READ) ? await this.fleetSection(now, exceptions) : null;
         const helpdesk = has(RBAC_PERMISSIONS.HELPDESK_READ) ? await this.helpdeskSection(exceptions) : null;
         const inventory = has(RBAC_PERMISSIONS.INVENTORY_READ) ? await this.inventorySection(now, exceptions) : null;
+        const supplyChain = has(RBAC_PERMISSIONS.INVENTORY_READ) || has(RBAC_PERMISSIONS.PROCUREMENT_READ)
+            ? await this.supplyChainSection(has(RBAC_PERMISSIONS.PROCUREMENT_READ), has(RBAC_PERMISSIONS.INVENTORY_READ), has(RBAC_PERMISSIONS.INVENTORY_COST_READ), now, exceptions)
+            : null;
 
         const rank: Record<Severity, number> = { critical: 0, warning: 1, info: 2 };
         exceptions.sort((a, c) => rank[a.severity] - rank[c.severity]);
@@ -167,7 +182,7 @@ export class CompanyHealthService {
         return {
             asOf: now.toISOString(),
             periods: { currentLabel: b.currentLabel, previousLabel: b.previousLabel },
-            finance, operations, projects, fleet, helpdesk, inventory, exceptions,
+            finance, operations, projects, fleet, helpdesk, inventory, supplyChain, exceptions,
         };
     }
 
@@ -389,6 +404,26 @@ export class CompanyHealthService {
             budgetUsedPct: totalBudget > 0 ? (totalActual / totalBudget) * 100 : null,
             lowSpi, untracked, health, atRisk,
         };
+    }
+
+    /** Company-wide procurement and stock picture. Reports are built for the whole company (this view is company-wide only). */
+    private static async supplyChainSection(procurement: boolean, inventory: boolean, showValues: boolean, now: Date, ex: HealthException[]): Promise<NonNullable<CompanyHealth['supplyChain']>> {
+        try {
+            const p = procurement ? await ProcurementPerformanceService.getReport(null, now) : null;
+            const h = inventory ? await InventoryHealthService.getReport(null, showValues, now) : null;
+            const v = procurement ? await VendorScorecardService.getScorecard(null, 12, now) : null;
+            ex.push(...buildSupplyChainExceptions(p, h, v));
+            return {
+                lateBuckets: p ? [...p.store.lateBuckets] : null,
+                dead: h ? h.dead.map((d) => ({ bucket: d.bucket, skus: d.skus, value: d.value })) : null,
+                topVendors: v ? v.rows.slice(0, 6).map((r) => ({ name: r.name, spend: r.spend, score: r.score })) : null,
+                stockValue: h ? h.totals.value : null,
+                belowReorder: h ? h.totals.belowReorder : null,
+            };
+        } catch (error) {
+            console.warn('[COMPANY-HEALTH] Supply chain skipped:', error instanceof Error ? error.message : error);
+            return { lateBuckets: null, dead: null, topVendors: null, stockValue: null, belowReorder: null };
+        }
     }
 
     private static async fleetSection(now: Date, ex: HealthException[]): Promise<NonNullable<CompanyHealth['fleet']>> {

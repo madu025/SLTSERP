@@ -137,8 +137,9 @@ export class ProjectGoodsReceiptService {
                         where: { id: item.poItemId }
                     });
                     if (poItem) {
-                        const newReceived = Number(poItem.receivedQty || 0) + Number(item.quantityReceived || 0);
-                        const newBalance = Number(poItem.balanceQty || 0) - Number(item.quantityReceived || 0);
+                        const acceptedQty = Number(item.quantityAccepted || item.quantityReceived || 0);
+                        const newReceived = Number(poItem.receivedQty || 0) + acceptedQty;
+                        const newBalance = Number(poItem.balanceQty || 0) - acceptedQty;
                         await tx.projectPurchaseOrderItem.update({
                             where: { id: item.poItemId },
                             data: {

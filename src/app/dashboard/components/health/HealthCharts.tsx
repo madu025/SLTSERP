@@ -68,8 +68,8 @@ export function FinanceTrend({ data }: { data: { label: string; revenue: number;
     );
 }
 
-export function CompletedTrend({ data }: { data: { label: string; completed: number }[] }) {
-    if (!data.some((d) => d.completed)) return <Empty label="No completed orders in the last 6 months" />;
+export function CompletedTrend({ data, name = 'Completed orders', empty = 'No completed orders in the last 6 months' }: { data: { label: string; completed: number }[]; name?: string; empty?: string }) {
+    if (!data.some((d) => d.completed)) return <Empty label={empty} />;
     return (
         <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -84,7 +84,7 @@ export function CompletedTrend({ data }: { data: { label: string; completed: num
                     <XAxis dataKey="label" tick={{ fill: AXIS, fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fill: AXIS, fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
                     <Tooltip contentStyle={TIP} />
-                    <Area type="monotone" dataKey="completed" name="Completed orders" stroke="#06b6d4" strokeWidth={2.5} fill="url(#completed-fill)" />
+                    <Area type="monotone" dataKey="completed" name={name} stroke="#06b6d4" strokeWidth={2.5} fill="url(#completed-fill)" />
                 </AreaChart>
             </ResponsiveContainer>
         </div>
@@ -92,7 +92,7 @@ export function CompletedTrend({ data }: { data: { label: string; completed: num
 }
 
 /** Horizontal-free simple column chart used for both ageing views; colours escalate with age. */
-export function AgeingBars({ data, format = (v: number) => String(v), empty }: { data: { name: string; value: number }[]; format?: (v: number) => string; empty: string }) {
+export function AgeingBars({ data, format = (v: number) => String(v), empty, color }: { data: { name: string; value: number }[]; format?: (v: number) => string; empty: string; color?: string }) {
     if (!data.some((d) => d.value > 0)) return <Empty label={empty} />;
     const colors = ['#10b981', '#84cc16', '#f59e0b', '#f97316', '#ef4444'];
     return (
@@ -104,7 +104,7 @@ export function AgeingBars({ data, format = (v: number) => String(v), empty }: {
                     <YAxis tick={{ fill: AXIS, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={format} width={48} />
                     <Tooltip contentStyle={TIP} formatter={(v) => format(Number(v))} />
                     <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                        {data.map((_, i) => <Cell key={i} fill={colors[Math.min(i, colors.length - 1)]} />)}
+                        {data.map((_, i) => <Cell key={i} fill={color ?? colors[Math.min(i, colors.length - 1)]} />)}
                     </Bar>
                 </BarChart>
             </ResponsiveContainer>

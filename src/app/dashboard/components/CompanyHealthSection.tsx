@@ -108,7 +108,7 @@ export default function CompanyHealthSection({ userId, enabled = true }: Props) 
         );
     }
 
-    const { finance: f, operations: o, projects: p, fleet, helpdesk: h, inventory: inv, exceptions } = data;
+    const { finance: f, operations: o, projects: p, fleet, helpdesk: h, inventory: inv, supplyChain: sc, exceptions } = data;
     const asOf = new Date(data.asOf).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
     const shown = showAll ? exceptions : exceptions.slice(0, 6);
     const arData = f ? [
@@ -188,6 +188,15 @@ export default function CompanyHealthSection({ userId, enabled = true }: Props) 
                 </div>
             )}
 
+            {/* Supply chain */}
+            {sc && (sc.lateBuckets || sc.dead || sc.topVendors) && (
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                    {sc.lateBuckets && <Panel title="Late purchase orders (days late)" href="/procurement/performance"><AgeingBars data={sc.lateBuckets.map((b) => ({ name: b.bucket, value: b.count }))} empty="No late purchase orders" /></Panel>}
+                    {sc.dead && <Panel title="Dead stock (days idle)" href="/inventory/health"><AgeingBars data={sc.dead.map((d) => ({ name: d.bucket, value: d.value ?? d.skus }))} format={compact} empty="No dead stock" /></Panel>}
+                    {sc.topVendors && <Panel title="Top vendors by spend" href="/procurement/vendors"><AgeingBars data={sc.topVendors.map((v) => ({ name: v.name.slice(0, 10), value: v.spend }))} format={compact} empty="No vendor spend" color="#6366f1" /></Panel>}
+                </div>
+            )}
+
             {/* Worst RTOMs */}
             {o && o.weakestRtoms.length > 0 && (
                 <Panel title="Weakest RTOMs · last 30 days" href="/service-orders/performance"><WeakestRtomsTable rows={o.weakestRtoms} /></Panel>
@@ -201,6 +210,8 @@ export default function CompanyHealthSection({ userId, enabled = true }: Props) 
                 {f && <Mini label="Margin" value={pct(f.marginPct)} href="/finance/reports/profitability" />}
                 {fleet && <Mini label="Insurance expired" value={String(fleet.insuranceExpired)} tone={fleet.insuranceExpired > 0 ? 'bad' : 'good'} href="/fleet" />}
                 {h && <Mini label="Helpdesk open" value={`${h.openTickets} (${h.slaBreached} late)`} tone={h.slaBreached > 0 ? 'warn' : 'default'} href="/helpdesk" />}
+                {sc && sc.stockValue !== null && <Mini label="Stock value" value={compact(sc.stockValue)} href="/inventory/health" />}
+                {sc && sc.belowReorder !== null && <Mini label="Below reorder" value={String(sc.belowReorder)} tone={sc.belowReorder > 0 ? 'warn' : 'good'} href="/inventory/health" />}
                 {inv && <Mini label="Stock requests pending" value={`${inv.pendingRequests} (${inv.pendingOver3Days} >3 d)`} tone={inv.pendingOver3Days > 0 ? 'warn' : 'default'} href="/inventory/approvals" />}
             </div>
         </div>
