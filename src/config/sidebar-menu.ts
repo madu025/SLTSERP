@@ -599,6 +599,11 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: Landmark,
             },
             {
+                title: 'Revenue Recognition (POC)',
+                path: '/finance/revenue-recognition',
+                icon: TrendingUp,
+            },
+            {
                 title: 'Liabilities Schedule',
                 path: '/finance/liabilities',
                 icon: Scale,

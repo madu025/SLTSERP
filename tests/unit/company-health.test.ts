@@ -215,3 +215,39 @@ test('company health raises finance control alerts into the daily management dig
   for (const id of ['fin-bankrec', 'fin-periodclose', 'fin-overdue-inv', 'fin-budget']) assert.ok(svc.includes(`'${id}'`), id);
   assert.match(svc, /await this\.financeControlAlerts\(now, ex\)/);
 });
+
+test('percentage-of-completion maths: recognised revenue, contract asset vs liability, loss warning', async () => {
+  const { pocMetrics } = await import('../../src/services/finance/revenue-recognition.service');
+  // 1,000,000 contract, 40% done, 300,000 billed, 500,000 spent
+  const under = pocMetrics(1_000_000, 40, 300_000, 500_000);
+  assert.equal(under.recognisedRevenue, 400_000);
+  assert.equal(under.contractAsset, 100_000, 'earned but not billed');
+  assert.equal(under.contractLiability, 0);
+  assert.equal(under.estimateAtCompletion, 1_250_000);
+  assert.equal(under.expectedProfit, -250_000);
+  assert.equal(under.expectedLoss, true);
+  // billed ahead of progress -> liability, no asset
+  const over = pocMetrics(1_000_000, 20, 350_000, 100_000);
+  assert.equal(over.recognisedRevenue, 200_000);
+  assert.equal(over.contractAsset, 0);
+  assert.equal(over.contractLiability, 150_000);
+  assert.equal(over.expectedLoss, false);
+  // not started: no estimate, nothing recognised, no false loss
+  const zero = pocMetrics(500_000, 0, 0, 0);
+  assert.equal(zero.estimateAtCompletion, null);
+  assert.equal(zero.expectedLoss, false);
+  // progress is clamped to 0..100
+  assert.equal(pocMetrics(1000, 150, 0, 0).recognisedRevenue, 1000);
+  assert.equal(pocMetrics(1000, -5, 0, 0).recognisedRevenue, 0);
+});
+
+test('revenue recognition is project-scoped, read-only, and its writes need finance.write', () => {
+  const svc = fs.readFileSync('src/services/finance/revenue-recognition.service.ts', 'utf8');
+  assert.match(svc, /getAccessibleProjectIds\(userId\)/);
+  assert.match(svc, /That project is outside your access/);
+  assert.doesNotMatch(svc, /journalEntry|postTransaction/, 'report only, never posts to the ledger');
+  const route = fs.readFileSync('src/app/api/finance/revenue-recognition/route.ts', 'utf8');
+  assert.match(route, /FINANCE_READ/);
+  assert.match(route, /FINANCE_WRITE/);
+  assert.match(fs.readFileSync('prisma/migrations/20261123000000_project_contract_value/migration.sql', 'utf8'), /ADD COLUMN IF NOT EXISTS "contractValue"/);
+});

@@ -33,6 +33,8 @@ model Project {
   progress              Decimal                       @default(0) @db.Decimal(8, 4)
   jobId                 String?                       @db.Uuid
   budget                Decimal?                      @db.Decimal(14, 2)
+  /// Client contract price; basis for percentage-of-completion revenue recognition (null = not set)
+  contractValue         Decimal?                      @db.Decimal(14, 2)
   actualCost            Decimal                       @default(0) @db.Decimal(14, 2)
   variance              Decimal?                      @db.Decimal(14, 2)
   startDate             DateTime?
