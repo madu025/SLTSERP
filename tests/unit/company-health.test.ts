@@ -96,3 +96,42 @@ test('company health is company-wide: scoped users are refused and aging is expl
   const forecast = fs.readFileSync('src/services/finance/cash-forecast.service.ts', 'utf8');
   assert.equal((forecast.match(/status: \{ notIn: \['DRAFT', 'CANCELLED', 'REJECTED'\] \}/g) ?? []).length >= 2, true, 'drafts are not receivables');
 });
+
+test('report comparison windows: previous period is the equal-length window before, yoy is one year earlier', async () => {
+  const { comparisonRange } = await import('../../src/services/finance/ledger-report.service');
+  const from = new Date('2026-11-01T00:00:00.000Z');
+  const to = new Date('2026-11-30T23:59:59.999Z');
+  const prev = comparisonRange(from, to, 'previous');
+  assert.equal(prev.from.toISOString(), '2026-10-02T00:00:00.000Z');
+  assert.equal(prev.to.toISOString(), '2026-10-31T23:59:59.999Z');
+  const yoy = comparisonRange(from, to, 'yoy');
+  assert.equal(yoy.from.toISOString(), '2025-11-01T00:00:00.000Z');
+  assert.equal(yoy.to.toISOString(), '2025-11-30T23:59:59.999Z');
+  // windows never overlap the current one
+  assert.ok(prev.to < from);
+});
+
+test('journal entry dimensions: schema, migration, posting and reversal all carry OPMC / project', () => {
+  const schema = fs.readFileSync('prisma/schema/inventory.prisma', 'utf8');
+  assert.match(schema, /opmcId\s+String\?\s+@db\.Uuid/);
+  assert.match(schema, /@@index\(\[opmcId\]\)/);
+  const mig = fs.readFileSync('prisma/migrations/20261121000000_journal_entry_dimensions/migration.sql', 'utf8');
+  assert.match(mig, /ADD COLUMN IF NOT EXISTS "opmcId" UUID/);
+  assert.match(mig, /"opmcId" IS NULL/); // idempotent backfill
+  const ledger = fs.readFileSync('src/services/finance/ledger.service.ts', 'utf8');
+  assert.match(ledger, /resolveEntryDimensions\(tx, payload\.referenceType, payload\.referenceId\)/);
+  assert.match(ledger, /opmcId: original\.opmcId \?\? null/);
+});
+
+test('profitability report: scoped users never see company-level rows and reuse the FP&A classifier', async () => {
+  const svc = fs.readFileSync('src/services/finance/profitability.service.ts', 'utf8');
+  assert.match(svc, /resolveOpmcScope\(userId\)/);
+  assert.match(svc, /k !== null \|\| scope === undefined/);
+  assert.match(svc, /classifyAccount/);
+  const { summarise } = await import('../../src/services/finance/profitability.service');
+  const s = summarise(1000, 400, 100);
+  assert.equal(s.grossMargin, 600);
+  assert.equal(s.netProfit, 500);
+  assert.equal(s.marginPct, 50);
+  assert.equal(summarise(0, 10, 0).marginPct, null);
+});

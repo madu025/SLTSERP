@@ -599,6 +599,11 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: Landmark,
             },
             {
+                title: 'Profitability by OPMC & Project',
+                path: '/finance/reports/profitability',
+                icon: Layers,
+            },
+            {
                 title: 'Cash Flow Statement',
                 path: '/finance/reports/cash-flow',
                 icon: TrendingUp,

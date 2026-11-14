@@ -282,6 +282,9 @@ model JournalEntry {
   createdById    String?       @db.Uuid
   approvedById   String?       @db.Uuid
   reversalOfId   String?       @db.Uuid
+  /// Reporting dimensions (set at posting time from the source document; null = unattributed)
+  opmcId         String?       @db.Uuid
+  projectId      String?       @db.Uuid
   date           DateTime      @default(now())
   createdAt      DateTime      @default(now())
   lines          JournalLine[]
@@ -292,6 +295,8 @@ model JournalEntry {
   @@index([createdById])
   @@index([approvedById])
   @@index([reversalOfId])
+  @@index([opmcId])
+  @@index([projectId])
 }
 
 model JournalLine {
