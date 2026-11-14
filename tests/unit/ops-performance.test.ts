@@ -73,3 +73,26 @@ test('RTOM scoreboard health: average of the components that exist, weakest list
   assert.doesNotMatch(comp, /@\/services\//);
   assert.match(fs.readFileSync('src/app/dashboard/page.tsx', 'utf8'), /<OperationsScoreboard /);
 });
+
+test('weekly operations digest: Monday job, registered everywhere, template-wired and HTML-safe', async () => {
+  const { exceptionsHtml, OPS_DIGEST_TEMPLATE_CODE } = await import('../../src/services/notification/ops-weekly-digest.service');
+  const html = exceptionsHtml([{ severity: 'critical', area: 'Operations', title: '<b>Bad</b> & ugly', detail: 'a < b' }]);
+  assert.doesNotMatch(html, /<b>Bad<\/b>/, 'titles are escaped, never injected as markup');
+  assert.match(html, /&lt;b&gt;Bad&lt;\/b&gt; &amp; ugly/);
+  assert.match(exceptionsHtml([]), /No operations or project exceptions/);
+
+  const sync = fs.readFileSync('src/services/service-order/sod.sync.service.ts', 'utf8');
+  assert.match(sync, /name: 'ops-weekly-digest', type: 'OPS_WEEKLY_DIGEST', at: '07:50', onlyOn: 1/);
+  assert.match(sync, /if \(type === 'OPS_WEEKLY_DIGEST'\)/);
+  assert.match(fs.readFileSync('src/services/service-order/sync/types.ts', 'utf8'), /'OPS_WEEKLY_DIGEST'/);
+  assert.match(fs.readFileSync('src/workers/system.worker.ts', 'utf8'), /OPS_WEEKLY_DIGEST: async/);
+
+  // email mandate: registry + seed + renderEmailByCode with fallback
+  assert.equal(OPS_DIGEST_TEMPLATE_CODE, 'OPS_WEEKLY_DIGEST');
+  assert.match(fs.readFileSync('src/config/notification-templates.ts', 'utf8'), /code: 'OPS_WEEKLY_DIGEST'/);
+  assert.match(fs.readFileSync('prisma/seed-notification-templates.ts', 'utf8'), /code: 'OPS_WEEKLY_DIGEST'/);
+  const svc = fs.readFileSync('src/services/notification/ops-weekly-digest.service.ts', 'utf8');
+  assert.match(svc, /renderEmailByCode\(OPS_DIGEST_TEMPLATE_CODE/);
+  assert.match(svc, /audience: 'SOD_PROJECT'/);
+  assert.match(svc, /dedupKey: `ops-weekly-digest:\$\{week\}`/);
+});

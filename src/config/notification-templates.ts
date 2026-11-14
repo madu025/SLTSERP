@@ -73,6 +73,14 @@ export const TEMPLATE_CODES: TemplateCodeDef[] = [
     defaultEntityType: 'DAILY_SUMMARY'
   },
   {
+    code: 'OPS_WEEKLY_DIGEST',
+    label: 'Weekly Operations Digest',
+    description: 'Monday digest for SOD/project managers: 30-day SLA, oldest backlogs and operations/project exceptions',
+    category: 'ALERT',
+    placeholders: ['user', 'weekLabel', 'completed', 'slaPct', 'slaDays', 'oldestBacklogs', 'exceptions', 'dashboardUrl'],
+    defaultEntityType: 'OPS_DIGEST'
+  },
+  {
     code: 'NOTIFICATION_GENERIC',
     label: 'Generic Notification',
     description: 'In-app notification sent via email fallback',

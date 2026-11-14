@@ -150,7 +150,7 @@ export class SODSyncService {
      */
     private static readonly TICK_DAILY_JOBS: ReadonlyArray<{
         name: string;
-        type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP' | 'PROJECT_REMINDERS' | 'MANAGEMENT_ALERTS' | 'EVM_SNAPSHOT';
+        type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP' | 'PROJECT_REMINDERS' | 'MANAGEMENT_ALERTS' | 'EVM_SNAPSHOT' | 'OPS_WEEKLY_DIGEST';
         at: string;
         onlyOn?: number;
         inlineCostMs: number;
@@ -164,6 +164,8 @@ export class SODSyncService {
             { name: 'project-reminders', type: 'PROJECT_REMINDERS', at: '07:30', inlineCostMs: 20000 },
             // Management alert digest (company-health exceptions pushed to the management audience).
             { name: 'management-alerts', type: 'MANAGEMENT_ALERTS', at: '07:45', inlineCostMs: 20000 },
+            // Monday operations digest (in-app + email) for the SOD/project management audience.
+            { name: 'ops-weekly-digest', type: 'OPS_WEEKLY_DIGEST', at: '07:50', onlyOn: 1, inlineCostMs: 30000 },
             { name: 'notification-cleanup', type: 'NOTIFICATION_CLEANUP', at: '02:00', onlyOn: 0, inlineCostMs: 8000 },
         ];
 
@@ -1289,7 +1291,7 @@ export class SODSyncService {
      * stays possible. Public because the system worker delegates here - two bodies for one job is how
      * a queued pass and a serverless pass start disagreeing.
      */
-    static async runDailyTask(type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP' | 'PROJECT_REMINDERS' | 'MANAGEMENT_ALERTS' | 'EVM_SNAPSHOT'): Promise<unknown> {
+    static async runDailyTask(type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP' | 'PROJECT_REMINDERS' | 'MANAGEMENT_ALERTS' | 'EVM_SNAPSHOT' | 'OPS_WEEKLY_DIGEST'): Promise<unknown> {
         const window = tickWindow(new Date(), 60_000);
 
         if (type === 'DAILY_REPORT_SNAPSHOT') {
@@ -1313,6 +1315,10 @@ export class SODSyncService {
         if (type === 'PROJECT_REMINDERS') {
             const { ReminderSchedulerService } = await import('../notification/reminder-scheduler.service');
             return ReminderSchedulerService.runProjectReminders();
+        }
+        if (type === 'OPS_WEEKLY_DIGEST') {
+            const { OpsWeeklyDigestService } = await import('../notification/ops-weekly-digest.service');
+            return OpsWeeklyDigestService.run();
         }
         if (type === 'EVM_SNAPSHOT') {
             const { ProjectEvmSnapshotService } = await import('../project/project-evm-snapshot.service');
