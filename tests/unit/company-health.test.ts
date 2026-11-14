@@ -188,3 +188,30 @@ test('finance report pages export through the shared CSV helper (no hand-rolled 
     assert.doesNotMatch(src, /createObjectURL/, p);
   }
 });
+
+test('liabilities schedule groups accounts for management, drops zero balances and is company-wide only', async () => {
+  const { groupLiabilities, categoriseLiability } = await import('../../src/services/finance/liabilities-schedule.service');
+  assert.equal(categoriseLiability('AP-CON-2020'), 'TRADE_PAYABLES');
+  assert.equal(categoriseLiability('RET-PAY-2130'), 'RETENTION');
+  assert.equal(categoriseLiability('VAT-PAY-2110'), 'TAXES');
+  assert.equal(categoriseLiability('HO-CLEARING-2500'), 'INTERCOMPANY');
+  assert.equal(categoriseLiability('SOMETHING-NEW'), 'OTHER');
+  const { groups, total } = groupLiabilities([
+    { code: 'AP-CON-2020', name: 'Contractor', balance: 500 },
+    { code: 'AP-VEND-2010', name: 'Vendors', balance: 1500 },
+    { code: 'WHT-PAY-2120', name: 'WHT', balance: 100 },
+    { code: 'EMPTY', name: 'Zero', balance: 0 },
+  ]);
+  assert.deepEqual(groups.map((g) => g.category), ['TRADE_PAYABLES', 'TAXES']);
+  assert.equal(groups[0].total, 2000);
+  assert.equal(groups[0].accounts[0].code, 'AP-VEND-2010', 'largest first');
+  assert.equal(total, 2100);
+  const route = fs.readFileSync('src/app/api/finance/liabilities/route.ts', 'utf8');
+  assert.match(route, /scope !== undefined\) throw AppError\.forbidden/);
+});
+
+test('company health raises finance control alerts into the daily management digest', () => {
+  const svc = fs.readFileSync('src/services/core/company-health.service.ts', 'utf8');
+  for (const id of ['fin-bankrec', 'fin-periodclose', 'fin-overdue-inv', 'fin-budget']) assert.ok(svc.includes(`'${id}'`), id);
+  assert.match(svc, /await this\.financeControlAlerts\(now, ex\)/);
+});

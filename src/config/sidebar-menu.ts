@@ -599,6 +599,11 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: Landmark,
             },
             {
+                title: 'Liabilities Schedule',
+                path: '/finance/liabilities',
+                icon: Scale,
+            },
+            {
                 title: 'Budget vs Actual (GL)',
                 path: '/finance/budget-vs-actual',
                 icon: Scale,

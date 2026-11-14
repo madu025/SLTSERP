@@ -156,6 +156,7 @@ export class CompanyHealthService {
         } catch (error) {
             console.warn('[COMPANY-HEALTH] Budget check skipped:', error instanceof Error ? error.message : error);
         }
+        await this.financeControlAlerts(now, ex);
         if (cash.closingCash < 0) {
             ex.push({ id: 'fin-cash', severity: 'critical', area: 'Finance', title: 'Negative cash position', detail: `Bank and petty cash net ${fmt(cash.closingCash)}`, href: '/finance/bank' });
         }
@@ -171,6 +172,40 @@ export class CompanyHealthService {
             receivables: { total: ar.summary.total, over60, over90: ar.summary.over90, over60Pct, glReconciled: ar.isReconciled },
             payablesTotal: ap.summary.total,
         };
+    }
+
+    /** Month-end and collection discipline: stale bank reconciliation, period not closed, issued invoices past due. */
+    private static async financeControlAlerts(now: Date, ex: HealthException[]): Promise<void> {
+        try {
+            const staleBefore = new Date(now.getTime() - 30 * DAY_MS);
+            const staleLines = await prisma.bankStatementLine.count({ where: { reconciledAt: null, statementDate: { lt: staleBefore } } });
+            if (staleLines > 0) {
+                ex.push({ id: 'fin-bankrec', severity: 'warning', area: 'Finance', title: 'Bank reconciliation behind', detail: `${staleLines} bank statement line(s) older than 30 days are still unreconciled`, href: '/finance/bank-reconciliation' });
+            }
+
+            // Previous month should be closed once the first ten days of the new month have passed
+            if (now.getUTCDate() > 10) {
+                const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+                const period = await prisma.fiscalPeriod.findUnique({
+                    where: { year_month: { year: prev.getUTCFullYear(), month: prev.getUTCMonth() + 1 } },
+                    select: { status: true },
+                });
+                if (period && period.status === 'OPEN') {
+                    ex.push({ id: 'fin-periodclose', severity: 'warning', area: 'Finance', title: 'Previous month not closed', detail: `${prev.toLocaleString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })} is still open after the 10th`, href: '/finance/period-close' });
+                }
+            }
+
+            const overdue = await prisma.projectInvoice.aggregate({
+                where: { type: 'CLIENT', status: { notIn: ['DRAFT', 'CANCELLED', 'REJECTED'] }, balanceAmount: { gt: 0 }, dueDate: { lt: now } },
+                _sum: { balanceAmount: true },
+                _count: true,
+            });
+            if (overdue._count > 0) {
+                ex.push({ id: 'fin-overdue-inv', severity: 'warning', area: 'Finance', title: 'Issued invoices past due', detail: `${overdue._count} invoice(s) totalling ${fmt(Number(overdue._sum.balanceAmount ?? 0))} are past their due date`, href: '/finance/ar/aging' });
+            }
+        } catch (error) {
+            console.warn('[COMPANY-HEALTH] Finance control checks skipped:', error instanceof Error ? error.message : error);
+        }
     }
 
     private static async operationsSection(b: ReturnType<typeof monthBounds>, now: Date, ex: HealthException[]): Promise<NonNullable<CompanyHealth['operations']>> {
