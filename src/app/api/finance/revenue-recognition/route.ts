@@ -2,6 +2,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { RevenueRecognitionService } from '@/services/finance/revenue-recognition.service';
 import { z } from 'zod';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,7 @@ export const GET = apiHandler(async (_req, params) => {
 }, { permissions: [RBAC_PERMISSIONS.FINANCE_READ] });
 
 const SetContractValueSchema = z.object({
-    projectId: z.string().uuid(),
+    projectId: databaseUuidSchema,
     contractValue: z.number().min(0).nullable(),
 });
 

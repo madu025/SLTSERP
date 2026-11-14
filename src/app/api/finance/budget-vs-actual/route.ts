@@ -3,6 +3,7 @@ import { AppError } from '@/lib/error';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { LedgerBudgetService } from '@/services/finance/ledger-budget.service';
 import { z } from 'zod';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,7 @@ export const GET = apiHandler(async (req, params) => {
 const SetBudgetSchema = z.object({
     fiscalYear: z.number().int().min(2020).max(2100),
     accountCode: z.string().min(1),
-    opmcId: z.string().uuid().nullable().optional(),
+    opmcId: databaseUuidSchema.nullable().optional(),
     annual: z.number().min(0).optional(),
     monthly: z.array(z.number().min(0)).length(12).optional(),
     note: z.string().max(300).optional(),
