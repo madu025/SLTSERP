@@ -3,6 +3,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { UserService } from '@/services/hr/user.service';
+import { LoginHistoryService } from '@/services/hr/login-history.service';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
 
@@ -12,10 +13,13 @@ const loginSchema = z.object({
 });
 
 export const POST = apiHandler(async (_req, _params, data: z.infer<typeof loginSchema>) => {
+    const ip = _req.headers.get('x-real-ip') ?? _req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null;
+    const userAgent = _req.headers.get('user-agent');
     const loginStart = Date.now();
     try {
         const { token, refreshToken, user } = await UserService.login({ username: data.username, password: data.password });
         console.log(`[LOGIN] AuthService succeeded in ${Date.now() - loginStart}ms for user: ${user.username}`);
+        await LoginHistoryService.recordSuccess(user.id, user.username, ip, userAgent);
 
         const isProd = process.env.NODE_ENV === 'production';
 
@@ -51,6 +55,7 @@ export const POST = apiHandler(async (_req, _params, data: z.infer<typeof loginS
         console.error(`[LOGIN] AuthService failed in ${Date.now() - loginStart}ms: ${errorMessage}`);
 
         if (errorMessage === 'INVALID_CREDENTIALS') {
+            await LoginHistoryService.recordFailure(data.username, 'BAD_PASSWORD', ip, userAgent);
             throw AppError.unauthorized('Invalid credentials');
         }
 

@@ -37,7 +37,7 @@ export const POST = apiHandler(async (req, _params, body) => {
         message: 'Password changed successfully'
     };
 }, {
-    audit: { action: 'UPDATE_PASSWORD', entity: 'USER_PROFILE' },
+    audit: { action: 'UPDATE_PASSWORD', entity: 'USER_PROFILE', entityIdParam: '_userId' },
     rawResponse: true,
     permissions: [RBAC_PERMISSIONS.DASHBOARD_READ],
 });

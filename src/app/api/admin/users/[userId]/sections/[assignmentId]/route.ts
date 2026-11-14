@@ -11,5 +11,5 @@ export const DELETE = apiHandler(async (_req, params) => {
     return { message: 'Assignment removed successfully' };
 }, {
     rawResponse: true,
-    audit: { action: 'REMOVE_USER_SECTION', entity: 'User' }
+    audit: { action: 'REMOVE_USER_SECTION', entity: 'User', entityIdParam: 'userId', captureOld: async (p) => UserService.getUserSections(p.userId) }
 });

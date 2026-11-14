@@ -108,7 +108,7 @@ export default function CompanyHealthSection({ userId, enabled = true }: Props) 
         );
     }
 
-    const { finance: f, operations: o, projects: p, fleet, helpdesk: h, inventory: inv, supplyChain: sc, exceptions } = data;
+    const { finance: f, operations: o, projects: p, fleet, helpdesk: h, inventory: inv, supplyChain: sc, controls: ctl, exceptions } = data;
     const asOf = new Date(data.asOf).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
     const shown = showAll ? exceptions : exceptions.slice(0, 6);
     const arData = f ? [
@@ -194,6 +194,14 @@ export default function CompanyHealthSection({ userId, enabled = true }: Props) 
                     {sc.lateBuckets && <Panel title="Late purchase orders (days late)" href="/procurement/performance"><AgeingBars data={sc.lateBuckets.map((b) => ({ name: b.bucket, value: b.count }))} empty="No late purchase orders" /></Panel>}
                     {sc.dead && <Panel title="Dead stock (days idle)" href="/inventory/health"><AgeingBars data={sc.dead.map((d) => ({ name: d.bucket, value: d.value ?? d.skus }))} format={compact} empty="No dead stock" /></Panel>}
                     {sc.topVendors && <Panel title="Top vendors by spend" href="/procurement/vendors"><AgeingBars data={sc.topVendors.map((v) => ({ name: v.name.slice(0, 10), value: v.spend }))} format={compact} empty="No vendor spend" color="#6366f1" /></Panel>}
+                </div>
+            )}
+
+            {/* Control environment */}
+            {ctl && (ctl.breachByKind.length > 0 || ctl.approvals.length > 0) && (
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    <Panel title="Separation-of-duties breaches (30 days)" href="/admin/control"><AgeingBars data={ctl.breachByKind.map((b) => ({ name: b.label.slice(0, 12), value: b.count }))} empty="No breaches" color="#ef4444" /></Panel>
+                    <Panel title="Oldest pending approval by type (days)" href="/admin/control"><AgeingBars data={ctl.approvals.map((a) => ({ name: a.type.slice(0, 12), value: a.oldestDays ?? 0 }))} empty="Nothing waiting" /></Panel>
                 </div>
             )}
 

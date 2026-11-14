@@ -870,6 +870,11 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: HistoryIcon,
             },
             {
+                title: 'Control Monitor',
+                path: '/admin/control',
+                icon: HistoryIcon,
+            },
+            {
                 title: 'System Health & Monitoring',
                 path: '/admin/monitoring',
                 icon: Activity,

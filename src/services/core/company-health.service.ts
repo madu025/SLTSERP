@@ -12,6 +12,12 @@ import { ProcurementPerformanceService } from '@/services/procurement/procuremen
 import { InventoryHealthService } from '@/services/inventory/inventory-health.service';
 import { VendorScorecardService } from '@/services/procurement/vendor-scorecard.service';
 import { buildSupplyChainExceptions } from '@/services/procurement/supply-chain-exceptions';
+import { AccessRiskService } from '@/services/control/access-risk.service';
+import { SodBreachService } from '@/services/control/sod-breach.service';
+import { ApprovalAgeingService } from '@/services/control/approval-ageing.service';
+import { FinanceControlsService } from '@/services/control/finance-controls.service';
+import { buildControlExceptions } from '@/services/control/control-exceptions';
+import type { ControlSummary } from '@/lib/control-shared';
 
 /**
  * One-page company health for management (CEO / GM).
@@ -26,7 +32,7 @@ export type Severity = 'critical' | 'warning' | 'info';
 export interface HealthException {
     id: string;
     severity: Severity;
-    area: 'Finance' | 'Operations' | 'Projects' | 'Fleet' | 'Helpdesk' | 'Inventory' | 'Procurement';
+    area: 'Finance' | 'Operations' | 'Projects' | 'Fleet' | 'Helpdesk' | 'Inventory' | 'Procurement' | 'Controls';
     title: string;
     detail: string;
     href: string;
@@ -128,6 +134,12 @@ export interface CompanyHealth {
         stockValue: number | null;
         belowReorder: number | null;
     };
+    /** Control environment (administrators only): summary numbers plus the chart data. */
+    controls: null | {
+        summary: ControlSummary;
+        breachByKind: { label: string; count: number }[];
+        approvals: { type: string; pending: number; oldestDays: number | null }[];
+    };
     exceptions: HealthException[];
 }
 
@@ -172,6 +184,7 @@ export class CompanyHealthService {
         const fleet = has(RBAC_PERMISSIONS.FLEET_READ) ? await this.fleetSection(now, exceptions) : null;
         const helpdesk = has(RBAC_PERMISSIONS.HELPDESK_READ) ? await this.helpdeskSection(exceptions) : null;
         const inventory = has(RBAC_PERMISSIONS.INVENTORY_READ) ? await this.inventorySection(now, exceptions) : null;
+        const controls = has(RBAC_PERMISSIONS.ADMIN_RBAC) ? await this.controlsSection(now, exceptions) : null;
         const supplyChain = has(RBAC_PERMISSIONS.INVENTORY_READ) || has(RBAC_PERMISSIONS.PROCUREMENT_READ)
             ? await this.supplyChainSection(has(RBAC_PERMISSIONS.PROCUREMENT_READ), has(RBAC_PERMISSIONS.INVENTORY_READ), has(RBAC_PERMISSIONS.INVENTORY_COST_READ), now, exceptions)
             : null;
@@ -182,7 +195,7 @@ export class CompanyHealthService {
         return {
             asOf: now.toISOString(),
             periods: { currentLabel: b.currentLabel, previousLabel: b.previousLabel },
-            finance, operations, projects, fleet, helpdesk, inventory, supplyChain, exceptions,
+            finance, operations, projects, fleet, helpdesk, inventory, supplyChain, controls, exceptions,
         };
     }
 
@@ -404,6 +417,41 @@ export class CompanyHealthService {
             budgetUsedPct: totalBudget > 0 ? (totalActual / totalBudget) * 100 : null,
             lowSpi, untracked, health, atRisk,
         };
+    }
+
+    /** Control environment: breaches, access risk, approval ageing, finance controls. Every part degrades to zero on failure. */
+    private static async controlsSection(now: Date, ex: HealthException[]): Promise<NonNullable<CompanyHealth['controls']>> {
+        const summary: ControlSummary = { breaches30d: 0, voucherSelfPaid30d: 0, overridePrivileged: 0, sodConflictUsers: 0, neverLoggedIn: 0, dormant: 0, failedLogins7d: 0, approvalsOverSla: 0, oldestApprovalDays: null, hashBreaks: 0, openPastPeriods: 0, bankBacklogOver30: 0, backdated30d: 0 };
+        let breachByKind: { label: string; count: number }[] = [];
+        let approvals: { type: string; pending: number; oldestDays: number | null }[] = [];
+        try {
+            const b = await SodBreachService.getReport(30, now);
+            summary.breaches30d = b.total;
+            summary.voucherSelfPaid30d = b.byKind.filter((k) => k.kind === 'VOUCHER_APPROVED_AND_PAID' || k.kind === 'VOUCHER_SELF_APPROVED').reduce((a, k) => a + k.count, 0);
+            breachByKind = b.byKind.map((k) => ({ label: k.label, count: k.count }));
+        } catch (error) { console.warn('[COMPANY-HEALTH] SoD breaches skipped:', error instanceof Error ? error.message : error); }
+        try {
+            const a = await AccessRiskService.getReport(now);
+            summary.overridePrivileged = a.overridePrivileged.length;
+            summary.sodConflictUsers = a.sodConflicts.length;
+            summary.neverLoggedIn = a.neverLoggedIn.length;
+            summary.dormant = a.dormant.length;
+            summary.failedLogins7d = a.failedLogins7d.total;
+        } catch (error) { console.warn('[COMPANY-HEALTH] Access risk skipped:', error instanceof Error ? error.message : error); }
+        try {
+            const r = await ApprovalAgeingService.getReport(now);
+            approvals = r.rows.filter((x) => x.pending > 0).map((x) => ({ type: x.type, pending: x.pending, oldestDays: x.oldestDays }));
+            summary.oldestApprovalDays = approvals.reduce<number | null>((m, x) => (x.oldestDays !== null && (m === null || x.oldestDays > m) ? x.oldestDays : m), null);
+        } catch (error) { console.warn('[COMPANY-HEALTH] Approval ageing skipped:', error instanceof Error ? error.message : error); }
+        try {
+            const f = await FinanceControlsService.getReport(30, now);
+            summary.hashBreaks = f.hashChain.breaks;
+            summary.openPastPeriods = f.openPastPeriods;
+            summary.bankBacklogOver30 = f.bankBacklog.buckets.slice(1).reduce((a, x) => a + x.count, 0);
+            summary.backdated30d = f.backdated.count;
+        } catch (error) { console.warn('[COMPANY-HEALTH] Finance controls skipped:', error instanceof Error ? error.message : error); }
+        ex.push(...buildControlExceptions(summary));
+        return { summary, breachByKind, approvals };
     }
 
     /** Company-wide procurement and stock picture. Reports are built for the whole company (this view is company-wide only). */

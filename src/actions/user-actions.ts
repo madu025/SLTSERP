@@ -75,6 +75,7 @@ export async function createUser(data: UserActionInput) {
                     username,
                     email,
                     password: hashedPassword,
+                    passwordChangedAt: new Date(),
                     name,
                     role: (role || 'ENGINEER') as Role,
                     permissions: permissions && permissions.length > 0 ? JSON.stringify(permissions) : null,

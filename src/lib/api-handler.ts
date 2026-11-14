@@ -85,6 +85,10 @@ export interface ApiHandlerOptions<B> {
     audit?: {
         action: string;
         entity: string;
+        /** Route param (or '_userId') that identifies the audited record when the handler result has no id. */
+        entityIdParam?: string;
+        /** Reads the record's current state before the handler runs, so the audit row carries the old value. */
+        captureOld?: (params: Record<string, string>) => Promise<unknown>;
     };
     rawResponse?: boolean;
     rateLimit?: {
@@ -483,6 +487,10 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                 };
 
                 // ── 6. Execute Handler ─────────────────────────────────────
+                let auditOldSnapshot: unknown = null;
+                if (options?.audit?.captureOld && userId) {
+                    auditOldSnapshot = await options.audit.captureOld(params as unknown as Record<string, string>).catch(() => null);
+                }
                 const result = await handler(req, params, body);
 
                 // ── 7. Performance Alert (>500 ms) ─────────────────────────
@@ -492,7 +500,8 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                 // ── 8. Audit Log with Redacted Sensitive Data ───────────────
                 if (options?.audit && userId) {
                     const meta     = result as ResultMeta;
-                    const entityId = String(meta?.id ?? meta?.soNum ?? 'N/A');
+                    const paramId = options.audit.entityIdParam ? (params as unknown as Record<string, unknown>)[options.audit.entityIdParam] : undefined;
+                    const entityId = String(meta?.id ?? meta?.soNum ?? paramId ?? 'N/A');
 
                     AuditService.log({
                         userId,
@@ -500,7 +509,7 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                         entity: options.audit.entity,
                         entityId,
                         // Handlers pre-fetch oldValue and attach as result.__oldValue
-                        oldValue: meta?.__oldValue ? redactSensitiveFields(meta.__oldValue) : null,
+                        oldValue: meta?.__oldValue ? redactSensitiveFields(meta.__oldValue) : (auditOldSnapshot ? redactSensitiveFields(auditOldSnapshot) : null),
                         newValue: redactSensitiveFields(body ?? result),
                         ipAddress: req.headers.get('x-real-ip') ?? undefined,
                         userAgent: req.headers.get('user-agent') ?? undefined,

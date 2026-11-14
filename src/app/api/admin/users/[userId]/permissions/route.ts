@@ -5,6 +5,7 @@ import { UserService } from '@/services/hr/user.service';
 import { z } from 'zod';
 import { AppError } from '@/lib/error';
 import { isCanonicalPermission, RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { prisma } from '@/lib/prisma';
 
 const updatePermissionsSchema = z.object({
     permissions: z.array(z.string()).min(1, 'Permissions must be a non-empty array')
@@ -35,5 +36,9 @@ export const PATCH = apiHandler(async (_req, params, body) => {
     return Response.json({ message: 'Permissions updated successfully' });
 }, {
     schema: updatePermissionsSchema,
-    audit: { action: 'UPDATE_USER_PERMISSIONS', entity: 'User' }
+    // The row names the user whose access changed and keeps the previous grants (null = inherited from role)
+    audit: {
+        action: 'UPDATE_USER_PERMISSIONS', entity: 'User', entityIdParam: 'userId',
+        captureOld: async (p) => ({ permissions: (await prisma.user.findUnique({ where: { id: p.userId }, select: { permissions: true } }))?.permissions ?? null }),
+    }
 });

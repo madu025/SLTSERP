@@ -30,5 +30,5 @@ export const POST = apiHandler(async (_req, params, body) => {
     return assignment;
 }, {
     rawResponse: true,
-    audit: { action: 'ASSIGN_USER_SECTION', entity: 'User' }
+    audit: { action: 'ASSIGN_USER_SECTION', entity: 'User', entityIdParam: 'userId', captureOld: async (p) => UserService.getUserSections(p.userId) }
 });

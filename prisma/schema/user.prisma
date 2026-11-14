@@ -18,6 +18,10 @@ model User {
   contractorId                  String?                       @db.Uuid
   mustChangePassword            Boolean                       @default(false)
   tokenVersion                  Int                           @default(0)
+  lastLoginAt                   DateTime?
+  passwordChangedAt             DateTime?
+  failedLoginCount              Int                           @default(0)
+  lockedUntil                   DateTime?
   createdAt                     DateTime                      @default(now())
   updatedAt                     DateTime                      @updatedAt
   permissions                   String?
@@ -168,6 +172,7 @@ model AuditLog {
   @@index([entity, entityId])
   @@index([userId])
   @@index([createdAt])
+  @@index([action, createdAt])
 }
 
 model Staff {
@@ -233,4 +238,20 @@ model PushSubscription {
 
   @@unique([userId, endpoint])
   @@index([userId])
+}
+
+/// One row per sign-in attempt (success or failure). Reporting only: rate limiting stays in Redis.
+model LoginEvent {
+  id        String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId    String?  @db.Uuid
+  username  String
+  success   Boolean
+  reason    String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@index([success, createdAt])
 }

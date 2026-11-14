@@ -729,6 +729,10 @@ export class InvoiceService {
         if (!invoice) {
             throw AppError.notFound('Invoice not found');
         }
+        // Clearing twice would overwrite the original clearance with no trace
+        if (invoice.statusA === 'SF_AUDIT_APPROVED') {
+            throw AppError.badRequest('This invoice has already been cleared by SF Audit');
+        }
 
         const updatedInvoice = await prisma.invoice.update({
             where: { id: invoiceId },

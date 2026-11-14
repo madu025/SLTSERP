@@ -272,6 +272,7 @@ export class UserService {
                     username,
                     email,
                     password: hashedPassword,
+                    passwordChangedAt: new Date(),
                     name,
                     role: role || 'ENGINEER',
                     status: status || 'active',
@@ -712,6 +713,7 @@ export class UserService {
             where: { id: decoded.userId },
             data: {
                 password: hashedPassword,
+                passwordChangedAt: new Date(),
                 tokenVersion: { increment: 1 }
             }
         });
@@ -815,6 +817,7 @@ export class UserService {
             where: { id: userId },
             data: {
                 password: hashedNewPassword,
+                passwordChangedAt: new Date(),
                 // Clear the forced-rotation flag once the password is rotated —
                 // otherwise the account stays locked after re-login (infinite loop).
                 mustChangePassword: false,
