@@ -64,6 +64,7 @@ export interface CompanyHealth {
 }
 
 const DAY_MS = 24 * 3600 * 1000;
+const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
 const OPEN_SOD_STATUSES = ['PENDING', 'INPROGRESS', 'ASSIGNED'] as const;
 const FINISHED_PROJECT_STATUSES = ['COMPLETED', 'CANCELLED', 'SLT_PAT_PASSED', 'PRE_PAT_PASSED'] as const;
 
@@ -133,10 +134,10 @@ export class CompanyHealthService {
         const marginPct = cur.totalRevenue > 0 ? (cur.netProfit / cur.totalRevenue) * 100 : null;
 
         if (cur.netProfit < 0) {
-            ex.push({ id: 'fin-loss', severity: 'critical', area: 'Finance', title: 'Loss-making month', detail: `Net result ${cur.netProfit.toFixed(0)} for ${b.currentLabel}`, href: '/finance/reports/pnl' });
+            ex.push({ id: 'fin-loss', severity: 'critical', area: 'Finance', title: 'Loss-making month', detail: `Net result ${fmt(cur.netProfit)} for ${b.currentLabel}`, href: '/finance/reports/pnl' });
         }
         if (ar.summary.over90 > 0) {
-            ex.push({ id: 'fin-ar90', severity: 'critical', area: 'Finance', title: 'Receivables over 90 days', detail: `${ar.summary.over90.toFixed(0)} outstanding more than 90 days`, href: '/finance/ar/aging' });
+            ex.push({ id: 'fin-ar90', severity: 'critical', area: 'Finance', title: 'Receivables over 90 days', detail: `${fmt(ar.summary.over90)} outstanding more than 90 days`, href: '/finance/ar/aging' });
         } else if (over60Pct !== null && over60Pct > 25) {
             ex.push({ id: 'fin-ar60', severity: 'warning', area: 'Finance', title: 'Receivables ageing', detail: `${over60Pct.toFixed(0)}% of receivables is older than 60 days`, href: '/finance/ar/aging' });
         }
@@ -144,7 +145,7 @@ export class CompanyHealthService {
             ex.push({ id: 'fin-arrec', severity: 'warning', area: 'Finance', title: 'AR sub-ledger differs from GL', detail: 'AR aging total does not match the AR-1110 control account', href: '/finance/ar/aging' });
         }
         if (cash.closingCash < 0) {
-            ex.push({ id: 'fin-cash', severity: 'critical', area: 'Finance', title: 'Negative cash position', detail: `Bank and petty cash net ${cash.closingCash.toFixed(0)}`, href: '/finance/bank' });
+            ex.push({ id: 'fin-cash', severity: 'critical', area: 'Finance', title: 'Negative cash position', detail: `Bank and petty cash net ${fmt(cash.closingCash)}`, href: '/finance/bank' });
         }
 
         return {
