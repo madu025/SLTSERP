@@ -198,3 +198,9 @@ test('release B wiring: award rules, maker-checker, RFQ template, jobs, migratio
   for (const c of ['"quotationId"', '"createdById"', '"requestedAt"']) assert.ok(mig.includes(c), c);
   assert.doesNotMatch(mig, /DROP |TRUNCATE |DELETE FROM/i);
 });
+
+test('commitment ignores store orders raised before per-line receipt tracking existed', () => {
+  const spend = read('src/services/procurement/spend.service.ts');
+  assert.match(spend, /STORE_PO_TRACKING_START/);
+  assert.match(spend, /createdAt: \{ gte: STORE_PO_TRACKING_START \}/);
+});

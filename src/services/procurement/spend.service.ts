@@ -5,6 +5,13 @@ import { committedValue } from '@/lib/procurement-rules';
 
 const OPEN_PROJECT_PO = ['APPROVED', 'ISSUED', 'PARTIALLY_RECEIVED'];
 const SPEND_PROJECT_PO = ['APPROVED', 'ISSUED', 'PARTIALLY_RECEIVED', 'FULLY_RECEIVED', 'CLOSED'];
+/**
+ * Store purchase orders raised before this date did not track what was received per order line (goods receipts were only
+ * checked against the stock request), so their balance is unknown and they are left out of the commitment figure instead
+ * of being counted as fully outstanding.
+ */
+export const STORE_PO_TRACKING_START = new Date('2026-11-15T00:00:00Z');
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export interface SpendReport {
@@ -34,7 +41,7 @@ export class SpendService {
             prisma.projectPurchaseOrder.findMany({ where: { status: { in: SPEND_PROJECT_PO }, orderDate: { gte: since }, ...projectScope }, select: { orderDate: true, totalAmount: true, expenditureType: true } }),
             prisma.purchaseOrder.findMany({ where: { status: { not: 'CANCELLED' }, orderDate: { gte: since }, ...storeScope }, select: { orderDate: true, totalAmount: true } }),
             prisma.projectPurchaseOrder.findMany({ where: { status: { in: OPEN_PROJECT_PO }, ...projectScope }, select: { projectId: true, project: { select: { name: true } }, items: { select: { quantity: true, receivedQty: true, unitPrice: true } } } }),
-            prisma.purchaseOrder.findMany({ where: { status: { notIn: ['CANCELLED', 'CLOSED', 'RECEIVED', 'COMPLETED'] }, ...storeScope }, select: { items: { select: { quantity: true, receivedQty: true, unitPrice: true } } } }),
+            prisma.purchaseOrder.findMany({ where: { status: { notIn: ['CANCELLED', 'CLOSED', 'RECEIVED', 'COMPLETED'] }, createdAt: { gte: STORE_PO_TRACKING_START }, ...storeScope }, select: { items: { select: { quantity: true, receivedQty: true, unitPrice: true } } } }),
         ]);
 
         const months = Array.from({ length: 6 }, (_, i) => {
