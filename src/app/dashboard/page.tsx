@@ -16,17 +16,18 @@ import RoleGuard from '@/components/RoleGuard';
 import { isContractorRole } from '@/config/roles';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import ExecutiveControlTower from './components/ExecutiveControlTower';
+import CompanyHealthSection from './components/CompanyHealthSection';
 
 const DASHBOARD_STATS_REQUEST_TIMEOUT_MS = 12_000;
 
 export const getDefaultTabForPermissions = (permissions: readonly string[] = []) => {
     const hasPermission = (permission: string) => permissions.includes(permission);
 
-    // Manager/area reporting capabilities retain the former executive default.
+    // Management-level capabilities land on the one-page company health view.
+    if (hasPermission(RBAC_PERMISSIONS.ADMIN_RBAC) || hasPermission(RBAC_PERMISSIONS.REPORTS_MANAGER_READ)) return 'health';
+    // Area reporting capabilities retain the former executive default.
     if (
-        hasPermission(RBAC_PERMISSIONS.ADMIN_RBAC)
-        || hasPermission(RBAC_PERMISSIONS.ADMIN_SUPER)
-        || hasPermission(RBAC_PERMISSIONS.REPORTS_MANAGER_READ)
+        hasPermission(RBAC_PERMISSIONS.ADMIN_SUPER)
         || hasPermission(RBAC_PERMISSIONS.REPORTS_AREA_READ)
     ) return 'overview';
     if (hasPermission(RBAC_PERMISSIONS.PROCUREMENT_READ)) return 'procurement';
@@ -138,6 +139,7 @@ export default function DashboardPage() {
     const effectiveDefaultTab = useMemo(() => {
         const defaultTab = getDefaultTabForPermissions(user?.permissions);
         const tabVisibility: Record<string, boolean> = {
+            health: canFilterGlobally,
             overview: canViewOperations,
             operations: canViewOperations,
             projects: canViewProjects,
@@ -146,9 +148,9 @@ export default function DashboardPage() {
             inventory: canViewInventory,
         };
         if (tabVisibility[defaultTab]) return defaultTab;
-        const priority = ['overview', 'operations', 'projects', 'procurement', 'finance', 'inventory'];
+        const priority = ['health', 'overview', 'operations', 'projects', 'procurement', 'finance', 'inventory'];
         return priority.find(t => tabVisibility[t]) || 'operations';
-    }, [user?.permissions, canViewOperations, canViewProjects, canViewProcurement, canViewFinance, canViewInventory]);
+    }, [user?.permissions, canFilterGlobally, canViewOperations, canViewProjects, canViewProcurement, canViewFinance, canViewInventory]);
 
     const [activeTab, setActiveTab] = useState(() => effectiveDefaultTab);
 
@@ -358,6 +360,7 @@ export default function DashboardPage() {
                             
                             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                                 <TabsList className="mb-4 flex w-full flex-wrap justify-start gap-1 rounded-2xl border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-950">
+                                    {canFilterGlobally && <TabsTrigger value="health" className="min-w-[7.5rem]">Company health</TabsTrigger>}
                                     {canViewOperations && <TabsTrigger value="overview" className="min-w-[7.5rem]">Management overview</TabsTrigger>}
                                     {canViewOperations && <TabsTrigger value="operations">Operations</TabsTrigger>}
                                     {canViewProjects && <TabsTrigger value="projects">Projects</TabsTrigger>}
@@ -366,6 +369,17 @@ export default function DashboardPage() {
                                     {canViewInventory && <TabsTrigger value="inventory">Inventory</TabsTrigger>}
                                 </TabsList>
                                 
+                                {canFilterGlobally && (
+                                    <TabsContent value="health" className="space-y-6">
+                                        <DashboardTabHeader
+                                            eyebrow="Company health"
+                                            title="One-page business health"
+                                            description="Finance, service delivery, projects and support functions side by side with month-on-month change and a ranked list of what needs attention. Each card opens the underlying module."
+                                        />
+                                        <CompanyHealthSection userId={user.id} enabled={activeTab === 'health'} />
+                                    </TabsContent>
+                                )}
+
                                 {canViewOperations && (
                                     <TabsContent value="overview" className="space-y-6">
                                         <DashboardTabHeader
