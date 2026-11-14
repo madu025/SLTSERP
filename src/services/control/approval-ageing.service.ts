@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { DAY_MS, type ApprovalAgeRow, type ApprovalAgeingReport } from '@/lib/control-shared';
+import { ApprovalSlaService } from '@/services/notification/approval-sla.service';
 
 /**
  * What is waiting for somebody's approval across the modules, and for how long. Counts come from each module's own
@@ -31,7 +32,8 @@ export class ApprovalAgeingService {
         const ds = await prisma.assetDisposalRequest.aggregate({ where: { status: 'PENDING' }, _count: { _all: true }, _min: { createdAt: true } });
         add('Asset disposals', ds._count._all, ds._min.createdAt, '/helpdesk');
         const ua = await prisma.universalApprovalInstance.aggregate({ where: { status: 'PENDING' }, _count: { _all: true }, _min: { createdAt: true } });
-        add('Process-gate approvals', ua._count._all, ua._min.createdAt, '/approvals');
+        const slaBreaches = await ApprovalSlaService.findBreaches(now).catch(() => []);
+        add('Process-gate approvals', ua._count._all, ua._min.createdAt, '/approvals', slaBreaches.length);
         const je = await prisma.journalEntry.aggregate({ where: { status: { in: ['DRAFT', 'PENDING_APPROVAL'] } }, _count: { _all: true }, _min: { createdAt: true } });
         add('Journal entries', je._count._all, je._min.createdAt, '/finance');
 

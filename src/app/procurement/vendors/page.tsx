@@ -10,6 +10,13 @@ import { Loader2, Award } from 'lucide-react';
 import { MIN_ORDERS_FOR_VENDOR_RANKING, VENDOR_SCORE_WEIGHTS, type VendorScorecard } from '@/lib/supply-chain-shared';
 import { AgeingBars, Panel, compact } from '@/app/dashboard/components/health/HealthCharts';
 
+interface Spend {
+    monthly: { label: string; project: number; store: number }[];
+    byExpenditure: { type: string; amount: number }[];
+    committed: { store: number; project: number; total: number; openOrders: number; topProjects: { projectId: string; name: string; committed: number }[] };
+    totalSpend6m: number;
+}
+
 const th = 'py-2 pr-3 text-left text-slate-900';
 const scoreTone = (s: number | null) => (s === null ? 'text-slate-700' : s >= 80 ? 'bg-emerald-100 text-emerald-900' : s >= 60 ? 'bg-amber-100 text-amber-900' : 'bg-red-100 text-red-900');
 const pct = (v: number | null) => (v === null ? '—' : `${v}%`);
@@ -22,6 +29,18 @@ export default function VendorScorecardPage() {
             const res = await fetch(`/api/procurement/vendors/scorecard?months=${months}`, { cache: 'no-store', signal });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error?.message || 'Failed to load vendor scorecard');
+            return json.data;
+        },
+        staleTime: 60_000,
+        refetchOnWindowFocus: false,
+    });
+
+    const spend = useQuery<Spend>({
+        queryKey: ['procurement-spend'],
+        queryFn: async ({ signal }) => {
+            const res = await fetch('/api/procurement/spend', { cache: 'no-store', signal });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error?.message || 'Failed to load spend');
             return json.data;
         },
         staleTime: 60_000,
@@ -57,6 +76,25 @@ export default function VendorScorecardPage() {
 
                         {data && (
                             <>
+                                {spend.data && (
+                                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3" data-testid="spend-panels">
+                                        <Panel title={`Spend by month · ${compact(spend.data.totalSpend6m)} in 6 months`}>
+                                            <AgeingBars data={spend.data.monthly.map((m) => ({ name: m.label, value: m.project + m.store }))} format={compact} empty="No purchase orders in the last 6 months" color="#6366f1" />
+                                        </Panel>
+                                        <Panel title="Spend by type">
+                                            <AgeingBars data={spend.data.byExpenditure.map((e) => ({ name: e.type, value: e.amount }))} format={compact} empty="No spend" color="#10b981" />
+                                        </Panel>
+                                        <Panel title={`Committed on open orders · ${compact(spend.data.committed.total)}`}>
+                                            <ul className="space-y-1 text-sm text-slate-900">
+                                                <li className="flex justify-between"><span>Store orders</span><span className="font-semibold" data-testid="committed-store">{compact(spend.data.committed.store)}</span></li>
+                                                <li className="flex justify-between"><span>Project orders</span><span className="font-semibold" data-testid="committed-project">{compact(spend.data.committed.project)}</span></li>
+                                                <li className="flex justify-between"><span>Open orders</span><span className="font-semibold">{spend.data.committed.openOrders}</span></li>
+                                            </ul>
+                                            {spend.data.committed.topProjects.length > 0 && <p className="mt-2 text-xs text-slate-700">Largest: {spend.data.committed.topProjects.map((p) => `${p.name} ${compact(p.committed)}`).join(', ')}</p>}
+                                        </Panel>
+                                    </div>
+                                )}
+
                                 <Panel title={`Spend by vendor · ${compact(data.totalSpend)} total`}>
                                     <AgeingBars data={data.rows.slice(0, 8).map((r) => ({ name: r.name.slice(0, 12), value: r.spend }))} format={compact} empty="No purchase orders in this window" color="#6366f1" />
                                 </Panel>

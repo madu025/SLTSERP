@@ -47,7 +47,7 @@ export const POST = apiHandler(async (req, params, body) => {
     const { projectId } = data;
 
     await assertProjectAccess(projectId, params._userId);
-    return await ProjectPurchaseOrderService.createPurchaseOrder(data);
+    return await ProjectPurchaseOrderService.createPurchaseOrder({ ...data, createdById: params._userId ?? null });
 }, {
     permissions: [RBAC_PERMISSIONS.PROCUREMENT_WRITE],
     audit: { action: 'CREATE', entity: 'PROJECT_PURCHASE_ORDER' },

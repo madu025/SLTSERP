@@ -387,6 +387,46 @@ const DEFAULT_TEMPLATES = [
 </html>`
   },
   {
+    code: 'RFQ_REQUEST',
+    title: 'Request for Quotation',
+    subject: 'Request for quotation {{quoteNumber}} - {{title}}',
+    message: 'Please quote for requisition {{requisitionNumber}}: {{title}}. Reference {{quoteNumber}}.',
+    entityType: 'QUOTATION',
+    channels: ['EMAIL'],
+    htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family:'Segoe UI',Arial,sans-serif;padding:0;margin:0;background-color:#f4f6f9;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f6f9;">
+    <tr>
+      <td align="center" style="padding:20px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+          <tr>
+            <td bgcolor="#1e40af" style="background-color:#1e40af;padding:24px 30px;border-radius:8px 8px 0 0;">
+              <h2 style="color:#ffffff;margin:0;font-size:20px;font-family:'Segoe UI',Arial,sans-serif;">Request for quotation</h2>
+              <p style="color:#dbeafe;margin:6px 0 0;font-size:13px;font-family:'Segoe UI',Arial,sans-serif;">Reference {{quoteNumber}}</p>
+            </td>
+          </tr>
+          <tr>
+            <td bgcolor="#ffffff" style="background-color:#ffffff;padding:30px;border-radius:0 0 8px 8px;">
+              <p style="font-size:16px;color:#1e293b;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">Dear {{vendorName}},</p>
+              <p style="font-size:14px;color:#334155;margin:0 0 12px;font-family:'Segoe UI',Arial,sans-serif;">Please send us your best quotation for requisition <strong>{{requisitionNumber}}</strong>: {{title}}. Required by {{requiredDate}}; please reply by {{replyBy}}.</p>
+              <div style="font-size:14px;font-family:'Segoe UI',Arial,sans-serif;">{{itemsTable}}</div>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+                <tr><td style="padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#64748b;text-align:center;font-family:'Segoe UI',Arial,sans-serif;">
+                  <p style="margin:8px 0 0;">Contact: {{contactName}} - SLTS Nexus ERP</p>
+                </td></tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+  },
+  {
     code: 'NOTIFICATION_GENERIC',
     title: 'Generic Notification',
     subject: '[SLTS NEXUS] {{title}}',

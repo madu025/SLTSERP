@@ -12,6 +12,7 @@ import { ProcurementPerformanceService } from '@/services/procurement/procuremen
 import { InventoryHealthService } from '@/services/inventory/inventory-health.service';
 import { VendorScorecardService } from '@/services/procurement/vendor-scorecard.service';
 import { buildSupplyChainExceptions } from '@/services/procurement/supply-chain-exceptions';
+import { SpendService } from '@/services/procurement/spend.service';
 import { AccessRiskService } from '@/services/control/access-risk.service';
 import { SodBreachService } from '@/services/control/sod-breach.service';
 import { ApprovalAgeingService } from '@/services/control/approval-ageing.service';
@@ -133,6 +134,8 @@ export interface CompanyHealth {
         topVendors: { name: string; spend: number; score: number | null }[] | null;
         stockValue: number | null;
         belowReorder: number | null;
+        /** Ordered but not yet received, at the order price (store and project orders). */
+        committed: number | null;
     };
     /** Control environment (administrators only): summary numbers plus the chart data. */
     controls: null | {
@@ -441,6 +444,7 @@ export class CompanyHealthService {
         try {
             const r = await ApprovalAgeingService.getReport(now);
             approvals = r.rows.filter((x) => x.pending > 0).map((x) => ({ type: x.type, pending: x.pending, oldestDays: x.oldestDays }));
+            summary.approvalsOverSla = r.rows.reduce((a, x) => a + (x.overSla ?? 0), 0);
             summary.oldestApprovalDays = approvals.reduce<number | null>((m, x) => (x.oldestDays !== null && (m === null || x.oldestDays > m) ? x.oldestDays : m), null);
         } catch (error) { console.warn('[COMPANY-HEALTH] Approval ageing skipped:', error instanceof Error ? error.message : error); }
         try {
@@ -460,17 +464,20 @@ export class CompanyHealthService {
             const p = procurement ? await ProcurementPerformanceService.getReport(null, now) : null;
             const h = inventory ? await InventoryHealthService.getReport(null, showValues, now) : null;
             const v = procurement ? await VendorScorecardService.getScorecard(null, 12, now) : null;
-            ex.push(...buildSupplyChainExceptions(p, h, v));
+            const risk = procurement ? await SpendService.commitmentRisk() : null;
+            const spend = procurement ? await SpendService.getSpend(null, now) : null;
+            ex.push(...buildSupplyChainExceptions(p, h, v, risk));
             return {
                 lateBuckets: p ? [...p.store.lateBuckets] : null,
                 dead: h ? h.dead.map((d) => ({ bucket: d.bucket, skus: d.skus, value: d.value })) : null,
                 topVendors: v ? v.rows.slice(0, 6).map((r) => ({ name: r.name, spend: r.spend, score: r.score })) : null,
                 stockValue: h ? h.totals.value : null,
                 belowReorder: h ? h.totals.belowReorder : null,
+                committed: spend ? spend.committed.total : null,
             };
         } catch (error) {
             console.warn('[COMPANY-HEALTH] Supply chain skipped:', error instanceof Error ? error.message : error);
-            return { lateBuckets: null, dead: null, topVendors: null, stockValue: null, belowReorder: null };
+            return { lateBuckets: null, dead: null, topVendors: null, stockValue: null, belowReorder: null, committed: null };
         }
     }
 

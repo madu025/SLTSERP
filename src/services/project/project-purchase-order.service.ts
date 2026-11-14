@@ -1,5 +1,8 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { userHasPermission } from '@/lib/user-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { AuditService } from '@/services/audit/audit.service';
 
 interface POItemInput {
     requisitionItemId?: string | null;
@@ -27,6 +30,10 @@ interface CreatePurchaseOrderInput {
     paymentTerms?: string | null;
     deliveryTerms?: string | null;
     notes?: string | null;
+    /** The awarded quotation this order is raised from. */
+    quotationId?: string | null;
+    /** Who raised the order: the same person cannot approve it. */
+    createdById?: string | null;
 }
 
 interface UpdatePOStatusOptions {
@@ -76,6 +83,8 @@ export class ProjectPurchaseOrderService {
             paymentTerms,
             deliveryTerms,
             notes,
+            quotationId,
+            createdById,
         } = data;
 
         // Verify project exists
@@ -141,6 +150,8 @@ export class ProjectPurchaseOrderService {
                     paymentTerms: paymentTerms || null,
                     deliveryTerms: deliveryTerms || null,
                     notes: notes || null,
+                    quotationId: quotationId || null,
+                    createdById: createdById || null,
                     items: { create: itemsData },
                 },
                 include: { items: true },
@@ -171,6 +182,11 @@ export class ProjectPurchaseOrderService {
             case 'APPROVED':
                 if (!options.approvedById) {
                     throw AppError.badRequest('APPROVED_BY_ID_REQUIRED');
+                }
+                // Maker-checker: the person who raised the order cannot approve it (administrators are exempt, and it is recorded)
+                if (existing.createdById && existing.createdById === options.approvedById && !(await userHasPermission(options.approvedById, RBAC_PERMISSIONS.ADMIN_RBAC))) {
+                    AuditService.log({ userId: options.approvedById, action: 'SOD_VIOLATION_BLOCKED', entity: 'PROJECT_PURCHASE_ORDER', entityId: id, newValue: { reason: 'creator tried to approve own purchase order' } }).catch(() => undefined);
+                    throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: the person who raised a purchase order cannot approve it');
                 }
                 updateData.approvedById = options.approvedById;
                 updateData.approvedAt = new Date();

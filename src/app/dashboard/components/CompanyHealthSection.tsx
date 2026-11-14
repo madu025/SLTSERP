@@ -219,6 +219,7 @@ export default function CompanyHealthSection({ userId, enabled = true }: Props) 
                 {fleet && <Mini label="Insurance expired" value={String(fleet.insuranceExpired)} tone={fleet.insuranceExpired > 0 ? 'bad' : 'good'} href="/fleet" />}
                 {h && <Mini label="Helpdesk open" value={`${h.openTickets} (${h.slaBreached} late)`} tone={h.slaBreached > 0 ? 'warn' : 'default'} href="/helpdesk" />}
                 {sc && sc.stockValue !== null && <Mini label="Stock value" value={compact(sc.stockValue)} href="/inventory/health" />}
+                {sc && sc.committed !== null && <Mini label="Committed (open POs)" value={compact(sc.committed)} href="/procurement/vendors" />}
                 {sc && sc.belowReorder !== null && <Mini label="Below reorder" value={String(sc.belowReorder)} tone={sc.belowReorder > 0 ? 'warn' : 'good'} href="/inventory/health" />}
                 {inv && <Mini label="Stock requests pending" value={`${inv.pendingRequests} (${inv.pendingOver3Days} >3 d)`} tone={inv.pendingOver3Days > 0 ? 'warn' : 'default'} href="/inventory/approvals" />}
             </div>

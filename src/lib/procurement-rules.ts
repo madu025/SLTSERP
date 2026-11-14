@@ -138,3 +138,49 @@ export function threeWayMatch(lines: MatchLine[], priceTolerancePct = DEFAULT_MA
     const issues = out.filter((l) => l.result !== 'MATCHED').length;
     return { status: issues === 0 ? 'MATCHED' : 'VARIANCE', lines: out, issues };
 }
+
+// ---- quotation comparison -------------------------------------------------------------------------------------------
+
+export const QUOTE_SCORE_WEIGHTS = { price: 60, delivery: 25, validity: 15 } as const;
+
+export interface QuoteForScoring { id: string; total: number; deliveryDays: number | null; validUntil: string | Date | null }
+
+/**
+ * Score received quotations 0-100: the cheapest total scores full price points and others scale down in proportion,
+ * the fastest delivery likewise, and a quotation that stays valid until the latest date scores full validity points.
+ * A missing delivery or validity is scored at half (neither a reward nor a penalty); an expired quotation scores nothing on validity.
+ */
+export function scoreQuotes(quotes: QuoteForScoring[], now = new Date()): Map<string, { score: number; expired: boolean }> {
+    const out = new Map<string, { score: number; expired: boolean }>();
+    const priced = quotes.filter((q) => q.total > 0);
+    const minTotal = priced.length ? Math.min(...priced.map((q) => q.total)) : 0;
+    const days = quotes.map((q) => q.deliveryDays).filter((d): d is number => d !== null && d > 0);
+    const minDays = days.length ? Math.min(...days) : 0;
+    const validTimes = quotes.map((q) => (q.validUntil ? new Date(q.validUntil).getTime() : null)).filter((t): t is number => t !== null);
+    const maxValid = validTimes.length ? Math.max(...validTimes) : 0;
+    for (const q of quotes) {
+        const price = q.total > 0 && minTotal > 0 ? (minTotal / q.total) * QUOTE_SCORE_WEIGHTS.price : 0;
+        const delivery = q.deliveryDays && q.deliveryDays > 0 && minDays > 0 ? (minDays / q.deliveryDays) * QUOTE_SCORE_WEIGHTS.delivery : QUOTE_SCORE_WEIGHTS.delivery / 2;
+        const validMs = q.validUntil ? new Date(q.validUntil).getTime() : null;
+        const expired = validMs !== null && validMs < now.getTime();
+        const validity = expired ? 0 : validMs !== null && maxValid > 0 ? (validMs / maxValid) * QUOTE_SCORE_WEIGHTS.validity : QUOTE_SCORE_WEIGHTS.validity / 2;
+        out.set(q.id, { score: Math.round(price + delivery + validity), expired });
+    }
+    return out;
+}
+
+// ---- commitment and approval SLA ------------------------------------------------------------------------------------
+
+/** Value of what is ordered but not yet received: balance quantity at the order price. */
+export function committedValue(lines: { quantity: number; receivedQty: number; unitPrice: number }[]): number {
+    return money(lines.reduce((a, l) => a + Math.max(0, l.quantity - l.receivedQty) * l.unitPrice, 0));
+}
+
+export type SlaState = 'OK' | 'BREACHED' | 'ESCALATE';
+
+/** An approval waiting longer than its SLA is breached; twice the SLA is escalated to administrators. */
+export function slaState(createdAt: Date | string, slaHours: number | null | undefined, now = new Date()): SlaState {
+    const hours = slaHours && slaHours > 0 ? slaHours : 24;
+    const waited = (now.getTime() - new Date(createdAt).getTime()) / 3_600_000;
+    return waited > hours * 2 ? 'ESCALATE' : waited > hours ? 'BREACHED' : 'OK';
+}

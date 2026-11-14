@@ -81,6 +81,14 @@ export const TEMPLATE_CODES: TemplateCodeDef[] = [
     defaultEntityType: 'OPS_DIGEST'
   },
   {
+    code: 'RFQ_REQUEST',
+    label: 'Request for Quotation',
+    description: 'Sent to a vendor when a quotation is requested for an approved purchase requisition',
+    category: 'NOTIFICATION',
+    placeholders: ['vendorName', 'quoteNumber', 'requisitionNumber', 'title', 'itemsTable', 'requiredDate', 'contactName', 'replyBy'],
+    defaultEntityType: 'QUOTATION'
+  },
+  {
     code: 'NOTIFICATION_GENERIC',
     label: 'Generic Notification',
     description: 'In-app notification sent via email fallback',

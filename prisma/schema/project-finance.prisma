@@ -231,6 +231,8 @@ model Quotation {
   @@index([status])
   @@index([quoteNumber])
   @@index([acceptedById])
+  /// Set when the quotation was requested from the vendor (RFQ) and not yet received
+  requestedAt    DateTime?
 }
 
 model QuotationItem {
@@ -252,6 +254,9 @@ model QuotationItem {
 
 model ProjectPurchaseOrder {
   supplierInvoices   SupplierInvoice[]
+  /// The awarded quotation this order was raised from, and who raised it (maker-checker on approval)
+  quotationId        String?                    @db.Uuid
+  createdById        String?                    @db.Uuid
   id                 String                     @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   poNumber           String                     @unique
   projectId          String                     @db.Uuid

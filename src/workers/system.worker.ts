@@ -38,6 +38,11 @@ const HANDLERS: Record<DailyJobType, (job: Job<SystemJobData>) => Promise<unknow
         return ReminderSchedulerService.runProjectReminders();
     },
 
+    APPROVAL_SLA: async () => {
+        const { ApprovalSlaService } = await import('@/services/notification/approval-sla.service');
+        return ApprovalSlaService.run();
+    },
+
     ROP_RECALC: async () => {
         const { RopRecalcService } = await import('@/services/inventory/rop-recalc.service');
         return RopRecalcService.run();

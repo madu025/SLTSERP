@@ -32,7 +32,8 @@ export type DailyJobType =
     | 'EVM_SNAPSHOT'
     | 'OPS_WEEKLY_DIGEST'
     | 'SUPPLY_CHAIN_ALERTS'
-    | 'ROP_RECALC';
+    | 'ROP_RECALC'
+    | 'APPROVAL_SLA';
 
 export interface SyncJobData {
     opmcId: string;

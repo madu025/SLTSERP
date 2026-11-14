@@ -454,6 +454,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 permissionId: RBAC_PERMISSIONS.PROCUREMENT_READ
             },
             {
+                title: 'Quotations & Award',
+                path: '/procurement/quotations',
+                icon: FileText,
+                permissionId: RBAC_PERMISSIONS.PROCUREMENT_READ
+            },
+            {
                 title: 'Supplier Invoices',
                 path: '/procurement/invoices',
                 icon: FileText,

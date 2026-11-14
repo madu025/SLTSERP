@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
   canTransitionPo, normalizePoStatus, isPoEditable, poStatusFromReceipts, validatePoLine, computePoTotals, overReceiptCheck,
-  weightedAverageCost, priceVariancePct, threeWayMatch, type MatchLine,
+  weightedAverageCost, priceVariancePct, threeWayMatch, scoreQuotes, committedValue, slaState, QUOTE_SCORE_WEIGHTS, type MatchLine,
 } from '../../src/lib/procurement-rules';
 import { suggestedOrderQty } from '../../src/lib/supply-chain-shared';
 
@@ -138,4 +138,63 @@ test('procurement wiring: routes, receipts, costing, migrations', () => {
   assert.match(m2, /fn_update_rop_levels/);
   assert.doesNotMatch(m2.split('fn_update_rop_levels')[1], /UPDATE public\."InventoryStock"[\s\S]*SET "minLevel" = i\."minLevel"/, 'ROP no longer copies the item level onto every store');
   assert.match(read('src/services/service-order/sod.material.service.ts'), /pickedUnitCost/, 'SOD ledger uses the weighted cost of the whole pick');
+});
+
+test('quotation scoring: weights add up, cheapest and fastest score highest, expired loses validity', () => {
+  assert.equal(Object.values(QUOTE_SCORE_WEIGHTS).reduce((a, b) => a + b, 0), 100);
+  const now = new Date('2026-11-15T00:00:00Z');
+  const s = scoreQuotes([
+    { id: 'a', total: 1000, deliveryDays: 5, validUntil: '2026-12-31' },
+    { id: 'b', total: 1250, deliveryDays: 10, validUntil: '2026-12-31' },
+  ], now);
+  assert.equal(s.get('a')!.score, 100);
+  assert.ok(s.get('b')!.score < s.get('a')!.score);
+  const withExpired = scoreQuotes([
+    { id: 'a', total: 1000, deliveryDays: 5, validUntil: '2026-12-31' },
+    { id: 'c', total: 900, deliveryDays: 5, validUntil: '2026-11-01' },
+  ], now);
+  assert.equal(withExpired.get('c')!.expired, true);
+  assert.equal(withExpired.get('a')!.expired, false);
+  assert.ok(withExpired.get('c')!.score < 100 && withExpired.get('c')!.score > 0);
+  // missing delivery and validity are neutral (half points), not zero
+  assert.equal(scoreQuotes([{ id: 'x', total: 100, deliveryDays: null, validUntil: null }], now).get('x')!.score, 60 + 12.5 + 7.5);
+});
+
+test('committed value is the unreceived balance at the order price', () => {
+  assert.equal(committedValue([{ quantity: 10, receivedQty: 4, unitPrice: 100 }, { quantity: 5, receivedQty: 5, unitPrice: 50 }]), 600);
+  assert.equal(committedValue([{ quantity: 10, receivedQty: 12, unitPrice: 100 }]), 0, 'over-received is never negative');
+  assert.equal(committedValue([]), 0);
+});
+
+test('approval SLA: breached after the SLA, escalated after twice the SLA, default 24 hours', () => {
+  const now = new Date('2026-11-15T12:00:00Z');
+  const ago = (h: number) => new Date(now.getTime() - h * 3_600_000);
+  assert.equal(slaState(ago(10), 24, now), 'OK');
+  assert.equal(slaState(ago(30), 24, now), 'BREACHED');
+  assert.equal(slaState(ago(50), 24, now), 'ESCALATE');
+  assert.equal(slaState(ago(30), null, now), 'BREACHED', 'no SLA stored: 24 hours');
+  assert.equal(slaState(ago(5), 4, now), 'BREACHED');
+});
+
+test('release B wiring: award rules, maker-checker, RFQ template, jobs, migration', () => {
+  const award = read('src/services/procurement/quotation-award.service.ts');
+  assert.match(award, /AWARD_REASON_REQUIRED/, 'awarding above the lowest quote needs a reason');
+  assert.match(award, /already been awarded/);
+  assert.match(award, /renderEmailByCode\('RFQ_REQUEST'/);
+  assert.match(award, /status: 'ACCEPTED'/);
+  assert.match(award, /status: \{ in: \['REQUESTED', 'RECEIVED'\] \} \}, data: \{ status: 'REJECTED'/, 'sibling quotations are rejected');
+  assert.match(award, /quotationId: quote\.id/, 'the PO records the awarded quotation');
+  assert.doesNotMatch(award, /status: 'APPROVED'|ISSUED/, 'awarding never approves or issues the order');
+
+  const poSvc = read('src/services/project/project-purchase-order.service.ts');
+  assert.match(poSvc, /SEGREGATION_OF_DUTIES_VIOLATION/);
+  assert.match(read('src/app/api/projects/purchase-orders/route.ts'), /createdById: params\._userId/);
+
+  assert.match(read('src/config/notification-templates.ts'), /code: 'RFQ_REQUEST'/);
+  assert.match(read('prisma/seed-notification-templates.ts'), /code: 'RFQ_REQUEST'/);
+  for (const f of ['src/services/service-order/sod.sync.service.ts', 'src/services/service-order/sync/types.ts', 'src/workers/system.worker.ts']) assert.match(read(f), /APPROVAL_SLA/, f);
+
+  const mig = read('prisma/migrations/20261127000000_quotation_award/migration.sql');
+  for (const c of ['"quotationId"', '"createdById"', '"requestedAt"']) assert.ok(mig.includes(c), c);
+  assert.doesNotMatch(mig, /DROP |TRUNCATE |DELETE FROM/i);
 });

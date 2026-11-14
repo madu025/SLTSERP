@@ -150,7 +150,7 @@ export class SODSyncService {
      */
     private static readonly TICK_DAILY_JOBS: ReadonlyArray<{
         name: string;
-        type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP' | 'PROJECT_REMINDERS' | 'MANAGEMENT_ALERTS' | 'EVM_SNAPSHOT' | 'OPS_WEEKLY_DIGEST' | 'SUPPLY_CHAIN_ALERTS' | 'ROP_RECALC';
+        type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP' | 'PROJECT_REMINDERS' | 'MANAGEMENT_ALERTS' | 'EVM_SNAPSHOT' | 'OPS_WEEKLY_DIGEST' | 'SUPPLY_CHAIN_ALERTS' | 'ROP_RECALC' | 'APPROVAL_SLA';
         at: string;
         onlyOn?: number;
         inlineCostMs: number;
@@ -162,6 +162,8 @@ export class SODSyncService {
             { name: 'evm-snapshot', type: 'EVM_SNAPSHOT', at: '07:20', inlineCostMs: 20000 },
             // Project hand-off reminders (task due, overdue invoices, permit expiry, DLP end, stale approvals).
             { name: 'project-reminders', type: 'PROJECT_REMINDERS', at: '07:30', inlineCostMs: 20000 },
+            // Approvals past their target time: remind the approver, escalate the very late ones to administrators.
+            { name: 'approval-sla', type: 'APPROVAL_SLA', at: '07:38', inlineCostMs: 20000 },
             // Monday: recalculate item reorder levels from the last 90 days of use (only when ROP_AUTO_RECALC is switched on).
             { name: 'rop-recalc', type: 'ROP_RECALC', at: '07:25', onlyOn: 1, inlineCostMs: 30000 },
             // Store managers are told which of their stores are below reorder level (weekly per store).
@@ -1295,7 +1297,7 @@ export class SODSyncService {
      * stays possible. Public because the system worker delegates here - two bodies for one job is how
      * a queued pass and a serverless pass start disagreeing.
      */
-    static async runDailyTask(type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP' | 'PROJECT_REMINDERS' | 'MANAGEMENT_ALERTS' | 'EVM_SNAPSHOT' | 'OPS_WEEKLY_DIGEST' | 'SUPPLY_CHAIN_ALERTS' | 'ROP_RECALC'): Promise<unknown> {
+    static async runDailyTask(type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP' | 'PROJECT_REMINDERS' | 'MANAGEMENT_ALERTS' | 'EVM_SNAPSHOT' | 'OPS_WEEKLY_DIGEST' | 'SUPPLY_CHAIN_ALERTS' | 'ROP_RECALC' | 'APPROVAL_SLA'): Promise<unknown> {
         const window = tickWindow(new Date(), 60_000);
 
         if (type === 'DAILY_REPORT_SNAPSHOT') {
@@ -1319,6 +1321,10 @@ export class SODSyncService {
         if (type === 'PROJECT_REMINDERS') {
             const { ReminderSchedulerService } = await import('../notification/reminder-scheduler.service');
             return ReminderSchedulerService.runProjectReminders();
+        }
+        if (type === 'APPROVAL_SLA') {
+            const { ApprovalSlaService } = await import('../notification/approval-sla.service');
+            return ApprovalSlaService.run();
         }
         if (type === 'ROP_RECALC') {
             const { RopRecalcService } = await import('../inventory/rop-recalc.service');

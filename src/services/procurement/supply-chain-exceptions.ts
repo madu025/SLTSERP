@@ -1,6 +1,7 @@
 import type { HealthException } from '@/services/core/company-health.service';
 import type { InventoryHealth, ProcurementReport, VendorScorecard } from '@/lib/supply-chain-shared';
 import { MIN_ORDERS_FOR_VENDOR_RANKING } from '@/lib/supply-chain-shared';
+import type { CommitmentRisk } from '@/services/procurement/spend.service';
 
 const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
 
@@ -8,8 +9,12 @@ const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
  * Management exceptions for the supply chain, built from the three reports so the Company Health tab, the 07:45
  * digest and the pages always agree. Any input may be null when the caller lacks that module's capability.
  */
-export function buildSupplyChainExceptions(p: ProcurementReport | null, h: InventoryHealth | null, v: VendorScorecard | null): HealthException[] {
+export function buildSupplyChainExceptions(p: ProcurementReport | null, h: InventoryHealth | null, v: VendorScorecard | null, risk: CommitmentRisk[] | null = null): HealthException[] {
     const ex: HealthException[] = [];
+
+    if (risk && risk.length > 0) {
+        ex.push({ id: 'sc-commitment', severity: 'warning', area: 'Procurement', title: 'Projects committed beyond budget', detail: `${risk.length} project(s) will exceed their budget once open purchase orders are received; largest: ${risk[0].name} (spent ${fmt(risk[0].actual)} + ordered ${fmt(risk[0].committed)} against ${fmt(risk[0].budget)})`, href: '/procurement/vendors' });
+    }
 
     if (p) {
         const late = p.store.late + p.project.late;
