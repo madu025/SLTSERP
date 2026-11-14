@@ -180,6 +180,11 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: HardHat,
             },
             {
+                title: 'Contractor Scorecard',
+                path: '/contractors/scorecard',
+                icon: TrendingUp,
+            },
+            {
                 title: 'Bulk Import',
                 path: '/contractors/management/import',
                 icon: Upload,

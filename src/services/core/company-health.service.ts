@@ -6,6 +6,7 @@ import { LedgerBudgetService, expenseOverruns } from '@/services/finance/ledger-
 import { SOD_TURNAROUND_SLA_DAYS } from '@/lib/constants/sod-constants';
 import { SPI_ALERT_THRESHOLD } from '@/lib/project-evm';
 import { SodPerformanceService } from '@/services/service-order/sod-performance.service';
+import { ContractorScorecardService } from '@/services/contractor/contractor-scorecard.service';
 
 /**
  * One-page company health for management (CEO / GM).
@@ -243,6 +244,20 @@ export class CompanyHealthService {
             }
         } catch (error) {
             console.warn('[COMPANY-HEALTH] SLA headline skipped:', error instanceof Error ? error.message : error);
+        }
+
+        // Contractors falling short this month (ranked contractors only: thin volumes are never flagged)
+        try {
+            const card = await ContractorScorecardService.getCompanyScorecard(undefined, 2, now);
+            const weak = card.rows
+                .filter((r) => !r.current.lowVolume && ((r.current.score ?? 100) < 60 || (r.current.completed >= 20 && (r.current.slaPct ?? 100) < 70)))
+                .sort((a, b) => (a.current.score ?? 0) - (b.current.score ?? 0))
+                .slice(0, 5);
+            for (const r of weak) {
+                ex.push({ id: `ops-contractor-${r.contractorId}`, severity: 'warning', area: 'Operations', title: `${r.name} is under-performing`, detail: `Score ${r.current.score ?? 'n/a'} this month: ${r.current.slaPct ?? 'n/a'}% within ${SOD_TURNAROUND_SLA_DAYS} days, ${r.current.completed} orders completed`, href: '/contractors/scorecard' });
+            }
+        } catch (error) {
+            console.warn('[COMPANY-HEALTH] Contractor scorecard skipped:', error instanceof Error ? error.message : error);
         }
 
         return { openOrders, agedOver10Days: aged10, agedOver30Days: aged30, completed: compare(doneCur, donePrev) };
