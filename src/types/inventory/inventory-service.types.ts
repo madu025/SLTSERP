@@ -107,6 +107,9 @@ export interface StockRequestActionData {
     // Procurement specific fields
     poNumber?: string;
     vendor?: string;
+    /** Vendor record chosen on the purchase-order screen (preferred over the typed name). */
+    vendorId?: string;
+    currency?: string;
     expectedDelivery?: string;
     irNumber?: string;
     isCoveringPO?: boolean;

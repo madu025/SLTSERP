@@ -357,7 +357,8 @@ export default function GRNPage() {
             supplier: selectedRequest.vendor,
             receivedById: user.id,
             requestId: selectedRequest.id,
-            purchaseOrderId: selectedPOId !== 'ALL' ? selectedPOId : undefined,
+            // The select holds the PO number; the server needs the PO id (and uses it to enforce the PO balance and price)
+            purchaseOrderId: selectedPOId !== 'ALL' ? (selectedRequest.purchaseOrders?.find((p) => p.poNumber === selectedPOId || p.id === selectedPOId)?.id ?? undefined) : undefined,
             sltReferenceId: selectedRequest.irNumber || null,
             reference: invoiceNumber,
             documentUrl: finalDocumentUrl || undefined,

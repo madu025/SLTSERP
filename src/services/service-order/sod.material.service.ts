@@ -106,7 +106,11 @@ export class SODMaterialService {
                 const pickedQuantity = pickedBatches
                     .filter((picked) => picked.batchId !== null)
                     .reduce((sum, picked) => sum + picked.quantity, 0);
-                const pickedForCost = pickedBatches.find((picked) => picked.batchId)?.batch as { costPrice?: number } | undefined;
+                // Ledger cost is the quantity-weighted cost of every batch the pick used (a pick can span batches bought at different prices)
+                const pickedCostTotal = pickedBatches
+                    .filter((picked) => picked.batchId !== null)
+                    .reduce((sum, picked) => sum + picked.quantity * Number((picked.batch as { costPrice?: number } | undefined)?.costPrice ?? 0), 0);
+                const pickedUnitCost = pickedQuantity > 0 ? Number((pickedCostTotal / pickedQuantity).toFixed(4)) : 0;
 
                 for (const picked of pickedBatches) {
                     const isShortage = picked.batchId === null;
@@ -143,7 +147,7 @@ export class SODMaterialService {
                         quantityBefore: Number(stockBefore?.quantity || 0),
                         quantityChange: -pickedQuantity,
                         quantityAfter: Number(stockAfter.quantity),
-                        unitPrice: Number(pickedForCost?.costPrice || 0),
+                        unitPrice: pickedUnitCost,
                         performedById: userId,
                         idempotencyKey: `SOD_MATERIAL_CONSUMPTION_${serviceOrderId}_${m.itemId}_${Date.now()}`,
                     }, tx);

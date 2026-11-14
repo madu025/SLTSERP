@@ -81,6 +81,7 @@ const procurement = (over: Partial<ProcurementReport['store']> = {}, project: Pa
   store: { openPos: 0, late: 0, noDeliveryDate: 0, lateBuckets: [], waiting: [], leadTime: { avgDays: null, medianDays: null, p90Days: null, completed: 0 }, leadTimeMonthly: [], sourceMix: [], ...over },
   project: { funnel: [], late: 0, pendingApproval: { count: 0, oldestDays: null }, fulfilmentPct: null, ...project },
   latePos,
+  priceVariance: [],
 });
 const health = (totals: Partial<InventoryHealth['totals']> = {}, extra: Partial<InventoryHealth> = {}): InventoryHealth => ({
   asOf: now.toISOString(), showValues: true, stores: [], reorder: [], dead: [], deadTop: [], turnover: [], expiring: [], neverCountedStores: 0, notes: [],

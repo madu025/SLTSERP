@@ -57,6 +57,10 @@ export interface ApAgingReport {
     summary: AgingBucket;
     glControlBalance: number;
     isReconciled: boolean;
+    /** Control accounts side by side: goods received but not yet invoiced, vendor payables, contractor payables. */
+    glBreakdown?: { accrued: number; vendor: number; contractor: number };
+    /** Approved, unpaid supplier invoices included in the ageing above. */
+    supplierInvoices?: { count: number; total: number };
     vendors: ApAgingVendorRow[];
 }
 
@@ -332,6 +336,32 @@ export class ArApService {
             }
         }
 
+        // Approved supplier invoices that have not been paid: the vendor side of payables
+        let supplierCount = 0;
+        let supplierTotal = 0;
+        if (scope === undefined) {
+            const supplierInvoices = await prisma.supplierInvoice.findMany({
+                where: { status: 'APPROVED', paidAt: null },
+                include: { vendor: { select: { name: true } } },
+            });
+            for (const inv of supplierInvoices) {
+                const ageDays = Math.floor((today.getTime() - new Date(inv.invoiceDate).getTime()) / (1000 * 3600 * 24));
+                const balance = Number(inv.totalAmount);
+                const vendorId = inv.vendorId;
+                if (!vendorMap.has(vendorId)) {
+                    vendorMap.set(vendorId, { vendorId, vendorName: inv.vendor.name, current: 0, days31to60: 0, days61to90: 0, over90: 0, totalBalance: 0 });
+                }
+                const row = vendorMap.get(vendorId)!;
+                row.totalBalance += balance;
+                summary.total += balance;
+                const key = ageDays <= 30 ? 'current' : ageDays <= 60 ? 'days31to60' : ageDays <= 90 ? 'days61to90' : 'over90';
+                row[key] += balance;
+                summary[key] += balance;
+                supplierCount++;
+                supplierTotal += balance;
+            }
+        }
+
         // Fetch GL AP-2010 control account balance
         const apGlLines = scope === undefined ? await prisma.journalLine.findMany({
             where: {
@@ -341,8 +371,13 @@ export class ArApService {
         }) : [];
 
         let glControlBalance = 0;
+        const glBreakdown = { accrued: 0, vendor: 0, contractor: 0 };
         for (const l of apGlLines) {
-            glControlBalance += Number(l.credit) - Number(l.debit);
+            const net = Number(l.credit) - Number(l.debit);
+            glControlBalance += net;
+            if (l.accountCode === ACCOUNTS.AP_ACCRUED) glBreakdown.accrued += net;
+            else if (l.accountCode === ACCOUNTS.AP_VENDOR) glBreakdown.vendor += net;
+            else glBreakdown.contractor += net;
         }
 
         const isReconciled = scope === undefined && Math.abs(summary.total - glControlBalance) < 0.01;
@@ -351,6 +386,8 @@ export class ArApService {
             summary,
             glControlBalance,
             isReconciled,
+            glBreakdown: scope === undefined ? glBreakdown : undefined,
+            supplierInvoices: { count: supplierCount, total: supplierTotal },
             vendors: Array.from(vendorMap.values())
         };
     }

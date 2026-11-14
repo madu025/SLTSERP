@@ -2,22 +2,22 @@
 /// A project may have several finance participants and the accountable person
 /// can be handed over without changing the user's global identity or grants.
 model ProjectFinanceAssignment {
-  id             String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  projectId      String   @db.Uuid
-  userId         String   @db.Uuid
+  id             String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId      String    @db.Uuid
+  userId         String    @db.Uuid
   assignmentRole String
-  status         String   @default("ACTIVE")
-  isPrimary      Boolean  @default(false)
-  startsAt       DateTime @default(now())
+  status         String    @default("ACTIVE")
+  isPrimary      Boolean   @default(false)
+  startsAt       DateTime  @default(now())
   endsAt         DateTime?
-  assignedById   String   @db.Uuid
+  assignedById   String    @db.Uuid
   notes          String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user           User     @relation("ProjectFinanceAssignmentUser", fields: [userId], references: [id], onDelete: Restrict)
-  assignedBy     User     @relation("ProjectFinanceAssignmentAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user       User    @relation("ProjectFinanceAssignmentUser", fields: [userId], references: [id], onDelete: Restrict)
+  assignedBy User    @relation("ProjectFinanceAssignmentAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
 
   @@unique([projectId, userId, assignmentRole])
   @@index([projectId, status])
@@ -122,27 +122,29 @@ model BankBranch {
 }
 
 model Vendor {
-  id             String               @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  code           String               @unique
-  name           String
-  contactPerson  String?
-  email          String?
-  phone          String?
-  address        String?
-  registrationNo String?
-  brNumber       String?
-  bankName       String?
-  bankBranch     String?
-  bankAccountNo  String?
-  status         String               @default("ACTIVE")
-  type           String               @default("SUPPLIER")
-  paymentTerms   String?
-  rating         Int?                 @default(0)
-  notes          String?
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
-  requisitions   ProjectRequisition[] @relation("VendorRequisitions")
-  quotations     Quotation[]
+  id                  String               @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  code                String               @unique
+  name                String
+  contactPerson       String?
+  email               String?
+  phone               String?
+  address             String?
+  registrationNo      String?
+  brNumber            String?
+  bankName            String?
+  bankBranch          String?
+  bankAccountNo       String?
+  status              String               @default("ACTIVE")
+  type                String               @default("SUPPLIER")
+  paymentTerms        String?
+  rating              Int?                 @default(0)
+  notes               String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  requisitions        ProjectRequisition[] @relation("VendorRequisitions")
+  quotations          Quotation[]
+  storePurchaseOrders PurchaseOrder[]      @relation("StorePoVendor")
+  supplierInvoices    SupplierInvoice[]
 
   @@index([status])
   @@index([type])
@@ -249,6 +251,7 @@ model QuotationItem {
 }
 
 model ProjectPurchaseOrder {
+  supplierInvoices   SupplierInvoice[]
   id                 String                     @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   poNumber           String                     @unique
   projectId          String                     @db.Uuid
@@ -371,60 +374,60 @@ model ProjectGoodsReceiptItem {
 }
 
 model ProjectInvoice {
-  id               String               @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  invoiceNumber    String               @unique
-  projectId        String               @db.Uuid
-  contractorId     String?              @db.Uuid
-  title            String
-  description      String?
-  status           String               @default("DRAFT")
-  submissionStatus String               @default("NOT_SUBMITTED")
-  paymentStatus    String               @default("NOT_DUE")
-  type             String               @default("CLIENT")
-  invoiceDate      DateTime             @default(now())
-  dueDate          DateTime?
-  subtotal         Decimal              @default(0) @db.Decimal(14, 2)
-  taxAmount        Decimal              @default(0) @db.Decimal(14, 2)
-  discountAmount   Decimal              @default(0) @db.Decimal(14, 2)
-  vatAmount        Decimal              @default(0) @db.Decimal(14, 2)
-  ssclAmount       Decimal              @default(0) @db.Decimal(14, 2)
-  whtAmount        Decimal              @default(0) @db.Decimal(14, 2)
-  vatPercent       Decimal              @default(18) @db.Decimal(8, 4)
-  ssclPercent      Decimal              @default(2.5) @db.Decimal(8, 4)
-  whtPercent       Decimal              @default(5) @db.Decimal(8, 4)
-  totalAmount      Decimal              @default(0) @db.Decimal(14, 2)
-  paidAmount       Decimal              @default(0) @db.Decimal(14, 2)
-  balanceAmount    Decimal              @default(0) @db.Decimal(14, 2)
-  currency         String               @default("LKR")
-  notes            String?
-  followUpAt       DateTime?
-  followUpNotes    String?
-  submittedAt      DateTime?
-  submittedById    String?              @db.Uuid
+  id                  String               @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  invoiceNumber       String               @unique
+  projectId           String               @db.Uuid
+  contractorId        String?              @db.Uuid
+  title               String
+  description         String?
+  status              String               @default("DRAFT")
+  submissionStatus    String               @default("NOT_SUBMITTED")
+  paymentStatus       String               @default("NOT_DUE")
+  type                String               @default("CLIENT")
+  invoiceDate         DateTime             @default(now())
+  dueDate             DateTime?
+  subtotal            Decimal              @default(0) @db.Decimal(14, 2)
+  taxAmount           Decimal              @default(0) @db.Decimal(14, 2)
+  discountAmount      Decimal              @default(0) @db.Decimal(14, 2)
+  vatAmount           Decimal              @default(0) @db.Decimal(14, 2)
+  ssclAmount          Decimal              @default(0) @db.Decimal(14, 2)
+  whtAmount           Decimal              @default(0) @db.Decimal(14, 2)
+  vatPercent          Decimal              @default(18) @db.Decimal(8, 4)
+  ssclPercent         Decimal              @default(2.5) @db.Decimal(8, 4)
+  whtPercent          Decimal              @default(5) @db.Decimal(8, 4)
+  totalAmount         Decimal              @default(0) @db.Decimal(14, 2)
+  paidAmount          Decimal              @default(0) @db.Decimal(14, 2)
+  balanceAmount       Decimal              @default(0) @db.Decimal(14, 2)
+  currency            String               @default("LKR")
+  notes               String?
+  followUpAt          DateTime?
+  followUpNotes       String?
+  submittedAt         DateTime?
+  submittedById       String?              @db.Uuid
   submissionReference String?
-  submissionNotes  String?
-  paymentReceivedAt DateTime?
-  paymentReference String?
-  completedAt      DateTime?
-  referenceNumber  String?
+  submissionNotes     String?
+  paymentReceivedAt   DateTime?
+  paymentReference    String?
+  completedAt         DateTime?
+  referenceNumber     String?
   /// FINAL or PART
-  invoiceKind      String               @default("FINAL")
-  periodFrom       DateTime?
-  periodTo         DateTime?
-  createdById      String?              @db.Uuid
-  approvedById     String?              @db.Uuid
-  approvedAt       DateTime?
-  cancelledReason  String?
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
-  payments         PaymentVoucher[]     @relation("InvoicePayments")
-  project          Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  contractor       Contractor?          @relation("ProjectContractorInvoices", fields: [contractorId], references: [id])
-  items            ProjectInvoiceItem[]
-  retentions       ProjectRetention[]
-  sods             ServiceOrder[]       @relation("ProjectInvoiceSODs")
-  customerReceipts CustomerReceipt[]
-  creditNotes      CreditDebitNote[]
+  invoiceKind         String               @default("FINAL")
+  periodFrom          DateTime?
+  periodTo            DateTime?
+  createdById         String?              @db.Uuid
+  approvedById        String?              @db.Uuid
+  approvedAt          DateTime?
+  cancelledReason     String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  payments            PaymentVoucher[]     @relation("InvoicePayments")
+  project             Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contractor          Contractor?          @relation("ProjectContractorInvoices", fields: [contractorId], references: [id])
+  items               ProjectInvoiceItem[]
+  retentions          ProjectRetention[]
+  sods                ServiceOrder[]       @relation("ProjectInvoiceSODs")
+  customerReceipts    CustomerReceipt[]
+  creditNotes         CreditDebitNote[]
 
   @@index([projectId])
   @@index([status])

@@ -36,8 +36,8 @@ export default function InventoryHealthPage() {
     });
 
     const exportRows = () => data ? [
-        ['Store', 'Item code', 'Item', 'Available', 'Minimum', 'Stock-out'],
-        ...data.reorder.map((r) => [r.store, r.code, r.name, r.available, r.min, r.stockOut ? 'yes' : 'no']),
+        ['Store', 'Item code', 'Item', 'Available', 'Minimum', 'Suggested order', 'Stock-out'],
+        ...data.reorder.map((r) => [r.store, r.code, r.name, r.available, r.min, r.suggestedQty, r.stockOut ? 'yes' : 'no']),
     ] : [];
 
     return (
@@ -77,13 +77,13 @@ export default function InventoryHealthPage() {
                                 <Panel title={`Reorder list (${data.totals.belowReorder})`}>
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-sm">
-                                            <thead><tr className="border-b border-slate-300"><th className={th}>Store</th><th className={th}>Item</th><th className={`${th} text-right`}>Available</th><th className={`${th} text-right`}>Minimum</th><th className={`${th} text-right`}>Status</th></tr></thead>
+                                            <thead><tr className="border-b border-slate-300"><th className={th}>Store</th><th className={th}>Item</th><th className={`${th} text-right`}>Available</th><th className={`${th} text-right`}>Minimum</th><th className={`${th} text-right`}>Suggested order</th><th className={`${th} text-right`}>Status</th></tr></thead>
                                             <tbody>
-                                                {data.reorder.length === 0 && <tr><td colSpan={5} className="py-3 text-slate-700">Nothing below its reorder level.</td></tr>}
+                                                {data.reorder.length === 0 && <tr><td colSpan={6} className="py-3 text-slate-700">Nothing below its reorder level.</td></tr>}
                                                 {data.reorder.slice(0, 25).map((r) => (
                                                     <tr key={`${r.storeId}-${r.code}`} className="border-b border-slate-200 text-slate-900">
                                                         <td className="py-2 pr-3">{r.store}</td><td className="py-2 pr-3 font-medium">{r.code} · {r.name}</td>
-                                                        <td className="py-2 pr-3 text-right">{r.available}</td><td className="py-2 pr-3 text-right">{r.min}</td>
+                                                        <td className="py-2 pr-3 text-right">{r.available}</td><td className="py-2 pr-3 text-right">{r.min}</td><td className="py-2 pr-3 text-right font-semibold">{r.suggestedQty}</td>
                                                         <td className="py-2 text-right"><span className={`rounded px-2 py-0.5 font-semibold ${r.stockOut ? 'bg-red-100 text-red-900' : 'bg-amber-100 text-amber-900'}`}>{r.stockOut ? 'Out of stock' : 'Low'}</span></td>
                                                     </tr>
                                                 ))}

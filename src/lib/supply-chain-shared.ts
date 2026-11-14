@@ -64,6 +64,11 @@ export function deadStockBucket(daysSinceMove: number | null): DeadStockBucket |
     return '180+';
 }
 
+/** Quantity to order to bring available stock back to twice the reorder level (a suggestion, never an automatic order). */
+export function suggestedOrderQty(available: number, min: number): number {
+    return Math.max(0, Math.ceil(2 * min - available));
+}
+
 /** Days of cover at the recent consumption rate; null when nothing was consumed. */
 export function daysOfCover(stockValue: number, outflowValueWindow: number, windowDays: number): number | null {
     if (!(outflowValueWindow > 0) || windowDays <= 0) return null;
@@ -122,6 +127,8 @@ export interface ProcurementReport {
         fulfilmentPct: number | null;
     };
     latePos: LatePo[];
+    /** Receipts bought at a price different from the previous purchase of the same item, largest difference first (last 90 days). */
+    priceVariance: { code: string; item: string; price: number; previous: number; variancePct: number; grn: string; supplier: string | null; at: string }[];
 }
 
 export interface VendorRow {
@@ -151,7 +158,7 @@ export interface InventoryHealth {
     showValues: boolean;
     stores: { storeId: string; name: string; skus: number; value: number | null; belowReorder: number; stockOut: number; lastCountDays: number | null }[];
     totals: { value: number | null; skus: number; belowReorder: number; stockOut: number; overAllocated: number; deadValue: number | null; deadSkus: number };
-    reorder: { storeId: string; store: string; code: string; name: string; available: number; min: number; stockOut: boolean }[];
+    reorder: { storeId: string; store: string; code: string; name: string; available: number; min: number; stockOut: boolean; suggestedQty: number }[];
     dead: { bucket: DeadStockBucket; skus: number; value: number | null }[];
     deadTop: { store: string; code: string; name: string; quantity: number; value: number | null; daysSinceMove: number | null }[];
     turnover: { code: string; name: string; value: number | null; outflow90: number | null; coverDays: number | null }[];

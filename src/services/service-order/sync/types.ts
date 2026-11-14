@@ -31,7 +31,8 @@ export type DailyJobType =
     | 'MANAGEMENT_ALERTS'
     | 'EVM_SNAPSHOT'
     | 'OPS_WEEKLY_DIGEST'
-    | 'SUPPLY_CHAIN_ALERTS';
+    | 'SUPPLY_CHAIN_ALERTS'
+    | 'ROP_RECALC';
 
 export interface SyncJobData {
     opmcId: string;

@@ -22,6 +22,11 @@ export function buildSupplyChainExceptions(p: ProcurementReport | null, h: Inven
             const count = waitingOld.reduce((a, w) => a + w.count, 0);
             ex.push({ id: 'sc-request-wait', severity: 'warning', area: 'Procurement', title: 'Stock requests stuck in approval', detail: `${count} request(s) have been waiting at one approval stage for a week or more`, href: '/procurement/performance' });
         }
+        const dear = p.priceVariance.filter((v) => v.variancePct > 10);
+        if (dear.length > 0) {
+            const worst = dear[0];
+            ex.push({ id: 'sc-price-variance', severity: 'warning', area: 'Procurement', title: 'Purchase prices well above the last purchase', detail: `${dear.length} receipt(s) in the last 90 days were bought more than 10% above the previous price; largest: ${worst.code} +${worst.variancePct}%`, href: '/procurement/performance' });
+        }
         if ((p.project.pendingApproval.oldestDays ?? 0) >= 7) {
             ex.push({ id: 'sc-po-approval', severity: 'warning', area: 'Procurement', title: 'Project purchase orders waiting for approval', detail: `${p.project.pendingApproval.count} purchase order(s) waiting, the oldest for ${p.project.pendingApproval.oldestDays} days`, href: '/procurement/performance' });
         }

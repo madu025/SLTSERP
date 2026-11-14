@@ -118,6 +118,21 @@ export class ProcurementPerformanceService {
         }
         latePos.sort((a, b) => (b.daysLate ?? 0) - (a.daysLate ?? 0));
 
+        // Price paid against the previous purchase of the same item (receipts against a purchase order, last 90 days)
+        const variance = await prisma.$queryRawUnsafe<{ code: string; name: string; price: unknown; prev: unknown; grn: string; supplier: string | null; at: Date }[]>(
+            `WITH g AS (
+                SELECT gi."itemId", gi."unitPrice" AS price, gi."poItemId", gr."grnNumber", gr."supplier", gr."createdAt", gr."storeId",
+                       LAG(gi."unitPrice") OVER (PARTITION BY gi."itemId" ORDER BY gr."createdAt") AS prev
+                FROM "GRNItem" gi JOIN "GRN" gr ON gr."id" = gi."grnId" WHERE gi."unitPrice" > 0
+            )
+            SELECT i."code", i."name", g.price, g.prev, g."grnNumber" AS grn, g."supplier", g."createdAt" AS at
+            FROM g JOIN "InventoryItem" i ON i."id" = g."itemId"
+            WHERE g.prev > 0 AND g."poItemId" IS NOT NULL AND g.price <> g.prev AND g."createdAt" >= $2::timestamptz
+              AND ($1::uuid[] IS NULL OR g."storeId" = ANY($1::uuid[]))
+            ORDER BY abs((g.price - g.prev) / g.prev) DESC LIMIT 10`,
+            storeIds, new Date(now.getTime() - 90 * DAY_MS),
+        );
+
         const order = ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'ISSUED', 'PARTIALLY_RECEIVED', 'FULLY_RECEIVED', 'CLOSED', 'CANCELLED'];
         return {
             asOf: now.toISOString(),
@@ -141,6 +156,11 @@ export class ProcurementPerformanceService {
                 fulfilmentPct: fulfilmentPct(accepted, ordered),
             },
             latePos: latePos.slice(0, 50),
+            priceVariance: variance.map((v) => ({
+                code: v.code, item: v.name, price: Number(v.price), previous: Number(v.prev),
+                variancePct: Number((((Number(v.price) - Number(v.prev)) / Number(v.prev)) * 100).toFixed(1)),
+                grn: v.grn, supplier: v.supplier, at: new Date(v.at).toISOString(),
+            })),
         };
     }
 }

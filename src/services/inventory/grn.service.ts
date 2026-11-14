@@ -10,6 +10,9 @@ import { AuditLedgerService } from './audit-ledger.service';
 import { StoreService } from './store.service';
 import { LedgerService } from '../finance/ledger.service';
 import { grnSchema } from '@/lib/validations/inventory.schema';
+import { AuditService } from '@/services/audit/audit.service';
+import { getProcurementConfig } from '@/services/procurement/procurement-config';
+import { overReceiptCheck, poStatusFromReceipts, weightedAverageCost, normalizePoStatus } from '@/lib/procurement-rules';
 
 export class GRNService {
     static async getGRNs(storeId?: string, allowedStoreIds?: string[]) {
@@ -49,7 +52,9 @@ export class GRNService {
             throw AppError.badRequest('INVALID_GRN_PAYLOAD');
         }
 
-        const { storeId, sourceType, supplier, items, requestId, purchaseOrderId, sltReferenceId, reference, documentUrl } = parsed.data;
+        const { storeId, sourceType, supplier, items, requestId: requestIdInput, purchaseOrderId, sltReferenceId, reference, documentUrl } = parsed.data;
+        // A receipt against a PO is a receipt against that PO's stock request, even if the caller did not say so
+        let requestId: string | null | undefined = requestIdInput;
 
         if (!receivedById?.trim()) {
             throw AppError.badRequest('RECEIVER_REQUIRED');
@@ -80,6 +85,40 @@ export class GRNService {
                 }
             }
 
+            // 0. Purchase order checks: the PO must be open, belong to the request, and each line may only be received up to its balance
+            const cfg = await getProcurementConfig(tx as unknown as typeof prisma);
+            const poLineByItem = new Map<string, { id: string; quantity: number; receivedQty: number; unitPrice: number }>();
+            let poId: string | null = null;
+            if (purchaseOrderId) {
+                const po = await tx.purchaseOrder.findUnique({
+                    where: { id: purchaseOrderId },
+                    include: { items: { include: { stockRequestItem: { select: { itemId: true } } } } },
+                });
+                if (!po) throw AppError.badRequest('PURCHASE_ORDER_NOT_FOUND');
+                const poStatus = normalizePoStatus(po.status);
+                if (poStatus === 'CANCELLED' || poStatus === 'CLOSED') {
+                    throw AppError.badRequest(`PURCHASE_ORDER_NOT_OPEN: ${po.poNumber} is ${poStatus}`);
+                }
+                if (requestIdInput && requestIdInput !== po.stockRequestId) {
+                    throw AppError.badRequest(`PURCHASE_ORDER_REQUEST_MISMATCH: ${po.poNumber} belongs to a different stock request`);
+                }
+                requestId = po.stockRequestId;
+                poId = po.id;
+                for (const l of po.items) {
+                    poLineByItem.set(l.stockRequestItem.itemId, { id: l.id, quantity: Number(l.quantity), receivedQty: Number(l.receivedQty), unitPrice: Number(l.unitPrice) });
+                }
+                const receivingByItem = new Map<string, number>();
+                for (const i of items) receivingByItem.set(i.itemId, (receivingByItem.get(i.itemId) ?? 0) + Number(i.quantity));
+                for (const [itemId, qty] of receivingByItem) {
+                    const line = poLineByItem.get(itemId);
+                    if (!line) throw AppError.badRequest(`ITEM_NOT_ON_PURCHASE_ORDER: an item you are receiving is not on ${po.poNumber}`);
+                    const check = overReceiptCheck(line.quantity, line.receivedQty, qty, cfg.overReceiptTolerancePct);
+                    if (!check.ok) {
+                        throw AppError.badRequest(`GRN_QUANTITY_EXCEEDS_PO: receiving ${qty} but only ${Number(check.remaining.toFixed(4))} remain on ${po.poNumber} for this item`);
+                    }
+                }
+            }
+
             // 1. Create GRN with an atomic document number
             const grnNumber = await AuditLedgerService.getNextDocumentNumber('GRN', tx);
             const grn = await tx.gRN.create({
@@ -94,10 +133,12 @@ export class GRNService {
                     reference: reference || sltReferenceId || null,
                     documentUrl: documentUrl || null,
                     items: {
-                        create: items.map((i) => ({
-                            itemId: i.itemId,
-                            quantity: i.quantity
-                        }))
+                        create: items.map((i) => {
+                            const line = poLineByItem.get(i.itemId);
+                            const master = dbItems.find((d) => d.id === i.itemId);
+                            const price = line && line.unitPrice > 0 ? line.unitPrice : Number(master?.costPrice ?? 0);
+                            return { itemId: i.itemId, quantity: i.quantity, poItemId: line?.id ?? null, unitPrice: price };
+                        })
                     }
                 },
                 include: { items: true }
@@ -119,9 +160,26 @@ export class GRNService {
                 const qty = StockService.round(item.quantity);
                 
                 const meta = itemMetadata.find((m) => m.id === item.itemId);
-                const costPrice = meta?.costPrice || 0;
-                totalGrnCost += Number(costPrice) * qty;
+                const masterCost = Number(meta?.costPrice ?? 0);
+                // The price actually paid: the PO line price when the receipt is against a PO, otherwise the item master cost
+                const poPrice = poLineByItem.get(item.itemId)?.unitPrice ?? 0;
+                const costPrice = poPrice > 0 ? poPrice : masterCost;
+                totalGrnCost += costPrice * qty;
                 const unitPrice = meta?.unitPrice || 0;
+
+                // Weighted-average costing: the item cost follows what was paid, weighted by what is already on hand
+                if (cfg.costingMethod === 'WEIGHTED_AVERAGE' && poPrice > 0) {
+                    const onHand = await tx.inventoryStock.aggregate({ where: { itemId: item.itemId }, _sum: { quantity: true } });
+                    const newCost = weightedAverageCost(Number(onHand._sum.quantity ?? 0), masterCost, qty, poPrice);
+                    if (Math.abs(newCost - masterCost) >= 0.005) {
+                        await tx.inventoryItem.update({ where: { id: item.itemId }, data: { costPrice: newCost } });
+                        AuditService.log({
+                            userId: receivedById, action: 'UPDATE_ITEM_COST', entity: 'InventoryItem', entityId: item.itemId,
+                            oldValue: { costPrice: masterCost }, newValue: { costPrice: newCost, method: 'WEIGHTED_AVERAGE', grnNumber, receiptUnitCost: poPrice, receiptQty: qty },
+                        }).catch(() => undefined);
+                        if (meta) meta.costPrice = new Prisma.Decimal(newCost);
+                    }
+                }
 
                 // A. Create Batch
                 const lotNumber = await AuditLedgerService.getNextDocumentNumber('LOT', tx);
@@ -187,7 +245,8 @@ export class GRNService {
                     quantityBefore: currentQtyAfter - qty,
                     quantityChange: qty,
                     quantityAfter: currentQtyAfter,
-                    unitPrice: Number(unitPrice),
+                    // The ledger carries cost (what the stock is worth), not the selling price
+                    unitPrice: costPrice,
                     performedById: receivedById
                 }, tx);
 
@@ -260,6 +319,20 @@ export class GRNService {
                         }
                     }
                 }
+            }
+
+            // 3.1 Record what was received against each PO line and move the PO status with it (same transaction)
+            if (poId) {
+                for (const [itemId, line] of poLineByItem) {
+                    const qty = items.filter((i) => i.itemId === itemId).reduce((a, i) => a + Number(i.quantity), 0);
+                    if (qty > 0) {
+                        await tx.purchaseOrderItem.update({ where: { id: line.id }, data: { receivedQty: { increment: qty } } });
+                        line.receivedQty += qty;
+                    }
+                }
+                const currentPo = await tx.purchaseOrder.findUnique({ where: { id: poId }, select: { status: true } });
+                const nextStatus = poStatusFromReceipts(currentPo?.status, [...poLineByItem.values()].map((l) => ({ quantity: l.quantity, receivedQty: l.receivedQty })));
+                await tx.purchaseOrder.update({ where: { id: poId }, data: { status: nextStatus } });
             }
 
             // 4. Create Transaction Log

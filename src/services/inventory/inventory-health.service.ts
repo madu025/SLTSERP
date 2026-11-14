@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { StoreService } from '@/services/inventory/store.service';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { effectiveInventoryMinLevel, availableInventoryQuantity, inventoryNumber, isInventoryReorderNeeded } from '@/lib/inventory-dashboard-metrics';
-import { DAY_MS, DEAD_STOCK_BUCKETS, daysOfCover, deadStockBucket, type InventoryHealth } from '@/lib/supply-chain-shared';
+import { DAY_MS, DEAD_STOCK_BUCKETS, daysOfCover, deadStockBucket, suggestedOrderQty, type InventoryHealth } from '@/lib/supply-chain-shared';
 
 const cache = new Map<string, { at: number; value: Promise<InventoryHealth> }>();
 const TTL_MS = 60_000;
@@ -110,7 +110,7 @@ export class InventoryHealthService {
             if (isInventoryReorderNeeded(input)) {
                 view.belowReorder++;
                 if (stockOut) view.stockOut++;
-                reorder.push({ storeId: s.storeId, store: s.store.name, code: s.item.code, name: s.item.name, available, min, stockOut });
+                reorder.push({ storeId: s.storeId, store: s.store.name, code: s.item.code, name: s.item.name, available, min, stockOut, suggestedQty: suggestedOrderQty(available, min) });
             }
             stores.set(s.storeId, view);
 

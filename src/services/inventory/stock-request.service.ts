@@ -340,54 +340,36 @@ export class StockRequestService {
     }
 
     private static async handleCreatePO(data: StockRequestActionData) {
-        const { requestId, poNumber, vendor, expectedDelivery, remarks, items } = data;
+        const { requestId, vendor, vendorId, expectedDelivery, remarks, items, userId } = data;
 
-        if (!poNumber || !vendor) {
-            throw AppError.badRequest('PO Number and Vendor are required');
-        }
+        // Validation, numbering, totals and the vendor link live in PurchaseOrderService: this screen's old inline version
+        // trusted client totals, generated numbers in the browser and accepted any quantity or price.
+        const { PurchaseOrderService } = await import('@/services/procurement/purchase-order.service');
+        await PurchaseOrderService.createStorePo({
+            requestId,
+            userId,
+            vendorId: vendorId || null,
+            vendorName: vendor || null,
+            expectedDelivery: expectedDelivery || null,
+            remarks: remarks || null,
+            currency: data.currency || null,
+            lines: (items ?? []).map((item) => ({
+                requestItemId: item.id,
+                quantity: Number(item.orderQty ?? 0),
+                unitPrice: Number(item.unitPrice ?? 0),
+                taxAmount: Number(item.taxAmount ?? 0),
+            })),
+        });
 
-        const updated = await prisma.$transaction(async (tx) => {
-            const newPO = await tx.purchaseOrder.create({
-                data: {
-                    poNumber,
-                    vendor,
-                    expectedDelivery: expectedDelivery ? new Date(expectedDelivery) : undefined,
-                    stockRequestId: requestId,
-                    status: 'APPROVED'
-                }
-            });
-
-            if (items && items.length > 0) {
-                const poItems = items.map(item => ({
-                    purchaseOrderId: newPO.id,
-                    stockRequestItemId: item.id,
-                    quantity: item.orderQty || 1,
-                    unitPrice: item.unitPrice || 0,
-                    taxAmount: item.taxAmount || 0,
-                    totalAmount: item.totalAmount || 0,
-                }));
-                
-                await tx.purchaseOrderItem.createMany({
-                    data: poItems
-                });
-            }
-
-            const request = await tx.stockRequest.update({
-                where: { id: requestId },
-                data: {
-                    procurementStatus: 'PO_CREATED',
-                    remarks: remarks || undefined
-                },
-                include: {
-                    items: { include: { item: true } },
-                    fromStore: true,
-                    toStore: true,
-                    requestedBy: true,
-                    purchaseOrders: { include: { items: true } }
-                }
-            });
-            
-            return request;
+        const updated = await prisma.stockRequest.findUniqueOrThrow({
+            where: { id: requestId },
+            include: {
+                items: { include: { item: true } },
+                fromStore: true,
+                toStore: true,
+                requestedBy: true,
+                purchaseOrders: { include: { items: true } },
+            },
         });
 
         this.safeNotifyFinalAction(updated as unknown as StockRequest, 'CREATE_PO', remarks);
@@ -396,6 +378,10 @@ export class StockRequestService {
 
     private static async handleUpdateProcurementStatus(data: StockRequestActionData) {
         const { requestId, procurementStatus, remarks } = data;
+        const allowedProcurement = ['PENDING', 'PO_CREATED', 'PO_SENT', 'PO_CONFIRMED', 'COMPLETED'];
+        if (procurementStatus && !allowedProcurement.includes(procurementStatus)) {
+            throw AppError.badRequest(`INVALID_PROCUREMENT_STATUS: ${procurementStatus}`);
+        }
         const updatePayload: Record<string, unknown> = {
             procurementStatus: procurementStatus || undefined,
             remarks: remarks || undefined

@@ -42,6 +42,7 @@ interface ProcurementRequest {
     purchaseOrders?: {
         id?: string;
         poNumber: string;
+        status?: string | null;
         vendor: string;
         expectedDelivery?: string | null;
         totalAmount?: number | null;
@@ -75,6 +76,8 @@ export default function ProcurementOrdersPage() {
     const [showPODialog, setShowPODialog] = useState(false);
     const [poNumber, setPONumber] = useState("");
     const [vendor, setVendor] = useState("");
+    const [vendorId, setVendorId] = useState("");
+    const [itemTaxes, setItemTaxes] = useState<Record<string, number>>({});
     const [expectedDelivery, setExpectedDelivery] = useState("");
     const [poRemarks, setPORemarks] = useState("");
     const [selectedItemIds, setSelectedItemIds] = useState<Record<string, boolean>>({});
@@ -125,9 +128,38 @@ export default function ProcurementOrdersPage() {
             return { pending, inProgress, ready };
         },
     });
+    // Vendors the order can be placed with (procurement users can read this list without finance access)
+    const { data: vendorList = [] } = useQuery<{ id: string; code: string; name: string }[]>({
+        queryKey: ["procurement-vendor-list"],
+        queryFn: async () => {
+            const res = await fetch("/api/procurement/vendors/list", { cache: 'no-store' });
+            const json = await res.json();
+            return Array.isArray(json?.data) ? json.data : [];
+        },
+        staleTime: 5 * 60_000,
+    });
+    // Issue / cancel / close an existing purchase order
+    const poActionMutation = useMutation({
+        mutationFn: async (payload: { action: "ISSUE" | "CANCEL" | "CLOSE"; poId: string; reason?: string }) => {
+            const res = await fetch("/api/procurement/purchase-orders", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json?.error?.message || (typeof json?.error === "string" ? json.error : "") || "Purchase order action failed");
+            return json;
+        },
+        onSuccess: (_d, v) => {
+            toast.success(v.action === "ISSUE" ? "Purchase order issued to the vendor" : v.action === "CANCEL" ? "Purchase order cancelled" : "Purchase order closed");
+            queryClient.invalidateQueries({ queryKey: ["procurement-orders"] });
+            setSelectedRequest(null);
+        },
+        onError: (err: any) => toast.error(err?.message || "Purchase order action failed"),
+    });
     // Create PO Mutation
     const createPOMutation = useMutation({
-        mutationFn: async (data: { poNumber: string, vendor: string, expectedDelivery?: string, remarks?: string, items: any[] }) => {
+        mutationFn: async (data: { poNumber: string, vendor: string, vendorId?: string, expectedDelivery?: string, remarks?: string, items: any[] }) => {
             if (!selectedRequest) throw new Error("No request selected");
             const res = await fetch("/api/inventory/requests", {
                 method: "PATCH",
@@ -137,6 +169,7 @@ export default function ProcurementOrdersPage() {
                     action: "CREATE_PO",
                     poNumber: data.poNumber,
                     vendor: data.vendor,
+                    vendorId: data.vendorId || undefined,
                     expectedDelivery: data.expectedDelivery,
                     remarks: data.remarks,
                     items: data.items
@@ -144,7 +177,7 @@ export default function ProcurementOrdersPage() {
             });
             if (!res.ok) {
                 const errJson = await res.json().catch(() => ({}));
-                throw new Error(errJson.error || "Failed to create PO");
+                throw new Error(errJson?.error?.message || (typeof errJson?.error === "string" ? errJson.error : "") || "Failed to create PO");
             }
             return res.json();
         },
@@ -204,6 +237,8 @@ export default function ProcurementOrdersPage() {
     const resetPOForm = () => {
         setPONumber("");
         setVendor("");
+        setVendorId("");
+        setItemTaxes({});
         setExpectedDelivery("");
         setPORemarks("");
         setSelectedItemIds({});
@@ -212,8 +247,10 @@ export default function ProcurementOrdersPage() {
     };
     const openCreatePODialog = (req: ProcurementRequest) => {
         setSelectedRequest(req);
-        const autoPoNum = `PO-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
-        setPONumber(autoPoNum);
+        // The PO number is issued by the server when the order is saved
+        setPONumber("");
+        setVendorId("");
+        setItemTaxes({});
         setVendor(req.sourceType === 'SLT' ? 'SLT Head Office' : '');
         setExpectedDelivery('');
         setPORemarks('');
@@ -234,8 +271,8 @@ export default function ProcurementOrdersPage() {
         setShowPODialog(true);
     };
     const handleCreatePO = () => {
-        if (!poNumber || !vendor) {
-            toast.error("PO Number and Vendor are required");
+        if (!vendorId && !vendor.trim()) {
+            toast.error("Choose a vendor");
             return;
         }
         const selectedItemsPayload = (selectedRequest?.items || [])
@@ -248,16 +285,19 @@ export default function ProcurementOrdersPage() {
                     itemId: item.item?.id || item.id,
                     orderQty: qty,
                     unitPrice: unitPrice,
-                    totalAmount: qty * unitPrice
+                    taxAmount: itemTaxes[item.id] ?? 0,
+                    totalAmount: qty * unitPrice + (itemTaxes[item.id] ?? 0)
                 };
             });
         if (selectedItemsPayload.length === 0) {
             toast.error("Please select at least one item to include in this Purchase Order");
             return;
         }
+        const chosen = vendorList.find((v) => v.id === vendorId);
         createPOMutation.mutate({
             poNumber,
-            vendor,
+            vendor: chosen ? chosen.name : vendor,
+            vendorId: chosen ? chosen.id : undefined,
             expectedDelivery,
             remarks: poRemarks,
             items: selectedItemsPayload
@@ -699,9 +739,22 @@ export default function ProcurementOrdersPage() {
                                                              <div className="space-y-0.5">
                                                                  <div className="flex items-center gap-2">
                                                                      <span className="font-mono font-black text-blue-600 dark:text-blue-400 text-sm">{po.poNumber}</span>
-                                                                     <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] font-bold">
-                                                                         Issued PO
+                                                                     <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] font-bold" data-testid="po-status">
+                                                                         {(po.status || 'APPROVED').replace(/_/g, ' ')}
                                                                      </Badge>
+                                                                     {po.id && !['CANCELLED', 'CLOSED'].includes(po.status || '') && (
+                                                                         <span className="flex items-center gap-1.5 ml-2">
+                                                                             {['APPROVED', 'PENDING', undefined, null].includes(po.status as any) && (
+                                                                                 <button type="button" data-testid="po-issue" onClick={() => poActionMutation.mutate({ action: "ISSUE", poId: po.id! })} className="rounded-md border border-blue-300 bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-800 hover:bg-blue-100">Mark issued</button>
+                                                                             )}
+                                                                             {['APPROVED', 'ISSUED', 'PENDING', undefined, null].includes(po.status as any) && (
+                                                                                 <button type="button" data-testid="po-cancel" onClick={() => { const reason = window.prompt("Reason for cancelling this purchase order?"); if (reason && reason.trim().length >= 3) poActionMutation.mutate({ action: "CANCEL", poId: po.id!, reason }); }} className="rounded-md border border-red-300 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-800 hover:bg-red-100">Cancel PO</button>
+                                                                             )}
+                                                                             {['PARTIALLY_RECEIVED', 'RECEIVED'].includes(po.status || '') && (
+                                                                                 <button type="button" data-testid="po-close" onClick={() => poActionMutation.mutate({ action: "CLOSE", poId: po.id! })} className="rounded-md border border-slate-300 bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-800 hover:bg-slate-100">Close PO</button>
+                                                                             )}
+                                                                         </span>
+                                                                     )}
                                                                  </div>
                                                                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
                                                                      <User className="w-3.5 h-3.5 text-slate-400" /> Vendor: <span className="font-bold text-slate-900 dark:text-white">{po.vendor}</span>
@@ -981,26 +1034,36 @@ export default function ProcurementOrdersPage() {
                                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm space-y-4">
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1.5">
-                                                <Label htmlFor="poNumber" className="text-[10px] font-black uppercase tracking-wider text-slate-400">PO Number *</Label>
+                                                <Label htmlFor="poNumber" className="text-[10px] font-black uppercase tracking-wider text-slate-400">PO Number</Label>
                                                 <div className="relative">
                                                     <Input
                                                         id="poNumber"
-                                                        placeholder="e.g. PO-2026-0428"
-                                                        value={poNumber}
-                                                        onChange={(e) => setPONumber(e.target.value)}
-                                                        className="h-9 rounded-lg bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs font-semibold focus-visible:ring-1 focus-visible:ring-blue-500"
+                                                        value="Assigned when saved"
+                                                        disabled
+                                                        className="h-9 rounded-lg bg-slate-100 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700"
                                                     />
                                                 </div>
                                             </div>
                                             <div className="space-y-1.5">
                                                 <Label htmlFor="vendor" className="text-[10px] font-black uppercase tracking-wider text-slate-400">Vendor Supplier *</Label>
-                                                <Input
-                                                    id="vendor"
-                                                    placeholder={selectedRequest.sourceType === 'SLT' ? "SLT Head Office" : "Enter vendor supplier name (e.g. Sierra Cable PLC)"}
-                                                    value={vendor}
-                                                    onChange={(e) => setVendor(e.target.value)}
-                                                    className="h-9 rounded-lg bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs font-semibold focus-visible:ring-1 focus-visible:ring-blue-500"
-                                                />
+                                                <select
+                                                    id="vendor-select"
+                                                    value={vendorId}
+                                                    onChange={(e) => setVendorId(e.target.value)}
+                                                    className="h-9 w-full rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-2 text-xs font-semibold text-slate-900 dark:text-slate-100"
+                                                >
+                                                    <option value="">Other (type a name below)</option>
+                                                    {vendorList.map((v) => <option key={v.id} value={v.id}>{v.code} · {v.name}</option>)}
+                                                </select>
+                                                {!vendorId && (
+                                                    <Input
+                                                        id="vendor"
+                                                        placeholder={selectedRequest.sourceType === 'SLT' ? "SLT Head Office" : "Vendor name (not linked to a vendor record)"}
+                                                        value={vendor}
+                                                        onChange={(e) => setVendor(e.target.value)}
+                                                        className="mt-1.5 h-9 rounded-lg bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs font-semibold focus-visible:ring-1 focus-visible:ring-blue-500"
+                                                    />
+                                                )}
                                             </div>
                                             <div className="col-span-2 space-y-1.5">
                                                 <Label htmlFor="expectedDelivery" className="text-[10px] font-black uppercase tracking-wider text-slate-400">Expected Delivery Date</Label>
@@ -1040,6 +1103,7 @@ export default function ProcurementOrdersPage() {
                                                         <th className="p-2.5">Item Name</th>
                                                         <th className="p-2.5 w-24 text-right">Order Qty</th>
                                                         <th className="p-2.5 w-28 text-right">Unit Price (LKR)</th>
+                                                        <th className="p-2.5 w-24 text-right">Tax (LKR)</th>
                                                         <th className="p-2.5 w-28 text-right">Line Total</th>
                                                     </tr>
                                                 </thead>
@@ -1051,7 +1115,8 @@ export default function ProcurementOrdersPage() {
                                                         const isChecked = selectedItemIds[item.id] ?? !prevPO;
                                                         const qty = Number(itemOrderQtys[item.id] ?? item.requestedQty) || 0;
                                                         const unitPrice = itemUnitPrices[item.id] ?? 0;
-                                                        const lineTotal = qty * unitPrice;
+                                                        const lineTax = itemTaxes[item.id] ?? 0;
+                                                        const lineTotal = qty * unitPrice + lineTax;
                                                         return (
                                                             <tr key={item.id} className={cn("transition-colors", isChecked ? "bg-white dark:bg-slate-900" : "bg-slate-50/50 opacity-60")}>
                                                                 <td className="p-2.5 text-center">
@@ -1093,6 +1158,16 @@ export default function ProcurementOrdersPage() {
                                                                         className="h-7 w-24 text-right text-xs font-bold rounded-lg ml-auto bg-slate-50 dark:bg-slate-950"
                                                                     />
                                                                 </td>
+                                                                <td className="p-2.5 text-right">
+                                                                    <Input
+                                                                        type="number"
+                                                                        disabled={!isChecked}
+                                                                        placeholder="0.00"
+                                                                        value={lineTax || ''}
+                                                                        onChange={(e) => setItemTaxes(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) || 0 }))}
+                                                                        className="h-7 w-20 text-right text-xs font-bold rounded-lg ml-auto bg-slate-50 dark:bg-slate-950"
+                                                                    />
+                                                                </td>
                                                                 <td className="p-2.5 text-right font-black text-slate-800 dark:text-slate-200">
                                                                     LKR {lineTotal.toLocaleString('en-LK', { minimumFractionDigits: 2 })}
                                                                 </td>
@@ -1120,7 +1195,7 @@ export default function ProcurementOrdersPage() {
                                                 const qty = Number(itemOrderQtys[item.id] ?? item.requestedQty) || 0;
                                                 const unitPrice = itemUnitPrices[item.id] ?? 0;
                                                 qtyByUnit[unit] = (qtyByUnit[unit] || 0) + qty;
-                                                totalPOAmount += (qty * unitPrice);
+                                                totalPOAmount += (qty * unitPrice) + (itemTaxes[item.id] ?? 0);
                                             });
                                             const formattedTotalQty = Object.entries(qtyByUnit)
                                                 .map(([unit, val]) => `${val.toLocaleString()} ${unit}`)

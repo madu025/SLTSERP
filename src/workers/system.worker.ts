@@ -38,6 +38,11 @@ const HANDLERS: Record<DailyJobType, (job: Job<SystemJobData>) => Promise<unknow
         return ReminderSchedulerService.runProjectReminders();
     },
 
+    ROP_RECALC: async () => {
+        const { RopRecalcService } = await import('@/services/inventory/rop-recalc.service');
+        return RopRecalcService.run();
+    },
+
     SUPPLY_CHAIN_ALERTS: async () => {
         const { SupplyChainAlertService } = await import('@/services/notification/supply-chain-alerts.service');
         return SupplyChainAlertService.run();

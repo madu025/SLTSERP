@@ -452,6 +452,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/procurement/vendors',
                 icon: TrendingUp,
                 permissionId: RBAC_PERMISSIONS.PROCUREMENT_READ
+            },
+            {
+                title: 'Supplier Invoices',
+                path: '/procurement/invoices',
+                icon: FileText,
+                permissionId: RBAC_PERMISSIONS.PROCUREMENT_READ
             }
         ]
     },

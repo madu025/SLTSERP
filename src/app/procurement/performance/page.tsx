@@ -105,6 +105,24 @@ export default function ProcurementPerformancePage() {
                                     </Panel>
                                 </div>
 
+                                <Panel title="Price variance on receipts (vs the previous purchase)">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead><tr className="border-b border-slate-300"><th className={th}>Item</th><th className={th}>GRN</th><th className={th}>Supplier</th><th className={`${th} text-right`}>Paid</th><th className={`${th} text-right`}>Previous</th><th className={`${th} text-right`}>Change</th></tr></thead>
+                                            <tbody>
+                                                {data.priceVariance.length === 0 && <tr><td colSpan={6} className="py-3 text-slate-700">No price changes on purchase-order receipts in the last 90 days.</td></tr>}
+                                                {data.priceVariance.map((v) => (
+                                                    <tr key={`${v.grn}-${v.code}`} className="border-b border-slate-200 text-slate-900">
+                                                        <td className="py-2 pr-3 font-medium">{v.code} · {v.item}</td><td className="py-2 pr-3">{v.grn}</td><td className="py-2 pr-3">{v.supplier ?? '—'}</td>
+                                                        <td className="py-2 pr-3 text-right">{v.price.toLocaleString()}</td><td className="py-2 pr-3 text-right">{v.previous.toLocaleString()}</td>
+                                                        <td className="py-2 text-right"><span className={`rounded px-2 py-0.5 font-semibold ${v.variancePct > 10 ? 'bg-red-100 text-red-900' : v.variancePct > 0 ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-900'}`}>{v.variancePct > 0 ? '+' : ''}{v.variancePct}%</span></td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </Panel>
+
                                 <Panel title={`Late purchase orders (${data.latePos.length})`}>
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-sm">
