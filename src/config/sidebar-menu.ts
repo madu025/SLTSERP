@@ -599,6 +599,11 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: Landmark,
             },
             {
+                title: 'Budget vs Actual (GL)',
+                path: '/finance/budget-vs-actual',
+                icon: Scale,
+            },
+            {
                 title: 'Profitability by OPMC & Project',
                 path: '/finance/reports/profitability',
                 icon: Layers,

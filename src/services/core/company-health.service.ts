@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { LedgerReportService } from '@/services/finance/ledger-report.service';
 import { ArApService } from '@/services/finance/ar-ap.service';
+import { LedgerBudgetService, expenseOverruns } from '@/services/finance/ledger-budget.service';
 
 /**
  * One-page company health for management (CEO / GM).
@@ -143,6 +144,17 @@ export class CompanyHealthService {
         }
         if (!ar.isReconciled) {
             ex.push({ id: 'fin-arrec', severity: 'warning', area: 'Finance', title: 'AR sub-ledger differs from GL', detail: 'AR aging total does not match the AR-1110 control account', href: '/finance/ar/aging' });
+        }
+        // Budget control: only when a company-wide budget exists for the year
+        try {
+            const budget = await LedgerBudgetService.getCompanyBudgetVsActual(now.getUTCFullYear(), now);
+            const over = expenseOverruns(budget.rows);
+            if (budget.hasBudget && over.length > 0) {
+                const worst = over[0];
+                ex.push({ id: 'fin-budget', severity: 'warning', area: 'Finance', title: 'Expenses over budget', detail: `${over.length} expense account(s) are more than 10% over their year-to-date budget; largest: ${worst.accountCode} (${fmt(-worst.variance)} over)`, href: '/finance/budget-vs-actual' });
+            }
+        } catch (error) {
+            console.warn('[COMPANY-HEALTH] Budget check skipped:', error instanceof Error ? error.message : error);
         }
         if (cash.closingCash < 0) {
             ex.push({ id: 'fin-cash', severity: 'critical', area: 'Finance', title: 'Negative cash position', detail: `Bank and petty cash net ${fmt(cash.closingCash)}`, href: '/finance/bank' });

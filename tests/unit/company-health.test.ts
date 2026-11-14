@@ -135,3 +135,28 @@ test('profitability report: scoped users never see company-level rows and reuse 
   assert.equal(s.marginPct, 50);
   assert.equal(summarise(0, 10, 0).marginPct, null);
 });
+
+test('GL budgets: annual spreads exactly, variance sign is favourable-positive, overruns need a budget and tolerance', async () => {
+  const { spreadAnnual, favourableVariance, expenseOverruns } = await import('../../src/services/finance/ledger-budget.service');
+  const spread = spreadAnnual(1000);
+  assert.equal(spread.length, 12);
+  assert.equal(Math.round(spread.reduce((a, v) => a + v, 0) * 100), 100000, 'months add back to the annual amount to the cent');
+  assert.equal(Math.round(spreadAnnual(100.01).reduce((a, v) => a + v, 0) * 100), 10001);
+  assert.equal(favourableVariance('REVENUE', 100, 120), 20);
+  assert.equal(favourableVariance('EXPENSE', 100, 120), -20);
+  const row = (kind: 'REVENUE' | 'EXPENSE', ytdBudget: number, ytdActual: number) => ({
+    accountCode: 'X', accountName: 'X', kind, annualBudget: 0, ytdBudget, ytdActual,
+    variance: favourableVariance(kind, ytdBudget, ytdActual), variancePct: null, monthlyBudget: [], monthlyActual: [],
+  });
+  assert.equal(expenseOverruns([row('EXPENSE', 100, 105), row('EXPENSE', 100, 111), row('EXPENSE', 0, 50), row('REVENUE', 100, 500)]).length, 1);
+});
+
+test('budget API: reads need finance.read, writes need finance.write, and scope decides company-wide vs OPMC budgets', () => {
+  const route = fs.readFileSync('src/app/api/finance/budget-vs-actual/route.ts', 'utf8');
+  assert.match(route, /FINANCE_READ/);
+  assert.match(route, /FINANCE_WRITE/);
+  const svc = fs.readFileSync('src/services/finance/ledger-budget.service.ts', 'utf8');
+  assert.match(svc, /resolveOpmcScope\(userId\)/);
+  assert.match(svc, /Company-wide budgets are available only to users with company-wide access/);
+  assert.match(svc, /deleteMany[\s\S]*createMany/);
+});

@@ -273,3 +273,22 @@ model AccountBalanceRollup {
   @@index([fiscalPeriodId])
   @@index([year, month])
 }
+
+/// Monthly budget per GL account (revenue or expense), company-wide (opmcId null) or for one OPMC.
+/// Compared with posted ledger actuals in the budget-vs-actual report.
+model LedgerBudgetLine {
+  id          String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  fiscalYear  Int
+  month       Int // 1-12
+  accountCode String
+  opmcId      String?  @db.Uuid
+  amount      Decimal  @default(0) @db.Decimal(14, 2)
+  note        String?
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([fiscalYear, month, accountCode, opmcId])
+  @@index([fiscalYear, accountCode])
+  @@index([opmcId])
+}
