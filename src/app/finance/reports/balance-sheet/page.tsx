@@ -5,7 +5,8 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
 import { Badge } from "@/components/ui/badge";
-import { Landmark, CheckCircle2, AlertTriangle } from "lucide-react";
+import { useMemo, useState } from 'react';
+import { Landmark, CheckCircle2, AlertTriangle, Download } from "lucide-react";
 
 interface AccountBalanceSummary {
     code: string;
@@ -14,7 +15,7 @@ interface AccountBalanceSummary {
     netBalance: number;
 }
 
-interface BalanceSheetData {
+interface BalanceSheetBase {
     assetAccounts: AccountBalanceSummary[];
     liabilityAccounts: AccountBalanceSummary[];
     equityAccounts: AccountBalanceSummary[];
@@ -26,17 +27,73 @@ interface BalanceSheetData {
     isBalanced: boolean;
     difference: number;
 }
+interface BalanceSheetData extends BalanceSheetBase {
+    comparison?: BalanceSheetBase;
+}
+
+type CompareTo = 'none' | 'lastMonthEnd' | 'lastYearEnd';
+const fmt = (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const endOfDay = (s: string) => new Date(`${s}T23:59:59.999Z`);
+const compareDate = (mode: CompareTo, asOf: string): Date | undefined => {
+    const d = endOfDay(asOf);
+    if (mode === 'lastMonthEnd') return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) - 1);
+    if (mode === 'lastYearEnd') return new Date(Date.UTC(d.getUTCFullYear(), 0, 1) - 1);
+    return undefined;
+};
+
+function Variance({ cur, base, lowerIsBetter = false }: { cur: number; base: number; lowerIsBetter?: boolean }) {
+    const diff = cur - base;
+    if (Math.abs(diff) < 0.005) return <span className="text-xs text-slate-600">no change</span>;
+    const good = (diff > 0) !== lowerIsBetter;
+    return <span className={`text-xs font-semibold ${good ? 'text-emerald-700' : 'text-red-700'}`}>{diff > 0 ? '+' : ''}{fmt(diff)}</span>;
+}
+
+function Amount({ acc, list, lowerIsBetter }: { acc: AccountBalanceSummary; list?: AccountBalanceSummary[]; lowerIsBetter?: boolean }) {
+    return (
+        <span className="text-right">
+            <span className="font-mono font-semibold text-slate-900 text-sm">LKR {fmt(acc.netBalance)}</span>
+            {list && <span className="block"><Variance cur={acc.netBalance} base={list.find((a) => a.code === acc.code)?.netBalance ?? 0} lowerIsBetter={lowerIsBetter} /></span>}
+        </span>
+    );
+}
 
 export default function BalanceSheetPage() {
+    const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+    const [asOf, setAsOf] = useState(today);
+    const [compareTo, setCompareTo] = useState<CompareTo>('lastMonthEnd');
+    const cmpDate = compareDate(compareTo, asOf);
+
     const { data, isLoading } = useQuery<BalanceSheetData>({
-        queryKey: ['balance-sheet-report'],
-        queryFn: async () => {
-            const res = await fetch(`/api/finance/reports/balance-sheet?_t=${Date.now()}`, { cache: 'no-store' });
+        queryKey: ['balance-sheet-report', asOf, cmpDate?.toISOString() ?? 'none'],
+        queryFn: async ({ signal }) => {
+            const params = new URLSearchParams({ asOf: endOfDay(asOf).toISOString() });
+            if (cmpDate) params.set('compareAsOf', cmpDate.toISOString());
+            const res = await fetch(`/api/finance/reports/balance-sheet?${params}`, { cache: 'no-store', signal });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error?.message || 'Failed to fetch Balance Sheet');
             return json.data;
         }
     });
+
+    const cmp = data?.comparison;
+    const exportCsv = () => {
+        if (!data) return;
+        const rows: (string | number)[][] = [['Section', 'Account', 'Name', `Balance at ${asOf}`, ...(cmp && cmpDate ? [`Balance at ${cmpDate.toISOString().slice(0, 10)}`] : [])]];
+        const add = (section: string, list: AccountBalanceSummary[], cmpList?: AccountBalanceSummary[]) => {
+            for (const a of list) rows.push([section, a.code, `"${a.name.replace(/"/g, '""')}"`, a.netBalance, ...(cmpList ? [cmpList.find((x) => x.code === a.code)?.netBalance ?? 0] : [])]);
+        };
+        add('Asset', data.assetAccounts, cmp?.assetAccounts);
+        add('Liability', data.liabilityAccounts, cmp?.liabilityAccounts);
+        add('Equity', data.equityAccounts, cmp?.equityAccounts);
+        rows.push(['Equity', 'P&L-EARN', 'Current period retained earnings', data.retainedEarnings, ...(cmp ? [cmp.retainedEarnings] : [])]);
+        rows.push(['Total', '', 'Assets', data.totalAssets, ...(cmp ? [cmp.totalAssets] : [])]);
+        rows.push(['Total', '', 'Liabilities', data.totalLiabilities, ...(cmp ? [cmp.totalLiabilities] : [])]);
+        rows.push(['Total', '', 'Equity', data.totalEquity, ...(cmp ? [cmp.totalEquity] : [])]);
+        const url = URL.createObjectURL(new Blob([rows.map((r) => r.join(',')).join('\n')], { type: 'text/csv' }));
+        const a = document.createElement('a');
+        a.href = url; a.download = `balance-sheet-${asOf}.csv`; a.click();
+        URL.revokeObjectURL(url);
+    };
 
     return (
         <RoleGuard>
@@ -69,6 +126,25 @@ export default function BalanceSheetPage() {
                             )}
                         </div>
 
+                        <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                            <label className="text-xs font-semibold text-slate-900">As of
+                                <input type="date" value={asOf} max={today} onChange={(e) => e.target.value && setAsOf(e.target.value)}
+                                    className="mt-1 block rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900" />
+                            </label>
+                            <label className="text-xs font-semibold text-slate-900">Compare to
+                                <select value={compareTo} onChange={(e) => setCompareTo(e.target.value as CompareTo)}
+                                    className="mt-1 block rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900">
+                                    <option value="none">No comparison</option>
+                                    <option value="lastMonthEnd">End of previous month</option>
+                                    <option value="lastYearEnd">End of previous year</option>
+                                </select>
+                            </label>
+                            <button onClick={exportCsv} disabled={!data}
+                                className="ml-auto inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100 disabled:opacity-50">
+                                <Download className="w-4 h-4" />Export CSV
+                            </button>
+                        </div>
+
                         {/* Equation Summary Cards */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="bg-emerald-50 rounded-xl p-5 border border-emerald-200">
@@ -76,12 +152,14 @@ export default function BalanceSheetPage() {
                                 <div className="text-2xl font-bold text-emerald-950 mt-1 font-mono">
                                     LKR {(data?.totalAssets || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                 </div>
+                                {cmp && <Variance cur={data?.totalAssets || 0} base={cmp.totalAssets} />}
                             </div>
                             <div className="bg-amber-50 rounded-xl p-5 border border-amber-200">
                                 <div className="text-xs font-semibold uppercase text-amber-700">Total Liabilities</div>
                                 <div className="text-2xl font-bold text-amber-950 mt-1 font-mono">
                                     LKR {(data?.totalLiabilities || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                 </div>
+                                {cmp && <Variance cur={data?.totalLiabilities || 0} base={cmp.totalLiabilities} lowerIsBetter />}
                             </div>
                             <div className="bg-indigo-50 rounded-xl p-5 border border-indigo-200">
                                 <div className="text-xs font-semibold uppercase text-indigo-700">Total Liabilities + Equity</div>
@@ -112,9 +190,7 @@ export default function BalanceSheetPage() {
                                                     <span className="font-mono font-bold text-slate-900 text-xs mr-2">{acc.code}</span>
                                                     <span className="text-sm font-medium text-slate-800">{acc.name}</span>
                                                 </div>
-                                                <span className="font-mono font-semibold text-slate-900 text-sm">
-                                                    LKR {acc.netBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                                </span>
+                                                <Amount acc={acc} list={cmp?.assetAccounts} />
                                             </div>
                                         ))
                                     )}
@@ -141,9 +217,7 @@ export default function BalanceSheetPage() {
                                                         <span className="font-mono font-bold text-slate-900 text-xs mr-2">{acc.code}</span>
                                                         <span className="text-sm font-medium text-slate-800">{acc.name}</span>
                                                     </div>
-                                                    <span className="font-mono font-semibold text-slate-900 text-sm">
-                                                        LKR {acc.netBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                                    </span>
+                                                    <Amount acc={acc} list={cmp?.liabilityAccounts} lowerIsBetter />
                                                 </div>
                                             ))
                                         )}
@@ -174,9 +248,7 @@ export default function BalanceSheetPage() {
                                                     <span className="font-mono font-bold text-slate-900 text-xs mr-2">{acc.code}</span>
                                                     <span className="text-sm font-medium text-slate-800">{acc.name}</span>
                                                 </div>
-                                                <span className="font-mono font-semibold text-slate-900 text-sm">
-                                                    LKR {acc.netBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                                </span>
+                                                <Amount acc={acc} list={cmp?.equityAccounts} lowerIsBetter />
                                             </div>
                                         ))}
                                     </div>

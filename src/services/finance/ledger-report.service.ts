@@ -57,6 +57,21 @@ export interface CashFlowReportResult {
     closingCash: number;
 }
 
+export type CompareMode = 'previous' | 'yoy';
+
+/**
+ * The window a report is compared against: 'previous' is the window of equal length immediately before,
+ * 'yoy' is the same window one year earlier. Both ends are required: an open-ended range has no comparable.
+ */
+export function comparisonRange(from: Date, to: Date, mode: CompareMode): { from: Date; to: Date } {
+    if (mode === 'yoy') {
+        const shift = (d: Date) => new Date(Date.UTC(d.getUTCFullYear() - 1, d.getUTCMonth(), d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds()));
+        return { from: shift(from), to: shift(to) };
+    }
+    const span = to.getTime() - from.getTime() + 1;
+    return { from: new Date(from.getTime() - span), to: new Date(from.getTime() - 1) };
+}
+
 export class LedgerReportService {
     /**
      * Group JournalLines by accountCode and aggregate balances.

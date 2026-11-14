@@ -599,6 +599,11 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: Landmark,
             },
             {
+                title: 'Cash Flow Statement',
+                path: '/finance/reports/cash-flow',
+                icon: TrendingUp,
+            },
+            {
                 title: 'GL Account Drill-down',
                 path: '/finance/reports/gl-viewer',
                 icon: Layers,
