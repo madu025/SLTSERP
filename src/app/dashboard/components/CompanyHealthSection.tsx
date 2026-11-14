@@ -170,6 +170,8 @@ export default function CompanyHealthSection({ userId, enabled = true }: Props) 
                     <Kpi label="Over budget" value={String(p.overBudget)} tone={p.overBudget > 0 ? 'bad' : 'good'} href="/projects" />
                     <Kpi label="Past planned end date" value={String(p.overdue)} tone={p.overdue > 0 ? 'warn' : 'good'} href="/projects" />
                     <Kpi label="Budget used" value={pct(p.budgetUsedPct)} sub={`${money(p.totalActualCost)} of ${money(p.totalBudget)}`} href="/projects" />
+                    <Kpi label="Behind schedule (SPI)" value={String(p.lowSpi)} tone={p.lowSpi > 0 ? 'bad' : 'good'} href="/projects" />
+                    <Kpi label="Cannot be tracked" value={String(p.untracked)} sub="No budget or end date" tone={p.untracked > 0 ? 'warn' : 'good'} href="/projects" />
                 </Group>
             )}
 

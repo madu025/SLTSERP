@@ -38,6 +38,11 @@ const HANDLERS: Record<DailyJobType, (job: Job<SystemJobData>) => Promise<unknow
         return ReminderSchedulerService.runProjectReminders();
     },
 
+    EVM_SNAPSHOT: async () => {
+        const { ProjectEvmSnapshotService } = await import('@/services/project/project-evm-snapshot.service');
+        return ProjectEvmSnapshotService.runDaily();
+    },
+
     MANAGEMENT_ALERTS: async () => {
         const { ManagementAlertService } = await import('@/services/notification/management-alerts.service');
         return ManagementAlertService.run();

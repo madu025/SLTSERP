@@ -57,7 +57,8 @@ export class ProjectEVMService {
                 scheduleVariance,
                 costVariance,
                 spi,
-                cpi
+                cpi,
+                source: 'MANUAL'
             },
             create: {
                 projectId,
@@ -67,7 +68,8 @@ export class ProjectEVMService {
                 scheduleVariance,
                 costVariance,
                 spi,
-                cpi
+                cpi,
+                source: 'MANUAL'
             }
         });
 

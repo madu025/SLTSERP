@@ -150,7 +150,7 @@ export class SODSyncService {
      */
     private static readonly TICK_DAILY_JOBS: ReadonlyArray<{
         name: string;
-        type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP' | 'PROJECT_REMINDERS' | 'MANAGEMENT_ALERTS';
+        type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP' | 'PROJECT_REMINDERS' | 'MANAGEMENT_ALERTS' | 'EVM_SNAPSHOT';
         at: string;
         onlyOn?: number;
         inlineCostMs: number;
@@ -158,6 +158,8 @@ export class SODSyncService {
             { name: 'daily-report-snapshot', type: 'DAILY_REPORT_SNAPSHOT', at: '00:15', inlineCostMs: 10000 },
             { name: 'appointment-reminders', type: 'APPOINTMENT_REMINDERS', at: '05:45', inlineCostMs: 10000 },
             { name: 'daily-automation', type: 'DAILY_AUTOMATION', at: '06:30', inlineCostMs: 20000 },
+            // Earned value is recomputed before the project reminders read it.
+            { name: 'evm-snapshot', type: 'EVM_SNAPSHOT', at: '07:20', inlineCostMs: 20000 },
             // Project hand-off reminders (task due, overdue invoices, permit expiry, DLP end, stale approvals).
             { name: 'project-reminders', type: 'PROJECT_REMINDERS', at: '07:30', inlineCostMs: 20000 },
             // Management alert digest (company-health exceptions pushed to the management audience).
@@ -1287,7 +1289,7 @@ export class SODSyncService {
      * stays possible. Public because the system worker delegates here - two bodies for one job is how
      * a queued pass and a serverless pass start disagreeing.
      */
-    static async runDailyTask(type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP' | 'PROJECT_REMINDERS' | 'MANAGEMENT_ALERTS'): Promise<unknown> {
+    static async runDailyTask(type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP' | 'PROJECT_REMINDERS' | 'MANAGEMENT_ALERTS' | 'EVM_SNAPSHOT'): Promise<unknown> {
         const window = tickWindow(new Date(), 60_000);
 
         if (type === 'DAILY_REPORT_SNAPSHOT') {
@@ -1311,6 +1313,10 @@ export class SODSyncService {
         if (type === 'PROJECT_REMINDERS') {
             const { ReminderSchedulerService } = await import('../notification/reminder-scheduler.service');
             return ReminderSchedulerService.runProjectReminders();
+        }
+        if (type === 'EVM_SNAPSHOT') {
+            const { ProjectEvmSnapshotService } = await import('../project/project-evm-snapshot.service');
+            return ProjectEvmSnapshotService.runDaily();
         }
         if (type === 'MANAGEMENT_ALERTS') {
             const { ManagementAlertService } = await import('../notification/management-alerts.service');

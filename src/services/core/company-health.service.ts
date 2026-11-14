@@ -4,6 +4,7 @@ import { LedgerReportService } from '@/services/finance/ledger-report.service';
 import { ArApService } from '@/services/finance/ar-ap.service';
 import { LedgerBudgetService, expenseOverruns } from '@/services/finance/ledger-budget.service';
 import { SOD_TURNAROUND_SLA_DAYS } from '@/lib/constants/sod-constants';
+import { SPI_ALERT_THRESHOLD } from '@/lib/project-evm';
 import { SodPerformanceService } from '@/services/service-order/sod-performance.service';
 
 /**
@@ -59,6 +60,10 @@ export interface CompanyHealth {
         totalBudget: number;
         totalActualCost: number;
         budgetUsedPct: number | null;
+        /** Active projects whose earned-value schedule index is below the alert threshold. */
+        lowSpi: number;
+        /** In-progress projects with no budget or no end date: their performance cannot be measured. */
+        untracked: number;
     };
     fleet: null | { insuranceExpired: number; insuranceExpiring30d: number };
     helpdesk: null | { openTickets: number; slaBreached: number };
@@ -246,21 +251,26 @@ export class CompanyHealthService {
     private static async projectsSection(now: Date, ex: HealthException[]): Promise<NonNullable<CompanyHealth['projects']>> {
         const projects = await prisma.project.findMany({
             where: { status: { in: ['IN_PROGRESS', 'ON_HOLD', 'PLANNING'] } },
-            select: { budget: true, actualCost: true, endDate: true, status: true },
+            select: { budget: true, actualCost: true, endDate: true, status: true, evm: { select: { spi: true } } },
         });
-        let overdue = 0, overBudget = 0, totalBudget = 0, totalActual = 0;
+        let overdue = 0, overBudget = 0, totalBudget = 0, totalActual = 0, lowSpi = 0, untracked = 0;
         for (const p of projects) {
+            if (p.status === 'IN_PROGRESS' && (!(Number(p.budget ?? 0) > 0) || !p.endDate)) untracked++;
+            if (p.status === 'IN_PROGRESS' && p.evm?.spi !== null && p.evm?.spi !== undefined && Number(p.evm.spi) < SPI_ALERT_THRESHOLD) lowSpi++;
             const budget = p.budget === null ? null : Number(p.budget);
             const actual = Number(p.actualCost);
             if (budget !== null) { totalBudget += budget; totalActual += actual; if (budget > 0 && actual > budget) overBudget++; }
             if (p.endDate && p.endDate < now && !(FINISHED_PROJECT_STATUSES as readonly string[]).includes(p.status)) overdue++;
         }
         if (overBudget > 0) ex.push({ id: 'prj-budget', severity: 'critical', area: 'Projects', title: 'Projects over budget', detail: `${overBudget} active projects have spent more than their budget`, href: '/projects' });
+        if (lowSpi > 0) ex.push({ id: 'prj-spi', severity: 'warning', area: 'Projects', title: 'Projects behind schedule', detail: `${lowSpi} in-progress project(s) have a schedule performance index below ${SPI_ALERT_THRESHOLD}`, href: '/projects' });
+        if (untracked > 0) ex.push({ id: 'prj-untracked', severity: 'warning', area: 'Projects', title: 'Projects that cannot be tracked', detail: `${untracked} in-progress project(s) have no budget or no planned end date, so their progress against plan is unknown`, href: '/projects' });
         if (overdue > 0) ex.push({ id: 'prj-overdue', severity: 'warning', area: 'Projects', title: 'Projects past end date', detail: `${overdue} projects are past their planned end date`, href: '/projects' });
 
         return {
             active: projects.length, overdue, overBudget, totalBudget, totalActualCost: totalActual,
             budgetUsedPct: totalBudget > 0 ? (totalActual / totalBudget) * 100 : null,
+            lowSpi, untracked,
         };
     }
 

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { NotificationService } from '@/services/notification/notification.service';
 import { MY_TASKS_LINK } from '@/services/project/project-task-notification.service';
+import { SPI_ALERT_THRESHOLD } from '@/lib/project-evm';
 
 const DAY = 24 * 60 * 60 * 1000;
 const day = (d: Date) => d.toISOString().slice(0, 10);
@@ -83,6 +84,54 @@ export class ProjectDeadlineReminderService {
             notified += Math.max(finance.length, 1);
         }
         return { processed: retentions.length, notified };
+    }
+
+    /**
+     * Projects in trouble, once a week each: past the planned end date (review schedule and liquidated damages),
+     * spend above budget, schedule performance below the alert threshold, and active projects that cannot be
+     * tracked at all because they have no budget or no dates. Notification only: nothing here changes a project.
+     */
+    static async remindProjectHealth(now = new Date()): Promise<{ processed: number; notified: number }> {
+        const week = Math.floor(now.getTime() / (7 * DAY));
+        const active = await prisma.project.findMany({
+            where: { status: { in: ['IN_PROGRESS', 'ON_HOLD'] } },
+            select: {
+                id: true, name: true, projectCode: true, opmcId: true, budget: true, actualCost: true, endDate: true, startDate: true,
+                evm: { select: { spi: true, source: true } },
+            },
+            take: 300,
+        });
+        let processed = 0;
+        let notified = 0;
+        const send = async (p: (typeof active)[number], kind: string, title: string, message: string) => {
+            processed++;
+            const result = await NotificationService.notifyByAudience({
+                audience: 'PROJECT_MANAGERS', title, message, type: 'PROJECT', priority: 'HIGH',
+                link: `/projects/${p.id}`, opmcId: p.opmcId ?? undefined,
+                metadata: { projectId: p.id, kind }, dedupKey: `project-health:${kind}:${p.id}:${week}`,
+            });
+            if (result) notified++;
+        };
+
+        for (const p of active) {
+            const budget = Number(p.budget ?? 0);
+            if (p.endDate && p.endDate < now) {
+                const late = Math.ceil((now.getTime() - p.endDate.getTime()) / DAY);
+                await send(p, 'overdue', '⏰ Project past its planned end date', `${label(p)} is ${late} day(s) past its planned end date. Re-plan it, and check whether liquidated damages apply under the contract.`);
+            }
+            if (budget > 0 && Number(p.actualCost ?? 0) > budget) {
+                await send(p, 'overrun', '💸 Project over budget', `${label(p)} has spent more than its budget (${Math.round(Number(p.actualCost)).toLocaleString('en-US')} against ${Math.round(budget).toLocaleString('en-US')}). Review the cost to complete.`);
+            }
+            const spi = p.evm?.spi === null || p.evm?.spi === undefined ? null : Number(p.evm.spi);
+            if (spi !== null && spi < SPI_ALERT_THRESHOLD) {
+                await send(p, 'spi', '🐢 Project behind schedule', `${label(p)} is running at a schedule performance index of ${spi.toFixed(2)} (below ${SPI_ALERT_THRESHOLD}). Work is progressing slower than planned.`);
+            }
+            if (budget <= 0 || !p.endDate) {
+                const missing = [budget <= 0 ? 'a budget' : null, !p.endDate ? 'a planned end date' : null].filter(Boolean).join(' and ');
+                await send(p, 'untracked', 'ℹ️ Project cannot be tracked', `${label(p)} is in progress but has no ${missing}, so schedule and cost performance cannot be measured. Add them on the project.`);
+            }
+        }
+        return { processed, notified };
     }
 
     /** Approval steps due for more than 2 days, and submitted task plans nobody approved: nudge once a day. */

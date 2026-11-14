@@ -28,7 +28,8 @@ export type DailyJobType =
     | 'DAILY_AUTOMATION'
     | 'NOTIFICATION_CLEANUP'
     | 'PROJECT_REMINDERS'
-    | 'MANAGEMENT_ALERTS';
+    | 'MANAGEMENT_ALERTS'
+    | 'EVM_SNAPSHOT';
 
 export interface SyncJobData {
     opmcId: string;

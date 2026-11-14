@@ -271,6 +271,7 @@ export class ReminderSchedulerService {
             () => ProjectDeadlineReminderService.remindPermitExpiry(),
             () => ProjectDeadlineReminderService.remindDefectLiabilityEnd(),
             () => ProjectDeadlineReminderService.remindStaleActions(),
+            () => ProjectDeadlineReminderService.remindProjectHealth(),
         ]) {
             try {
                 const { processed, notified } = await run();

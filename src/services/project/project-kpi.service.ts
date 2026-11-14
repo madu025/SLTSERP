@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
+import { computeEvm, plannedPercent } from '@/lib/project-evm';
 
 export class ProjectKPIService {
     static async getKPIAnalytics(projectId: string) {
@@ -25,22 +26,30 @@ export class ProjectKPIService {
 
         const budget = Number(project.budget || 0);
         const actualCost = Number(project.actualCost || 0);
-        const progress = Number(project.progress || 0) / 100;
 
-        const EV = budget * progress;
-        const PV = budget * Math.min(progress + 0.1, 1);
+        // Planned value comes from the task schedule (s-curve), not from the progress itself: the old
+        // `PV = budget x (progress + 10%)` made SPI a function of progress alone.
+        const tasks = await prisma.projectTask.findMany({
+            where: { projectId },
+            select: { plannedStartDate: true, plannedEndDate: true, estimatedCost: true, plannedDuration: true },
+        });
+        const now = new Date();
+        const plannedPct = plannedPercent(
+            tasks.map((t) => ({ plannedStart: t.plannedStartDate, plannedEnd: t.plannedEndDate, estimatedCost: t.estimatedCost === null ? null : Number(t.estimatedCost), plannedDurationDays: t.plannedDuration })),
+            { startDate: project.startDate, endDate: project.endDate },
+            now,
+        );
+        // A missing actual-cost ledger is not evidence of infinite cost efficiency: AC stays null (CPI pending) until cost exists.
+        const evm = computeEvm({ bac: budget, progressPct: Number(project.progress || 0), plannedPct, actualCost: actualCost > 0 ? actualCost : null });
+        const EV = evm.ev;
+        const PV = evm.pv ?? 0;
         const AC = actualCost;
-
-        const budgetNum = budget ? Number(budget) : 0;
-        const SPI = PV > 0 ? EV / PV : (budgetNum > 0 ? EV / (budgetNum * 0.1) : 1);
-        // A missing actual-cost ledger is not evidence of infinite cost
-        // efficiency.  Keep CPI neutral and expose a pending status so the UI
-        // does not report a misleading 999 / UNDER_BUDGET result.
-        const CPI = AC > 0 ? EV / AC : 0;
+        const SPI = evm.spi;
+        const CPI = evm.cpi ?? 0;
+        const budgetNum = budget;
 
         const budgetUtilization = budgetNum > 0 ? (actualCost / budgetNum) * 100 : 0;
 
-        const now = new Date();
         const startDate = project.startDate;
         const endDate = project.endDate;
         const estimatedDuration = project.estimatedDuration;
@@ -76,8 +85,14 @@ export class ProjectKPIService {
                 actualCost: AC,
                 earnedValue: Number(EV.toFixed(2)),
                 plannedValue: Number(PV.toFixed(2)),
-                spi: Number(SPI.toFixed(2)),
+                plannedPercent: plannedPct,
+                spi: SPI === null ? null : Number(SPI.toFixed(2)),
                 cpi: Number(CPI.toFixed(2)),
+                estimateAtCompletion: evm.eac,
+                estimateToComplete: evm.etc,
+                varianceAtCompletion: evm.vac,
+                evmStatus: evm.status,
+                gaps: evm.gaps,
                 variance: Number((EV - AC).toFixed(2)),
                 budgetUtilization: Number(budgetUtilization.toFixed(1)),
                 progressPercent: project.progress || 0
@@ -95,7 +110,7 @@ export class ProjectKPIService {
                 costStatus: budgetNum > 0
                     ? (AC > 0 ? (CPI >= 1.0 ? 'UNDER_BUDGET' : 'OVER_BUDGET') : 'ACTUAL_COST_PENDING')
                     : 'NOT_SET',
-                scheduleStatus: SPI >= 1.0 ? 'AHEAD_OF_SCHEDULE' : 'BEHIND_SCHEDULE'
+                scheduleStatus: SPI === null ? 'NOT_PLANNED' : SPI >= 1.0 ? 'AHEAD_OF_SCHEDULE' : SPI >= 0.95 ? 'ON_TRACK' : 'BEHIND_SCHEDULE'
             }
         };
     }

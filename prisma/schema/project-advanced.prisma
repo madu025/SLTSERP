@@ -55,6 +55,8 @@ model ProjectEVM {
   varianceAtCompletion Decimal?      @db.Decimal(14, 2)
   status               String        @default("GREEN")
   statusNotes          String?
+  /// AUTO = computed daily from the schedule and cost ledger; MANUAL = entered by a person (never overwritten by the job)
+  source               String        @default("AUTO")
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
   snapshots            EVMSnapshot[]
@@ -79,6 +81,7 @@ model EVMSnapshot {
   createdAt        DateTime   @default(now())
   evm              ProjectEVM @relation(fields: [evmId], references: [id], onDelete: Cascade)
 
+  @@unique([evmId, periodLabel])
   @@index([evmId])
   @@index([snapshotDate])
 }

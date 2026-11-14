@@ -12,7 +12,7 @@ interface KPIMetrics {
     actualCost: number;
     earnedValue: number;
     plannedValue: number;
-    spi: number;
+    spi: number | null;
     cpi: number;
     variance: number;
     progressPercent: number;
@@ -74,14 +74,14 @@ export default function ProjectKPIs({ project }: ProjectKPIsProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* SPI */}
                 <Card className="border shadow-sm relative overflow-hidden">
-                    <div className={`absolute top-0 right-0 left-0 h-1 ${metrics.spi >= 1.0 ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <div className={`absolute top-0 right-0 left-0 h-1 ${metrics.spi === null ? 'bg-slate-300' : metrics.spi >= 0.95 ? 'bg-green-500' : 'bg-red-500'}`} />
                     <CardHeader className="pb-2">
                         <CardDescription className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Schedule Performance (SPI)</CardDescription>
-                        <CardTitle className="text-2xl font-black text-slate-900 mt-1">{metrics.spi}</CardTitle>
+                        <CardTitle className="text-2xl font-black text-slate-900 mt-1">{metrics.spi === null ? 'N/A' : metrics.spi}</CardTitle>
                     </CardHeader>
                     <CardContent className="pt-0 flex justify-between items-center">
                         <span className="text-[10px] font-medium text-slate-500">Target &gt;= 1.0</span>
-                        <Badge className={status.scheduleStatus === 'AHEAD_OF_SCHEDULE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                        <Badge className={status.scheduleStatus === 'NOT_PLANNED' ? 'bg-slate-100 text-slate-700' : status.scheduleStatus === 'AHEAD_OF_SCHEDULE' || status.scheduleStatus === 'ON_TRACK' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
                             {status.scheduleStatus.replace(/_/g, ' ')}
                         </Badge>
                     </CardContent>
