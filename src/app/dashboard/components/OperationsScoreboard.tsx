@@ -28,7 +28,9 @@ export default function OperationsScoreboard({ userId, region = 'ALL', rtom = 'A
             const params = new URLSearchParams({ region, rtom, days: '30' });
             const res = await fetch(`/api/dashboard/ops-scoreboard?${params}`, { signal });
             if (!res.ok) throw new Error(`Scoreboard request failed (${res.status})`);
-            return res.json();
+            // apiHandler wraps the payload as { success, data }
+            const json = await res.json();
+            return (json.data ?? json) as OpsScoreboard;
         },
         enabled,
         staleTime: 60_000,
