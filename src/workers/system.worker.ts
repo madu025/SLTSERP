@@ -38,6 +38,11 @@ const HANDLERS: Record<DailyJobType, (job: Job<SystemJobData>) => Promise<unknow
         return ReminderSchedulerService.runProjectReminders();
     },
 
+    MANAGEMENT_ALERTS: async () => {
+        const { ManagementAlertService } = await import('@/services/notification/management-alerts.service');
+        return ManagementAlertService.run();
+    },
+
     NOTIFICATION_CLEANUP: async () => {
         // The body lives in SODSyncService.runDailyTask so the queue path and the serverless inline
         // path cannot diverge on what a pass is, or on whether it is censused.

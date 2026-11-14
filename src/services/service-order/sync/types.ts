@@ -27,7 +27,8 @@ export type DailyJobType =
     | 'APPOINTMENT_REMINDERS'
     | 'DAILY_AUTOMATION'
     | 'NOTIFICATION_CLEANUP'
-    | 'PROJECT_REMINDERS';
+    | 'PROJECT_REMINDERS'
+    | 'MANAGEMENT_ALERTS';
 
 export interface SyncJobData {
     opmcId: string;

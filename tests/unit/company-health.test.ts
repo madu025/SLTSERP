@@ -32,3 +32,13 @@ test('company health endpoint is management-only and sections are gated per modu
     assert.ok(svc.includes(`has(RBAC_PERMISSIONS.${p})`), p);
   }
 });
+
+test('management alerts run daily, are wired end to end, and are de-duplicated per exception per day', () => {
+  const svc = fs.readFileSync('src/services/notification/management-alerts.service.ts', 'utf8');
+  assert.match(svc, /audience: 'ADMINISTRATORS'/);
+  assert.match(svc, /dedupKey: `management-alert:\$\{e\.id\}:\$\{day\(now\)\}`/);
+  assert.match(svc, /severity !== 'info'/);
+  assert.match(fs.readFileSync('src/services/service-order/sync/types.ts', 'utf8'), /'MANAGEMENT_ALERTS'/);
+  assert.match(fs.readFileSync('src/services/service-order/sod.sync.service.ts', 'utf8'), /name: 'management-alerts', type: 'MANAGEMENT_ALERTS', at: '07:45'/);
+  assert.match(fs.readFileSync('src/workers/system.worker.ts', 'utf8'), /MANAGEMENT_ALERTS: async/);
+});
