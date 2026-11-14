@@ -156,6 +156,22 @@ export class PurchaseOrderService {
             const err = validatePoLine({ quantity: Number(target.quantity), unitPrice: Number(target.unitPrice), taxAmount: Number(target.taxAmount) });
             if (err) throw AppError.badRequest(err);
         }
+        // An amended quantity still has to stay within what was approved, less what the request's other live orders already cover
+        const reqItems = await prisma.stockRequestItem.findMany({ where: { requestId: po.stockRequestId }, select: { id: true, approvedQty: true, requestedQty: true } });
+        const others = await prisma.purchaseOrderItem.groupBy({
+            by: ['stockRequestItemId'],
+            where: { purchaseOrder: { stockRequestId: po.stockRequestId, id: { not: po.id }, status: { not: 'CANCELLED' } } },
+            _sum: { quantity: true },
+        });
+        const othersBy = new Map(others.map((o) => [o.stockRequestItemId, Number(o._sum.quantity ?? 0)]));
+        for (const l of next) {
+            const ri = reqItems.find((r) => r.id === l.stockRequestItemId);
+            if (!ri) continue;
+            const approved = Number(ri.approvedQty) > 0 ? Number(ri.approvedQty) : Number(ri.requestedQty);
+            const room = approved - (othersBy.get(l.stockRequestItemId) ?? 0);
+            if (Number(l.quantity) > room + 1e-9) throw AppError.badRequest(`Ordering ${Number(l.quantity)} but only ${Math.max(0, room)} of the approved quantity is available for this order`);
+        }
+
         const totals = computePoTotals(next.map((l) => ({ quantity: Number(l.quantity), unitPrice: Number(l.unitPrice), taxAmount: Number(l.taxAmount) })));
 
         const before = { vendor: po.vendor, expectedDelivery: po.expectedDelivery, total: Number(po.totalAmount) };
