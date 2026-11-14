@@ -113,6 +113,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
+                title: 'SOD Performance & SLA',
+                path: '/service-orders/performance',
+                icon: TrendingUp,
+                permissionId: RBAC_PERMISSIONS.SOD_READ
+            },
+            {
                 title: 'Install Closed SOD',
                 path: '/service-orders/work-order/install-closed',
                 icon: CheckCircle2,

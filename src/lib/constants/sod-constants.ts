@@ -108,6 +108,18 @@ export const SOD_QUERY_COMPLETION_STATUSES = [
  * both portal (`sltsStatus`) and ERP workflow (`status`) fields; callers that
  * query both fields should use this set in their OR predicate.
  */
+/**
+ * Turnaround target for a service order, received -> completed, in days.
+ * One shared definition for the performance page, the scorecard and the management alerts.
+ */
+export const SOD_TURNAROUND_SLA_DAYS = 7;
+
+/** sltsStatus values that mean "still open at SLT": the backlog the performance reports age. */
+export const SOD_OPEN_SLTS_STATUSES = [
+    SodStatus.INPROGRESS,
+    SodStatus.ASSIGNED,
+] as const;
+
 export const SOD_FINANCIAL_COMPLETION_STATUSES = [
     SodStatus.COMPLETED,
     SodStatus.INSTALL_CLOSED,

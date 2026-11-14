@@ -3,6 +3,8 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { LedgerReportService } from '@/services/finance/ledger-report.service';
 import { ArApService } from '@/services/finance/ar-ap.service';
 import { LedgerBudgetService, expenseOverruns } from '@/services/finance/ledger-budget.service';
+import { SOD_TURNAROUND_SLA_DAYS } from '@/lib/constants/sod-constants';
+import { SodPerformanceService } from '@/services/service-order/sod-performance.service';
 
 /**
  * One-page company health for management (CEO / GM).
@@ -222,6 +224,20 @@ export class CompanyHealthService {
             ex.push({ id: 'ops-aged30', severity: 'critical', area: 'Operations', title: 'Service orders open over 30 days', detail: `${aged30} orders have been open for more than 30 days`, href: '/service-orders' });
         } else if (aged10 > 0) {
             ex.push({ id: 'ops-aged10', severity: 'warning', area: 'Operations', title: 'Service orders open over 10 days', detail: `${aged10} orders have been open for more than 10 days`, href: '/service-orders' });
+        }
+
+        // Service-level view: turnaround SLA over 30 days and the RTOMs holding the oldest backlog
+        try {
+            const headline = await SodPerformanceService.getHeadline(now);
+            if (headline.slaPct30d !== null && headline.completed30d >= 50 && headline.slaPct30d < 90) {
+                const critical = headline.slaPct30d < 75;
+                ex.push({ id: 'ops-sla', severity: critical ? 'critical' : 'warning', area: 'Operations', title: 'Service orders missing the turnaround target', detail: `Only ${headline.slaPct30d}% of the last ${headline.completed30d.toLocaleString('en-US')} completed orders finished within the ${SOD_TURNAROUND_SLA_DAYS}-day target`, href: '/service-orders/performance' });
+            }
+            for (const r of headline.worstRtoms.filter((x) => x.over14 >= 10)) {
+                ex.push({ id: `ops-rtom-${r.rtom}`, severity: 'warning', area: 'Operations', title: `${r.rtom} backlog is ageing`, detail: `${r.over14} of ${r.open} open orders are older than 14 days`, href: '/service-orders/performance' });
+            }
+        } catch (error) {
+            console.warn('[COMPANY-HEALTH] SLA headline skipped:', error instanceof Error ? error.message : error);
         }
 
         return { openOrders, agedOver10Days: aged10, agedOver30Days: aged30, completed: compare(doneCur, donePrev) };
