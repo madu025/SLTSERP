@@ -65,13 +65,14 @@ export default function CompanyHealthSection({ userId, enabled = true }: Props) 
         queryKey: ['dashboard-company-health', userId],
         queryFn: async ({ signal }) => {
             const res = await fetch('/api/dashboard/company-health', { signal });
+            if (res.status === 403) throw new Error('SCOPED');
             if (!res.ok) throw new Error(`Company health request failed (${res.status})`);
             return res.json();
         },
         enabled,
         staleTime: 2 * 60 * 1000,
         refetchOnWindowFocus: false,
-        retry: 1,
+        retry: (count, err) => (err as Error).message !== 'SCOPED' && count < 1,
     });
 
     if (isLoading) {
@@ -81,6 +82,13 @@ export default function CompanyHealthSection({ userId, enabled = true }: Props) 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     {Array(8).fill(0).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
                 </div>
+            </div>
+        );
+    }
+    if ((error as Error | null)?.message === 'SCOPED') {
+        return (
+            <div className="rounded-2xl border border-slate-300 bg-white p-4 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
+                Company health shows company-wide figures, so it is available only to users with company-wide access. Your other dashboard tabs show your own scope.
             </div>
         );
     }

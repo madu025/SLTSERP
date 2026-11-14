@@ -628,6 +628,11 @@ export const SIDEBAR_MENU: MenuItem[] = [
             },
             // — Receivables & Payables —
             {
+                title: 'Cash Forecast & Receivables Risk',
+                path: '/finance/cash-forecast',
+                icon: Users,
+            },
+            {
                 title: 'AR Aging & Collections',
                 path: '/finance/ar/aging',
                 icon: Users,

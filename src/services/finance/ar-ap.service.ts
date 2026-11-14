@@ -189,8 +189,10 @@ export class ArApService {
     /**
      * Compute Accounts Receivable (AR) Aging Report across all unpaid project invoices.
      */
-    static async getArAgingReport(userId?: string | null): Promise<ArAgingReport> {
-        const scope = await resolveOpmcScope(userId);
+    static async getArAgingReport(userId?: string | null, opts?: { unscoped?: boolean }): Promise<ArAgingReport> {
+        // `unscoped` is for system/management callers that already enforce company-wide access themselves;
+        // a missing userId alone means "no access" (empty scope), never "everything".
+        const scope = opts?.unscoped ? undefined : await resolveOpmcScope(userId);
         const unpaidInvoices = await prisma.projectInvoice.findMany({
             where: {
                 ...(scope === undefined ? {} : { project: { opmcId: { in: scope } } }),
@@ -273,8 +275,8 @@ export class ArApService {
     /**
      * Compute Accounts Payable (AP) Aging Report across all unpaid contractor invoices.
      */
-    static async getApAgingReport(userId?: string | null): Promise<ApAgingReport> {
-        const scope = await resolveOpmcScope(userId);
+    static async getApAgingReport(userId?: string | null, opts?: { unscoped?: boolean }): Promise<ApAgingReport> {
+        const scope = opts?.unscoped ? undefined : await resolveOpmcScope(userId);
         const unpaidInvoices = await prisma.invoice.findMany({
             where: {
                 ...(scope === undefined ? {} : { project: { opmcId: { in: scope } } }),

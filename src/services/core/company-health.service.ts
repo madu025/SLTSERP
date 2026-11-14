@@ -124,9 +124,9 @@ export class CompanyHealthService {
         ]);
         const [cash, ar, ap] = await Promise.all([
             LedgerReportService.getCashFlowReport(undefined, now),
-            // Company-wide aging: no userId → unscoped. The endpoint is management-only.
-            ArApService.getArAgingReport(null),
-            ArApService.getApAgingReport(null),
+            // Company-wide aging. Callers must already hold company-wide access (the route checks it).
+            ArApService.getArAgingReport(null, { unscoped: true }),
+            ArApService.getApAgingReport(null, { unscoped: true }),
         ]);
 
         const over60 = ar.summary.days61to90 + ar.summary.over90;
