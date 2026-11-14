@@ -234,7 +234,6 @@ export default function FinanceSection({ rtom = 'ALL', enabled = true }: Finance
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                         <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Executive financial snapshot</h2>
-                        <p className="text-xs text-slate-600 dark:text-slate-400">Management-level exposure from scoped invoices, approvals, retention, and project penalties.</p>
                     </div>
                     <Link href="/finance/reports/pnl" className="text-xs font-bold text-primary hover:underline">Open full finance reports →</Link>
                 </div>
@@ -277,7 +276,6 @@ export default function FinanceSection({ rtom = 'ALL', enabled = true }: Finance
                         <div className="flex items-center justify-between gap-3">
                             <div>
                                 <h3 className="text-sm font-black text-slate-900 dark:text-slate-100">What needs management attention</h3>
-                                <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">Prioritized actions are calculated from the current scoped finance data.</p>
                             </div>
                             <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white dark:bg-slate-100 dark:text-slate-900">{managementActions.length} action{managementActions.length === 1 ? '' : 's'}</span>
                         </div>

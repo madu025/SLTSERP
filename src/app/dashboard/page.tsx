@@ -38,12 +38,12 @@ export const getDefaultTabForPermissions = (permissions: readonly string[] = [])
     return 'operations';
 };
 
-function DashboardTabHeader({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
+/** One-line section title: the tab already says where you are, so there is no descriptive paragraph. */
+function DashboardTabHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">{eyebrow}</p>
-            <h2 className="mt-1 text-lg font-black text-foreground">{title}</h2>
-            <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">{description}</p>
+        <div className="flex items-baseline gap-2 px-1">
+            <h2 className="text-base font-black text-foreground">{title}</h2>
+            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">{eyebrow}</span>
         </div>
     );
 }
@@ -360,7 +360,7 @@ export default function DashboardPage() {
                             />
                             
                             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                                <TabsList className="mb-4 flex w-full flex-wrap justify-start gap-1 rounded-2xl border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-950">
+                                <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1 rounded-2xl border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-950">
                                     {canFilterGlobally && <TabsTrigger value="health" className="min-w-[7.5rem]">Company health</TabsTrigger>}
                                     {canViewOperations && <TabsTrigger value="overview" className="min-w-[7.5rem]">Management overview</TabsTrigger>}
                                     {canViewOperations && <TabsTrigger value="operations">Operations</TabsTrigger>}
@@ -372,22 +372,12 @@ export default function DashboardPage() {
                                 
                                 {canFilterGlobally && (
                                     <TabsContent value="health" className="space-y-6">
-                                        <DashboardTabHeader
-                                            eyebrow="Company health"
-                                            title="One-page business health"
-                                            description="Finance, service delivery, projects and support functions side by side with month-on-month change and a ranked list of what needs attention. Each card opens the underlying module."
-                                        />
                                         <CompanyHealthSection userId={user.id} enabled={activeTab === 'health'} />
                                     </TabsContent>
                                 )}
 
                                 {canViewOperations && (
                                     <TabsContent value="overview" className="space-y-6">
-                                        <DashboardTabHeader
-                                            eyebrow="Management view"
-                                            title="Portfolio decision overview"
-                                            description="Use this tab for cross-module signals that need an executive decision. Open Operations, Projects, Procurement, Finance, or Inventory for the underlying operational detail."
-                                        />
                                         <ExecutiveControlTower enabled={activeTab === 'overview'} operationalStats={stats} />
                                     </TabsContent>
                                 )}
@@ -397,7 +387,6 @@ export default function DashboardPage() {
                                         <DashboardTabHeader
                                             eyebrow="Service delivery"
                                             title="Operations performance"
-                                            description="Monitor service-order throughput, PAT outcomes, contractor performance, aging, and RTOM-level operational execution."
                                         />
                                         {/* PAT Rejection Alert — scoped to Operations tab only */}
                                         {(stats?.pat?.rejected || 0) > 0 && (
@@ -444,7 +433,6 @@ export default function DashboardPage() {
                                         <DashboardTabHeader
                                             eyebrow="Project portfolio"
                                             title="Projects delivery"
-                                            description="Review project progress, budget movement, schedule variance, and delayed-project actions."
                                         />
                                         <ProjectsSection user={user} enabled={activeTab === 'projects'} region={selectedRegion} rtom={selectedRtom} />
                                     </TabsContent>
@@ -455,7 +443,6 @@ export default function DashboardPage() {
                                         <DashboardTabHeader
                                             eyebrow="Supply chain"
                                             title="Procurement pipeline"
-                                            description="Track requisitions, purchase orders, goods receipts, fulfilment, and stock-out sourcing actions."
                                         />
                                         <ProcurementSection rtom={selectedRtom} enabled={activeTab === 'procurement'} />
                                     </TabsContent>
@@ -466,7 +453,6 @@ export default function DashboardPage() {
                                         <DashboardTabHeader
                                             eyebrow="Financial control"
                                             title="Finance and billing"
-                                            description="Review revenue, invoicing, collections, payout exposure, aging, and finance data-quality exceptions."
                                         />
                                         <FinanceSection rtom={selectedRtom} enabled={activeTab === 'finance'} />
                                     </TabsContent>
@@ -477,7 +463,6 @@ export default function DashboardPage() {
                                         <DashboardTabHeader
                                             eyebrow="Stores and materials"
                                             title="Inventory control"
-                                            description="Review on-hand versus allocated stock, project shortages, dispatches, receipt queues, return approvals, and inventory data-quality exceptions."
                                         />
                                         <InventorySection rtom={selectedRtom} enabled={activeTab === 'inventory'} />
                                     </TabsContent>

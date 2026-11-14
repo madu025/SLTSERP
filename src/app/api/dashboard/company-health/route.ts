@@ -13,7 +13,7 @@ export const GET = apiHandler(async (_request, params) => {
     // The figures are company-wide, so users limited to specific OPMCs must not receive them.
     const scope = await resolveOpmcScope(params._userId);
     if (scope !== undefined) throw AppError.forbidden('Company health is available to users with company-wide access');
-    return CompanyHealthService.getCompanyHealth(params._permissions ?? []);
+    return CompanyHealthService.getCompanyHealth(params._permissions ?? [], new Date(), params._userId ?? undefined);
 }, {
     permissions: [RBAC_PERMISSIONS.REPORTS_MANAGER_READ, RBAC_PERMISSIONS.ADMIN_RBAC],
     rawResponse: true,

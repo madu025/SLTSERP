@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { compare, monthBounds } from '../../src/services/core/company-health.service';
+import { compare, monthBounds, lastMonths, classifyProject } from '../../src/services/core/company-health.service';
 
 test('compare gives a percentage change and no fake base when the previous value is zero', () => {
   assert.equal(compare(150, 100).changePct, 50);
@@ -250,4 +250,30 @@ test('revenue recognition is project-scoped, read-only, and its writes need fina
   assert.match(route, /FINANCE_READ/);
   assert.match(route, /FINANCE_WRITE/);
   assert.match(fs.readFileSync('prisma/migrations/20261123000000_project_contract_value/migration.sql', 'utf8'), /ADD COLUMN IF NOT EXISTS "contractValue"/);
+});
+
+test('lastMonths returns six calendar months oldest first, the last one ending now', () => {
+  const now = new Date('2026-11-14T08:00:00Z');
+  const m = lastMonths(now, 6);
+  assert.equal(m.length, 6);
+  assert.deepEqual(m.map((x) => x.label), ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov']);
+  assert.equal(m[0].start.toISOString(), '2026-06-01T00:00:00.000Z');
+  assert.equal(m[4].end.toISOString(), '2026-10-31T23:59:59.999Z');
+  assert.equal(m[5].end.toISOString(), now.toISOString());
+  // crosses a year boundary
+  assert.equal(lastMonths(new Date('2026-02-10T00:00:00Z'), 3)[0].start.toISOString(), '2025-12-01T00:00:00.000Z');
+});
+
+test('classifyProject: worst signal wins', () => {
+  const base = { overdue: false, overBudget: false, lowSpi: false, untracked: false };
+  assert.equal(classifyProject(base), 'onTrack');
+  assert.equal(classifyProject({ ...base, untracked: true }), 'untracked');
+  assert.equal(classifyProject({ ...base, untracked: true, lowSpi: true }), 'behind');
+  assert.equal(classifyProject({ ...base, lowSpi: true, overBudget: true }), 'critical');
+  assert.equal(classifyProject({ ...base, overdue: true }), 'critical');
+});
+
+test('dashboard tabs carry no descriptive paragraph', () => {
+  const page = fs.readFileSync('src/app/dashboard/page.tsx', 'utf8');
+  assert.doesNotMatch(page, /description=/);
 });

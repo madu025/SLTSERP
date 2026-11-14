@@ -212,8 +212,7 @@ export default function ExecutiveControlTower({ enabled = true, operationalStats
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Executive control tower</p>
-                    <h2 className="mt-1 text-xl font-black text-foreground">Portfolio health, delivery and financial control</h2>
-                    <p className="mt-1 text-xs text-muted-foreground">Only metrics returned by the scoped executive API are shown. This overview covers your whole access scope; the Region and RTOM filters apply to the other tabs.</p>
+                    <h2 className="mt-1 text-xl font-black text-foreground">Portfolio overview</h2>
                 </div>
                 <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground" title={data.generatedAt || undefined}>
                     <Clock3 className="h-3.5 w-3.5" />
@@ -243,7 +242,6 @@ export default function ExecutiveControlTower({ enabled = true, operationalStats
                             <AlertTriangle className="h-4 w-4 text-indigo-700 dark:text-indigo-300" />
                             What needs attention now
                         </CardTitle>
-                        <p className="mt-1 text-xs text-indigo-900/80 dark:text-indigo-200/80">Recommended next steps from the live project control signals.</p>
                     </div>
                     <Badge variant="outline" className="w-fit border-indigo-300 bg-white text-indigo-900 dark:border-indigo-700 dark:bg-indigo-950 dark:text-indigo-100">
                         {priorityActions.length > 0 ? `${priorityActions.length} priority action${priorityActions.length === 1 ? '' : 's'}` : 'No immediate actions'}
@@ -381,8 +379,7 @@ export default function ExecutiveControlTower({ enabled = true, operationalStats
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                             <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">CEO decision signals</p>
-                            <h2 className="mt-1 text-lg font-black text-foreground">Forecast, commercial exposure and change impact</h2>
-                            <p className="mt-1 text-xs text-muted-foreground">Only persisted EVM, invoice, payment, retention, penalty and change-request values are included.</p>
+                            <h2 className="mt-1 text-lg font-black text-foreground">Forecast and exposure</h2>
                         </div>
                         <Link href="/projects/dashboards/financials" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">Open financial controls <ArrowUpRight className="h-3.5 w-3.5" /></Link>
                     </div>

@@ -345,9 +345,8 @@ export default function ProcurementSection({ rtom = 'ALL', enabled = true }: Pro
                         <div>
                             <CardTitle className="text-sm font-bold flex items-center gap-2">
                                 <Clock className="w-4 h-4 text-amber-500" />
-                                Action Required: Approved PRNs Awaiting PO Creation
+                                Approved PRNs awaiting PO
                             </CardTitle>
-                            <p className="text-xs text-muted-foreground mt-0.5">Approved stock requests queued for vendor sourcing &amp; Purchase Order issuing</p>
                         </div>
                         <Link href="/procurement/orders?tab=PENDING" className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
                             View All ({pendingPRNs}) <ArrowUpRight className="w-3.5 h-3.5" />
@@ -452,9 +451,8 @@ export default function ProcurementSection({ rtom = 'ALL', enabled = true }: Pro
                     <div>
                         <CardTitle className="text-sm font-bold flex items-center gap-2 text-rose-700 dark:text-rose-400">
                             <AlertTriangle className="w-4 h-4 text-rose-500 animate-pulse" />
-                            Critical Warehouse Stock Outages (Emergency Local Procurement Candidates)
+                            Critical stock outages
                         </CardTitle>
-                        <p className="text-xs text-muted-foreground mt-0.5">Warehouse materials at or below minimum threshold level requiring urgent local PO creation</p>
                     </div>
                     <Link href="/procurement/orders" className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-bold flex items-center gap-1">
                         Procurement Processing <ArrowUpRight className="w-3.5 h-3.5" />

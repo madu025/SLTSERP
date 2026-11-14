@@ -122,7 +122,7 @@ export function StatsCardGrid({ isLoading, stats }: StatsCardGridProps) {
             {stats?.financeSummary && (
                 <section aria-label="Enterprise Modules Summary">
                     <div className="flex items-center justify-between mb-2 px-1">
-                        <h3 className="text-xs font-black uppercase tracking-wider text-muted-foreground">Enterprise ERP Module Overview (Finance, Fleet & Procurement)</h3>
+                        <h3 className="text-xs font-black uppercase tracking-wider text-muted-foreground">Finance, fleet and procurement</h3>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="glass-panel p-4 rounded-2xl border border-sky-500/20 bg-sky-500/5 hover:border-sky-500/30 transition-all">

@@ -3,10 +3,11 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { LedgerReportService } from '@/services/finance/ledger-report.service';
 import { ArApService } from '@/services/finance/ar-ap.service';
 import { LedgerBudgetService, expenseOverruns } from '@/services/finance/ledger-budget.service';
-import { SOD_TURNAROUND_SLA_DAYS } from '@/lib/constants/sod-constants';
+import { SOD_TURNAROUND_SLA_DAYS, SOD_FINANCIAL_COMPLETION_STATUSES } from '@/lib/constants/sod-constants';
 import { SPI_ALERT_THRESHOLD } from '@/lib/project-evm';
 import { SodPerformanceService } from '@/services/service-order/sod-performance.service';
 import { ContractorScorecardService } from '@/services/contractor/contractor-scorecard.service';
+import { OpsScoreboardService } from '@/services/service-order/ops-scoreboard.service';
 
 /**
  * One-page company health for management (CEO / GM).
@@ -34,6 +35,38 @@ export interface Comparison {
     changePct: number | null;
 }
 
+export interface ProjectRisk {
+    id: string;
+    name: string;
+    code: string;
+    spi: number | null;
+    overBudgetPct: number | null;
+    daysLate: number | null;
+}
+
+export type ProjectHealthClass = 'onTrack' | 'behind' | 'critical' | 'untracked';
+
+/** Worst signal wins: late or over budget is critical, then low SPI, then missing budget or end date. */
+export function classifyProject(p: { overdue: boolean; overBudget: boolean; lowSpi: boolean; untracked: boolean }): ProjectHealthClass {
+    if (p.overdue || p.overBudget) return 'critical';
+    if (p.lowSpi) return 'behind';
+    if (p.untracked) return 'untracked';
+    return 'onTrack';
+}
+
+/** The last `count` calendar months ending with the month of `now` (UTC), oldest first. */
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+export function lastMonths(now: Date, count: number): { label: string; start: Date; end: Date }[] {
+    const out: { label: string; start: Date; end: Date }[] = [];
+    for (let i = count - 1; i >= 0; i--) {
+        const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+        const endOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i + 1, 1) - 1);
+        out.push({ label: MONTH_NAMES[start.getUTCMonth()], start, end: i === 0 ? now : endOfMonth });
+    }
+    return out;
+}
+
 export interface CompanyHealth {
     asOf: string;
     periods: { currentLabel: string; previousLabel: string };
@@ -47,12 +80,22 @@ export interface CompanyHealth {
         cashBalance: number;
         receivables: { total: number; over60: number; over90: number; over60Pct: number | null; glReconciled: boolean | null };
         payablesTotal: number;
+        /** Receivables by age (current = 0-30 days). */
+        arBuckets: { current: number; days31to60: number; days61to90: number; over90: number };
+        /** Last six calendar months, oldest first; the last entry is the month to date. */
+        monthly: { label: string; revenue: number; expense: number; profit: number }[];
     };
     operations: null | {
         openOrders: number;
         agedOver10Days: number;
         agedOver30Days: number;
         completed: Comparison;
+        /** Open orders by age in days. */
+        ageing: { bucket: string; count: number }[];
+        /** Completed orders per calendar month, oldest first. */
+        completedMonthly: { label: string; completed: number }[];
+        /** The five weakest RTOMs by the scoreboard health number (30-day window). */
+        weakestRtoms: { rtom: string; open: number; over14: number; slaPct: number | null; health: number | null }[];
     };
     projects: null | {
         active: number;
@@ -65,6 +108,10 @@ export interface CompanyHealth {
         lowSpi: number;
         /** In-progress projects with no budget or no end date: their performance cannot be measured. */
         untracked: number;
+        /** Active projects grouped by their worst signal. */
+        health: { onTrack: number; behind: number; critical: number; untracked: number };
+        /** Up to five projects with the most serious signals. */
+        atRisk: ProjectRisk[];
     };
     fleet: null | { insuranceExpired: number; insuranceExpiring30d: number };
     helpdesk: null | { openTickets: number; slaBreached: number };
@@ -100,7 +147,7 @@ export function monthBounds(now: Date) {
 }
 
 export class CompanyHealthService {
-    static async getCompanyHealth(permissions: readonly string[], now: Date = new Date()): Promise<CompanyHealth> {
+    static async getCompanyHealth(permissions: readonly string[], now: Date = new Date(), userId?: string): Promise<CompanyHealth> {
         const has = (p: string) => permissions.includes(p);
         const b = monthBounds(now);
         const exceptions: HealthException[] = [];
@@ -108,7 +155,7 @@ export class CompanyHealthService {
         // Sections run one after another on purpose: each fans out several queries, and running all
         // of them at once can exhaust the Prisma connection pool (P2024) shared with live traffic.
         const finance = has(RBAC_PERMISSIONS.FINANCE_READ) ? await this.financeSection(b, now, exceptions) : null;
-        const operations = has(RBAC_PERMISSIONS.SOD_READ) ? await this.operationsSection(b, now, exceptions) : null;
+        const operations = has(RBAC_PERMISSIONS.SOD_READ) ? await this.operationsSection(b, now, exceptions, userId) : null;
         const projects = has(RBAC_PERMISSIONS.PROJECT_READ) ? await this.projectsSection(now, exceptions) : null;
         const fleet = has(RBAC_PERMISSIONS.FLEET_READ) ? await this.fleetSection(now, exceptions) : null;
         const helpdesk = has(RBAC_PERMISSIONS.HELPDESK_READ) ? await this.helpdeskSection(exceptions) : null;
@@ -131,6 +178,12 @@ export class CompanyHealthService {
             LedgerReportService.getPnlReport(b.previousStart, b.previousSameSpanEnd),
             LedgerReportService.getPnlReport(b.yearStart, now),
         ]);
+        // Six-month trend: one P&L per month, one after another (each is several ledger queries)
+        const monthly: { label: string; revenue: number; expense: number; profit: number }[] = [];
+        for (const m of lastMonths(now, 6)) {
+            const r = await LedgerReportService.getPnlReport(m.start, m.end);
+            monthly.push({ label: m.label, revenue: r.totalRevenue, expense: r.totalExpense, profit: r.netProfit });
+        }
         const [cash, ar, ap] = await Promise.all([
             LedgerReportService.getCashFlowReport(undefined, now),
             // Company-wide aging. Callers must already hold company-wide access (the route checks it).
@@ -179,6 +232,8 @@ export class CompanyHealthService {
             cashBalance: cash.closingCash,
             receivables: { total: ar.summary.total, over60, over90: ar.summary.over90, over60Pct, glReconciled: ar.isReconciled },
             payablesTotal: ap.summary.total,
+            arBuckets: { current: ar.summary.current, days31to60: ar.summary.days31to60, days61to90: ar.summary.days61to90, over90: ar.summary.over90 },
+            monthly,
         };
     }
 
@@ -216,7 +271,7 @@ export class CompanyHealthService {
         }
     }
 
-    private static async operationsSection(b: ReturnType<typeof monthBounds>, now: Date, ex: HealthException[]): Promise<NonNullable<CompanyHealth['operations']>> {
+    private static async operationsSection(b: ReturnType<typeof monthBounds>, now: Date, ex: HealthException[], userId?: string): Promise<NonNullable<CompanyHealth['operations']>> {
         const open = { status: { in: [...OPEN_SOD_STATUSES] } };
         const [openOrders, aged10, aged30, doneCur, donePrev] = await Promise.all([
             prisma.serviceOrder.count({ where: open }),
@@ -260,23 +315,70 @@ export class CompanyHealthService {
             console.warn('[COMPANY-HEALTH] Contractor scorecard skipped:', error instanceof Error ? error.message : error);
         }
 
-        return { openOrders, agedOver10Days: aged10, agedOver30Days: aged30, completed: compare(doneCur, donePrev) };
+        // Charts: completions per month, open-order ageing, weakest RTOMs (failures degrade to empty, never block the page)
+        let ageing: { bucket: string; count: number }[] = [];
+        let weakestRtoms: NonNullable<CompanyHealth['operations']>['weakestRtoms'] = [];
+        let completedMonthly: { label: string; completed: number }[] = [];
+        try {
+            const months = lastMonths(now, 6);
+            const rows = await prisma.$queryRawUnsafe<{ m: Date; n: bigint | number }[]>(
+                `SELECT date_trunc('month', "completedDate" AT TIME ZONE 'UTC') AS m, count(*) AS n FROM "ServiceOrder"
+                 WHERE "status"::text = ANY($1::text[]) AND "completedDate" >= $2::timestamptz AND "completedDate" <= $3::timestamptz GROUP BY 1`,
+                [...SOD_FINANCIAL_COMPLETION_STATUSES] as string[], months[0].start, now,
+            );
+            const byMonth = new Map(rows.map((r) => [new Date(r.m).toISOString().slice(0, 7), Number(r.n)]));
+            completedMonthly = months.map((m) => ({ label: m.label, completed: byMonth.get(m.start.toISOString().slice(0, 7)) ?? 0 }));
+        } catch (error) {
+            console.warn('[COMPANY-HEALTH] Completions trend skipped:', error instanceof Error ? error.message : error);
+        }
+        if (userId) {
+            try {
+                const board = await OpsScoreboardService.getScoreboard(userId, { windowDays: 30 }, now);
+                weakestRtoms = board.rows.slice(0, 5).map((r) => ({ rtom: r.rtom, open: r.open, over14: r.over14, slaPct: r.slaPct, health: r.health }));
+                const report = await SodPerformanceService.getReport(userId, new Date(now.getTime() - 30 * DAY_MS), now, now);
+                const sum: Record<string, number> = {};
+                for (const a of report.ageingByRtom) for (const [k, v] of Object.entries(a.buckets)) sum[k] = (sum[k] ?? 0) + v;
+                ageing = ['0-3', '3-7', '7-14', '14-30', '30+'].map((k) => ({ bucket: k, count: sum[k] ?? 0 }));
+            } catch (error) {
+                console.warn('[COMPANY-HEALTH] Scoreboard skipped:', error instanceof Error ? error.message : error);
+            }
+        }
+
+        return { openOrders, agedOver10Days: aged10, agedOver30Days: aged30, completed: compare(doneCur, donePrev), ageing, completedMonthly, weakestRtoms };
     }
 
     private static async projectsSection(now: Date, ex: HealthException[]): Promise<NonNullable<CompanyHealth['projects']>> {
         const projects = await prisma.project.findMany({
             where: { status: { in: ['IN_PROGRESS', 'ON_HOLD', 'PLANNING'] } },
-            select: { budget: true, actualCost: true, endDate: true, status: true, evm: { select: { spi: true } } },
+            select: { id: true, name: true, projectCode: true, budget: true, actualCost: true, endDate: true, status: true, evm: { select: { spi: true } } },
         });
         let overdue = 0, overBudget = 0, totalBudget = 0, totalActual = 0, lowSpi = 0, untracked = 0;
+        const health = { onTrack: 0, behind: 0, critical: 0, untracked: 0 };
+        const risky: (ProjectRisk & { weight: number })[] = [];
         for (const p of projects) {
-            if (p.status === 'IN_PROGRESS' && (!(Number(p.budget ?? 0) > 0) || !p.endDate)) untracked++;
-            if (p.status === 'IN_PROGRESS' && p.evm?.spi !== null && p.evm?.spi !== undefined && Number(p.evm.spi) < SPI_ALERT_THRESHOLD) lowSpi++;
+            const inProgress = p.status === 'IN_PROGRESS';
+            const isUntracked = inProgress && (!(Number(p.budget ?? 0) > 0) || !p.endDate);
+            const spi = p.evm?.spi === null || p.evm?.spi === undefined ? null : Number(p.evm.spi);
+            const isLowSpi = inProgress && spi !== null && spi < SPI_ALERT_THRESHOLD;
+            if (isUntracked) untracked++;
+            if (isLowSpi) lowSpi++;
             const budget = p.budget === null ? null : Number(p.budget);
             const actual = Number(p.actualCost);
-            if (budget !== null) { totalBudget += budget; totalActual += actual; if (budget > 0 && actual > budget) overBudget++; }
-            if (p.endDate && p.endDate < now && !(FINISHED_PROJECT_STATUSES as readonly string[]).includes(p.status)) overdue++;
+            const isOver = budget !== null && budget > 0 && actual > budget;
+            if (budget !== null) { totalBudget += budget; totalActual += actual; if (isOver) overBudget++; }
+            const isLate = !!p.endDate && p.endDate < now && !(FINISHED_PROJECT_STATUSES as readonly string[]).includes(p.status);
+            if (isLate) overdue++;
+            health[classifyProject({ overdue: isLate, overBudget: isOver, lowSpi: isLowSpi, untracked: isUntracked })]++;
+            if (isLate || isOver || isLowSpi) {
+                const daysLate = isLate && p.endDate ? Math.floor((now.getTime() - p.endDate.getTime()) / DAY_MS) : null;
+                const overBudgetPct = isOver && budget ? Number((((actual - budget) / budget) * 100).toFixed(1)) : null;
+                risky.push({ id: p.id, name: p.name, code: p.projectCode, spi, overBudgetPct, daysLate, weight: (isLate ? 2 : 0) + (isOver ? 2 : 0) + (isLowSpi ? 1 : 0) });
+            }
         }
+        const atRisk: ProjectRisk[] = risky
+            .sort((a, c) => c.weight - a.weight || (c.daysLate ?? 0) - (a.daysLate ?? 0))
+            .slice(0, 5)
+            .map((r) => ({ id: r.id, name: r.name, code: r.code, spi: r.spi, overBudgetPct: r.overBudgetPct, daysLate: r.daysLate }));
         if (overBudget > 0) ex.push({ id: 'prj-budget', severity: 'critical', area: 'Projects', title: 'Projects over budget', detail: `${overBudget} active projects have spent more than their budget`, href: '/projects' });
         if (lowSpi > 0) ex.push({ id: 'prj-spi', severity: 'warning', area: 'Projects', title: 'Projects behind schedule', detail: `${lowSpi} in-progress project(s) have a schedule performance index below ${SPI_ALERT_THRESHOLD}`, href: '/projects' });
         if (untracked > 0) ex.push({ id: 'prj-untracked', severity: 'warning', area: 'Projects', title: 'Projects that cannot be tracked', detail: `${untracked} in-progress project(s) have no budget or no planned end date, so their progress against plan is unknown`, href: '/projects' });
@@ -285,7 +387,7 @@ export class CompanyHealthService {
         return {
             active: projects.length, overdue, overBudget, totalBudget, totalActualCost: totalActual,
             budgetUsedPct: totalBudget > 0 ? (totalActual / totalBudget) * 100 : null,
-            lowSpi, untracked,
+            lowSpi, untracked, health, atRisk,
         };
     }
 

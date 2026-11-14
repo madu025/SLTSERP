@@ -224,8 +224,7 @@ export default function InventorySection({ rtom = 'ALL', enabled = true }: Inven
                         <Warehouse className="w-5 h-5 text-blue-300" />
                     </div>
                     <div>
-                        <h4 className="text-sm font-black">Stores Manager Operational Command Center</h4>
-                        <p className="text-xs text-blue-200/80">Manage warehouse stock dispatches (MIN), GRN verification, and inventory valuation</p>
+                        <h4 className="text-sm font-black">Stores manager</h4>
                     </div>
                 </div>
                 <Link
