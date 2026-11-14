@@ -17,6 +17,7 @@ import { isContractorRole } from '@/config/roles';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import ExecutiveControlTower from './components/ExecutiveControlTower';
 import CompanyHealthSection from './components/CompanyHealthSection';
+import OperationsScoreboard from './components/OperationsScoreboard';
 
 const DASHBOARD_STATS_REQUEST_TIMEOUT_MS = 12_000;
 
@@ -429,6 +430,9 @@ export default function DashboardPage() {
                                             contractors={stats?.contractors}
                                             aging={stats?.aging}
                                         />
+                                        {isHigherManagement && (
+                                            <OperationsScoreboard userId={user.id} region={selectedRegion} rtom={selectedRtom} enabled={activeTab === 'operations'} />
+                                        )}
                                         {isHigherManagement && (
                                             <RTOMTables isLoading={isLoading} sortedRtoms={sortedRtoms} />
                                         )}
