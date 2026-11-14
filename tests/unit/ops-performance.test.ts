@@ -96,3 +96,29 @@ test('weekly operations digest: Monday job, registered everywhere, template-wire
   assert.match(svc, /audience: 'SOD_PROJECT'/);
   assert.match(svc, /dedupKey: `ops-weekly-digest:\$\{week\}`/);
 });
+
+test('GIS operations layer: pin levels, centroids, plausibility and scope', async () => {
+  const { pinLevel, centroid, isPlausibleLocation } = await import('../../src/lib/gis-ops-shared');
+  assert.deepEqual(pinLevel({ delayed: false, overBudget: false, spi: 1 }), { level: 'ok', reasons: [] });
+  assert.equal(pinLevel({ delayed: true, overBudget: false, spi: null }).level, 'critical');
+  assert.equal(pinLevel({ delayed: false, overBudget: true, spi: null }).level, 'critical');
+  const low = pinLevel({ delayed: false, overBudget: false, spi: 0.7 });
+  assert.equal(low.level, 'warning');
+  assert.match(low.reasons[0], /SPI 0\.70/);
+  assert.equal(pinLevel({ delayed: false, overBudget: false, spi: 0.85 }).level, 'ok', 'the threshold itself is not an alert');
+  assert.equal(centroid([]), null);
+  assert.deepEqual(centroid([{ lat: 7, lng: 80 }, { lat: 8, lng: 81 }]), { lat: 7.5, lng: 80.5 });
+  assert.equal(isPlausibleLocation(7.37, 81.8), true);
+  assert.equal(isPlausibleLocation(0, 0), false, 'null island is bad data, not a place');
+  assert.equal(isPlausibleLocation(Number.NaN, 80), false);
+
+  const svc = fs.readFileSync('src/services/gis/GisOpsOverlayService.ts', 'utf8');
+  assert.match(svc, /getAccessibleProjectIds\(userId\)/);
+  assert.match(svc, /approximate: true/);
+  const route = fs.readFileSync('src/app/api/gis/ops-overlay/route.ts', 'utf8');
+  assert.match(route, /PROJECT_READ/);
+  assert.match(route, /SOD_READ/, 'backlog circles need SOD access');
+  const map = fs.readFileSync('src/components/gis/NationalInfraMap.tsx', 'utf8');
+  assert.match(map, /showOps/);
+  assert.doesNotMatch(map, /@\/services\//);
+});

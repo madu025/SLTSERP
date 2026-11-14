@@ -14,6 +14,7 @@ import {
   Filter 
 } from 'lucide-react';
 import { GISValidatorService, GISAnomaly } from '@/lib/gis/gis-ai-validator';
+import { PIN_COLOR, type OpsOverlay } from '@/lib/gis-ops-shared';
 
 interface GISRouteData {
   id: string;
@@ -76,6 +77,9 @@ export default function NationalInfraMap() {
   const [mapZoom, setMapZoom] = useState(8);
   const [anomalies, setAnomalies] = useState<GISAnomaly[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showOps, setShowOps] = useState(false);
+  const [overlay, setOverlay] = useState<OpsOverlay | null>(null);
+  const [overlayError, setOverlayError] = useState(false);
   const [dbStats, setDbStats] = useState({
     polesCount: 0,
     chambersCount: 0,
@@ -109,6 +113,23 @@ export default function NationalInfraMap() {
     };
     fetchMapData();
   }, []);
+
+  // Operations layer is fetched the first time it is switched on
+  useEffect(() => {
+    if (!showOps || overlay || overlayError) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/gis/ops-overlay');
+        if (!res.ok) throw new Error(String(res.status));
+        const json = await res.json();
+        if (!cancelled) setOverlay((json.data ?? json) as OpsOverlay);
+      } catch {
+        if (!cancelled) setOverlayError(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showOps, overlay, overlayError]);
 
   // Filter & Search Logic
   useEffect(() => {
@@ -217,6 +238,22 @@ export default function NationalInfraMap() {
               <option value="FIELD_CHANGE" className="bg-slate-900">Field Changes</option>
             </select>
           </div>
+        </div>
+
+        {/* Operations layer toggle */}
+        <div className="px-3 py-2 border-b border-slate-800 bg-slate-950">
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-200 cursor-pointer">
+            <input type="checkbox" checked={showOps} onChange={(e) => setShowOps(e.target.checked)} className="accent-indigo-500" />
+            Operations layer (troubled projects + backlog)
+          </label>
+          {showOps && overlayError && <p className="mt-1 text-[10px] text-red-300">The operations layer could not be loaded.</p>}
+          {showOps && !overlay && !overlayError && <p className="mt-1 text-[10px] text-slate-400">Loading operations layer...</p>}
+          {showOps && overlay && (
+            <p className="mt-1 text-[10px] text-slate-300">
+              {overlay.coverage.located} of {overlay.coverage.activeProjects} active project(s) have map coordinates.
+              {overlay.backlog.length > 0 && ' Backlog circles are approximate.'}
+            </p>
+          )}
         </div>
 
         {/* Projects List */}
@@ -396,6 +433,43 @@ export default function NationalInfraMap() {
               });
             })}
 
+            {/* Operations layer: RTOM backlog circles (approximate position) and troubled-project pins */}
+            {showOps && overlay && overlay.backlog.map((b) => (
+              <CircleMarker
+                key={`backlog-${b.rtom}`}
+                center={[b.lat, b.lng]}
+                radius={Math.min(36, 8 + Math.sqrt(b.open) * 2.2)}
+                fillColor={b.over14 > 0 ? '#f97316' : '#38bdf8'}
+                color="#0f172a"
+                weight={1}
+                fillOpacity={0.35}
+              >
+                <Popup>
+                  <div className="text-xs font-bold text-slate-900">{b.rtom} backlog</div>
+                  <div className="text-[10px] text-slate-800">{b.open} open order(s), {b.over14} older than 14 days</div>
+                  <div className="text-[10px] text-slate-600">Position is approximate</div>
+                </Popup>
+              </CircleMarker>
+            ))}
+            {showOps && overlay && overlay.pins.map((p) => (
+              <CircleMarker
+                key={`opspin-${p.projectId}`}
+                center={[p.lat, p.lng]}
+                radius={p.level === 'ok' ? 7 : 10}
+                fillColor={PIN_COLOR[p.level]}
+                color="#0f172a"
+                weight={2}
+                fillOpacity={0.9}
+              >
+                <Popup>
+                  <div className="text-xs font-bold text-slate-900">{p.name}</div>
+                  <div className="text-[10px] text-slate-800">{p.projectCode} · {p.status}</div>
+                  <div className="text-[10px] text-slate-800">{p.reasons.length ? p.reasons.join(' · ') : 'On track'}</div>
+                  <a href={`/projects/${p.projectId}`} className="text-[10px] font-semibold text-blue-700 underline">Open project</a>
+                </Popup>
+              </CircleMarker>
+            ))}
+
             {/* Render AI Anomalies dynamically as warning markers */}
             {selectedRoute && anomalies.map((a, i) => (
               <CircleMarker
@@ -429,6 +503,12 @@ export default function NationalInfraMap() {
               { color: '#ec4899', label: 'ODF', shape: 'circle' },
               { color: '#f59e0b', label: 'FDP / Closure', shape: 'circle' },
               { color: '#ef4444', label: 'AI Anomaly', shape: 'circle' },
+              ...(showOps ? [
+                { color: '#ef4444', label: 'Project late / over budget', shape: 'circle' },
+                { color: '#f59e0b', label: 'Project behind schedule', shape: 'circle' },
+                { color: '#10b981', label: 'Project on track', shape: 'circle' },
+                { color: '#f97316', label: 'RTOM backlog with orders > 14 d (approx.)', shape: 'circle' },
+              ] : []),
             ].map(({ color, label, shape }) => (
               <div key={label} className="flex items-center gap-2">
                 {shape === 'line' ? (
