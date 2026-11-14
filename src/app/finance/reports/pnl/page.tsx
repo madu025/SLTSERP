@@ -6,6 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
 import { TrendingUp, TrendingDown, FileText, Download } from "lucide-react";
+import { downloadCsv } from '@/lib/csv-export';
 
 interface AccountBalanceSummary {
     code: string;
@@ -100,17 +101,14 @@ export default function PnlPage() {
         if (!data) return;
         const rows: (string | number)[][] = [['Section', 'Account', 'Name', 'Amount', ...(cmp ? [`Comparison (${cmpLabel})`] : [])]];
         const add = (section: string, list: AccountBalanceSummary[], cmpList?: AccountBalanceSummary[]) => {
-            for (const a of list) rows.push([section, a.code, `"${a.name.replace(/"/g, '""')}"`, a.netBalance, ...(cmpList ? [baseOf(cmpList, a.code)] : [])]);
+            for (const a of list) rows.push([section, a.code, a.name, a.netBalance, ...(cmpList ? [baseOf(cmpList, a.code)] : [])]);
         };
         add('Revenue', data.revenueAccounts, cmp?.revenueAccounts);
         add('Expense', data.expenseAccounts, cmp?.expenseAccounts);
         rows.push(['Total', '', 'Revenue', data.totalRevenue, ...(cmp ? [cmp.totalRevenue] : [])]);
         rows.push(['Total', '', 'Expense', data.totalExpense, ...(cmp ? [cmp.totalExpense] : [])]);
         rows.push(['Total', '', 'Net profit', data.netProfit, ...(cmp ? [cmp.netProfit] : [])]);
-        const url = URL.createObjectURL(new Blob([rows.map((r) => r.join(',')).join('\n')], { type: 'text/csv' }));
-        const a = document.createElement('a');
-        a.href = url; a.download = 'profit-and-loss.csv'; a.click();
-        URL.revokeObjectURL(url);
+        downloadCsv('profit-and-loss.csv', rows);
     };
 
     const renderSection = (title: string, headerTone: string, total: number, cmpTotal: number | undefined, list: AccountBalanceSummary[] | undefined,

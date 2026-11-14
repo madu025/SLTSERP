@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import ExportCsvButton from '@/components/ExportCsvButton';
 
 interface AgingSummary {
     current: number;
@@ -88,6 +89,12 @@ export default function ArAgingPage() {
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                     <Header />
                     <main className="flex-1 overflow-y-auto p-6 space-y-6">
+                        <div className="flex justify-end">
+                            <ExportCsvButton filename="ar-aging.csv" disabled={!data}
+                                getRows={() => [['Customer', '0-30 days', '31-60 days', '61-90 days', 'Over 90 days', 'Total balance'],
+                                    ...(data?.customers ?? []).map((r) => [r.customerName, r.current, r.days31to60, r.days61to90, r.over90, r.totalBalance]),
+                                    ['TOTAL', data?.summary.current ?? 0, data?.summary.days31to60 ?? 0, data?.summary.days61to90 ?? 0, data?.summary.over90 ?? 0, data?.summary.total ?? 0]]} />
+                        </div>
                         
                         {/* Title */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

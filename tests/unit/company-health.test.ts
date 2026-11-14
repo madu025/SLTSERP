@@ -160,3 +160,31 @@ test('budget API: reads need finance.read, writes need finance.write, and scope 
   assert.match(svc, /Company-wide budgets are available only to users with company-wide access/);
   assert.match(svc, /deleteMany[\s\S]*createMany/);
 });
+
+test('CSV helper quotes, escapes and neutralises spreadsheet formulas', async () => {
+  const { toCsv, csvField } = await import('../../src/lib/csv-export');
+  assert.equal(csvField('plain'), 'plain');
+  assert.equal(csvField('a,b'), '"a,b"');
+  assert.equal(csvField('say "hi"'), '"say ""hi"""');
+  assert.equal(csvField('line1\nline2'), '"line1\nline2"');
+  assert.equal(csvField(-12.5), '-12.5', 'negative numbers are data, not formulas');
+  assert.equal(csvField('=SUM(A1:A9)'), "'=SUM(A1:A9)");
+  assert.equal(csvField('+94 77 123'), "'+94 77 123");
+  assert.equal(csvField(null), '');
+  assert.equal(csvField(Number.NaN), '');
+  assert.equal(toCsv([['a', 1], ['b,c', 2]]), 'a,1\r\n"b,c",2');
+});
+
+test('AR aging, cash forecast and receivables risk share one receivable definition', () => {
+  const ar = fs.readFileSync('src/services/finance/ar-ap.service.ts', 'utf8');
+  assert.match(ar, /status: \{ notIn: \['DRAFT', 'CANCELLED', 'REJECTED'\] \}/);
+  assert.match(ar, /paymentStatus: \{ in: \['NOT_DUE', 'PENDING', 'PARTIALLY_PAID', 'OVERDUE'\] \}/);
+});
+
+test('finance report pages export through the shared CSV helper (no hand-rolled blobs)', () => {
+  for (const p of ['reports/pnl', 'reports/balance-sheet', 'reports/cash-flow', 'reports/profitability', 'reports/trial-balance', 'reports/gl-viewer', 'budget-vs-actual', 'fpa-dashboard', 'cash-forecast', 'ar/aging', 'ap/aging']) {
+    const src = fs.readFileSync(`src/app/finance/${p}/page.tsx`, 'utf8');
+    assert.match(src, /downloadCsv|ExportCsvButton/, p);
+    assert.doesNotMatch(src, /createObjectURL/, p);
+  }
+});

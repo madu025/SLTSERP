@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, Download } from 'lucide-react';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import type { CashForecast, ReceivablesRisk } from '@/services/finance/cash-forecast.service';
+import { downloadCsv } from '@/lib/csv-export';
 
 const money = (v: number) => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', maximumFractionDigits: 0 }).format(v);
 const compact = (v: number) => new Intl.NumberFormat('en-LK', { notation: 'compact', maximumFractionDigits: 1 }).format(v);
@@ -42,10 +43,7 @@ export default function CashForecastPage() {
     if (!data) return;
     const rows = [['Week', 'Start', 'Inflow', 'Outflow', 'Net', 'Closing cash'],
       ...data.forecast.weeks.map((w) => [w.week, w.start, w.inflow, w.outflow, w.net, w.closingCash ?? ''])];
-    const url = URL.createObjectURL(new Blob([rows.map((r) => r.join(',')).join('\n')], { type: 'text/csv' }));
-    const a = document.createElement('a');
-    a.href = url; a.download = 'cash-forecast-13-weeks.csv'; a.click();
-    URL.revokeObjectURL(url);
+    downloadCsv('cash-forecast-13-weeks.csv', rows);
   };
 
   const f = data?.forecast;

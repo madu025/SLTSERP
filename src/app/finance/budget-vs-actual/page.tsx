@@ -8,6 +8,7 @@ import RoleGuard from '@/components/RoleGuard';
 import { Card, CardContent } from '@/components/ui/card';
 import { Download, Loader2, Target } from 'lucide-react';
 import type { BudgetVsActualReport } from '@/services/finance/ledger-budget.service';
+import { downloadCsv } from '@/lib/csv-export';
 
 interface Account { code: string; name: string; type: string; isPostable?: boolean; isActive?: boolean }
 
@@ -71,11 +72,8 @@ export default function BudgetVsActualPage() {
     const exportCsv = () => {
         if (!data) return;
         const rows: (string | number)[][] = [['Account', 'Name', 'Type', 'Annual budget', 'YTD budget', 'YTD actual', 'Variance (+ favourable)', 'Variance %'],
-            ...data.rows.map((r) => [r.accountCode, `"${r.accountName.replace(/"/g, '""')}"`, r.kind, r.annualBudget, r.ytdBudget, r.ytdActual, r.variance, r.variancePct ?? ''])];
-        const url = URL.createObjectURL(new Blob([rows.map((r) => r.join(',')).join('\n')], { type: 'text/csv' }));
-        const a = document.createElement('a');
-        a.href = url; a.download = `budget-vs-actual-${year}.csv`; a.click();
-        URL.revokeObjectURL(url);
+            ...data.rows.map((r) => [r.accountCode, r.accountName, r.kind, r.annualBudget, r.ytdBudget, r.ytdActual, r.variance, r.variancePct ?? ''])];
+        downloadCsv(`budget-vs-actual-${year}.csv`, rows);
     };
 
     const tone = (v: number) => (v < 0 ? 'text-red-700' : v > 0 ? 'text-emerald-700' : 'text-slate-900');

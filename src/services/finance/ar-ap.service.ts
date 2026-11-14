@@ -197,8 +197,11 @@ export class ArApService {
             where: {
                 ...(scope === undefined ? {} : { project: { opmcId: { in: scope } } }),
                 type: 'CLIENT',
+                // Issued invoices only (drafts are not receivables yet), including ones not yet due:
+                // this must match the cash-forecast / receivables-risk rule or the reports disagree.
+                status: { notIn: ['DRAFT', 'CANCELLED', 'REJECTED'] },
                 balanceAmount: { gt: 0 },
-                paymentStatus: { in: ['PENDING', 'PARTIALLY_PAID', 'OVERDUE'] }
+                paymentStatus: { in: ['NOT_DUE', 'PENDING', 'PARTIALLY_PAID', 'OVERDUE'] }
             },
             include: {
                 project: true

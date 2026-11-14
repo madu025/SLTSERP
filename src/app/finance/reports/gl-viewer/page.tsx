@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, Layers } from "lucide-react";
 import Link from 'next/link';
 import { ACCOUNTS } from '@/services/finance/account-codes';
+import ExportCsvButton from '@/components/ExportCsvButton';
 
 interface DrilldownRow {
     id: string;
@@ -54,6 +55,11 @@ function GlViewerPageInner() {
 
     return (
         <div className="space-y-6">
+            <div className="flex justify-end">
+                <ExportCsvButton filename={`gl-${selectedCode}.csv`} disabled={!data}
+                    getRows={() => [['Date', 'Reference type', 'Reference id', 'Description', 'Debit', 'Credit', 'Running balance'],
+                        ...(data?.rows ?? []).map((r) => [r.date, r.referenceType, r.referenceId, r.description, r.debit, r.credit, r.runningBalance])]} />
+            </div>
             {/* Top Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>

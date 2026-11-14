@@ -5,6 +5,7 @@ import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
 import { Badge } from "@/components/ui/badge";
 import { Building2 } from 'lucide-react';
+import ExportCsvButton from '@/components/ExportCsvButton';
 interface AgingSummary {
     current: number;
     days31to60: number;
@@ -44,6 +45,12 @@ export default function ApAgingPage() {
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                     <Header />
                     <main className="flex-1 overflow-y-auto p-6 space-y-6">
+                        <div className="flex justify-end">
+                            <ExportCsvButton filename="ap-aging.csv" disabled={!data}
+                                getRows={() => [['Vendor', '0-30 days', '31-60 days', '61-90 days', 'Over 90 days', 'Total balance'],
+                                    ...(data?.vendors ?? []).map((r) => [r.vendorName, r.current, r.days31to60, r.days61to90, r.over90, r.totalBalance]),
+                                    ['TOTAL', data?.summary.current ?? 0, data?.summary.days31to60 ?? 0, data?.summary.days61to90 ?? 0, data?.summary.over90 ?? 0, data?.summary.total ?? 0]]} />
+                        </div>
                         {/* Title */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div>

@@ -7,6 +7,7 @@ import RoleGuard from '@/components/RoleGuard';
 import { Badge } from "@/components/ui/badge";
 import { useMemo, useState } from 'react';
 import { Landmark, CheckCircle2, AlertTriangle, Download } from "lucide-react";
+import { downloadCsv } from '@/lib/csv-export';
 
 interface AccountBalanceSummary {
     code: string;
@@ -80,7 +81,7 @@ export default function BalanceSheetPage() {
         if (!data) return;
         const rows: (string | number)[][] = [['Section', 'Account', 'Name', `Balance at ${asOf}`, ...(cmp && cmpDate ? [`Balance at ${cmpDate.toISOString().slice(0, 10)}`] : [])]];
         const add = (section: string, list: AccountBalanceSummary[], cmpList?: AccountBalanceSummary[]) => {
-            for (const a of list) rows.push([section, a.code, `"${a.name.replace(/"/g, '""')}"`, a.netBalance, ...(cmpList ? [cmpList.find((x) => x.code === a.code)?.netBalance ?? 0] : [])]);
+            for (const a of list) rows.push([section, a.code, a.name, a.netBalance, ...(cmpList ? [cmpList.find((x) => x.code === a.code)?.netBalance ?? 0] : [])]);
         };
         add('Asset', data.assetAccounts, cmp?.assetAccounts);
         add('Liability', data.liabilityAccounts, cmp?.liabilityAccounts);
@@ -89,10 +90,7 @@ export default function BalanceSheetPage() {
         rows.push(['Total', '', 'Assets', data.totalAssets, ...(cmp ? [cmp.totalAssets] : [])]);
         rows.push(['Total', '', 'Liabilities', data.totalLiabilities, ...(cmp ? [cmp.totalLiabilities] : [])]);
         rows.push(['Total', '', 'Equity', data.totalEquity, ...(cmp ? [cmp.totalEquity] : [])]);
-        const url = URL.createObjectURL(new Blob([rows.map((r) => r.join(',')).join('\n')], { type: 'text/csv' }));
-        const a = document.createElement('a');
-        a.href = url; a.download = `balance-sheet-${asOf}.csv`; a.click();
-        URL.revokeObjectURL(url);
+        downloadCsv(`balance-sheet-${asOf}.csv`, rows);
     };
 
     return (

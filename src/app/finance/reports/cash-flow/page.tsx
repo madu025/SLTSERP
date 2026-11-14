@@ -6,6 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
 import { Banknote, Download } from "lucide-react";
+import { downloadCsv } from '@/lib/csv-export';
 
 interface CashAccount { code: string; name: string; totalDebit: number; totalCredit: number; netBalance: number }
 interface CashFlowBase {
@@ -83,11 +84,8 @@ export default function CashFlowPage() {
             ['Cash outflow', data.totalOutflow, ...(cmp ? [cmp.totalOutflow] : [])],
             ['Net cash flow', data.netCashFlow, ...(cmp ? [cmp.netCashFlow] : [])],
             ['Closing cash', data.closingCash, ...(cmp ? [cmp.closingCash] : [])]];
-        for (const a of data.cashAccounts) rows.push([`Account ${a.code} ${a.name.replace(/,/g, ' ')} (net movement)`, a.totalDebit - a.totalCredit]);
-        const url = URL.createObjectURL(new Blob([rows.map((r) => r.join(',')).join('\n')], { type: 'text/csv' }));
-        const a = document.createElement('a');
-        a.href = url; a.download = 'cash-flow.csv'; a.click();
-        URL.revokeObjectURL(url);
+        for (const a of data.cashAccounts) rows.push([`Account ${a.code} ${a.name} (net movement)`, a.totalDebit - a.totalCredit]);
+        downloadCsv('cash-flow.csv', rows);
     };
 
     return (

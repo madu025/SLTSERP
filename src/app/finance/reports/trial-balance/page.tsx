@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Scale, CheckCircle2, AlertTriangle, ArrowRight } from "lucide-react";
 import Link from 'next/link';
+import ExportCsvButton from '@/components/ExportCsvButton';
 
 interface AccountBalanceSummary {
     code: string;
@@ -48,6 +49,12 @@ export default function TrialBalancePage() {
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                     <Header />
                     <main className="flex-1 overflow-y-auto p-6 space-y-6">
+                        <div className="flex justify-end">
+                            <ExportCsvButton filename="trial-balance.csv" disabled={!data}
+                                getRows={() => [['Account', 'Name', 'Type', 'Total debit', 'Total credit', 'Net balance'],
+                                    ...activeAccounts.map((a) => [a.code, a.name, a.type, a.totalDebit, a.totalCredit, a.netBalance]),
+                                    ['TOTAL', '', '', data?.totalDebit ?? 0, data?.totalCredit ?? 0, '']]} />
+                        </div>
                         
                         {/* Title & Status */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

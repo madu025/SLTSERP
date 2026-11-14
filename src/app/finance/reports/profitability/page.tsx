@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Download, Loader2, Building2, AlertTriangle } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from 'recharts';
 import type { ProfitabilityReport } from '@/services/finance/profitability.service';
+import { downloadCsv } from '@/lib/csv-export';
 
 type Preset = 'all' | 'thisMonth' | 'thisQuarter' | 'thisYear' | 'lastYear';
 type By = 'opmc' | 'project';
@@ -52,11 +53,8 @@ export default function ProfitabilityPage() {
     const exportCsv = () => {
         if (!data) return;
         const rows: (string | number)[][] = [[by === 'opmc' ? 'OPMC' : 'Project', 'Detail', 'Revenue', 'Direct cost', 'Operating expense', 'Gross margin', 'Net profit', 'Margin %'],
-            ...data.rows.map((r) => [`"${r.label.replace(/"/g, '""')}"`, `"${(r.sublabel ?? '').replace(/"/g, '""')}"`, r.revenue, r.directCost, r.opex, r.grossMargin, r.netProfit, r.marginPct ?? ''])];
-        const url = URL.createObjectURL(new Blob([rows.map((r) => r.join(',')).join('\n')], { type: 'text/csv' }));
-        const a = document.createElement('a');
-        a.href = url; a.download = `profitability-by-${by}.csv`; a.click();
-        URL.revokeObjectURL(url);
+            ...data.rows.map((r) => [r.label, (r.sublabel ?? ''), r.revenue, r.directCost, r.opex, r.grossMargin, r.netProfit, r.marginPct ?? ''])];
+        downloadCsv(`profitability-by-${by}.csv`, rows);
     };
 
     const chartRows = (data?.rows ?? []).slice(0, 12).map((r) => ({ name: r.label.length > 18 ? `${r.label.slice(0, 17)}…` : r.label, net: r.netProfit }));

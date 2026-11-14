@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Loader2, ArrowUpRight, ArrowDownRight, Minus, Download } from 'lucide-react';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
+import { downloadCsv } from '@/lib/csv-export';
 
 interface Metrics {
   totalRevenue: number; totalCOGS: number; grossMargin: number; grossMarginPct: number;
@@ -94,11 +95,7 @@ export default function FPADashboardPage() {
       ['Month', 'Revenue', 'Direct cost', 'Operating expense', 'Net profit'],
       ...metrics.monthly.map((m) => [m.month, m.revenue, m.directCost, m.opex, m.netProfit]),
     ];
-    const csv = rows.map((r) => r.join(',')).join('\n');
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    const a = document.createElement('a');
-    a.href = url; a.download = `fpa-monthly-${year}.csv`; a.click();
-    URL.revokeObjectURL(url);
+    downloadCsv(`fpa-monthly-${year}.csv`, rows);
   }, [metrics, year]);
 
   return (
