@@ -16,6 +16,8 @@ interface QueueRow { id: string; pvNumber: string; status: string; payee: string
 interface RunResult { label?: string; pvNumber?: string; ok: boolean; error?: string }
 interface Candidate { sourceId: string; label: string; landlord: string | null; vendorId: string | null; amount: number; billedInvoice: string | null }
 interface Vendor { id: string; name: string }
+interface Store { id: string; name: string }
+interface Agreement { id: string; siteOffice: string; contractNumber: string; monthlyRent: number; landlordName: string | null; vendorName: string | null; status: string }
 interface SvcInvoice { id: string; invoiceNumber: string; status: string; category: string; totalAmount: number | string; periodMonth: string | null; vendor: { name: string } }
 
 const th = 'py-2 pr-3 text-left text-slate-900';
@@ -61,7 +63,10 @@ export default function HoRunPage() {
     const candidates = useQuery<Candidate[]>({ queryKey: ['run-cand', svcKind, month], queryFn: () => api(`/api/procurement/invoices?candidates=${svcKind}&month=${month}`), enabled: tab === 'service', staleTime: 10_000 });
     const vendors = useQuery<Vendor[]>({ queryKey: ['run-vendors'], queryFn: async () => { const r = await api<Vendor[] | { data: Vendor[] }>('/api/vendors'); return Array.isArray(r) ? r : (r as { data: Vendor[] }).data ?? []; }, enabled: tab === 'service', staleTime: 60_000 });
     const svc = useQuery<SvcInvoice[]>({ queryKey: ['run-svc'], queryFn: async () => (await api<SvcInvoice[]>('/api/procurement/invoices')).filter((i) => i.category && i.category !== 'PO_GOODS'), enabled: tab === 'service', staleTime: 5_000 });
-    const refresh = () => ['run-pay', 'run-queue', 'run-cand', 'run-svc'].forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
+    const [ag, setAg] = useState({ siteOfficeId: '', contractNumber: '', startDate: new Date().toISOString().slice(0, 10), monthlyRent: '', landlordName: '', vendorId: '' });
+    const stores = useQuery<Store[]>({ queryKey: ['run-stores'], queryFn: () => api('/api/finance/site-office-agreements?stores=1'), enabled: tab === 'service', staleTime: 120_000 });
+    const agreements = useQuery<Agreement[]>({ queryKey: ['run-agreements'], queryFn: () => api('/api/finance/site-office-agreements'), enabled: tab === 'service', staleTime: 10_000 });
+    const refresh = () => ['run-pay', 'run-queue', 'run-cand', 'run-svc', 'run-agreements'].forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
 
     const info = (cats.data ?? []).find((c) => c.key === category);
     const rows = pay.data?.rows ?? [];
@@ -92,6 +97,11 @@ export default function HoRunPage() {
     const manual = useMutation({
         mutationFn: () => api('/api/procurement/invoices', { method: 'POST', body: JSON.stringify({ action: 'CREATE_SERVICE', category: man.category, vendorId: man.vendorId, invoiceNumber: man.invoiceNumber, invoiceDate: man.invoiceDate, periodMonth: man.periodMonth || undefined, lines: [{ description: man.description || man.category, unitPrice: Number(man.amount), taxAmount: Number(man.tax || 0) }] }) }),
         onSuccess: () => { toast.success('Service invoice entered'); setMan({ ...man, invoiceNumber: '', amount: '', tax: '', description: '' }); refresh(); },
+        onError: (e: Error) => toast.error(e.message),
+    });
+    const addAgreement = useMutation({
+        mutationFn: () => api('/api/finance/site-office-agreements', { method: 'POST', body: JSON.stringify({ action: 'CREATE', siteOfficeId: ag.siteOfficeId, contractNumber: ag.contractNumber, startDate: ag.startDate, monthlyRent: Number(ag.monthlyRent), landlordName: ag.landlordName, vendorId: ag.vendorId }) }),
+        onSuccess: () => { toast.success('Agreement registered'); setAg({ ...ag, contractNumber: '', monthlyRent: '', landlordName: '' }); refresh(); },
         onError: (e: Error) => toast.error(e.message),
     });
     const approveInvoice = useMutation({
@@ -147,7 +157,7 @@ export default function HoRunPage() {
                                                     <td className="py-2 pr-3 font-medium">{r.number}</td><td className="py-2 pr-3">{r.payee}</td><td className="py-2 pr-3">{r.project ?? '—'}</td>
                                                     <td className={`py-2 pr-3 ${r.overdue ? 'font-bold text-red-700' : ''}`}>{r.dueDate ?? '—'}</td>
                                                     <td className="py-2 pr-3 text-right">{r.outstanding.toLocaleString()}</td><td className="py-2 pr-3 text-right">{r.requested.toLocaleString()}</td>
-                                                    <td className="py-2 pr-3 text-right">{sel[r.id] ? <input data-testid="run-amount" type="number" value={sel[r.id].amount} onChange={(e) => setSel({ ...sel, [r.id]: { ...sel[r.id], amount: e.target.value } })} className="w-28 rounded border border-slate-300 bg-white px-2 py-1 text-right text-slate-900" /> : r.blocked ? <span className="text-xs text-red-700">{r.blocked}</span> : r.unrequested.toLocaleString()}</td>
+                                                    <td className="py-2 pr-3 text-right">{sel[r.id] ? <input data-testid="run-amount" type="number" value={sel[r.id].amount} onChange={(e) => setSel({ ...sel, [r.id]: { amount: e.target.value, wht: String(Math.round(Number(e.target.value || 0) * (info?.defaultWhtPercent ?? 0)) / 100) } })} className="w-28 rounded border border-slate-300 bg-white px-2 py-1 text-right text-slate-900" /> : r.blocked ? <span className="text-xs text-red-700">{r.blocked}</span> : r.unrequested.toLocaleString()}</td>
                                                     <td className="py-2 text-right">{sel[r.id] ? <input data-testid="run-wht" type="number" value={sel[r.id].wht} onChange={(e) => setSel({ ...sel, [r.id]: { ...sel[r.id], wht: e.target.value } })} className="w-24 rounded border border-slate-300 bg-white px-2 py-1 text-right text-slate-900" /> : ''}</td>
                                                 </tr>
                                             ))}
@@ -230,6 +240,18 @@ export default function HoRunPage() {
                                 </table>
                                 <button data-testid="svc-generate" disabled={cand.length === 0 || generate.isPending} onClick={() => generate.mutate()} className={`${btn} mt-3`}>Generate {cand.length || ''} invoice{cand.length === 1 ? '' : 's'}</button>
                                 <ResultList results={results} />
+                            </Panel>
+                            <Panel title="Site office rent agreements">
+                                <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                                    <label className="text-xs font-semibold text-slate-900">Site office<select data-testid="ag-office" value={ag.siteOfficeId} onChange={(e) => setAg({ ...ag, siteOfficeId: e.target.value })} className={input}><option value="">Choose…</option>{(stores.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+                                    <label className="text-xs font-semibold text-slate-900">Agreement number<input data-testid="ag-number" value={ag.contractNumber} onChange={(e) => setAg({ ...ag, contractNumber: e.target.value })} className={input} /></label>
+                                    <label className="text-xs font-semibold text-slate-900">Starts<input type="date" value={ag.startDate} onChange={(e) => setAg({ ...ag, startDate: e.target.value })} className={input} /></label>
+                                    <label className="text-xs font-semibold text-slate-900">Monthly rent<input data-testid="ag-rent" type="number" value={ag.monthlyRent} onChange={(e) => setAg({ ...ag, monthlyRent: e.target.value })} className={input} /></label>
+                                    <label className="text-xs font-semibold text-slate-900">Landlord name<input data-testid="ag-landlord" value={ag.landlordName} onChange={(e) => setAg({ ...ag, landlordName: e.target.value })} className={input} /></label>
+                                    <label className="text-xs font-semibold text-slate-900">Landlord as vendor<select data-testid="ag-vendor" value={ag.vendorId} onChange={(e) => setAg({ ...ag, vendorId: e.target.value })} className={input}><option value="">Choose…</option>{(vendors.data ?? []).map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></label>
+                                </div>
+                                <button data-testid="ag-create" disabled={!ag.siteOfficeId || !ag.contractNumber || !ag.vendorId || !ag.landlordName || !(Number(ag.monthlyRent) > 0) || addAgreement.isPending} onClick={() => addAgreement.mutate()} className={`${btn} mt-3`}>Register agreement</button>
+                                <ul className="mt-3 space-y-1 text-sm text-slate-900">{(agreements.data ?? []).map((a) => <li key={a.id}>{a.siteOffice} · {a.contractNumber} · {a.monthlyRent.toLocaleString()} / month · {a.vendorName ?? 'no vendor linked'}</li>)}</ul>
                             </Panel>
                             <Panel title="Enter a service invoice by hand">
                                 <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
