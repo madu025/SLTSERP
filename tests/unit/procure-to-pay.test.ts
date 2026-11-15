@@ -66,7 +66,7 @@ test('wiring: posting accounts, vendor payment, debit note, unified list', () =>
   assert.match(read('src/services/finance/ledger.service.ts'), /bankAccountCode/);
   assert.match(read('src/services/inventory/mrn.service.ts'), /SupplierDebitNoteService/);
   assert.match(read('src/services/finance/payment-voucher.service.ts'), /supplierInvoiceId/);
-  assert.match(read('src/config/sidebar-menu.ts'), /\/finance\/vendor-payments/);
+  assert.match(read('src/config/sidebar-menu.ts'), /\/finance\/ho-payments/);
   assert.match(read('src/app/api/procurement/purchase-orders/all/route.ts'), /UnifiedPoService/);
   const mig = read('prisma/migrations/20261128000000_standard_procure_to_pay/migration.sql');
   for (const s of ['VAT-REC-1310', 'EXP-PPV-5050', 'SupplierDebitNote', 'paidAmount', 'approvedById']) assert.ok(mig.includes(s), s);

@@ -177,8 +177,9 @@ describe('Payment voucher transition and posting guards', () => {
     it('applies the same explicit transition checks to the legacy project voucher path', () => {
         const legacyUpdate = methodBody(paymentVoucherService, 'updateVoucherStatus');
         assert.match(legacyUpdate, /const validStatuses\s*=/);
-        assert.match(legacyUpdate, /currentStatus\s*=/);
-        assert.match(legacyUpdate, /ONLY_APPROVED_VOUCHERS_CAN_BE_PAID/);
+        assert.match(legacyUpdate, /VOUCHER_NOT_FOUND/);
+        assert.match(legacyUpdate, /updatePaymentVoucherStatus/);
+        assert.match(paymentVoucherService, /ONLY_VOUCHERS_SUBMITTED_TO_HEAD_OFFICE_CAN_BE_CONFIRMED_PAID/);
     });
 
     it('makes invoice issuance postings idempotent', () => {
@@ -198,7 +199,7 @@ describe('Payment voucher transition and posting guards', () => {
         assert.match(create, /PROJECT_IS_CLOSED_NO_NEW_INVOICES/);
     });
 
-    it('pays only the net cash from the bank and books withheld tax and retention as liabilities', () => {
+    it('pays only the net amount through the Head Office account and books withheld tax and retention as liabilities', () => {
         const payment = methodBody(ledgerService, 'logPaymentVoucherPayment');
         assert.match(payment, /credit:\s*netCash/);
         assert.match(payment, /ACCOUNTS\.WHT_PAYABLE/);

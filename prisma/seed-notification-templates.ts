@@ -427,6 +427,41 @@ const DEFAULT_TEMPLATES = [
 </html>`
   },
   {
+    code: 'HO_PAYMENT_BATCH_SUBMITTED',
+    title: 'Payment pack submitted to Head Office',
+    subject: 'Payment pack {{batchNumber}} submitted for payment',
+    message: '{{voucherCount}} voucher(s), net {{totalAmount}}, submitted on {{submittedOn}}.',
+    entityType: 'HO_PAYMENT_BATCH',
+    channels: ['EMAIL'],
+    htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family:'Segoe UI',Arial,sans-serif;padding:0;margin:0;background-color:#f4f6f9;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f6f9;">
+    <tr>
+      <td align="center" style="padding:20px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+          <tr>
+            <td bgcolor="#1e40af" style="background-color:#1e40af;padding:24px 30px;border-radius:8px 8px 0 0;">
+              <h2 style="color:#ffffff;margin:0;font-size:20px;font-family:'Segoe UI',Arial,sans-serif;">Payment pack {{batchNumber}}</h2>
+              <p style="color:#dbeafe;margin:6px 0 0;font-size:13px;font-family:'Segoe UI',Arial,sans-serif;">Submitted {{submittedOn}}</p>
+            </td>
+          </tr>
+          <tr>
+            <td bgcolor="#ffffff" style="background-color:#ffffff;padding:30px;border-radius:0 0 8px 8px;">
+              <p style="font-size:14px;color:#334155;margin:0 0 12px;font-family:'Segoe UI',Arial,sans-serif;">The OSP Finance Section submitted <strong>{{voucherCount}}</strong> approved payment voucher(s) with a net amount of <strong>{{totalAmount}}</strong>.</p>
+              <p style="font-size:14px;color:#334155;margin:0 0 12px;font-family:'Segoe UI',Arial,sans-serif;">Please pay and confirm each voucher with your payment reference.</p>
+              <p style="margin:16px 0 0;"><a href="{{link}}" style="background-color:#1e40af;color:#ffffff;padding:10px 18px;border-radius:6px;text-decoration:none;font-size:14px;font-family:'Segoe UI',Arial,sans-serif;">Open payment requests</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+  },
+  {
     code: 'NOTIFICATION_GENERIC',
     title: 'Generic Notification',
     subject: '[SLTS NEXUS] {{title}}',

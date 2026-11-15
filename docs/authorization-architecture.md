@@ -161,3 +161,14 @@ Before merging an authorization change:
    user.
 5. Run `pnpm run rbac:check`, `pnpm run rbac:seed` when grants change,
    `pnpm run test:unit`, `pnpm run test:types`, and `pnpm run build`.
+
+## Head Office payment capabilities
+
+OSP has no bank of its own: the OSP Finance Section prepares and approves payment requests (payment vouchers) and Head Office pays them and provides funding.
+
+| Capability | Who | Allows |
+| --- | --- | --- |
+| `finance.ho.submit` | OSP Finance Section (default: holders of `finance.write`) | Submit approved vouchers to Head Office as a numbered pack, raise and submit funding requests. |
+| `finance.ho.confirm` | Head Office finance office (default: holders of `finance.approve`; administrators should narrow this to Head Office staff) | Confirm a Head Office payment with its reference and date, return a submitted voucher, approve and fund funding requests. |
+
+Separation of duties: the maker cannot approve or confirm their own voucher, the approver cannot submit the voucher they approved, and the submitter cannot confirm payment. A confirmation recorded by a user who also holds `finance.ho.submit` is flagged `recordedOnBehalf` (an OSP user recording what Head Office confirmed). Vouchers without a project (vendor payments) and funding data need company-wide finance access; project vouchers follow project/OPMC scope.

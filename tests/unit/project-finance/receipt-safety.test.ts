@@ -101,7 +101,7 @@ test('outgoing PV creation cannot target a client invoice', async () => {
 });
 
 test('legacy approved PV cannot settle a client invoice when paid', async () => {
-    const voucher = { id: 'pv', status: 'APPROVED', createdById: 'maker', invoiceId: 'invoice', projectId: 'project', amount: new Prisma.Decimal(1), type: 'CONTRACTOR', pvNumber: 'PV-TEST', payeeName: 'SLT' };
+    const voucher = { id: 'pv', status: 'SUBMITTED_TO_HO', createdById: 'maker', invoiceId: 'invoice', projectId: 'project', amount: new Prisma.Decimal(1), type: 'CONTRACTOR', pvNumber: 'PV-TEST', payeeName: 'SLT' };
     const events: string[] = [];
     stub(prisma.paymentVoucher, 'findUnique', async () => voucher);
     const updateInvoice = mock.fn(async () => undefined);
@@ -111,7 +111,7 @@ test('legacy approved PV cannot settle a client invoice when paid', async () => 
         projectInvoice: { findUnique: async () => { events.push('read'); return { type: 'CLIENT' }; }, update: updateInvoice },
     }));
     mock.method(LedgerService, 'logPaymentVoucherPayment', async () => undefined);
-    await assert.rejects(() => PaymentVoucherService.updatePaymentVoucherStatus('pv', 'PAID', 'payer'), /CLIENT_INVOICES_REQUIRE_CUSTOMER_RECEIPTS/);
+    await assert.rejects(() => PaymentVoucherService.updatePaymentVoucherStatus('pv', 'PAID', 'payer', { hoReference: 'HO-1', hoPaidDate: '2026-11-15' }), /CLIENT_INVOICES_REQUIRE_CUSTOMER_RECEIPTS/);
     assert.deepEqual(events, ['lock', 'read']);
     assert.equal(updateInvoice.mock.callCount(), 0);
 });

@@ -151,9 +151,6 @@ export class PaymentVoucherService {
       const live = await prisma.paymentVoucher.findMany({ where: { supplierInvoiceId: si.id, status: { notIn: ['CANCELLED', 'REJECTED'] } }, select: { amount: true } });
       const committed = live.reduce((sum, pv) => sum.plus(pv.amount), new Prisma.Decimal(0));
       if (committed.plus(data.amount).gt(si.totalAmount)) throw AppError.badRequest('SUPPLIER_INVOICE_PAYMENT_EXCEEDS_TOTAL');
-      if (!data.bankAccountId) throw AppError.badRequest('BANK_ACCOUNT_REQUIRED: choose the bank account the payment leaves');
-      const bank = await prisma.bankAccount.findUnique({ where: { id: data.bankAccountId }, select: { isActive: true } });
-      if (!bank || !bank.isActive) throw AppError.badRequest('BANK_ACCOUNT_NOT_AVAILABLE');
       vendorPayment = { vendorId: si.vendorId, vendorName: si.vendor.name };
     } else if (!data.projectId) {
       throw AppError.badRequest('PROJECT_REQUIRED');
@@ -384,9 +381,16 @@ export class PaymentVoucherService {
     options?: {
       rejectionReason?: string;
       cancelledReason?: string;
+      /** Head Office confirmation (PAID): Head Office's own payment reference and the date it paid */
+      hoReference?: string;
+      hoPaidDate?: string | Date;
+      /** Returning a submitted voucher to APPROVED: why Head Office sent it back */
+      returnReason?: string;
+      /** The actor is an OSP user recording a confirmation that Head Office gave (not Head Office itself) */
+      recordedOnBehalf?: boolean;
     }
   ) {
-    const validStatuses = ['PENDING_APPROVAL', 'APPROVED', 'PAID', 'REJECTED', 'CANCELLED'];
+    const validStatuses = ['PENDING_APPROVAL', 'APPROVED', 'SUBMITTED_TO_HO', 'PAID', 'REJECTED', 'CANCELLED'];
     if (!validStatuses.includes(status)) {
       throw AppError.badRequest('INVALID_STATUS');
     }
@@ -406,11 +410,26 @@ export class PaymentVoucherService {
     if (status === 'PENDING_APPROVAL' && existing.createdById && existing.createdById !== userId) {
       throw AppError.badRequest('ONLY_VOUCHER_MAKER_CAN_SUBMIT_FOR_APPROVAL');
     }
-    if (status === 'APPROVED' && currentStatus !== 'PENDING_APPROVAL') {
+    if (status === 'APPROVED' && !['PENDING_APPROVAL', 'SUBMITTED_TO_HO'].includes(currentStatus)) {
       throw AppError.badRequest('ONLY_PENDING_APPROVAL_VOUCHERS_CAN_BE_APPROVED');
     }
-    if (status === 'PAID' && currentStatus !== 'APPROVED') {
-      throw AppError.badRequest('ONLY_APPROVED_VOUCHERS_CAN_BE_PAID');
+    if (status === 'SUBMITTED_TO_HO' && currentStatus !== 'APPROVED') {
+      throw AppError.badRequest('ONLY_APPROVED_VOUCHERS_CAN_BE_SUBMITTED_TO_HEAD_OFFICE');
+    }
+    if (status === 'SUBMITTED_TO_HO' && existing.approvedById && existing.approvedById === userId) {
+      throw AppError.badRequest('APPROVER_CANNOT_SUBMIT_THE_VOUCHER_THEY_APPROVED');
+    }
+    if (status === 'PAID' && currentStatus !== 'SUBMITTED_TO_HO') {
+      throw AppError.badRequest('ONLY_VOUCHERS_SUBMITTED_TO_HEAD_OFFICE_CAN_BE_CONFIRMED_PAID');
+    }
+    if (status === 'PAID' && (!options?.hoReference?.trim() || !options?.hoPaidDate)) {
+      throw AppError.badRequest('HO_REFERENCE_AND_DATE_REQUIRED: enter the Head Office payment reference and the date it paid');
+    }
+    if (status === 'PAID' && existing.submittedToHoById && existing.submittedToHoById === userId) {
+      throw AppError.badRequest('SUBMITTER_CANNOT_CONFIRM_HEAD_OFFICE_PAYMENT');
+    }
+    if (status === 'APPROVED' && currentStatus === 'SUBMITTED_TO_HO' && !options?.returnReason?.trim()) {
+      throw AppError.badRequest('RETURN_REASON_REQUIRED');
     }
     if (status === 'REJECTED' && currentStatus !== 'PENDING_APPROVAL') {
       throw AppError.badRequest('ONLY_PENDING_APPROVAL_VOUCHERS_CAN_BE_REJECTED');
@@ -418,7 +437,8 @@ export class PaymentVoucherService {
     if (status === 'CANCELLED' && !['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(currentStatus)) {
       throw AppError.badRequest('VOUCHER_CANNOT_BE_CANCELLED_FROM_CURRENT_STATUS');
     }
-    if (['APPROVED', 'PAID'].includes(status) && existing.createdById && existing.createdById === userId) {
+    const returningFromHo = status === 'APPROVED' && currentStatus === 'SUBMITTED_TO_HO';
+    if ((status === 'PAID' || (status === 'APPROVED' && !returningFromHo)) && existing.createdById && existing.createdById === userId) {
       throw AppError.badRequest('MAKER_CANNOT_APPROVE_OR_PAY_OWN_VOUCHER');
     }
 
@@ -433,13 +453,28 @@ export class PaymentVoucherService {
       }
       const updateData: Record<string, unknown> = { status };
 
-      if (status === 'APPROVED') {
+      if (status === 'APPROVED' && currentStatus === 'SUBMITTED_TO_HO') {
+        // Head Office sent it back: it returns to the approved queue for OSP Finance to correct or resubmit
+        updateData.submittedToHoAt = null;
+        updateData.submittedToHoById = null;
+        updateData.hoBatchId = null;
+        updateData.notes = `${existing.notes ? existing.notes + ' | ' : ''}Returned by Head Office: ${options!.returnReason!.trim()}`;
+      } else if (status === 'APPROVED') {
         updateData.approvedById = userId;
         updateData.approvedAt = new Date();
+      } else if (status === 'SUBMITTED_TO_HO') {
+        updateData.submittedToHoById = userId;
+        updateData.submittedToHoAt = new Date();
       } else if (status === 'PAID') {
+        const paidOn = new Date(options!.hoPaidDate!);
+        if (Number.isNaN(paidOn.getTime())) throw AppError.badRequest('HO_PAID_DATE_INVALID');
         updateData.paidById = userId;
+        updateData.confirmedById = userId;
         updateData.paidAt = new Date();
-        updateData.paymentDate = new Date();
+        updateData.paymentDate = paidOn;
+        updateData.hoPaidDate = paidOn;
+        updateData.hoReference = options!.hoReference!.trim();
+        updateData.recordedOnBehalf = !!options?.recordedOnBehalf;
       } else if (status === 'REJECTED') {
         updateData.rejectionReason = options?.rejectionReason || 'No reason provided';
       } else if (status === 'CANCELLED') {
@@ -461,7 +496,8 @@ export class PaymentVoucherService {
       if (status === 'PAID') {
         // Log payment voucher payout in General Ledger
         const { LedgerService } = await import('./ledger.service');
-        // The bank leg follows the chosen bank account's GL account, not a hard-coded one
+        // Head Office pays on OSP's behalf: the credit is the OSP current account with Head Office (a bank GL only for vouchers
+        // created before this model, which carry their own bank account)
         const bank = existing.bankAccountId ? await tx.bankAccount.findUnique({ where: { id: existing.bankAccountId }, select: { glAccountCode: true } }) : null;
         await LedgerService.logPaymentVoucherPayment(
           tx, id, Number(existing.amount), existing.type || 'CONTRACTOR', existing.pvNumber, existing.payeeName, undefined,
@@ -540,14 +576,10 @@ export class PaymentVoucherService {
 
     // Keep this compatibility entry point fail-closed as well. Some older
     // callers still use it instead of updatePaymentVoucherStatus directly.
-    const validStatuses = ['PENDING_APPROVAL', 'APPROVED', 'PAID', 'REJECTED', 'CANCELLED'];
+    const validStatuses = ['PENDING_APPROVAL', 'APPROVED', 'SUBMITTED_TO_HO', 'PAID', 'REJECTED', 'CANCELLED'];
     if (!validStatuses.includes(status)) throw AppError.badRequest('INVALID_STATUS');
     const existing = await prisma.paymentVoucher.findUnique({ where: { id } });
     if (!existing) throw AppError.badRequest('VOUCHER_NOT_FOUND');
-    const currentStatus = existing.status;
-    if (status === 'PAID' && currentStatus !== 'APPROVED') {
-      throw AppError.badRequest('ONLY_APPROVED_VOUCHERS_CAN_BE_PAID');
-    }
 
     return this.updatePaymentVoucherStatus(id, status, actorId, {
       rejectionReason: options.rejectionReason || undefined,

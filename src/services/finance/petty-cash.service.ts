@@ -274,6 +274,16 @@ export class PettyCashService {
         }
       });
 
+      // 3. The replenishment is asked of Head Office: it is approved and funded there, and funding completes the reimbursement
+      const { AuditLedgerService } = await import('@/services/inventory/audit-ledger.service');
+      const requestNumber = await AuditLedgerService.getNextDocumentNumber('HFR', tx);
+      await tx.hoFundingRequest.create({
+        data: {
+          requestNumber, purpose: 'PETTY_CASH_REPLENISH', status: 'SUBMITTED', requestedAmount: totalAmount, pettyCashAccountId: accountId,
+          reimbursementId: reimbursement.id, remarks: `Replenish ${account.name} (${reimbursementNumber})`, createdById, submittedAt: new Date(),
+        },
+      });
+
       return reimbursement;
     });
   }

@@ -502,6 +502,14 @@ model PaymentVoucher {
   paidAt             DateTime?
   rejectionReason    String?
   cancelledReason    String?
+  /// Head Office payment: submitted by OSP Finance, paid and confirmed by Head Office with its own reference
+  submittedToHoAt    DateTime?
+  submittedToHoById  String?         @db.Uuid
+  hoBatchId          String?         @db.Uuid
+  hoReference        String?
+  hoPaidDate         DateTime?
+  confirmedById      String?         @db.Uuid
+  recordedOnBehalf   Boolean         @default(false)
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
   invoice            ProjectInvoice? @relation("InvoicePayments", fields: [invoiceId], references: [id])
@@ -518,6 +526,7 @@ model PaymentVoucher {
   @@index([createdById])
   @@index([approvedById])
   @@index([paidById])
+  @@index([hoBatchId])
 }
 
 model ProjectLDPenalty {

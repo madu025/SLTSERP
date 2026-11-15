@@ -89,6 +89,14 @@ export const TEMPLATE_CODES: TemplateCodeDef[] = [
     defaultEntityType: 'QUOTATION'
   },
   {
+    code: 'HO_PAYMENT_BATCH_SUBMITTED',
+    label: 'Payment pack submitted to Head Office',
+    description: 'Sent to the Head Office finance desk when the OSP Finance Section submits a pack of approved payment vouchers',
+    category: 'NOTIFICATION',
+    placeholders: ['batchNumber', 'voucherCount', 'totalAmount', 'submittedOn', 'link'],
+    defaultEntityType: 'HO_PAYMENT_BATCH'
+  },
+  {
     code: 'NOTIFICATION_GENERIC',
     label: 'Generic Notification',
     description: 'In-app notification sent via email fallback',

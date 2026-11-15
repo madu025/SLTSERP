@@ -474,7 +474,7 @@ export default function PaymentVoucherManagementPage() {
                             />
                         </div>
                         <div className="flex gap-1.5 flex-wrap">
-                            {['ALL', 'DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'PAID', 'REJECTED'].map(status => (
+                            {['ALL', 'DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'SUBMITTED_TO_HO', 'PAID', 'REJECTED'].map(status => (
                                 <button
                                     key={status}
                                     onClick={() => setStatusFilter(status)}
@@ -754,13 +754,13 @@ export default function PaymentVoucherManagementPage() {
                                             </Button>
                                         </>
                                     )}
-                                    {selectedPV.status === 'APPROVED' && (
-                                        <Button 
-                                            onClick={() => statusMutation.mutate({ id: selectedPV.id, status: 'PAID' })}
-                                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                    {['APPROVED', 'SUBMITTED_TO_HO'].includes(selectedPV.status) && (
+                                        <a
+                                            href="/finance/ho-payments"
+                                            className="inline-flex items-center rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800"
                                         >
-                                            <CheckCircle className="w-4 h-4 mr-2" /> Mark as Paid
-                                        </Button>
+                                            {selectedPV.status === 'APPROVED' ? 'Submit to Head Office' : 'With Head Office: open payment requests'}
+                                        </a>
                                     )}
                                 </div>
                             </div>

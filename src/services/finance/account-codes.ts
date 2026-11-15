@@ -38,6 +38,7 @@ export const ACCOUNTS = {
     // LIABILITIES (2000 Series)
     AP_ACCRUED: 'AP-2010',
     AP_VENDOR: 'AP-VEND-2010',
+    HO_CURRENT: 'HO-2020',
     AP_CONTRACTOR: 'AP-CON-2020',
     VAT_PAYABLE: 'VAT-PAY-2110',
     SSCL_PAYABLE: 'SSCL-PAY-2115',
@@ -88,6 +89,7 @@ export const CHART_OF_ACCOUNTS: ChartOfAccountEntry[] = [
 
     // LIABILITIES (2000 Series)
     { code: ACCOUNTS.AP_ACCRUED, name: 'GR/IR Clearing (Goods Received, Not Invoiced)', type: 'LIABILITY', isPostable: true },
+    { code: ACCOUNTS.HO_CURRENT, name: 'Due to Head Office (Current Account)', type: 'LIABILITY', isPostable: true },
     { code: ACCOUNTS.AP_VENDOR, name: 'Trade Accounts Payable - Vendors', type: 'LIABILITY', isPostable: true },
     { code: ACCOUNTS.AP_CONTRACTOR, name: 'Accrued Contractor Payable', type: 'LIABILITY', isPostable: true },
     { code: ACCOUNTS.VAT_PAYABLE, name: 'Output VAT Payable', type: 'LIABILITY', isPostable: true },

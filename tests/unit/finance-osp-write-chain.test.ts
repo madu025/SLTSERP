@@ -61,6 +61,8 @@ test('Petty Cash write chain creates, approves, reimburses, and replenishes the 
   const ledgerEvents: string[] = [];
   const tx = {
     paymentVoucher: { findUnique: async () => ({ status: 'PAID' }) },
+    $queryRaw: async () => [{ number: 'HFR-TEST-0001' }],
+    hoFundingRequest: { create: async () => ({}) },
     pettyCashAccount: {
       findUnique: async () => account,
       update: async ({ data }: any) => { Object.assign(account, data); return account; },

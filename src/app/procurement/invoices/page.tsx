@@ -171,7 +171,7 @@ export default function SupplierInvoicesPage() {
                                                         <button data-testid="inv-approve" onClick={() => approve(r)} className="mr-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-900 hover:bg-emerald-100">Approve</button>
                                                         <button data-testid="inv-reject" onClick={() => reject(r)} className="rounded border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-bold text-red-900 hover:bg-red-100">Reject</button>
                                                     </>}
-                                                    {['APPROVED', 'PARTIALLY_PAID'].includes(r.status) && <a href={`/finance/vendor-payments?invoice=${r.id}`} data-testid="inv-pay" className="rounded border border-slate-300 bg-slate-50 px-2 py-0.5 text-xs font-bold text-slate-900 hover:bg-slate-100">Pay</a>}
+                                                    {['APPROVED', 'PARTIALLY_PAID'].includes(r.status) && <a href={`/finance/ho-payments?invoice=${r.id}`} data-testid="inv-pay" className="rounded border border-slate-300 bg-slate-50 px-2 py-0.5 text-xs font-bold text-slate-900 hover:bg-slate-100">Request payment</a>}
                                                 </td>
                                             </tr>
                                         ))}

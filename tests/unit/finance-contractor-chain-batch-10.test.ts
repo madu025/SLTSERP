@@ -147,7 +147,9 @@ test('contractor billing to payment voucher, bank reconciliation, and GL complet
     assert.equal(pending.status, 'PENDING_APPROVAL');
     const approved = await PaymentVoucherService.updatePaymentVoucherStatus(voucher.id, 'APPROVED', 'checker-qa');
     assert.equal(approved.status, 'APPROVED');
-    const paid = await PaymentVoucherService.updatePaymentVoucherStatus(voucher.id, 'PAID', 'checker-qa');
+    const submitted = await PaymentVoucherService.updatePaymentVoucherStatus(voucher.id, 'SUBMITTED_TO_HO', 'submitter-qa');
+    assert.equal(submitted.status, 'SUBMITTED_TO_HO');
+    const paid = await PaymentVoucherService.updatePaymentVoucherStatus(voucher.id, 'PAID', 'ho-qa', { hoReference: `HO-QA-${activeBatch}`, hoPaidDate: '2026-11-15' });
     assert.equal(paid.status, 'PAID');
 
     const statementId = `statement-${activeBatch}`;

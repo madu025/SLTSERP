@@ -505,9 +505,19 @@ export const SIDEBAR_MENU: MenuItem[] = [
                         icon: Receipt,
                     },
                     {
-                        title: 'Vendor Payments',
-                        path: '/finance/vendor-payments',
+                        title: 'Payments to Head Office',
+                        path: '/finance/ho-payments',
                         icon: Receipt,
+                    },
+                    {
+                        title: 'Head Office Funding',
+                        path: '/finance/ho-funding',
+                        icon: Landmark,
+                    },
+                    {
+                        title: 'Head Office Account',
+                        path: '/finance/ho-account',
+                        icon: Landmark,
                     },
                     {
                         title: 'Petty Cash',

@@ -1,0 +1,51 @@
+/// A pack of approved payment vouchers submitted by the OSP Finance Section to Head Office for payment.
+model HoPaymentBatch {
+  id          String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  batchNumber String   @unique
+  /// SUBMITTED | PARTIALLY_PAID | PAID | RETURNED
+  status      String   @default("SUBMITTED")
+  totalAmount Decimal  @default(0) @db.Decimal(14, 2)
+  voucherCount Int     @default(0)
+  note        String?
+  createdById String?  @db.Uuid
+  submittedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([status])
+  @@index([createdById])
+}
+
+/// A request from the OSP Finance Section to Head Office for funds (payments due, petty cash float or replenishment).
+model HoFundingRequest {
+  id                 String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  requestNumber      String    @unique
+  /// PAYMENTS | PETTY_CASH_FLOAT | PETTY_CASH_REPLENISH
+  purpose            String
+  /// DRAFT | SUBMITTED | APPROVED | FUNDED | REJECTED | CANCELLED
+  status             String    @default("DRAFT")
+  periodFrom         DateTime?
+  periodTo           DateTime?
+  requestedAmount    Decimal   @default(0) @db.Decimal(14, 2)
+  approvedAmount     Decimal   @default(0) @db.Decimal(14, 2)
+  fundedAmount       Decimal   @default(0) @db.Decimal(14, 2)
+  hoReference        String?
+  fundedDate         DateTime?
+  pettyCashAccountId String?   @db.Uuid
+  reimbursementId    String?   @db.Uuid
+  remarks            String?
+  rejectionReason    String?
+  basis              Json?
+  createdById        String?   @db.Uuid
+  submittedAt        DateTime?
+  approvedById       String?   @db.Uuid
+  approvedAt         DateTime?
+  fundedById         String?   @db.Uuid
+  journalEntryId     String?   @db.Uuid
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([status])
+  @@index([purpose])
+  @@index([pettyCashAccountId])
+  @@index([reimbursementId])
+}

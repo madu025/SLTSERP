@@ -1,4 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
+import { assertHoTransition } from '@/lib/ho-voucher-access';
 import { assertVoucherAccess } from '@/lib/payment-voucher-access';
 import { PaymentVoucherService } from '@/services/finance/payment-voucher.service';
 import { AppError } from '@/lib/error';
@@ -24,8 +25,9 @@ const voucherSchema = z.object({
 });
 
 const voucherStatusSchema = z.object({
-    id: databaseUuidSchema, status: z.enum(['PENDING_APPROVAL', 'APPROVED', 'PAID', 'REJECTED', 'CANCELLED']),
+    id: databaseUuidSchema, status: z.enum(['PENDING_APPROVAL', 'APPROVED', 'SUBMITTED_TO_HO', 'PAID', 'REJECTED', 'CANCELLED']),
     rejectionReason: z.string().trim().min(1).optional(), cancelledReason: z.string().trim().min(1).optional(),
+    hoReference: z.string().trim().max(120).optional(), hoPaidDate: z.string().optional(), returnReason: z.string().trim().max(500).optional(),
 });
 
 async function requireFinanceApprover(userId: string | null, action: string) {
@@ -53,15 +55,18 @@ export const POST = apiHandler(async (_request, params, body: z.infer<typeof vou
 
 export const PATCH = apiHandler(async (_request, params, body: z.infer<typeof voucherStatusSchema>) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
-    const voucher = await prisma.paymentVoucher.findUnique({ where: { id: body.id }, select: { projectId: true } });
+    const voucher = await prisma.paymentVoucher.findUnique({ where: { id: body.id }, select: { projectId: true, status: true } });
     if (!voucher) throw AppError.notFound('Payment voucher not found');
     await assertVoucherAccess(voucher.projectId, params._userId);
-    if (body.status !== 'PENDING_APPROVAL') {
+    const hoLeg = body.status === 'SUBMITTED_TO_HO' || body.status === 'PAID' || (body.status === 'APPROVED' && voucher.status === 'SUBMITTED_TO_HO');
+    if (body.status !== 'PENDING_APPROVAL' && !hoLeg) {
         await requireFinanceApprover(params._userId, body.status.toLowerCase());
     }
+    const { recordedOnBehalf } = await assertHoTransition(params._userId, voucher.status, body.status);
     try {
         return await PaymentVoucherService.updatePaymentVoucherStatus(body.id, body.status, params._userId, {
             rejectionReason: body.rejectionReason, cancelledReason: body.cancelledReason,
+            hoReference: body.hoReference, hoPaidDate: body.hoPaidDate, returnReason: body.returnReason, recordedOnBehalf,
         });
     } catch (error: unknown) {
         if (error instanceof Error && error.message === 'VOUCHER_NOT_FOUND') throw AppError.notFound('Payment voucher not found');

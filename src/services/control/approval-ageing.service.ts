@@ -15,6 +15,11 @@ export class ApprovalAgeingService {
         // One after another: each is a count plus a minimum on an indexed status column
         const pv = await prisma.paymentVoucher.aggregate({ where: { status: 'PENDING_APPROVAL' }, _count: { _all: true }, _min: { createdAt: true } });
         add('Payment vouchers', pv._count._all, pv._min.createdAt, '/finance/payment-vouchers');
+        // Payments handed to Head Office and not yet confirmed paid; funding asked of Head Office and not yet decided
+        const ho = await prisma.paymentVoucher.aggregate({ where: { status: 'SUBMITTED_TO_HO' }, _count: { _all: true }, _min: { submittedToHoAt: true } });
+        add('Payments awaiting Head Office', ho._count._all, ho._min.submittedToHoAt, '/finance/ho-payments');
+        const hf = await prisma.hoFundingRequest.aggregate({ where: { status: { in: ['SUBMITTED', 'APPROVED'] } }, _count: { _all: true }, _min: { submittedAt: true } });
+        add('Funding awaiting Head Office', hf._count._all, hf._min.submittedAt, '/finance/ho-funding');
         const pc = await prisma.pettyCashVoucher.aggregate({ where: { status: { in: ['PENDING_APPROVAL', 'SUBMITTED'] } }, _count: { _all: true }, _min: { createdAt: true } });
         add('Petty cash vouchers', pc._count._all, pc._min.createdAt, '/finance');
         const pi = await prisma.projectInvoice.aggregate({ where: { status: { in: ['PENDING_APPROVAL', 'SUBMITTED', 'PENDING'] } }, _count: { _all: true }, _min: { createdAt: true } });
