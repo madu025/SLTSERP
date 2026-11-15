@@ -5,7 +5,11 @@ import { Prisma } from '@prisma/client';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 
 export interface CreatePVInput {
-  projectId: string;
+  /** Required for project vouchers; a vendor payment (supplierInvoiceId) has no project. */
+  projectId?: string | null;
+  supplierInvoiceId?: string | null;
+  vendorId?: string | null;
+  bankAccountId?: string | null;
   title: string;
   description?: string | null;
   type?: string;
@@ -138,6 +142,23 @@ export class PaymentVoucherService {
       throw AppError.badRequest('INVALID_PAYMENT_VOUCHER_DEDUCTION');
     }
 
+    // A vendor payment pays an approved supplier invoice, in full or in part, from a bank account; it belongs to no project.
+    let vendorPayment: { vendorId: string; vendorName: string } | null = null;
+    if (data.supplierInvoiceId) {
+      const si = await prisma.supplierInvoice.findUnique({ where: { id: data.supplierInvoiceId }, include: { vendor: { select: { name: true } } } });
+      if (!si) throw AppError.badRequest('SUPPLIER_INVOICE_NOT_FOUND');
+      if (!['APPROVED', 'PARTIALLY_PAID'].includes(si.status)) throw AppError.badRequest('SUPPLIER_INVOICE_MUST_BE_APPROVED_BEFORE_PAYMENT');
+      const live = await prisma.paymentVoucher.findMany({ where: { supplierInvoiceId: si.id, status: { notIn: ['CANCELLED', 'REJECTED'] } }, select: { amount: true } });
+      const committed = live.reduce((sum, pv) => sum.plus(pv.amount), new Prisma.Decimal(0));
+      if (committed.plus(data.amount).gt(si.totalAmount)) throw AppError.badRequest('SUPPLIER_INVOICE_PAYMENT_EXCEEDS_TOTAL');
+      if (!data.bankAccountId) throw AppError.badRequest('BANK_ACCOUNT_REQUIRED: choose the bank account the payment leaves');
+      const bank = await prisma.bankAccount.findUnique({ where: { id: data.bankAccountId }, select: { isActive: true } });
+      if (!bank || !bank.isActive) throw AppError.badRequest('BANK_ACCOUNT_NOT_AVAILABLE');
+      vendorPayment = { vendorId: si.vendorId, vendorName: si.vendor.name };
+    } else if (!data.projectId) {
+      throw AppError.badRequest('PROJECT_REQUIRED');
+    }
+
     if (data.invoiceId) {
       const invoice = await prisma.projectInvoice.findUnique({
         where: { id: data.invoiceId }
@@ -166,7 +187,7 @@ export class PaymentVoucherService {
       }
     }
 
-    if (data.retentionReleaseId) {
+    if (data.retentionReleaseId && data.projectId) {
       await this.assertRetentionReleaseCoversVoucher(data.projectId, data.retentionReleaseId, data.amount);
     }
 
@@ -215,12 +236,15 @@ export class PaymentVoucherService {
     return tx.paymentVoucher.create({
       data: {
         pvNumber,
-        projectId: data.projectId,
+        projectId: vendorPayment ? null : data.projectId!,
+        supplierInvoiceId: data.supplierInvoiceId || null,
+        vendorId: vendorPayment?.vendorId ?? null,
+        bankAccountId: data.bankAccountId || null,
         title: data.title,
         description: finalDescription,
-        type: data.type || 'CONTRACTOR',
-        payeeName: data.payeeName,
-        payeeId: data.payeeId || null,
+        type: vendorPayment ? 'VENDOR' : (data.type || 'CONTRACTOR'),
+        payeeName: vendorPayment ? vendorPayment.vendorName : data.payeeName,
+        payeeId: vendorPayment ? vendorPayment.vendorId : (data.payeeId || null),
         invoiceId: data.invoiceId || null,
         amount: data.amount,
         paymentDate: data.paymentDate ? new Date(data.paymentDate) : null,
@@ -320,7 +344,7 @@ export class PaymentVoucherService {
       }
     }
 
-    if (data.retentionReleaseId) {
+    if (data.retentionReleaseId && existing.projectId) {
       await this.assertRetentionReleaseCoversVoucher(existing.projectId, data.retentionReleaseId, Number(amount), id);
     }
 
@@ -404,6 +428,9 @@ export class PaymentVoucherService {
       if (status === 'PAID' && existing.invoiceId) {
         await tx.$queryRaw`SELECT "id" FROM "ProjectInvoice" WHERE "id" = ${existing.invoiceId}::uuid FOR UPDATE`;
       }
+      if (status === 'PAID' && existing.supplierInvoiceId) {
+        await tx.$queryRaw`SELECT "id" FROM "SupplierInvoice" WHERE "id" = ${existing.supplierInvoiceId}::uuid FOR UPDATE`;
+      }
       const updateData: Record<string, unknown> = { status };
 
       if (status === 'APPROVED') {
@@ -434,10 +461,22 @@ export class PaymentVoucherService {
       if (status === 'PAID') {
         // Log payment voucher payout in General Ledger
         const { LedgerService } = await import('./ledger.service');
+        // The bank leg follows the chosen bank account's GL account, not a hard-coded one
+        const bank = existing.bankAccountId ? await tx.bankAccount.findUnique({ where: { id: existing.bankAccountId }, select: { glAccountCode: true } }) : null;
         await LedgerService.logPaymentVoucherPayment(
           tx, id, Number(existing.amount), existing.type || 'CONTRACTOR', existing.pvNumber, existing.payeeName, undefined,
-          { taxWithheld: Number(existing.taxWithheld ?? 0), retentionAmount: Number(existing.retentionAmount ?? 0), releasesRetention: !!existing.retentionReleaseId }
+          { taxWithheld: Number(existing.taxWithheld ?? 0), retentionAmount: Number(existing.retentionAmount ?? 0), releasesRetention: !!existing.retentionReleaseId, bankAccountCode: bank?.glAccountCode }
         );
+
+        // Vendor payment: move the supplier invoice towards PAID in the same transaction
+        if (existing.supplierInvoiceId) {
+          const si = await tx.supplierInvoice.findUnique({ where: { id: existing.supplierInvoiceId } });
+          if (!si) throw AppError.badRequest('SUPPLIER_INVOICE_NOT_FOUND');
+          const paid = new Prisma.Decimal(si.paidAmount).plus(existing.amount);
+          if (paid.gt(si.totalAmount)) throw AppError.badRequest('SUPPLIER_INVOICE_PAYMENT_EXCEEDS_TOTAL');
+          const settled = paid.gte(si.totalAmount);
+          await tx.supplierInvoice.update({ where: { id: si.id }, data: { paidAmount: paid, status: settled ? 'PAID' : 'PARTIALLY_PAID', paidAt: settled ? new Date() : null } });
+        }
 
         // Sync with monthly Contractor Invoice if BOM-based
         if (existing.description && existing.description.startsWith('BOM_INVOICING_REF:')) {

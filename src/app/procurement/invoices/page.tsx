@@ -10,7 +10,7 @@ import ExportCsvButton from '@/components/ExportCsvButton';
 import { Loader2, ReceiptText } from 'lucide-react';
 import { Panel, compact } from '@/app/dashboard/components/health/HealthCharts';
 
-interface PoRow { id: string; poNumber: string; vendor: string; vendorId: string | null; status: string; totalAmount: number | string }
+interface PoRow { kind: 'STORE' | 'PROJECT'; id: string; poNumber: string; vendorName: string; vendorId: string | null; status: string; total: number; invoiceable: boolean }
 interface Ctx {
     kind: 'STORE' | 'PROJECT'; poId: string; poNumber: string; vendorId: string | null; vendorName: string; currency: string;
     lines: { poItemId: string; description: string; orderedQty: number; orderedPrice: number; receivedQty: number; invoicedBefore: number; billable: number }[];
@@ -24,7 +24,7 @@ interface InvoiceRow {
 const th = 'py-2 pr-3 text-left text-slate-900';
 const STATUS_TONE: Record<string, string> = {
     MATCHED: 'bg-emerald-100 text-emerald-900', VARIANCE: 'bg-amber-100 text-amber-900', APPROVED: 'bg-blue-100 text-blue-900',
-    PAID: 'bg-slate-200 text-slate-900', REJECTED: 'bg-red-100 text-red-900', DRAFT: 'bg-slate-100 text-slate-900',
+    PAID: 'bg-slate-200 text-slate-900', PARTIALLY_PAID: 'bg-indigo-100 text-indigo-900', REJECTED: 'bg-red-100 text-red-900', DRAFT: 'bg-slate-100 text-slate-900',
 };
 const RESULT_TONE: Record<string, string> = { MATCHED: 'text-emerald-800', PRICE_VARIANCE: 'text-amber-800', QTY_OVER_RECEIVED: 'text-red-800', NOT_RECEIVED: 'text-red-800' };
 
@@ -45,7 +45,7 @@ export default function SupplierInvoicesPage() {
     const [tax, setTax] = useState<Record<string, number>>({});
 
     const invoices = useQuery<InvoiceRow[]>({ queryKey: ['supplier-invoices'], queryFn: () => api('/api/procurement/invoices'), staleTime: 15_000 });
-    const pos = useQuery<PoRow[]>({ queryKey: ['store-pos-for-invoice'], queryFn: () => api('/api/procurement/purchase-orders'), staleTime: 30_000 });
+    const pos = useQuery<PoRow[]>({ queryKey: ['pos-for-invoice'], queryFn: () => api('/api/procurement/purchase-orders/all'), staleTime: 30_000 });
     const ctx = useQuery<Ctx>({
         queryKey: ['po-context', poKey],
         enabled: !!poKey,
@@ -95,7 +95,8 @@ export default function SupplierInvoicesPage() {
 
     const rows = invoices.data ?? [];
     const exportRows = () => [['Vendor', 'Invoice', 'PO', 'Date', 'Total', 'Status', 'Match'], ...rows.map((r) => [r.vendor.name, r.invoiceNumber, r.storePo?.poNumber ?? r.projectPo?.poNumber ?? '', r.invoiceDate.slice(0, 10), Number(r.totalAmount), r.status, r.matchStatus])];
-    const openPos = (pos.data ?? []).filter((p) => p.vendorId && !['CANCELLED', 'CLOSED'].includes(p.status));
+    const openPos = (pos.data ?? []).filter((p) => p.invoiceable);
+    const unlinked = (pos.data ?? []).filter((p) => p.kind === 'STORE' && !p.vendorId && ['APPROVED', 'ISSUED', 'PARTIALLY_RECEIVED', 'RECEIVED'].includes(p.status)).length;
 
     return (
         <RoleGuard>
@@ -114,7 +115,7 @@ export default function SupplierInvoicesPage() {
                                 <label className="text-xs font-semibold text-slate-900 md:col-span-2">Purchase order
                                     <select data-testid="inv-po" value={poKey} onChange={(e) => setPoKey(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900">
                                         <option value="">Choose an order…</option>
-                                        {openPos.map((p) => <option key={p.id} value={`STORE:${p.id}`}>{p.poNumber} · {p.vendor} · {Number(p.totalAmount).toLocaleString()}</option>)}
+                                        {openPos.map((p) => <option key={`${p.kind}-${p.id}`} value={`${p.kind}:${p.id}`}>{p.poNumber} ({p.kind === 'STORE' ? 'store' : 'project'}) · {p.vendorName} · {Number(p.total).toLocaleString()}</option>)}
                                     </select>
                                 </label>
                                 <label className="text-xs font-semibold text-slate-900">Vendor invoice no.
@@ -124,6 +125,7 @@ export default function SupplierInvoicesPage() {
                                     <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900" />
                                 </label>
                             </div>
+                            {unlinked > 0 && <p className="mt-2 text-xs text-slate-700">{unlinked} store order(s) are not listed because their vendor is typed text, not a vendor record; link a vendor on the order first.</p>}
                             {ctx.isLoading && <Loader2 className="mt-3 h-5 w-5 animate-spin text-blue-600" />}
                             {ctx.data && (
                                 <div className="mt-3 overflow-x-auto">
@@ -169,7 +171,7 @@ export default function SupplierInvoicesPage() {
                                                         <button data-testid="inv-approve" onClick={() => approve(r)} className="mr-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-900 hover:bg-emerald-100">Approve</button>
                                                         <button data-testid="inv-reject" onClick={() => reject(r)} className="rounded border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-bold text-red-900 hover:bg-red-100">Reject</button>
                                                     </>}
-                                                    {r.status === 'APPROVED' && <button onClick={() => act.mutate({ action: 'MARK_PAID', id: r.id })} className="rounded border border-slate-300 bg-slate-50 px-2 py-0.5 text-xs font-bold text-slate-900 hover:bg-slate-100">Mark paid</button>}
+                                                    {['APPROVED', 'PARTIALLY_PAID'].includes(r.status) && <a href={`/finance/vendor-payments?invoice=${r.id}`} data-testid="inv-pay" className="rounded border border-slate-300 bg-slate-50 px-2 py-0.5 text-xs font-bold text-slate-900 hover:bg-slate-100">Pay</a>}
                                                 </td>
                                             </tr>
                                         ))}

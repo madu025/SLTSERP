@@ -33,7 +33,7 @@ const amendSchema = z.object({
     lines: z.array(z.object({ poItemId: databaseUuidSchema, quantity: z.number().positive().optional(), unitPrice: z.number().min(0).optional(), taxAmount: z.number().min(0).optional() })).optional(),
 });
 
-const simple = z.object({ action: z.enum(['ISSUE', 'CLOSE']), poId: databaseUuidSchema });
+const simple = z.object({ action: z.enum(['ISSUE', 'CLOSE', 'APPROVE']), poId: databaseUuidSchema });
 const cancelSchema = z.object({ action: z.literal('CANCEL'), poId: databaseUuidSchema, reason: z.string().min(3).max(500) });
 
 const bodySchema = z.discriminatedUnion('action', [createSchema, amendSchema, simple, cancelSchema]);
@@ -45,13 +45,14 @@ export const GET = apiHandler(async (req, params) => {
     return PurchaseOrderService.listStorePos(params._userId ?? '', { status: sp.get('status') || undefined, vendorId: sp.get('vendorId') || undefined });
 }, { permissions: [RBAC_PERMISSIONS.PROCUREMENT_READ] });
 
-// POST /api/procurement/purchase-orders  { action: CREATE | AMEND | ISSUE | CANCEL | CLOSE, ... }
+// POST /api/procurement/purchase-orders  { action: CREATE | AMEND | APPROVE | ISSUE | CANCEL | CLOSE, ... }
 export const POST = apiHandler(async (_req, params, body: z.infer<typeof bodySchema>) => {
     const userId = params._userId;
     if (!userId) throw AppError.unauthorized('Authentication required');
     switch (body.action) {
         case 'CREATE': return PurchaseOrderService.createStorePo({ ...body, userId });
         case 'AMEND': return PurchaseOrderService.amendStorePo({ ...body, userId });
+        case 'APPROVE': return PurchaseOrderService.approveStorePo(body.poId, userId);
         case 'ISSUE': return PurchaseOrderService.issueStorePo(body.poId, userId);
         case 'CANCEL': return PurchaseOrderService.cancelStorePo(body.poId, userId, body.reason);
         case 'CLOSE': return PurchaseOrderService.closeStorePo(body.poId, userId);

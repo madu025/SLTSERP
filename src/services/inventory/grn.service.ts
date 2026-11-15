@@ -96,6 +96,9 @@ export class GRNService {
                 });
                 if (!po) throw AppError.badRequest('PURCHASE_ORDER_NOT_FOUND');
                 const poStatus = normalizePoStatus(po.status);
+                if (poStatus === 'PENDING_APPROVAL') {
+                    throw AppError.badRequest(`PURCHASE_ORDER_NOT_APPROVED: ${po.poNumber} is waiting for approval and cannot receive goods`);
+                }
                 if (poStatus === 'CANCELLED' || poStatus === 'CLOSED') {
                     throw AppError.badRequest(`PURCHASE_ORDER_NOT_OPEN: ${po.poNumber} is ${poStatus}`);
                 }

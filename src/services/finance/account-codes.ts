@@ -31,6 +31,7 @@ export const ACCOUNTS = {
     UNBILLED_WIP: 'AR-WIP-1120',
     ADVANCES: 'ADV-1210',
     WHT_RECEIVABLE: 'WHT-REC-1300',
+    INPUT_VAT: 'VAT-REC-1310',
     FIXED_ASSETS: 'FA-1500',
     ACCUM_DEPRECIATION: 'ACCUM-DEP-1590',
 
@@ -58,6 +59,7 @@ export const ACCOUNTS = {
     CONTRACTOR_EXPENSE: 'EXP-CON-4020',
     WASTAGE_EXPENSE: 'EXP-WASTAGE-5030',
     INVENTORY_VARIANCE: 'EXP-VAR-5040',
+    PPV: 'EXP-PPV-5050',
     STAFF_EXPENSE: 'EXP-STAFF-6010',
     VEHICLE_EXPENSE: 'EXP-VEHICLE-6020',
     DEPRECIATION_EXPENSE: 'EXP-DEP-6030',
@@ -80,11 +82,12 @@ export const CHART_OF_ACCOUNTS: ChartOfAccountEntry[] = [
     { code: ACCOUNTS.UNBILLED_WIP, name: 'Unbilled Work In Progress (WIP)', type: 'ASSET', isPostable: true },
     { code: ACCOUNTS.ADVANCES, name: 'Staff & Contractor Advances', type: 'ASSET', isPostable: true },
     { code: ACCOUNTS.WHT_RECEIVABLE, name: 'Withholding Tax (WHT) Receivable', type: 'ASSET', isPostable: true },
+    { code: ACCOUNTS.INPUT_VAT, name: 'Input VAT Receivable', type: 'ASSET', isPostable: true },
     { code: ACCOUNTS.FIXED_ASSETS, name: 'Fixed Assets - Machinery & Equipment', type: 'ASSET', isPostable: true },
     { code: ACCOUNTS.ACCUM_DEPRECIATION, name: 'Accumulated Depreciation - Fixed Assets', type: 'ASSET', isPostable: true },
 
     // LIABILITIES (2000 Series)
-    { code: ACCOUNTS.AP_ACCRUED, name: 'Accrued Accounts Payable', type: 'LIABILITY', isPostable: true },
+    { code: ACCOUNTS.AP_ACCRUED, name: 'GR/IR Clearing (Goods Received, Not Invoiced)', type: 'LIABILITY', isPostable: true },
     { code: ACCOUNTS.AP_VENDOR, name: 'Trade Accounts Payable - Vendors', type: 'LIABILITY', isPostable: true },
     { code: ACCOUNTS.AP_CONTRACTOR, name: 'Accrued Contractor Payable', type: 'LIABILITY', isPostable: true },
     { code: ACCOUNTS.VAT_PAYABLE, name: 'Output VAT Payable', type: 'LIABILITY', isPostable: true },
@@ -107,6 +110,7 @@ export const CHART_OF_ACCOUNTS: ChartOfAccountEntry[] = [
     { code: ACCOUNTS.CONTRACTOR_EXPENSE, name: 'Contractor Expense (Claims/Payouts)', type: 'EXPENSE', isPostable: true },
     { code: ACCOUNTS.WASTAGE_EXPENSE, name: 'Material Wastage & Scrap Expense', type: 'EXPENSE', isPostable: true },
     { code: ACCOUNTS.INVENTORY_VARIANCE, name: 'Inventory Variance (Cycle Count)', type: 'EXPENSE', isPostable: true },
+    { code: ACCOUNTS.PPV, name: 'Purchase Price Variance', type: 'EXPENSE', isPostable: true },
     { code: ACCOUNTS.STAFF_EXPENSE, name: 'Staff Salaries & Expenses', type: 'EXPENSE', isPostable: true },
     { code: ACCOUNTS.VEHICLE_EXPENSE, name: 'Vehicle Running & Maintenance Cost', type: 'EXPENSE', isPostable: true },
     { code: ACCOUNTS.DEPRECIATION_EXPENSE, name: 'Depreciation Expense', type: 'EXPENSE', isPostable: true },

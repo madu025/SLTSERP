@@ -255,7 +255,11 @@ export class MRNService {
                     }
                 });
 
-                await LedgerService.logMrnReturn(tx, mrn.id, totalMrnCost);
+                // Goods already invoiced by the supplier come back as a debit note against the vendor payable
+                const { SupplierDebitNoteService } = await import('@/services/procurement/supplier-debit-note.service');
+                const dnBasis = await SupplierDebitNoteService.basisForReturn(tx, mrn);
+                const returnEntry = await LedgerService.logMrnReturn(tx, mrn.id, totalMrnCost, undefined, dnBasis ? { amount: dnBasis.amount, tax: dnBasis.tax } : undefined);
+                if (dnBasis) await SupplierDebitNoteService.record(tx, dnBasis, mrn.id, approvedById ?? null, returnEntry?.id ?? null);
 
                 const [nErr] = await safe(NotificationService.send({
                     userId: mrn.returnedById,

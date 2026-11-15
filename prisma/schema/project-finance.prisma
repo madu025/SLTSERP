@@ -468,7 +468,12 @@ model ProjectInvoiceItem {
 model PaymentVoucher {
   id                 String          @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   pvNumber           String          @unique
-  projectId          String          @db.Uuid
+  /// Null for a vendor payment that is not tied to a project
+  projectId          String?         @db.Uuid
+  /// Vendor payments: the supplier invoice being paid, the vendor, and the bank account the money leaves
+  supplierInvoiceId  String?         @db.Uuid
+  vendorId           String?         @db.Uuid
+  bankAccountId      String?         @db.Uuid
   title              String
   description        String?
   status             String          @default("DRAFT")
@@ -500,9 +505,11 @@ model PaymentVoucher {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
   invoice            ProjectInvoice? @relation("InvoicePayments", fields: [invoiceId], references: [id])
-  project            Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project            Project?        @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
+  @@index([supplierInvoiceId])
+  @@index([vendorId])
   @@index([status])
   @@index([pvNumber])
   @@index([invoiceId])

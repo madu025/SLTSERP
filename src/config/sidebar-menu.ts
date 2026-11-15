@@ -433,6 +433,11 @@ export const SIDEBAR_MENU: MenuItem[] = [
             },
             {
                 title: 'Purchase Orders',
+                path: '/procurement/purchase-orders',
+                icon: FileText,
+            },
+            {
+                title: 'Order Processing',
                 path: '/procurement/orders',
                 icon: FileText,
             },
@@ -497,6 +502,11 @@ export const SIDEBAR_MENU: MenuItem[] = [
                     {
                         title: 'Payment Vouchers',
                         path: '/finance/payments',
+                        icon: Receipt,
+                    },
+                    {
+                        title: 'Vendor Payments',
+                        path: '/finance/vendor-payments',
                         icon: Receipt,
                     },
                     {
@@ -706,6 +716,11 @@ export const SIDEBAR_MENU: MenuItem[] = [
             {
                 title: 'AP Aging & Payables',
                 path: '/finance/ap/aging',
+                icon: Building2,
+            },
+            {
+                title: 'Vendor Statement',
+                path: '/finance/vendor-statement',
                 icon: Building2,
             },
             {

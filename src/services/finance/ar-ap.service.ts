@@ -341,12 +341,12 @@ export class ArApService {
         let supplierTotal = 0;
         if (scope === undefined) {
             const supplierInvoices = await prisma.supplierInvoice.findMany({
-                where: { status: 'APPROVED', paidAt: null },
+                where: { status: { in: ['APPROVED', 'PARTIALLY_PAID'] } },
                 include: { vendor: { select: { name: true } } },
             });
             for (const inv of supplierInvoices) {
                 const ageDays = Math.floor((today.getTime() - new Date(inv.invoiceDate).getTime()) / (1000 * 3600 * 24));
-                const balance = Number(inv.totalAmount);
+                const balance = Number(inv.totalAmount) - Number(inv.paidAmount);
                 const vendorId = inv.vendorId;
                 if (!vendorMap.has(vendorId)) {
                     vendorMap.set(vendorId, { vendorId, vendorName: inv.vendor.name, current: 0, days31to60: 0, days61to90: 0, over90: 0, totalBalance: 0 });
@@ -359,6 +359,18 @@ export class ArApService {
                 summary[key] += balance;
                 supplierCount++;
                 supplierTotal += balance;
+            }
+            // Debit notes (goods returned after invoicing) are credits against the vendor's payable
+            const notes = await prisma.supplierDebitNote.groupBy({ by: ['vendorId'], _sum: { amount: true, taxAmount: true } });
+            for (const n of notes) {
+                const credit = Number(n._sum.amount ?? 0) + Number(n._sum.taxAmount ?? 0);
+                const row = vendorMap.get(n.vendorId);
+                if (!row || credit <= 0) continue;
+                row.totalBalance -= credit;
+                row.current -= credit;
+                summary.total -= credit;
+                summary.current -= credit;
+                supplierTotal -= credit;
             }
         }
 

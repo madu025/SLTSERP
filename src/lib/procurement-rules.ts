@@ -5,10 +5,11 @@
 
 // ---- purchase order lifecycle ---------------------------------------------------------------------------------------
 
-export const PO_STATUSES = ['APPROVED', 'ISSUED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CLOSED', 'CANCELLED'] as const;
+export const PO_STATUSES = ['PENDING_APPROVAL', 'APPROVED', 'ISSUED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CLOSED', 'CANCELLED'] as const;
 export type PoStatus = (typeof PO_STATUSES)[number];
 
 const PO_TRANSITIONS: Record<PoStatus, PoStatus[]> = {
+    PENDING_APPROVAL: ['APPROVED', 'CANCELLED'],
     APPROVED: ['ISSUED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED'],
     ISSUED: ['PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED'],
     PARTIALLY_RECEIVED: ['RECEIVED', 'CLOSED'],
@@ -30,13 +31,13 @@ export function canTransitionPo(from: string | null | undefined, to: PoStatus): 
 /** Lines can still be amended or the order cancelled only while nothing has been received. */
 export function isPoEditable(status: string | null | undefined, anyReceived: boolean): boolean {
     const s = normalizePoStatus(status);
-    return !anyReceived && (s === 'APPROVED' || s === 'ISSUED');
+    return !anyReceived && (s === 'PENDING_APPROVAL' || s === 'APPROVED' || s === 'ISSUED');
 }
 
 /** The status a PO should hold after receipts: nothing received, some, or all lines complete (within tolerance). */
 export function poStatusFromReceipts(current: string | null | undefined, lines: { quantity: number; receivedQty: number }[]): PoStatus {
     const status = normalizePoStatus(current);
-    if (status === 'CANCELLED' || status === 'CLOSED') return status;
+    if (status === 'CANCELLED' || status === 'CLOSED' || status === 'PENDING_APPROVAL') return status;
     const any = lines.some((l) => l.receivedQty > 0);
     if (!any) return status === 'ISSUED' ? 'ISSUED' : 'APPROVED';
     const complete = lines.every((l) => l.receivedQty >= l.quantity - 1e-9);
@@ -183,4 +184,96 @@ export function slaState(createdAt: Date | string, slaHours: number | null | und
     const hours = slaHours && slaHours > 0 ? slaHours : 24;
     const waited = (now.getTime() - new Date(createdAt).getTime()) / 3_600_000;
     return waited > hours * 2 ? 'ESCALATE' : waited > hours ? 'BREACHED' : 'OK';
+}
+
+// ---- supplier invoice posting -----------------------------------------------------------------------------------------
+
+export interface InvoicePostingLine { quantity: number; invoicePrice: number; orderPrice: number; taxAmount: number }
+
+/**
+ * Standard accounting for an approved supplier invoice:
+ *   Dr GR/IR clearing    = invoiced quantity at the order price (what was accrued when the goods arrived)
+ *   Dr / Cr Purchase Price Variance = invoiced price vs order price on the invoiced quantity (credit when cheaper)
+ *   Dr Input VAT         = tax on the invoice (recoverable, never part of stock cost)
+ *   Cr Vendor payable    = invoice total
+ */
+export function invoicePosting(lines: InvoicePostingLine[]): { clearing: number; priceVariance: number; tax: number; total: number } {
+    const clearing = money(lines.reduce((a, l) => a + l.quantity * l.orderPrice, 0));
+    const goods = money(lines.reduce((a, l) => a + l.quantity * l.invoicePrice, 0));
+    const tax = money(lines.reduce((a, l) => a + l.taxAmount, 0));
+    return { clearing, priceVariance: money(goods - clearing), tax, total: money(goods + tax) };
+}
+
+// ---- payment terms ----------------------------------------------------------------------------------------------------
+
+/** Days from a payment-terms text: "Net 30", "30 days", "Immediate", "Cash", "COD". Null when the text is not understood. */
+export function parsePaymentTerms(text: string | null | undefined): number | null {
+    if (!text) return null;
+    const t = text.trim().toLowerCase();
+    if (/^(immediate|cash|cod|on delivery|prepaid|advance)/.test(t)) return 0;
+    const m = t.match(/(\d{1,3})\s*(?:days?|d)?\b/);
+    if (m && /(net|days?|d\b|^\d)/.test(t)) return Number(m[1]);
+    return null;
+}
+
+/** Invoice due date: invoice date plus the terms in days (vendor terms first, else the PO's). Null when no terms are known. */
+export function dueDateFrom(invoiceDate: Date | string, ...terms: (string | null | undefined)[]): Date | null {
+    for (const t of terms) {
+        const days = parsePaymentTerms(t);
+        if (days !== null) return new Date(new Date(invoiceDate).getTime() + days * 86_400_000);
+    }
+    return null;
+}
+
+// ---- supplier returns ---------------------------------------------------------------------------------------------------
+
+/**
+ * Quantity that becomes a debit note when goods are returned to the supplier: the part of what we were billed for that we
+ * no longer hold. Goods billed but still held need nothing; goods returned before being billed only reduce the GR/IR accrual.
+ * Earlier returns are netted off so the same invoiced quantity is never debit-noted twice.
+ */
+export function debitNoteQty(billed: number, received: number, priorReturned: number, returning: number): number {
+    const shortfall = (returned: number) => Math.max(0, billed - Math.max(0, received - returned));
+    return Math.max(0, shortfall(priorReturned + returning) - shortfall(priorReturned));
+}
+
+// ---- project purchase order lifecycle and unified status ---------------------------------------------------------------
+
+const PROJECT_PO_TRANSITIONS: Record<string, string[]> = {
+    DRAFT: ['PENDING_APPROVAL', 'APPROVED', 'CANCELLED'],
+    PENDING_APPROVAL: ['APPROVED', 'DRAFT', 'CANCELLED'],
+    APPROVED: ['ISSUED', 'CANCELLED'],
+    ISSUED: ['PARTIALLY_RECEIVED', 'FULLY_RECEIVED', 'CLOSED', 'CANCELLED'],
+    PARTIALLY_RECEIVED: ['FULLY_RECEIVED', 'CLOSED'],
+    FULLY_RECEIVED: ['CLOSED'],
+    CLOSED: [],
+    CANCELLED: [],
+};
+
+/** A project purchase order can only move along its lifecycle (no jumping from draft straight to issued). */
+export function canTransitionProjectPo(from: string, to: string): boolean {
+    return (PROJECT_PO_TRANSITIONS[from] ?? []).includes(to);
+}
+
+/** One vocabulary for both purchase-order tables: the project table's FULLY_RECEIVED reads as RECEIVED. */
+export function unifiedPoStatus(kind: 'STORE' | 'PROJECT', status: string | null | undefined): string {
+    if (kind === 'STORE') return normalizePoStatus(status);
+    return status === 'FULLY_RECEIVED' ? 'RECEIVED' : (status ?? 'DRAFT');
+}
+
+// ---- approval limits ----------------------------------------------------------------------------------------------------
+
+export interface ApprovalTiers { manager: number; gm: number; director: number }
+
+/** The lowest tier able to approve an amount; null when it is above every limit. */
+export function requiredTier(amount: number, tiers: ApprovalTiers): 'Manager' | 'General Manager' | 'Director' | null {
+    if (amount <= tiers.manager) return 'Manager';
+    if (amount <= tiers.gm) return 'General Manager';
+    if (amount <= tiers.director) return 'Director';
+    return null;
+}
+
+/** An approver's limit covers an amount. A null limit means no ceiling (administrators). */
+export function withinLimit(amount: number, limit: number | null): boolean {
+    return limit === null || amount <= limit;
 }

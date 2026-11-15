@@ -4,6 +4,7 @@ import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
 import { StoreService } from '@/services/inventory/store.service';
 import { AuditService } from '@/services/audit/audit.service';
 import { canTransitionPo, computePoTotals, isPoEditable, normalizePoStatus, validatePoLine, type PoStatus } from '@/lib/procurement-rules';
+import { ApprovalLimitService } from '@/services/procurement/approval-limit.service';
 
 export interface CreateStorePoInput {
     requestId: string;
@@ -88,6 +89,9 @@ export class PurchaseOrderService {
 
         const totals = computePoTotals(lines.map((l) => ({ quantity: l.quantity, unitPrice: l.unitPrice, taxAmount: l.taxAmount })));
 
+        // Above the manager limit the order waits for an approver whose limit covers it; below it, it is approved on creation
+        const needsApproval = !(await ApprovalLimitService.autoApproves(totals.totalAmount));
+
         const po = await prisma.$transaction(async (tx) => {
             const poNumber = await AuditLedgerService.getNextDocumentNumber('SPO', tx);
             const created = await tx.purchaseOrder.create({
@@ -97,7 +101,7 @@ export class PurchaseOrderService {
                     vendorId,
                     expectedDelivery: input.expectedDelivery ? new Date(input.expectedDelivery) : undefined,
                     stockRequestId: requestId,
-                    status: 'APPROVED',
+                    status: needsApproval ? 'PENDING_APPROVAL' : 'APPROVED',
                     currency: (input.currency || 'LKR').toUpperCase().slice(0, 3),
                     subtotal: totals.subtotal,
                     taxAmount: totals.taxAmount,
@@ -202,6 +206,18 @@ export class PurchaseOrderService {
         const updated = await prisma.purchaseOrder.update({ where: { id: poId }, data: { status: to, ...data } });
         AuditService.log({ userId, action, entity: 'PURCHASE_ORDER', entityId: poId, oldValue: { status: normalizePoStatus(po.status) }, newValue: { status: to, ...(reason ? { reason } : {}) } }).catch(() => undefined);
         return { po, updated };
+    }
+
+    /** Approve an order that was raised above the manager limit; the approver's own limit must cover its value. */
+    static async approveStorePo(poId: string, userId: string) {
+        const po = await this.loadEditable(poId);
+        await this.assertStoreAccess(userId, po.stockRequest.fromStoreId, po.stockRequest.toStoreId);
+        if (normalizePoStatus(po.status) !== 'PENDING_APPROVAL') throw AppError.badRequest('Only an order that is waiting for approval can be approved');
+        await ApprovalLimitService.assertCanApprove(userId, Number(po.totalAmount), 'PURCHASE_ORDER', poId);
+        const claim = await prisma.purchaseOrder.updateMany({ where: { id: poId, status: 'PENDING_APPROVAL' }, data: { status: 'APPROVED', approvedById: userId, approvedAt: new Date() } });
+        if (claim.count === 0) throw AppError.conflict('This order was already actioned');
+        AuditService.log({ userId, action: 'APPROVE_STORE_PO', entity: 'PURCHASE_ORDER', entityId: poId, oldValue: { status: 'PENDING_APPROVAL' }, newValue: { status: 'APPROVED', total: Number(po.totalAmount) } }).catch(() => undefined);
+        return prisma.purchaseOrder.findUniqueOrThrow({ where: { id: poId }, include: { items: true } });
     }
 
     static async issueStorePo(poId: string, userId: string) {

@@ -4,6 +4,7 @@ import { PaymentVoucherService } from "@/services/finance/payment-voucher.servic
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { z } from 'zod';
 import { assertProjectAccess } from '@/lib/project-access';
+import { assertVoucherAccess } from '@/lib/payment-voucher-access';
 
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +24,10 @@ export const GET = apiHandler(async (req, params) => {
 });
 
 const createPVSchema = z.object({
-    projectId: z.string(),
+    projectId: z.string().nullish(),
+    /** Vendor payment: the approved supplier invoice being paid (no project involved) */
+    supplierInvoiceId: z.string().nullish(),
+    bankAccountId: z.string().nullish(),
     title: z.string(),
     description: z.string().nullish(),
     type: z.string().optional(),
@@ -48,7 +52,7 @@ const createPVSchema = z.object({
 
 // POST /api/finance/payment-vouchers - Create a new payment voucher
 export const POST = apiHandler(async (req, params, body) => {
-    await assertProjectAccess(body.projectId, params._userId);
+    await assertVoucherAccess(body.projectId, params._userId);
     const userId = getAuthenticatedUserId() ?? undefined;
     const payload = { ...body, createdById: userId };
     return await PaymentVoucherService.createPaymentVoucher(payload);

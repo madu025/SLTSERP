@@ -1,4 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
+import { assertVoucherAccess } from '@/lib/payment-voucher-access';
 import { PaymentVoucherService } from '@/services/finance/payment-voucher.service';
 import { AppError } from '@/lib/error';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
@@ -54,7 +55,7 @@ export const PATCH = apiHandler(async (_request, params, body: z.infer<typeof vo
     if (!params._userId) throw AppError.unauthorized('Authentication required');
     const voucher = await prisma.paymentVoucher.findUnique({ where: { id: body.id }, select: { projectId: true } });
     if (!voucher) throw AppError.notFound('Payment voucher not found');
-    await assertProjectAccess(voucher.projectId, params._userId);
+    await assertVoucherAccess(voucher.projectId, params._userId);
     if (body.status !== 'PENDING_APPROVAL') {
         await requireFinanceApprover(params._userId, body.status.toLowerCase());
     }
@@ -76,7 +77,7 @@ export const DELETE = apiHandler(async (request, params) => {
     if (!id) throw AppError.badRequest('id is required');
     const voucher = await prisma.paymentVoucher.findUnique({ where: { id }, select: { projectId: true } });
     if (!voucher) throw AppError.notFound('Payment voucher not found');
-    await assertProjectAccess(voucher.projectId, params._userId);
+    await assertVoucherAccess(voucher.projectId, params._userId);
     try {
         await PaymentVoucherService.deleteVoucher(id);
         return { message: 'Payment voucher deleted successfully' };

@@ -1,5 +1,5 @@
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
-import { assertProjectAccess } from '@/lib/project-access';
+import { assertVoucherAccess } from '@/lib/payment-voucher-access';
 import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +27,7 @@ const updatePVSchema = z.object({
 export const GET = apiHandler(async (_req, params) => {
     const voucher = await PaymentVoucherService.getPaymentVoucherById(params.id);
     if (!voucher) throw AppError.notFound('Payment voucher not found');
-    await assertProjectAccess(voucher.projectId, params._userId);
+    await assertVoucherAccess(voucher.projectId, params._userId);
     return voucher;
 }, {
     permissions: [RBAC_PERMISSIONS.FINANCE_READ],
@@ -38,7 +38,7 @@ export const GET = apiHandler(async (_req, params) => {
 export const PUT = apiHandler(async (_req, params, body) => {
     const voucher = await prisma.paymentVoucher.findUnique({ where: { id: params.id }, select: { projectId: true } });
     if (!voucher) throw AppError.notFound('Payment voucher not found');
-    await assertProjectAccess(voucher.projectId, params._userId);
+    await assertVoucherAccess(voucher.projectId, params._userId);
     return await PaymentVoucherService.updatePaymentVoucher(params.id, body);
 }, {
     schema: updatePVSchema,
@@ -51,7 +51,7 @@ export const PUT = apiHandler(async (_req, params, body) => {
 export const DELETE = apiHandler(async (_req, params) => {
     const voucher = await prisma.paymentVoucher.findUnique({ where: { id: params.id }, select: { projectId: true } });
     if (!voucher) throw AppError.notFound('Payment voucher not found');
-    await assertProjectAccess(voucher.projectId, params._userId);
+    await assertVoucherAccess(voucher.projectId, params._userId);
     return await PaymentVoucherService.deletePaymentVoucher(params.id);
 }, {
     permissions: [RBAC_PERMISSIONS.FINANCE_APPROVE],

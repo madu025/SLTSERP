@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { userHasPermission } from '@/lib/user-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { AuditService } from '@/services/audit/audit.service';
+import { canTransitionProjectPo } from '@/lib/procurement-rules';
+import { ApprovalLimitService } from '@/services/procurement/approval-limit.service';
 
 interface POItemInput {
     requisitionItemId?: string | null;
@@ -176,6 +178,10 @@ export class ProjectPurchaseOrderService {
             throw AppError.badRequest('STATUS_LOCKED');
         }
 
+        if (status !== existing.status && !canTransitionProjectPo(existing.status, status)) {
+            throw AppError.badRequest(`INVALID_STATUS_TRANSITION: a ${existing.status.toLowerCase().replace('_', ' ')} purchase order cannot become ${status.toLowerCase().replace('_', ' ')}`);
+        }
+
         const updateData: Record<string, unknown> = { status };
 
         switch (status) {
@@ -183,6 +189,8 @@ export class ProjectPurchaseOrderService {
                 if (!options.approvedById) {
                     throw AppError.badRequest('APPROVED_BY_ID_REQUIRED');
                 }
+                // The approver's limit has to cover the value of the order
+                await ApprovalLimitService.assertCanApprove(options.approvedById, Number(existing.totalAmount), 'PROJECT_PURCHASE_ORDER', id);
                 // Maker-checker: the person who raised the order cannot approve it (administrators are exempt, and it is recorded)
                 if (existing.createdById && existing.createdById === options.approvedById && !(await userHasPermission(options.approvedById, RBAC_PERMISSIONS.ADMIN_RBAC))) {
                     AuditService.log({ userId: options.approvedById, action: 'SOD_VIOLATION_BLOCKED', entity: 'PROJECT_PURCHASE_ORDER', entityId: id, newValue: { reason: 'creator tried to approve own purchase order' } }).catch(() => undefined);

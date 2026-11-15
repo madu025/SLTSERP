@@ -140,7 +140,7 @@ export default function ProcurementOrdersPage() {
     });
     // Issue / cancel / close an existing purchase order
     const poActionMutation = useMutation({
-        mutationFn: async (payload: { action: "ISSUE" | "CANCEL" | "CLOSE"; poId: string; reason?: string }) => {
+        mutationFn: async (payload: { action: "ISSUE" | "CANCEL" | "CLOSE" | "APPROVE"; poId: string; reason?: string }) => {
             const res = await fetch("/api/procurement/purchase-orders", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -151,7 +151,7 @@ export default function ProcurementOrdersPage() {
             return json;
         },
         onSuccess: (_d, v) => {
-            toast.success(v.action === "ISSUE" ? "Purchase order issued to the vendor" : v.action === "CANCEL" ? "Purchase order cancelled" : "Purchase order closed");
+            toast.success(v.action === "ISSUE" ? "Purchase order issued to the vendor" : v.action === "APPROVE" ? "Purchase order approved" : v.action === "CANCEL" ? "Purchase order cancelled" : "Purchase order closed");
             queryClient.invalidateQueries({ queryKey: ["procurement-orders"] });
             setSelectedRequest(null);
         },
@@ -744,10 +744,13 @@ export default function ProcurementOrdersPage() {
                                                                      </Badge>
                                                                      {po.id && !['CANCELLED', 'CLOSED'].includes(po.status || '') && (
                                                                          <span className="flex items-center gap-1.5 ml-2">
+                                                                             {po.status === 'PENDING_APPROVAL' && (
+                                                                                 <button type="button" data-testid="po-approve" onClick={() => poActionMutation.mutate({ action: "APPROVE", poId: po.id! })} className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100">Approve PO</button>
+                                                                             )}
                                                                              {['APPROVED', 'PENDING', undefined, null].includes(po.status as any) && (
                                                                                  <button type="button" data-testid="po-issue" onClick={() => poActionMutation.mutate({ action: "ISSUE", poId: po.id! })} className="rounded-md border border-blue-300 bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-800 hover:bg-blue-100">Mark issued</button>
                                                                              )}
-                                                                             {['APPROVED', 'ISSUED', 'PENDING', undefined, null].includes(po.status as any) && (
+                                                                             {['PENDING_APPROVAL', 'APPROVED', 'ISSUED', 'PENDING', undefined, null].includes(po.status as any) && (
                                                                                  <button type="button" data-testid="po-cancel" onClick={() => { const reason = window.prompt("Reason for cancelling this purchase order?"); if (reason && reason.trim().length >= 3) poActionMutation.mutate({ action: "CANCEL", poId: po.id!, reason }); }} className="rounded-md border border-red-300 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-800 hover:bg-red-100">Cancel PO</button>
                                                                              )}
                                                                              {['PARTIALLY_RECEIVED', 'RECEIVED'].includes(po.status || '') && (

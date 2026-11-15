@@ -6,7 +6,7 @@ import { ACCOUNTS } from '@/services/finance/account-codes';
 import { userHasPermission } from '@/lib/user-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { getProcurementConfig } from '@/services/procurement/procurement-config';
-import { threeWayMatch, type MatchLine, type MatchOutcome } from '@/lib/procurement-rules';
+import { threeWayMatch, invoicePosting, dueDateFrom, type MatchLine, type MatchOutcome } from '@/lib/procurement-rules';
 
 export type PoKind = 'STORE' | 'PROJECT';
 
@@ -17,6 +17,8 @@ export interface PoMatchContext {
     vendorId: string | null;
     vendorName: string;
     currency: string;
+    /** The PO's own payment terms (project orders carry them), used when the vendor has none. */
+    paymentTerms?: string | null;
     lines: { poItemId: string; description: string; orderedQty: number; orderedPrice: number; receivedQty: number; invoicedBefore: number; billable: number }[];
 }
 
@@ -64,7 +66,7 @@ export class SupplierInvoiceService {
         const receivedBy = new Map(approved.map((a) => [a.poItemId, Number(a._sum.quantityAccepted ?? 0)]));
         const billed = await this.billedByLine(po.items.map((l) => l.id));
         return {
-            kind, poId, poNumber: po.poNumber, vendorId: po.vendorId, vendorName: po.vendorName, currency: po.currency,
+            kind, poId, poNumber: po.poNumber, vendorId: po.vendorId, vendorName: po.vendorName, currency: po.currency, paymentTerms: po.paymentTerms,
             lines: po.items.map((l) => {
                 const received = receivedBy.get(l.id) ?? 0;
                 const before = billed.get(l.id) ?? 0;
@@ -100,6 +102,7 @@ export class SupplierInvoiceService {
             merged.set(l.poItemId, { quantity: (prev?.quantity ?? 0) + l.quantity, unitPrice: l.unitPrice, taxAmount: (prev?.taxAmount ?? 0) + (l.taxAmount ?? 0) });
         }
 
+        const vendorTerms = (await prisma.vendor.findUnique({ where: { id: ctx.vendorId }, select: { paymentTerms: true } }))?.paymentTerms;
         const cfg = await getProcurementConfig();
         const matchLines: MatchLine[] = [...merged.entries()].map(([poItemId, m]) => {
             const c = byId.get(poItemId)!;
@@ -118,7 +121,7 @@ export class SupplierInvoiceService {
                     storePoId: kind === 'STORE' ? poId : null,
                     projectPoId: kind === 'PROJECT' ? poId : null,
                     invoiceDate: new Date(input.invoiceDate),
-                    dueDate: input.dueDate ? new Date(input.dueDate) : null,
+                    dueDate: input.dueDate ? new Date(input.dueDate) : dueDateFrom(input.invoiceDate, vendorTerms, ctx.paymentTerms),
                     currency: ctx.currency,
                     subtotal, taxAmount: tax, totalAmount: round2(subtotal + tax),
                     status: outcome.status === 'MATCHED' ? 'MATCHED' : 'VARIANCE',
@@ -161,25 +164,30 @@ export class SupplierInvoiceService {
 
         const ctx = await this.getPoContext(invoice.storePoId ? 'STORE' : 'PROJECT', (invoice.storePoId ?? invoice.projectPoId)!);
         const priceOf = new Map(ctx.lines.map((l) => [l.poItemId, l.orderedPrice]));
-        const accrued = round2(invoice.items.reduce((a, i) => a + Number(i.quantity) * (priceOf.get(i.poItemId) ?? 0), 0));
-        const total = Number(invoice.totalAmount);
-        const difference = round2(total - accrued);
+        const posting = invoicePosting(invoice.items.map((i) => ({ quantity: Number(i.quantity), invoicePrice: Number(i.unitPrice), orderPrice: priceOf.get(i.poItemId) ?? Number(i.unitPrice), taxAmount: Number(i.taxAmount) })));
+        const accrued = posting.clearing;
+        const total = posting.total;
+        // Posting date: the invoice date when its fiscal period is still open, otherwise today (never a closed period)
+        const invDate = new Date(invoice.invoiceDate);
+        const period = await prisma.fiscalPeriod.findUnique({ where: { year_month: { year: invDate.getFullYear(), month: invDate.getMonth() + 1 } } });
+        const postingDate = !period || period.status === 'OPEN' ? invDate : new Date();
 
         return prisma.$transaction(async (tx) => {
             const claim = await tx.supplierInvoice.updateMany({ where: { id, status: { in: ['MATCHED', 'VARIANCE', 'DRAFT'] } }, data: { status: 'APPROVED', approvedById: userId, approvedAt: new Date(), overrideReason: overrideReason?.trim() || null } });
             if (claim.count === 0) throw AppError.conflict('This invoice has already been actioned');
             const lines = [
-                { accountCode: ACCOUNTS.AP_ACCRUED, debit: accrued, credit: 0, description: 'Goods received, now invoiced' },
-                ...(difference > 0 ? [{ accountCode: ACCOUNTS.INVENTORY, debit: difference, credit: 0, description: 'Price difference and tax on supplier invoice' }] : []),
-                ...(difference < 0 ? [{ accountCode: ACCOUNTS.INVENTORY, debit: 0, credit: -difference, description: 'Invoice below received value' }] : []),
+                { accountCode: ACCOUNTS.AP_ACCRUED, debit: accrued, credit: 0, description: 'GR/IR cleared: goods received, now invoiced' },
+                ...(posting.priceVariance > 0 ? [{ accountCode: ACCOUNTS.PPV, debit: posting.priceVariance, credit: 0, description: 'Invoice price above order price' }] : []),
+                ...(posting.priceVariance < 0 ? [{ accountCode: ACCOUNTS.PPV, debit: 0, credit: -posting.priceVariance, description: 'Invoice price below order price' }] : []),
+                ...(posting.tax > 0 ? [{ accountCode: ACCOUNTS.INPUT_VAT, debit: posting.tax, credit: 0, description: 'Input VAT on supplier invoice' }] : []),
                 { accountCode: ACCOUNTS.AP_VENDOR, debit: 0, credit: total, description: `Supplier invoice ${invoice.invoiceNumber}` },
             ].filter((l) => l.debit > 0 || l.credit > 0);
             const entry = total > 0 ? await LedgerService.postTransaction(tx, {
-                referenceId: id, referenceType: 'SUPPLIER_INVOICE', idempotencyKey: `SUPPLIER_INVOICE_${id}`, isAutoGenerated: true,
+                referenceId: id, referenceType: 'SUPPLIER_INVOICE', idempotencyKey: `SUPPLIER_INVOICE_${id}`, isAutoGenerated: true, date: postingDate,
                 description: `Supplier invoice ${invoice.invoiceNumber} (${ctx.poNumber})`, lines,
             }) : null;
             const updated = await tx.supplierInvoice.update({ where: { id }, data: { journalEntryId: entry?.id ?? null }, include: { items: true } });
-            AuditService.log({ userId, action: 'APPROVE_SUPPLIER_INVOICE', entity: 'SUPPLIER_INVOICE', entityId: id, newValue: { total, accrued, difference, match: invoice.matchStatus, override: overrideReason ?? null } }).catch(() => undefined);
+            AuditService.log({ userId, action: 'APPROVE_SUPPLIER_INVOICE', entity: 'SUPPLIER_INVOICE', entityId: id, newValue: { total, clearing: accrued, priceVariance: posting.priceVariance, inputVat: posting.tax, match: invoice.matchStatus, override: overrideReason ?? null } }).catch(() => undefined);
             return updated;
         }, { maxWait: 10_000, timeout: 30_000 });
     }
@@ -189,13 +197,6 @@ export class SupplierInvoiceService {
         const claim = await prisma.supplierInvoice.updateMany({ where: { id, status: { in: ['MATCHED', 'VARIANCE', 'DRAFT'] } }, data: { status: 'REJECTED', rejectionReason: reason.trim() } });
         if (claim.count === 0) throw AppError.conflict('Only an invoice that has not been approved can be rejected');
         AuditService.log({ userId, action: 'REJECT_SUPPLIER_INVOICE', entity: 'SUPPLIER_INVOICE', entityId: id, newValue: { reason: reason.trim() } }).catch(() => undefined);
-        return prisma.supplierInvoice.findUniqueOrThrow({ where: { id }, include: { items: true } });
-    }
-
-    static async markPaid(id: string, userId: string) {
-        const claim = await prisma.supplierInvoice.updateMany({ where: { id, status: 'APPROVED' }, data: { status: 'PAID', paidAt: new Date() } });
-        if (claim.count === 0) throw AppError.conflict('Only an approved invoice can be marked as paid');
-        AuditService.log({ userId, action: 'PAY_SUPPLIER_INVOICE', entity: 'SUPPLIER_INVOICE', entityId: id, newValue: { status: 'PAID' } }).catch(() => undefined);
         return prisma.supplierInvoice.findUniqueOrThrow({ where: { id }, include: { items: true } });
     }
 

@@ -542,6 +542,8 @@ model PurchaseOrder {
   taxAmount          Decimal           @default(0) @db.Decimal(14, 2)
   totalAmount        Decimal           @default(0) @db.Decimal(14, 2)
   cancelledAt        DateTime?
+  approvedById       String?           @db.Uuid
+  approvedAt         DateTime?
   cancelledById      String?           @db.Uuid
   cancellationReason String?
   closedAt           DateTime?

@@ -18,8 +18,7 @@ const create = z.object({
 });
 const approve = z.object({ action: z.literal('APPROVE'), id: databaseUuidSchema, overrideReason: z.string().max(500).nullish() });
 const reject = z.object({ action: z.literal('REJECT'), id: databaseUuidSchema, reason: z.string().min(3).max(500) });
-const paid = z.object({ action: z.literal('MARK_PAID'), id: databaseUuidSchema });
-const bodySchema = z.discriminatedUnion('action', [create, approve, reject, paid]);
+const bodySchema = z.discriminatedUnion('action', [create, approve, reject]);
 
 // GET /api/procurement/invoices?status=&vendorId=            -> supplier invoices
 // GET /api/procurement/invoices?po=STORE:<uuid>|PROJECT:<uuid> -> the PO lines with received / already-billed quantities
@@ -34,8 +33,9 @@ export const GET = apiHandler(async (req) => {
     return SupplierInvoiceService.list({ status: sp.get('status') || undefined, vendorId: sp.get('vendorId') || undefined });
 }, { permissions: [RBAC_PERMISSIONS.PROCUREMENT_READ, RBAC_PERMISSIONS.FINANCE_READ] });
 
-// POST /api/procurement/invoices  { action: CREATE | APPROVE | REJECT | MARK_PAID, ... }
-// Entering and rejecting invoices needs procurement write; approving and marking paid needs finance approval.
+// POST /api/procurement/invoices  { action: CREATE | APPROVE | REJECT, ... }
+// Entering and rejecting invoices needs procurement write; approving needs finance approval. Payment is a vendor payment voucher
+// (/api/finance/payment-vouchers with supplierInvoiceId), never a status flip.
 export const POST = apiHandler(async (_req, params, body: z.infer<typeof bodySchema>) => {
     const userId = params._userId;
     if (!userId) throw AppError.unauthorized('Authentication required');
@@ -51,9 +51,6 @@ export const POST = apiHandler(async (_req, params, body: z.infer<typeof bodySch
         case 'APPROVE':
             if (!can(RBAC_PERMISSIONS.FINANCE_APPROVE)) throw AppError.forbidden('Approving a supplier invoice needs finance approval access');
             return SupplierInvoiceService.approve(body.id, userId, body.overrideReason);
-        case 'MARK_PAID':
-            if (!can(RBAC_PERMISSIONS.FINANCE_APPROVE)) throw AppError.forbidden('Marking an invoice paid needs finance approval access');
-            return SupplierInvoiceService.markPaid(body.id, userId);
     }
 }, {
     schema: bodySchema,
