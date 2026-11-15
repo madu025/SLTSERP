@@ -1,14 +1,11 @@
 "use client";
 
-import React, { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
 import { Badge } from "@/components/ui/badge";
 import { Users } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import ExportCsvButton from '@/components/ExportCsvButton';
 
 interface AgingSummary {
@@ -37,11 +34,6 @@ interface ArAgingData {
 }
 
 export default function ArAgingPage() {
-    const queryClient = useQueryClient();
-    const [amount, setAmount] = useState<string>('');
-    const [invoiceId, setInvoiceId] = useState<string>('');
-    const [isRecording, setIsRecording] = useState<boolean>(false);
-
     const { data, isLoading } = useQuery<ArAgingData>({
         queryKey: ['ar-aging-report'],
         queryFn: async () => {
@@ -51,36 +43,6 @@ export default function ArAgingPage() {
             return json.data;
         }
     });
-
-    const handleRecordReceipt = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!amount || Number(amount) <= 0) {
-            toast.error('Please enter a valid receipt amount');
-            return;
-        }
-        setIsRecording(true);
-        try {
-            const res = await fetch('/api/finance/ar/receipts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    invoiceId: invoiceId || undefined,
-                    amount: Number(amount),
-                    paymentMethod: 'BANK_TRANSFER'
-                })
-            });
-            const json = await res.json();
-            if (!res.ok) throw new Error(json.error || 'Failed to record receipt');
-            toast.success('Customer receipt recorded successfully!');
-            setAmount('');
-            setInvoiceId('');
-            queryClient.invalidateQueries({ queryKey: ['ar-aging-report'] });
-        } catch (err: unknown) {
-            toast.error((err instanceof Error ? err.message : "Unknown error") || 'Failed to record receipt');
-        } finally {
-            setIsRecording(false);
-        }
-    };
 
     return (
         <RoleGuard>
@@ -103,8 +65,9 @@ export default function ArAgingPage() {
                                     <Users className="w-7 h-7 text-indigo-600" />
                                     Accounts Receivable (AR) Aging & Collections
                                 </h1>
-                                <p className="text-sm text-slate-500 mt-1">
-                                    Sub-ledger aging analysis across 0-30, 31-60, 61-90, and 90+ days.
+                                <p className="text-sm text-slate-700 mt-1">
+                                    Sub-ledger aging analysis across 0-30, 31-60, 61-90, and 90+ days. Money from SLT is collected by Head Office: send invoices on{' '}
+                                    <a href="/finance/ho-billing" className="font-semibold text-indigo-800 underline">Billing to Head Office</a>.
                                 </p>
                             </div>
 

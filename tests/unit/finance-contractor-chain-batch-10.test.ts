@@ -47,6 +47,7 @@ test('contractor billing to payment voucher, bank reconciliation, and GL complet
         return { count: 1 };
       },
       findUniqueOrThrow: async ({ where }: any) => vouchers.get(where.id),
+      aggregate: async ({ where }: any) => ({ _sum: { amount: [...vouchers.values()].filter((v: any) => v.status === where.status && String(v.description ?? '').startsWith(where.description.startsWith)).reduce((a: number, v: any) => a + Number(v.amount), 0) } }),
       findFirst: async () => null,
       create: async ({ data }: any) => {
         const voucher = { id: `pv-${activeBatch}`, ...data };
@@ -101,6 +102,7 @@ test('contractor billing to payment voucher, bank reconciliation, and GL complet
       projectId: 'project-1',
       contractorId: data.contractorId,
       totalAmount: new Prisma.Decimal(1000),
+      amount: new Prisma.Decimal(1000),
       status: 'PENDING_SF_AUDIT',
       approvalStatus: 'PENDING',
     };

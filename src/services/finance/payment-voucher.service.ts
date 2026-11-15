@@ -514,21 +514,19 @@ export class PaymentVoucherService {
           await tx.supplierInvoice.update({ where: { id: si.id }, data: { paidAmount: paid, status: settled ? 'PAID' : 'PARTIALLY_PAID', paidAt: settled ? new Date() : null } });
         }
 
-        // Sync with monthly Contractor Invoice if BOM-based
+        // Sync with monthly Contractor Invoice if BOM-based: it is PAID only once Head Office has confirmed payments covering its amount
         if (existing.description && existing.description.startsWith('BOM_INVOICING_REF:')) {
-          const bomInvoiceId = existing.description.split(':')[1];
-          const [err] = await safe(tx.invoice.update({
-            where: { id: bomInvoiceId },
-            data: {
-              status: 'PAID',
-              statusA: 'PAID',
-              statusB: 'PAID',
-              paidDateA: new Date(),
-              paidDateB: new Date()
+          const bomInvoiceId = existing.description.split(':')[1].split(' - ')[0].trim();
+          const bom = await tx.invoice.findUnique({ where: { id: bomInvoiceId }, select: { amount: true } });
+          if (bom) {
+            const paidSoFar = await tx.paymentVoucher.aggregate({ where: { description: { startsWith: `BOM_INVOICING_REF:${bomInvoiceId}` }, status: 'PAID' }, _sum: { amount: true } });
+            if (new Prisma.Decimal(paidSoFar._sum.amount ?? 0).gte(bom.amount)) {
+              const [err] = await safe(tx.invoice.update({
+                where: { id: bomInvoiceId },
+                data: { status: 'PAID', statusA: 'PAID', statusB: 'PAID', paidDateA: new Date(), paidDateB: new Date() },
+              }));
+              if (err) console.error('Failed to sync monthly Contractor Invoice status from BOM PV:', err);
             }
-          }));
-          if (err) {
-            console.error('Failed to sync monthly Contractor Invoice status from BOM PV:', err);
           }
         }
 

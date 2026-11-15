@@ -1,0 +1,18 @@
+/// Month-end reconciliation of the Head Office current account (HO-2020) against Head Office's own statement.
+model HoReconciliation {
+  id               String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  /// YYYY-MM
+  month            String   @unique
+  ledgerBalance    Decimal  @default(0) @db.Decimal(14, 2)
+  hoBalance        Decimal  @default(0) @db.Decimal(14, 2)
+  difference       Decimal  @default(0) @db.Decimal(14, 2)
+  /// RECONCILED | DIFFERENCE
+  status           String   @default("DIFFERENCE")
+  note             String?
+  recordedById     String?  @db.Uuid
+  recordedAt       DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([status])
+}
