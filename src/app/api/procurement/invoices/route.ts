@@ -4,6 +4,8 @@ import { AppError } from '@/lib/error';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 import { SupplierInvoiceService } from '@/services/procurement/supplier-invoice.service';
+import { ServicePayableGeneratorService } from '@/services/finance/service-payable-generator.service';
+import { SERVICE_CATEGORIES } from '@/config/payment-categories';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,15 +18,31 @@ const create = z.object({
     dueDate: z.string().nullish(),
     lines: z.array(z.object({ poItemId: databaseUuidSchema, quantity: z.number().positive(), unitPrice: z.number().min(0), taxAmount: z.number().min(0).optional() })).min(1),
 });
+const createService = z.object({
+    action: z.literal('CREATE_SERVICE'),
+    category: z.enum(SERVICE_CATEGORIES),
+    vendorId: databaseUuidSchema,
+    invoiceNumber: z.string().min(1).max(80),
+    invoiceDate: z.string().min(8),
+    dueDate: z.string().nullish(),
+    periodMonth: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).nullish(),
+    lines: z.array(z.object({ description: z.string().min(1).max(200), quantity: z.number().positive().optional(), unitPrice: z.number().min(0), taxAmount: z.number().min(0).optional() })).min(1),
+});
+const generate = z.object({ action: z.literal('GENERATE'), kind: z.enum(['RENT', 'VEHICLE']), month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/), sourceIds: z.array(z.string().min(1)).min(1).max(200) });
 const approve = z.object({ action: z.literal('APPROVE'), id: databaseUuidSchema, overrideReason: z.string().max(500).nullish() });
 const reject = z.object({ action: z.literal('REJECT'), id: databaseUuidSchema, reason: z.string().min(3).max(500) });
-const bodySchema = z.discriminatedUnion('action', [create, approve, reject]);
+const bodySchema = z.discriminatedUnion('action', [create, createService, generate, approve, reject]);
 
 // GET /api/procurement/invoices?status=&vendorId=            -> supplier invoices
 // GET /api/procurement/invoices?po=STORE:<uuid>|PROJECT:<uuid> -> the PO lines with received / already-billed quantities
 export const GET = apiHandler(async (req) => {
     const sp = new URL(req.url).searchParams;
     const po = sp.get('po');
+    const candidates = sp.get('candidates');
+    if (candidates) {
+        const month = sp.get('month') || new Date().toISOString().slice(0, 7);
+        return candidates === 'RENT' ? ServicePayableGeneratorService.rentCandidates(month) : ServicePayableGeneratorService.vehicleCandidates(month);
+    }
     if (po) {
         const [kind, id] = po.split(':');
         if ((kind !== 'STORE' && kind !== 'PROJECT') || !id) throw AppError.badRequest('po must look like STORE:<id> or PROJECT:<id>');
@@ -45,6 +63,12 @@ export const POST = apiHandler(async (_req, params, body: z.infer<typeof bodySch
         case 'CREATE':
             if (!can(RBAC_PERMISSIONS.PROCUREMENT_WRITE)) throw AppError.forbidden('Entering a supplier invoice needs procurement write access');
             return SupplierInvoiceService.create({ ...body, userId });
+        case 'CREATE_SERVICE':
+            if (!can(RBAC_PERMISSIONS.PROCUREMENT_WRITE) && !can(RBAC_PERMISSIONS.FINANCE_WRITE)) throw AppError.forbidden('Entering a service invoice needs procurement or finance write access');
+            return SupplierInvoiceService.createService({ ...body, userId });
+        case 'GENERATE':
+            if (!can(RBAC_PERMISSIONS.PROCUREMENT_WRITE) && !can(RBAC_PERMISSIONS.FINANCE_WRITE)) throw AppError.forbidden('Generating service invoices needs procurement or finance write access');
+            return body.kind === 'RENT' ? ServicePayableGeneratorService.generateRent(userId, body.month, body.sourceIds) : ServicePayableGeneratorService.generateVehicle(userId, body.month, body.sourceIds);
         case 'REJECT':
             if (!can(RBAC_PERMISSIONS.PROCUREMENT_WRITE) && !can(RBAC_PERMISSIONS.FINANCE_APPROVE)) throw AppError.forbidden('You cannot reject supplier invoices');
             return SupplierInvoiceService.reject(body.id, userId, body.reason);
@@ -54,6 +78,6 @@ export const POST = apiHandler(async (_req, params, body: z.infer<typeof bodySch
     }
 }, {
     schema: bodySchema,
-    permissions: [RBAC_PERMISSIONS.PROCUREMENT_WRITE, RBAC_PERMISSIONS.FINANCE_APPROVE],
+    permissions: [RBAC_PERMISSIONS.PROCUREMENT_WRITE, RBAC_PERMISSIONS.FINANCE_WRITE, RBAC_PERMISSIONS.FINANCE_APPROVE],
     audit: { action: 'SUPPLIER_INVOICE_ACTION', entity: 'SUPPLIER_INVOICE', entityIdParam: 'id' },
 });

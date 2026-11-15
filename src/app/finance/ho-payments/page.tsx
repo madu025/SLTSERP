@@ -13,7 +13,7 @@ import { Panel, compact } from '@/app/dashboard/components/health/HealthCharts';
 interface Invoice { id: string; invoiceNumber: string; status: string; totalAmount: number | string; paidAmount: number | string; dueDate: string | null; vendor: { name: string; code: string } }
 interface Voucher { id: string; pvNumber: string; status: string; type: string; amount: number | string; netAmount: number | string; taxWithheld: number | string; payeeName: string; supplierInvoiceId: string | null; hoBatchId: string | null; hoReference: string | null; createdAt: string }
 interface Pack { id: string; batchNumber: string; status: string; totalAmount: number; voucherCount: number; paid: number; submittedAt: string }
-interface PackLine { pvNumber: string; payee: string; type: string; amount: number; taxWithheld: number; retention: number; net: number; status: string; hoReference: string | null; hoPaidDate: string | null; invoiceNumber: string | null; invoiceDate: string | null; dueDate: string | null; matchStatus: string | null; poNumber: string | null; grnNumbers: string[]; approvedBy: string | null; project: string | null }
+interface PackLine { category: string; pvNumber: string; payee: string; type: string; amount: number; taxWithheld: number; retention: number; net: number; status: string; hoReference: string | null; hoPaidDate: string | null; invoiceNumber: string | null; invoiceDate: string | null; dueDate: string | null; matchStatus: string | null; poNumber: string | null; grnNumbers: string[]; approvedBy: string | null; project: string | null }
 
 const th = 'py-2 pr-3 text-left text-slate-900';
 const input = 'mt-1 block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900';
@@ -76,8 +76,8 @@ function Inner() {
         try {
             const pack = await api<{ batchNumber: string; lines: PackLine[] }>(`/api/finance/ho/batches/${p.id}`);
             downloadCsv(`${pack.batchNumber}.csv`, [
-                ['Voucher', 'Payee', 'Type', 'Project', 'Invoice', 'Invoice date', 'Due', 'Match', 'PO', 'GRNs', 'Gross', 'Withholding tax', 'Retention', 'Net to pay', 'Approved by', 'Status', 'HO reference', 'HO paid date'],
-                ...pack.lines.map((l) => [l.pvNumber, l.payee, l.type, l.project, l.invoiceNumber, l.invoiceDate, l.dueDate, l.matchStatus, l.poNumber, l.grnNumbers.join(' '), l.amount, l.taxWithheld, l.retention, l.net, l.approvedBy, l.status, l.hoReference, l.hoPaidDate]),
+                ['Voucher', 'Category', 'Payee', 'Type', 'Project', 'Invoice', 'Invoice date', 'Due', 'Match', 'PO', 'GRNs', 'Gross', 'Withholding tax', 'Retention', 'Net to pay', 'Approved by', 'Status', 'HO reference', 'HO paid date'],
+                ...pack.lines.map((l) => [l.pvNumber, l.category, l.payee, l.type, l.project, l.invoiceNumber, l.invoiceDate, l.dueDate, l.matchStatus, l.poNumber, l.grnNumbers.join(' '), l.amount, l.taxWithheld, l.retention, l.net, l.approvedBy, l.status, l.hoReference, l.hoPaidDate]),
             ]);
         } catch (e) { toast.error((e as Error).message); }
     };

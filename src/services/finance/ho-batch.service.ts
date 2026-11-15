@@ -8,6 +8,7 @@ import { EmailService } from '@/services/notification/email.service';
 import { assertVoucherAccess } from '@/lib/payment-voucher-access';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { batchStatus } from '@/lib/ho-payment-rules';
+import { categoryOfSupplierInvoice } from '@/config/payment-categories';
 
 const ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ESCAPES[c] ?? c);
@@ -16,7 +17,7 @@ const day = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : 
 export interface PackLine {
     voucherId: string; pvNumber: string; payee: string; type: string; amount: number; taxWithheld: number; retention: number; net: number;
     status: string; hoReference: string | null; hoPaidDate: string | null;
-    invoiceNumber: string | null; invoiceDate: string | null; matchStatus: string | null; dueDate: string | null;
+    category: string; invoiceNumber: string | null; invoiceDate: string | null; matchStatus: string | null; dueDate: string | null;
     poNumber: string | null; grnNumbers: string[]; approvedBy: string | null; approvedAt: string | null; project: string | null;
 }
 
@@ -106,7 +107,7 @@ export class HoBatchService {
         const lines: PackLine[] = [];
         for (const v of vs) {
             await assertVoucherAccess(v.projectId, userId);
-            const si = v.supplierInvoiceId ? await prisma.supplierInvoice.findUnique({ where: { id: v.supplierInvoiceId }, select: { invoiceNumber: true, invoiceDate: true, dueDate: true, matchStatus: true, storePoId: true, projectPoId: true } }) : null;
+            const si = v.supplierInvoiceId ? await prisma.supplierInvoice.findUnique({ where: { id: v.supplierInvoiceId }, select: { invoiceNumber: true, invoiceDate: true, dueDate: true, matchStatus: true, storePoId: true, projectPoId: true, category: true } }) : null;
             let poNumber: string | null = null;
             const grns: string[] = [];
             if (si?.storePoId) {
@@ -119,6 +120,7 @@ export class HoBatchService {
             lines.push({
                 voucherId: v.id, pvNumber: v.pvNumber, payee: v.payeeName, type: v.type, amount: Number(v.amount), taxWithheld: Number(v.taxWithheld), retention: Number(v.retentionAmount), net: Number(v.netAmount),
                 status: v.status, hoReference: v.hoReference, hoPaidDate: v.hoPaidDate ? day(v.hoPaidDate) : null,
+                category: si ? categoryOfSupplierInvoice(si.category) : (v.description ?? '').startsWith('BOM_INVOICING_REF:') ? 'SOD_CONTRACTOR' : 'PROJECT_CONTRACTOR',
                 invoiceNumber: si?.invoiceNumber ?? null, invoiceDate: si ? day(si.invoiceDate) : null, matchStatus: si?.matchStatus ?? null, dueDate: si?.dueDate ? day(si.dueDate) : null,
                 poNumber, grnNumbers: grns, approvedBy: approver?.name ?? null, approvedAt: v.approvedAt ? v.approvedAt.toISOString() : null, project: v.project?.name ?? null,
             });

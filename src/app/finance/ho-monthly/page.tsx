@@ -9,7 +9,7 @@ import ExportCsvButton from '@/components/ExportCsvButton';
 import { Loader2, CalendarCheck } from 'lucide-react';
 import { Panel } from '@/app/dashboard/components/health/HealthCharts';
 
-interface Row { kind: 'VENDOR' | 'CONTRACTOR'; id: string; number: string; payee: string; project: string | null; projectId: string | null; dueDate: string | null; overdue: boolean; outstanding: number; requested: number; withHeadOffice: number; unrequested: number; state: string }
+interface Row { kind: 'VENDOR' | 'CONTRACTOR' | 'SOD'; category: string; id: string; number: string; payee: string; project: string | null; projectId: string | null; dueDate: string | null; overdue: boolean; outstanding: number; requested: number; withHeadOffice: number; unrequested: number; state: string }
 interface Plan { month: string; rows: Row[]; totals: { due: number; requested: number; withHeadOffice: number; unrequested: number; overdue: number; paidByHeadOfficeThisMonth: number }; funding: { requested: number; approved: number; funded: number } | null }
 const th = 'py-2 pr-3 text-left text-slate-900';
 const STATE: Record<string, { label: string; tone: string }> = {
@@ -78,7 +78,7 @@ export default function HoMonthlyPage() {
                                         {(d?.rows.length ?? 0) === 0 && !q.isLoading && <tr><td colSpan={10} className="py-3 text-slate-700">Nothing is due for this month.</td></tr>}
                                         {(d?.rows ?? []).map((r) => (
                                             <tr key={r.id} className="border-b border-slate-200 text-slate-900" data-testid="hm-row">
-                                                <td className="py-2 pr-3">{r.kind === 'VENDOR' ? 'Vendor' : 'Contractor'}</td><td className="py-2 pr-3 font-medium">{r.number}</td><td className="py-2 pr-3">{r.payee}</td><td className="py-2 pr-3">{r.project ?? '—'}</td>
+                                                <td className="py-2 pr-3">{r.category.replace(/_/g, ' ').toLowerCase()}</td><td className="py-2 pr-3 font-medium">{r.number}</td><td className="py-2 pr-3">{r.payee}</td><td className="py-2 pr-3">{r.project ?? '—'}</td>
                                                 <td className={`py-2 pr-3 ${r.overdue ? 'font-bold text-red-700' : ''}`}>{r.dueDate ?? '—'}</td>
                                                 <td className="py-2 pr-3 text-right">{r.outstanding.toLocaleString()}</td><td className="py-2 pr-3 text-right">{r.requested.toLocaleString()}</td><td className="py-2 pr-3 text-right font-semibold">{r.unrequested.toLocaleString()}</td>
                                                 <td className="py-2 pr-3"><span className={`rounded px-2 py-0.5 font-semibold ${STATE[r.state]?.tone ?? ''}`}>{STATE[r.state]?.label ?? r.state}</span></td>
@@ -93,7 +93,8 @@ export default function HoMonthlyPage() {
                                 </table>
                             </div>
                             <div className="mt-3 flex flex-wrap gap-3 border-t border-slate-200 pt-3 text-sm">
-                                <a href="/finance/ho-payments" className="rounded-md bg-indigo-700 px-4 py-2 font-semibold text-white hover:bg-indigo-800">Send approved requests to Head Office</a>
+                                <a href="/finance/ho-run" className="rounded-md bg-indigo-700 px-4 py-2 font-semibold text-white hover:bg-indigo-800">Bulk payment run</a>
+                                <a href="/finance/ho-payments" className="rounded-md border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 hover:bg-slate-100">Send approved requests to Head Office</a>
                                 <a href="/finance/ho-funding" className="rounded-md border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 hover:bg-slate-100">Ask Head Office for funding</a>
                             </div>
                         </Panel>

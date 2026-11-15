@@ -3,6 +3,7 @@ import { AppError } from '@/lib/error';
 import { AuditService } from '@/services/audit/audit.service';
 import { ACCOUNTS } from '@/services/finance/account-codes';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { categoryOfSupplierInvoice, defaultWhtFor, type PaymentCategory } from '@/config/payment-categories';
 import { currentMonth, monthRange, planState, reconciliationBlocker, reconciliationDifference, reconciliationStatus, unrequestedAmount, type PlanState } from '@/lib/ho-monthly-rules';
 
 const num = (v: unknown) => Number(v ?? 0);
@@ -10,7 +11,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 const LIVE = ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'SUBMITTED_TO_HO'];
 
 export interface PlanRow {
-    kind: 'VENDOR' | 'CONTRACTOR'; id: string; number: string; payee: string; project: string | null; projectId: string | null;
+    kind: 'VENDOR' | 'CONTRACTOR' | 'SOD'; category: PaymentCategory; payeeId: string | null; blocked: string | null; whtDefault: number; id: string; number: string; payee: string; project: string | null; projectId: string | null;
     dueDate: string | null; overdue: boolean; outstanding: number; requested: number; withHeadOffice: number; unrequested: number; state: PlanState;
 }
 
@@ -27,7 +28,7 @@ export class HoMonthlyService {
             const invoices = await prisma.supplierInvoice.findMany({
                 where: { status: { in: ['APPROVED', 'PARTIALLY_PAID'] }, OR: [{ dueDate: null }, { dueDate: { lte: range.end } }] },
                 orderBy: { dueDate: 'asc' }, take: 500,
-                select: { id: true, invoiceNumber: true, totalAmount: true, paidAmount: true, dueDate: true, vendor: { select: { name: true } } },
+                select: { id: true, invoiceNumber: true, totalAmount: true, paidAmount: true, dueDate: true, category: true, vendorId: true, vendor: { select: { name: true } } },
             });
             const live = await prisma.paymentVoucher.groupBy({ by: ['supplierInvoiceId', 'status'], where: { supplierInvoiceId: { in: invoices.map((i) => i.id) }, status: { in: LIVE } }, _sum: { amount: true } });
             for (const i of invoices) {
@@ -36,14 +37,14 @@ export class HoMonthlyService {
                 const withHo = round2(mine.filter((l) => l.status === 'SUBMITTED_TO_HO').reduce((a, l) => a + num(l._sum.amount), 0));
                 const outstanding = round2(num(i.totalAmount) - num(i.paidAmount));
                 if (outstanding <= 0) continue;
-                rows.push({ kind: 'VENDOR', id: i.id, number: i.invoiceNumber, payee: i.vendor.name, project: null, projectId: null, dueDate: i.dueDate ? i.dueDate.toISOString().slice(0, 10) : null, overdue: !!i.dueDate && i.dueDate < range.start, outstanding, requested, withHeadOffice: withHo, unrequested: unrequestedAmount(outstanding, requested), state: planState(outstanding, requested, withHo) });
+                rows.push({ kind: 'VENDOR', category: categoryOfSupplierInvoice(i.category), payeeId: i.vendorId, blocked: null, whtDefault: defaultWhtFor(categoryOfSupplierInvoice(i.category), outstanding), id: i.id, number: i.invoiceNumber, payee: i.vendor.name, project: null, projectId: null, dueDate: i.dueDate ? i.dueDate.toISOString().slice(0, 10) : null, overdue: !!i.dueDate && i.dueDate < range.start, outstanding, requested, withHeadOffice: withHo, unrequested: unrequestedAmount(outstanding, requested), state: planState(outstanding, requested, withHo) });
             }
         }
 
         const cinv = await prisma.projectInvoice.findMany({
             where: { type: 'CONTRACTOR', status: { in: ['ISSUED', 'PARTIALLY_PAID', 'FOLLOW_UP'] }, balanceAmount: { gt: 0 }, OR: [{ dueDate: null }, { dueDate: { lte: range.end } }], ...(scope === undefined ? {} : { project: { opmcId: { in: scope } } }) },
             orderBy: { dueDate: 'asc' }, take: 500,
-            select: { id: true, invoiceNumber: true, balanceAmount: true, dueDate: true, projectId: true, project: { select: { name: true } }, contractor: { select: { name: true } } },
+            select: { id: true, invoiceNumber: true, balanceAmount: true, dueDate: true, projectId: true, contractorId: true, project: { select: { name: true } }, contractor: { select: { name: true } } },
         });
         const clive = await prisma.paymentVoucher.groupBy({ by: ['invoiceId', 'status'], where: { invoiceId: { in: cinv.map((i) => i.id) }, status: { in: LIVE } }, _sum: { amount: true } });
         for (const i of cinv) {
@@ -51,7 +52,29 @@ export class HoMonthlyService {
             const requested = round2(mine.reduce((a, l) => a + num(l._sum.amount), 0));
             const withHo = round2(mine.filter((l) => l.status === 'SUBMITTED_TO_HO').reduce((a, l) => a + num(l._sum.amount), 0));
             const outstanding = round2(num(i.balanceAmount));
-            rows.push({ kind: 'CONTRACTOR', id: i.id, number: i.invoiceNumber, payee: i.contractor?.name ?? 'Contractor', project: i.project?.name ?? null, projectId: i.projectId, dueDate: i.dueDate ? i.dueDate.toISOString().slice(0, 10) : null, overdue: !!i.dueDate && i.dueDate < range.start, outstanding, requested, withHeadOffice: withHo, unrequested: unrequestedAmount(outstanding, requested), state: planState(outstanding, requested, withHo) });
+            rows.push({ kind: 'CONTRACTOR', category: 'PROJECT_CONTRACTOR', payeeId: i.contractorId, blocked: null, whtDefault: 0, id: i.id, number: i.invoiceNumber, payee: i.contractor?.name ?? 'Contractor', project: i.project?.name ?? null, projectId: i.projectId, dueDate: i.dueDate ? i.dueDate.toISOString().slice(0, 10) : null, overdue: !!i.dueDate && i.dueDate < range.start, outstanding, requested, withHeadOffice: withHo, unrequested: unrequestedAmount(outstanding, requested), state: planState(outstanding, requested, withHo) });
+        }
+
+        // SOD contractors: the monthly contractor invoices (legacy Invoice model) that have been approved and are not fully paid
+        const sodInvoices = await prisma.invoice.findMany({
+            where: { approvalStatus: 'APPROVED', status: { not: 'PAID' }, OR: [{ dueDate: null }, { dueDate: { lte: range.end } }], ...(scope === undefined ? {} : { project: { opmcId: { in: scope } } }) },
+            orderBy: { dueDate: 'asc' }, take: 500,
+            select: { id: true, invoiceNumber: true, amount: true, dueDate: true, projectId: true, contractorId: true, project: { select: { name: true } }, contractor: { select: { name: true } } },
+        });
+        if (sodInvoices.length > 0) {
+            const bom = await prisma.paymentVoucher.findMany({
+                where: { OR: sodInvoices.map((i) => ({ description: { startsWith: `BOM_INVOICING_REF:${i.id}` } })), status: { in: [...LIVE, 'PAID'] } },
+                select: { description: true, status: true, amount: true },
+            });
+            for (const i of sodInvoices) {
+                const mine = bom.filter((v) => (v.description ?? '').startsWith(`BOM_INVOICING_REF:${i.id}`));
+                const paid = round2(mine.filter((v) => v.status === 'PAID').reduce((a, v) => a + num(v.amount), 0));
+                const liveAmt = round2(mine.filter((v) => v.status !== 'PAID').reduce((a, v) => a + num(v.amount), 0));
+                const withHo = round2(mine.filter((v) => v.status === 'SUBMITTED_TO_HO').reduce((a, v) => a + num(v.amount), 0));
+                const outstanding = round2(num(i.amount) - paid);
+                if (outstanding <= 0) continue;
+                rows.push({ kind: 'SOD', category: 'SOD_CONTRACTOR', payeeId: i.contractorId, blocked: i.projectId ? null : 'LINK_THE_INVOICE_TO_A_PROJECT_FIRST', whtDefault: 0, id: i.id, number: i.invoiceNumber, payee: i.contractor?.name ?? 'Contractor', project: i.project?.name ?? null, projectId: i.projectId, dueDate: i.dueDate ? i.dueDate.toISOString().slice(0, 10) : null, overdue: !!i.dueDate && i.dueDate < range.start, outstanding, requested: liveAmt, withHeadOffice: withHo, unrequested: unrequestedAmount(outstanding, liveAmt), state: planState(outstanding, liveAmt, withHo) });
+            }
         }
 
         const paidThisMonth = await prisma.paymentVoucher.aggregate({ where: { status: 'PAID', hoPaidDate: { gte: range.start, lte: range.end } }, _sum: { netAmount: true } });

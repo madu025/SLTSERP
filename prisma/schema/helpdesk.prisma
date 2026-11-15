@@ -137,6 +137,8 @@ model SiteOfficeAgreement {
   monthlyRent    Decimal        @default(0.0) @db.Decimal(14, 2)
   landlordName   String?
   landlordPhone  String?
+  /// The landlord as a Vendor, so rent can be billed and paid through Head Office
+  vendorId       String?        @db.Uuid
   documentUrl    String?
   status         String         @default("ACTIVE")
   createdAt      DateTime       @default(now())

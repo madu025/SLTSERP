@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
 import { Prisma } from '@prisma/client';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { ApprovalLimitService } from '@/services/procurement/approval-limit.service';
 
 export interface CreatePVInput {
   /** Required for project vouchers; a vendor payment (supplierInvoiceId) has no project. */
@@ -440,6 +441,10 @@ export class PaymentVoucherService {
     const returningFromHo = status === 'APPROVED' && currentStatus === 'SUBMITTED_TO_HO';
     if ((status === 'PAID' || (status === 'APPROVED' && !returningFromHo)) && existing.createdById && existing.createdById === userId) {
       throw AppError.badRequest('MAKER_CANNOT_APPROVE_OR_PAY_OWN_VOUCHER');
+    }
+    // Approving commits Head Office's money: the approver's limit (role limit, or the manager limit) must cover the request
+    if (status === 'APPROVED' && !returningFromHo) {
+      await ApprovalLimitService.assertCanApprove(userId, Number(existing.netAmount), 'PAYMENT_VOUCHER', id);
     }
 
     return prisma.$transaction(async (tx) => {

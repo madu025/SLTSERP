@@ -27,6 +27,14 @@ model SupplierInvoice {
   /// Sum of paid vendor payment vouchers; PARTIALLY_PAID until it reaches the total
   paidAmount      Decimal   @default(0) @db.Decimal(14, 2)
   journalEntryId  String?   @db.Uuid
+  /// PO_GOODS (default) | SITE_OFFICE_RENT | VEHICLE_RENTAL | OTHER_SERVICE
+  category        String    @default("PO_GOODS")
+  /// YYYY-MM the service covers (rent, vehicle hire)
+  periodMonth     String?
+  /// What generated the invoice (SITE_OFFICE_AGREEMENT | VM_RENTAL_SUMMARY) and its id; one invoice per source and month
+  sourceType      String?
+  sourceId        String?
+  opmcId          String?   @db.Uuid
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -40,13 +48,15 @@ model SupplierInvoice {
   @@index([projectPoId])
   @@index([status])
   @@index([vendorId, status])
+  @@index([category, status])
+  @@unique([sourceType, sourceId, periodMonth])
 }
 
 model SupplierInvoiceItem {
   id          String  @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   invoiceId   String  @db.Uuid
   /// PurchaseOrderItem.id or ProjectPurchaseOrderItem.id, depending on which PO the invoice is for
-  poItemId    String  @db.Uuid
+  poItemId    String? @db.Uuid
   description String?
   quantity    Decimal @db.Decimal(12, 4)
   unitPrice   Decimal @db.Decimal(14, 2)
