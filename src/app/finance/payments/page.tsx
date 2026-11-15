@@ -51,7 +51,7 @@ interface PaymentVoucher {
     project: {
         name: string;
         projectCode: string;
-    };
+    } | null;
     invoice: {
         invoiceNumber: string;
         status: string;
@@ -342,7 +342,7 @@ export default function PaymentVoucherManagementPage() {
                 <div class="section grid">
                     <div>
                         <div class="label">Project Details</div>
-                        <div class="value">${pv.project.projectCode} - ${pv.project.name}</div>
+                        <div class="value">${pv.project ? `${pv.project.projectCode} - ${pv.project.name}` : 'Vendor payment (no project)'}</div>
                     </div>
                     <div>
                         <div class="label">Payee Details</div>
@@ -436,7 +436,7 @@ export default function PaymentVoucherManagementPage() {
         return v.pvNumber.toLowerCase().includes(query) ||
             v.title.toLowerCase().includes(query) ||
             v.payeeName.toLowerCase().includes(query) ||
-            v.project.projectCode.toLowerCase().includes(query);
+            (v.project?.projectCode ?? '').toLowerCase().includes(query);
     });
 
     return (
@@ -519,7 +519,7 @@ export default function PaymentVoucherManagementPage() {
                                             <td className="p-4 font-mono font-bold text-blue-600">{pv.pvNumber}</td>
                                             <td className="p-4">
                                                 <div className="font-semibold text-slate-900 dark:text-slate-100">{pv.payeeName}</div>
-                                                <div className="text-xs text-slate-500 mt-0.5">{pv.project.projectCode} - {pv.project.name}</div>
+                                                <div className="text-xs text-slate-500 mt-0.5">{pv.project ? `${pv.project.projectCode} - ${pv.project.name}` : 'Vendor payment (no project)'}</div>
                                             </td>
                                             <td className="p-4 max-w-xs truncate">
                                                 <div className="font-medium">{pv.title}</div>
@@ -686,7 +686,7 @@ export default function PaymentVoucherManagementPage() {
                                 <div className="grid grid-cols-2 gap-4 border-b pb-4">
                                     <div>
                                         <div className="text-xs font-bold text-slate-400">PROJECT</div>
-                                        <div className="text-sm font-semibold">{selectedPV.project.projectCode} - {selectedPV.project.name}</div>
+                                        <div className="text-sm font-semibold">{selectedPV.project ? `${selectedPV.project.projectCode} - ${selectedPV.project.name}` : 'Vendor payment (no project)'}</div>
                                     </div>
                                     <div>
                                         <div className="text-xs font-bold text-slate-400">PAYEE</div>
