@@ -3,7 +3,6 @@ import { AppError } from '@/lib/error';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { assertProjectAccess } from '@/lib/project-access';
 import { prisma } from '@/lib/prisma';
-import { ArApService } from '@/services/finance/ar-ap.service';
 import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 import { z } from 'zod';
 
@@ -18,6 +17,8 @@ const receiptSchema = z.object({
   notes: z.string().trim().max(1000).optional(),
 });
 
+// OSP has no bank: Head Office collects from SLT and confirms the collection (POST /api/finance/ho/billing, /finance/ho-billing).
+// Kept so old clients get a clear message instead of a bank posting.
 export const POST = apiHandler(async (_request, params, body: z.infer<typeof receiptSchema>) => {
   if (!params._userId) throw AppError.unauthorized('Authentication required');
   const invoice = await prisma.projectInvoice.findUnique({
@@ -26,12 +27,7 @@ export const POST = apiHandler(async (_request, params, body: z.infer<typeof rec
   });
   if (!invoice) throw AppError.notFound('Invoice not found');
   await assertProjectAccess(invoice.projectId, params._userId);
-
-  return ArApService.recordCustomerReceipt({
-    ...body,
-    receiptDate: body.receiptDate ? new Date(body.receiptDate) : undefined,
-    createdById: params._userId,
-  });
+  throw AppError.badRequest('CLIENT_RECEIPTS_ARE_COLLECTED_BY_HEAD_OFFICE: send the invoice to Head Office and let it confirm the collection');
 }, {
   schema: receiptSchema,
   permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE],

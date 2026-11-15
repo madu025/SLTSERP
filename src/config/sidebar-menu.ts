@@ -510,6 +510,16 @@ export const SIDEBAR_MENU: MenuItem[] = [
                         icon: Receipt,
                     },
                     {
+                        title: 'Billing to Head Office',
+                        path: '/finance/ho-billing',
+                        icon: Receipt,
+                    },
+                    {
+                        title: 'Project Head Office Position',
+                        path: '/finance/ho-projects',
+                        icon: Landmark,
+                    },
+                    {
                         title: 'Head Office Funding',
                         path: '/finance/ho-funding',
                         icon: Landmark,

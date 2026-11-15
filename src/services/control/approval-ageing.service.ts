@@ -18,6 +18,8 @@ export class ApprovalAgeingService {
         // Payments handed to Head Office and not yet confirmed paid; funding asked of Head Office and not yet decided
         const ho = await prisma.paymentVoucher.aggregate({ where: { status: 'SUBMITTED_TO_HO' }, _count: { _all: true }, _min: { submittedToHoAt: true } });
         add('Payments awaiting Head Office', ho._count._all, ho._min.submittedToHoAt, '/finance/ho-payments');
+        const hb = await prisma.projectInvoice.aggregate({ where: { hoCollectionStatus: { in: ['SENT_TO_HO', 'PARTIALLY_COLLECTED'] } }, _count: { _all: true }, _min: { sentToHoAt: true } });
+        add('Collections awaiting Head Office', hb._count._all, hb._min.sentToHoAt, '/finance/ho-billing');
         const hf = await prisma.hoFundingRequest.aggregate({ where: { status: { in: ['SUBMITTED', 'APPROVED'] } }, _count: { _all: true }, _min: { submittedAt: true } });
         add('Funding awaiting Head Office', hf._count._all, hf._min.submittedAt, '/finance/ho-funding');
         const pc = await prisma.pettyCashVoucher.aggregate({ where: { status: { in: ['PENDING_APPROVAL', 'SUBMITTED'] } }, _count: { _all: true }, _min: { createdAt: true } });

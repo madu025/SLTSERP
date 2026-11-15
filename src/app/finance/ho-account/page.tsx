@@ -11,7 +11,7 @@ import { Panel } from '@/app/dashboard/components/health/HealthCharts';
 
 interface Row { date: string; type: string; reference: string; detail: string; paidOnBehalf: number; returned: number; balance: number }
 const th = 'py-2 pr-3 text-left text-slate-900';
-const TYPE: Record<string, string> = { PV_PAYMENT: 'Payment by Head Office', HO_FUNDING: 'Petty cash funded', PETTY_CASH_REIMBURSEMENT: 'Petty cash replenished' };
+const TYPE: Record<string, string> = { PV_PAYMENT: 'Payment by Head Office', HO_FUNDING: 'Petty cash funded', PETTY_CASH_REIMBURSEMENT: 'Petty cash replenished', HO_COLLECTION: 'Collected from SLT by Head Office' };
 
 export default function HoAccountPage() {
     const [from, setFrom] = useState('');

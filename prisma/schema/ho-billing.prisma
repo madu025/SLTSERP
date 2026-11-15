@@ -1,0 +1,16 @@
+/// A pack of client invoices (already submitted to SLT) that the OSP Finance Section sends to Head Office, which collects the money.
+model HoBillingBatch {
+  id           String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  batchNumber  String   @unique
+  /// SENT | PARTIALLY_COLLECTED | COLLECTED | RETURNED
+  status       String   @default("SENT")
+  totalAmount  Decimal  @default(0) @db.Decimal(14, 2)
+  invoiceCount Int      @default(0)
+  note         String?
+  createdById  String?  @db.Uuid
+  submittedAt  DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  @@index([status])
+  @@index([createdById])
+}

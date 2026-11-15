@@ -938,8 +938,8 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                                 </Button>
                                             )}
                                             {canApprove && inv.type === 'CLIENT' && inv.submissionStatus === 'SUBMITTED_TO_SLT' && ['PENDING', 'PARTIALLY_PAID', 'OVERDUE'].includes(inv.paymentStatus || '') && (
-                                                <Button size="sm" variant="outline" onClick={() => openPaymentWorkflow(inv)}>
-                                                    <Banknote className="w-4 h-4 mr-1" /> Record SLT Receipt
+                                                <Button size="sm" variant="outline" data-testid="inv-send-ho" onClick={() => window.location.assign('/finance/ho-billing')}>
+                                                    <Banknote className="w-4 h-4 mr-1" /> Send to Head Office
                                                 </Button>
                                             )}
                                             {canWrite && inv.type !== 'CLIENT' && (inv.status === 'ISSUED' || inv.status === 'PARTIALLY_PAID') && (

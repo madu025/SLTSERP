@@ -161,10 +161,18 @@ export class HoFundingService {
         const refs = lines.filter((l) => l.entry.referenceType === 'PV_PAYMENT').map((l) => l.entry.referenceId).filter((x): x is string => !!x);
         const pvs = refs.length ? await prisma.paymentVoucher.findMany({ where: { id: { in: refs } }, select: { id: true, pvNumber: true, payeeName: true, hoReference: true } }) : [];
         const pvById = new Map(pvs.map((p) => [p.id, p]));
+        // Collections made by Head Office on OSP's behalf (client invoices paid by SLT to Head Office)
+        const rctIds = lines.filter((l) => l.entry.referenceType === 'CUSTOMER_RECEIPT').map((l) => l.entry.referenceId).filter((x): x is string => !!x);
+        const rcts = rctIds.length ? await prisma.customerReceipt.findMany({ where: { id: { in: rctIds } }, select: { id: true, referenceNumber: true, invoice: { select: { invoiceNumber: true, project: { select: { name: true } } } } } }) : [];
+        const rctById = new Map(rcts.map((r) => [r.id, r]));
         let balance = 0;
         const rows = lines.map((l) => {
             balance = round2(balance + Number(l.credit) - Number(l.debit));
             const pv = l.entry.referenceId ? pvById.get(l.entry.referenceId) : undefined;
+            const rct = l.entry.referenceId ? rctById.get(l.entry.referenceId) : undefined;
+            if (rct) {
+                return { date: l.entry.date.toISOString().slice(0, 10), type: 'HO_COLLECTION', reference: rct.invoice?.invoiceNumber ?? l.entry.description ?? '', detail: `${rct.invoice?.project?.name ?? 'Client invoice'}${rct.referenceNumber ? ' · HO ref ' + rct.referenceNumber : ''}`, paidOnBehalf: Number(l.credit), returned: Number(l.debit), balance };
+            }
             return { date: l.entry.date.toISOString().slice(0, 10), type: l.entry.referenceType ?? 'JOURNAL', reference: pv?.pvNumber ?? l.entry.description ?? '', detail: pv ? `${pv.payeeName}${pv.hoReference ? ' · HO ref ' + pv.hoReference : ''}` : (l.description ?? ''), paidOnBehalf: Number(l.credit), returned: Number(l.debit), balance };
         });
         return { balance, rows };

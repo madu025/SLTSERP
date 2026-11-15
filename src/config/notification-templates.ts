@@ -97,6 +97,14 @@ export const TEMPLATE_CODES: TemplateCodeDef[] = [
     defaultEntityType: 'HO_PAYMENT_BATCH'
   },
   {
+    code: 'HO_BILLING_PACK_SUBMITTED',
+    label: 'Billing pack sent to Head Office',
+    description: 'Sent to the Head Office finance desk when the OSP Finance Section sends client invoices submitted to SLT for collection',
+    category: 'NOTIFICATION',
+    placeholders: ['batchNumber', 'invoiceCount', 'totalAmount', 'submittedOn', 'link'],
+    defaultEntityType: 'HO_BILLING_BATCH'
+  },
+  {
     code: 'NOTIFICATION_GENERIC',
     label: 'Generic Notification',
     description: 'In-app notification sent via email fallback',

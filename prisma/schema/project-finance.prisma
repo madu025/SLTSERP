@@ -423,6 +423,12 @@ model ProjectInvoice {
   approvedById        String?              @db.Uuid
   approvedAt          DateTime?
   cancelledReason     String?
+  /// Head Office collection (OSP has no bank): NOT_SENT | SENT_TO_HO | PARTIALLY_COLLECTED | COLLECTED | RETURNED
+  hoCollectionStatus  String               @default("NOT_SENT")
+  hoBillingBatchId    String?              @db.Uuid
+  sentToHoAt          DateTime?
+  sentToHoById        String?              @db.Uuid
+  hoReturnReason      String?
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   payments            PaymentVoucher[]     @relation("InvoicePayments")
@@ -444,6 +450,8 @@ model ProjectInvoice {
   @@index([approvedById])
   @@index([contractorId])
   @@index([projectId, contractorId, status])
+  @@index([hoBillingBatchId])
+  @@index([hoCollectionStatus])
 }
 
 model ProjectInvoiceItem {

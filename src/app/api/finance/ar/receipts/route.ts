@@ -2,13 +2,10 @@ import { apiHandler } from '@/lib/api-handler';
 import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 import { ArApService } from '@/services/finance/ar-ap.service';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
-import { assertProjectAccess } from '@/lib/project-access';
-import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { userHasPermission } from '@/lib/user-permissions';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { z } from 'zod';
-import { assertProjectFinanceAssignment } from '@/services/project/project-finance-assignment.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,15 +33,8 @@ export const POST = apiHandler(async (_req, params, body: z.infer<typeof receipt
         || await resolveOpmcScope(params._userId) !== undefined)) {
         throw AppError.forbidden('A scoped receipt must be linked to an accessible project invoice');
     }
-    if (body.invoiceId) {
-        const invoice = await prisma.projectInvoice.findUnique({ where: { id: body.invoiceId }, select: { projectId: true, createdById: true } });
-        if (!invoice) throw AppError.notFound('Invoice not found');
-        await assertProjectAccess(invoice.projectId, params._userId);
-        await assertProjectFinanceAssignment(invoice.projectId, params._userId, ['APPROVER', 'LEAD_CONTROLLER']);
-        if (invoice.createdById === params._userId && !await userHasPermission(params._userId, RBAC_PERMISSIONS.ADMIN_RBAC)) {
-            throw AppError.forbidden('Invoice creator cannot record their own customer receipt');
-        }
-    }
+    // OSP has no bank: collections of client invoices are confirmed by Head Office (see /finance/ho-billing).
+    if (body.invoiceId) throw AppError.badRequest('CLIENT_RECEIPTS_ARE_COLLECTED_BY_HEAD_OFFICE: send the invoice to Head Office and let it confirm the collection');
 
     const receipt = await ArApService.recordCustomerReceipt({
         ...body,
