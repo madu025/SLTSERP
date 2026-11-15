@@ -179,6 +179,10 @@ export class SupplierInvoiceService {
         const subtotal = round2(lines.reduce((a, l) => a + l.quantity * l.unitPrice, 0));
         const tax = round2(lines.reduce((a, l) => a + l.taxAmount, 0));
         if (!(subtotal + tax > 0)) throw AppError.badRequest('The invoice total must be above zero');
+        if (input.sourceType && input.sourceId && input.periodMonth) {
+            const billed = await prisma.supplierInvoice.findFirst({ where: { sourceType: input.sourceType, sourceId: input.sourceId, periodMonth: input.periodMonth }, select: { invoiceNumber: true } });
+            if (billed) throw AppError.conflict(`This month has already been billed for this agreement or vehicle (${billed.invoiceNumber})`);
+        }
         try {
             const invoice = await prisma.supplierInvoice.create({
                 data: {
