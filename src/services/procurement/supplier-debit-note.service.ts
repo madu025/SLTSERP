@@ -5,7 +5,7 @@ import type { TransactionClient } from '@/types/inventory/inventory-service.type
 export interface DebitNoteBasis {
     vendorId: string;
     supplierInvoiceId: string | null;
-    /** Goods value to take off the vendor payable (order price x quantity) */
+    /** Goods value to take off the vendor payable (invoice price x quantity) */
     amount: number;
     /** Input VAT that goes back with the goods */
     tax: number;
@@ -39,7 +39,7 @@ export class SupplierDebitNoteService {
             if (!line) continue;
             const billedRows = await tx.supplierInvoiceItem.findMany({
                 where: { poItemId: line.id, invoice: { status: { in: ['APPROVED', 'PARTIALLY_PAID', 'PAID'] } } },
-                select: { quantity: true, taxAmount: true, invoiceId: true },
+                select: { quantity: true, unitPrice: true, taxAmount: true, invoiceId: true },
             });
             const billed = billedRows.reduce((a, r) => a + Number(r.quantity), 0);
             if (billed <= 0) continue;
@@ -50,7 +50,9 @@ export class SupplierDebitNoteService {
             const dnQty = debitNoteQty(billed, Number(line.receivedQty), Number(prior._sum.quantity ?? 0), Number(item.quantity));
             if (dnQty <= 0) continue;
             const billedTax = billedRows.reduce((a, r) => a + Number(r.taxAmount), 0);
-            amount += dnQty * Number(line.unitPrice);
+            // A debit note takes back what the vendor billed, so it is priced at the invoice price, not the order price
+            const billedValue = billedRows.reduce((a, r) => a + Number(r.quantity) * Number(r.unitPrice), 0);
+            amount += dnQty * (billedValue / billed);
             tax += billedTax * (dnQty / billed);
             supplierInvoiceId ??= billedRows[0].invoiceId;
         }
