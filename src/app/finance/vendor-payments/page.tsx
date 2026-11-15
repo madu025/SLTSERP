@@ -37,6 +37,13 @@ function Inner() {
     const banks = useQuery<Bank[]>({ queryKey: ['vp-banks'], queryFn: async () => { const r = await api<{ accounts: Bank[] }>('/api/finance/bank/reconciliation'); return r.accounts ?? []; }, staleTime: 300_000 });
     const vouchers = useQuery<Voucher[]>({ queryKey: ['vp-vouchers'], queryFn: async () => { const r = await api<Voucher[] | { data: Voucher[] }>('/api/finance/payment-vouchers?type=VENDOR'); return Array.isArray(r) ? r : (r as { data: Voucher[] }).data ?? []; }, staleTime: 10_000 });
 
+    const [bankForm, setBankForm] = useState({ bankName: '', accountNumber: '', glAccountCode: 'BANK-1000' });
+    const addBank = useMutation({
+        mutationFn: () => api('/api/finance/bank/accounts', { method: 'POST', body: JSON.stringify(bankForm) }),
+        onSuccess: () => { toast.success('Bank account added'); qc.invalidateQueries({ queryKey: ['vp-banks'] }); },
+        onError: (e: Error) => toast.error(e.message),
+    });
+
     const selected = (invoices.data ?? []).find((i) => i.id === invoiceId);
     const outstanding = selected ? Number(selected.totalAmount) - Number(selected.paidAmount) : 0;
     const refresh = () => { qc.invalidateQueries({ queryKey: ['vp-vouchers'] }); qc.invalidateQueries({ queryKey: ['vp-invoices'] }); };
@@ -95,6 +102,24 @@ function Inner() {
                                 </table>
                             </div>
                         </Panel>
+
+                        {banks.isSuccess && (banks.data ?? []).length === 0 && (
+                            <Panel title="No bank account is set up">
+                                <p className="text-sm text-slate-900">Vendor payments are made from a bank account. Add the account the payments are paid from (it posts to the ledger account shown).</p>
+                                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+                                    <label className="text-xs font-semibold text-slate-900">Bank
+                                        <input data-testid="ba-bank" value={bankForm.bankName} onChange={(e) => setBankForm({ ...bankForm, bankName: e.target.value })} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900" />
+                                    </label>
+                                    <label className="text-xs font-semibold text-slate-900">Account number
+                                        <input data-testid="ba-number" value={bankForm.accountNumber} onChange={(e) => setBankForm({ ...bankForm, accountNumber: e.target.value })} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900" />
+                                    </label>
+                                    <label className="text-xs font-semibold text-slate-900">Ledger account
+                                        <input data-testid="ba-gl" value={bankForm.glAccountCode} onChange={(e) => setBankForm({ ...bankForm, glAccountCode: e.target.value })} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900" />
+                                    </label>
+                                    <div className="flex items-end"><button data-testid="ba-save" disabled={addBank.isPending || !bankForm.bankName || !bankForm.accountNumber} onClick={() => addBank.mutate()} className="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Add bank account</button></div>
+                                </div>
+                            </Panel>
+                        )}
 
                         {selected && (
                             <Panel title={`New payment voucher: ${selected.vendor.name} · ${selected.invoiceNumber} (outstanding ${outstanding.toLocaleString()})`}>
