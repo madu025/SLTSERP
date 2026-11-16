@@ -37,3 +37,9 @@ test('wiring: new invoices start at the coordinator, SF audit waits for the chai
   for (const s of CONFIRM_STAGES) assert.ok(m.includes(STAGE_PERMISSION[s]), s);
   assert.match(read('src/app/api/invoices/confirmations/route.ts'), /INVOICE_CONFIRM_MANAGER/);
 });
+
+test('the confirmations page is reachable by confirmers who do not hold sod.invoice', async () => {
+  const { resolvePageCapability } = await import('../../src/config/page-capabilities');
+  assert.equal(resolvePageCapability('/invoices/confirmations'), 'dashboard.read');
+  assert.equal(resolvePageCapability('/invoices'), 'sod.invoice');
+});

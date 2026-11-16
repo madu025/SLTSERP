@@ -15,6 +15,8 @@ const PAGE_RULES: ReadonlyArray<{ prefix: string; permission: RbacPermission }> 
     { prefix: '/service-orders/invoicable', permission: RBAC_PERMISSIONS.SOD_INVOICE },
     { prefix: '/service-orders/material-deviation', permission: RBAC_PERMISSIONS.SOD_INVOICE },
     { prefix: '/service-orders', permission: RBAC_PERMISSIONS.SOD_READ },
+    // The four confirmation stages are separate capabilities (checked by the API); the page itself only needs a signed-in user
+    { prefix: '/invoices/confirmations', permission: RBAC_PERMISSIONS.DASHBOARD_READ },
     { prefix: '/invoices', permission: RBAC_PERMISSIONS.SOD_INVOICE },
     { prefix: '/projects', permission: RBAC_PERMISSIONS.PROJECT_READ },
     { prefix: '/inventory/admin/initial', permission: RBAC_PERMISSIONS.INVENTORY_APPROVE },
