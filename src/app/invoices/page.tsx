@@ -398,6 +398,27 @@ export default function InvoicesPage() {
         }
     };
 
+    const downloadContractorWorkbook = async (invoiceId: string, part: 'A' | 'B') => {
+        try {
+            const res = await fetch(`/api/invoices/${invoiceId}/excel?part=${part}`);
+            if (!res.ok) {
+                const j = await res.json().catch(() => ({}));
+                throw new Error(j?.error?.message || 'Failed to build the invoice workbook');
+            }
+            const warnings = decodeURIComponent(res.headers.get('X-Export-Warnings') || '');
+            const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || `invoice-${part}.xlsx`;
+            const url = URL.createObjectURL(await res.blob());
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = name;
+            a.click();
+            URL.revokeObjectURL(url);
+            if (warnings) alert(`Downloaded Invoice ${part}. Please check: ${warnings.split(' || ').join('; ')}`);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : 'Failed to build the invoice workbook');
+        }
+    };
+
     const handlePrint = async (baseInvoice: Invoice) => {
         const printWindow = window.open('', '', 'width=1200,height=900');
         if (!printWindow) {
@@ -915,6 +936,24 @@ export default function InvoicesPage() {
                                                                 title="Download Excel Invoice"
                                                             >
                                                                 <Download className="w-3.5 h-3.5" />
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                onClick={() => downloadContractorWorkbook(inv.id, 'A')}
+                                                                className="h-7 px-1.5 text-xs font-semibold text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-all"
+                                                                title="Download contractor invoice workbook - Invoice A (90%)"
+                                                            >
+                                                                A
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                onClick={() => downloadContractorWorkbook(inv.id, 'B')}
+                                                                className="h-7 px-1.5 text-xs font-semibold text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-all"
+                                                                title="Download contractor invoice workbook - Invoice B (10%)"
+                                                            >
+                                                                B
                                                             </Button>
                                                             <Button
                                                                 size="sm"
