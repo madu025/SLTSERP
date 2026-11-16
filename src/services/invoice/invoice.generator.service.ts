@@ -340,6 +340,7 @@ export class InvoiceGeneratorService {
                     advanceDeduction,
                     amountA,
                     statusA: 'PENDING_SF_AUDIT',
+                    confirmStage: 'AREA_COORDINATOR',
                     amountB,
                     statusB: 'HOLD',
                     status: 'PENDING_SF_AUDIT',

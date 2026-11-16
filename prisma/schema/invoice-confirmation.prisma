@@ -1,0 +1,17 @@
+// Area confirmation chain for contractor (SOD) invoices:
+// AREA_COORDINATOR -> QC_OFFICER -> AREA_ENGINEER (skipped when the area has none) -> AREA_MANAGER -> CONFIRMED.
+// Invoice.confirmStage holds the stage the invoice is waiting at; each action is kept here as history.
+model InvoiceConfirmation {
+  id        String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  invoiceId String   @db.Uuid
+  stage     String
+  action    String // CONFIRMED | RETURNED
+  userId    String   @db.Uuid
+  note      String?
+  createdAt DateTime @default(now())
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  user      User     @relation("InvoiceConfirmationUser", fields: [userId], references: [id])
+
+  @@index([invoiceId])
+  @@index([userId])
+}

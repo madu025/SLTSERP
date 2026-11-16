@@ -67,6 +67,8 @@ model Invoice {
   penalties         Penalty[]
   sods              ServiceOrder[]
   amendmentRequests InvoiceAmendmentRequest[]
+  confirmStage      String                    @default("CONFIRMED")
+  confirmations     InvoiceConfirmation[]
 
   @@index([projectId])
   @@index([contractorId])

@@ -78,6 +78,7 @@ model User {
   ticketUpdates                 TicketUpdate[]                @relation("UserTicketUpdates")
   amendmentRequestsRequested    InvoiceAmendmentRequest[]     @relation("AmendmentRequestedBy")
   amendmentRequestsApproved     InvoiceAmendmentRequest[]     @relation("AmendmentApprovedBy")
+  invoiceConfirmations          InvoiceConfirmation[]         @relation("InvoiceConfirmationUser")
   assignedStore                 InventoryStore?               @relation("UserAssignedStore", fields: [assignedStoreId], references: [id])
   contractor                    Contractor?                   @relation("ContractorUsers", fields: [contractorId], references: [id])
   staff                         Staff?                        @relation(fields: [staffId], references: [id])

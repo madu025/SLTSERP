@@ -730,6 +730,9 @@ export class InvoiceService {
             throw AppError.notFound('Invoice not found');
         }
         // Clearing twice would overwrite the original clearance with no trace
+        if (invoice.confirmStage !== 'CONFIRMED') {
+            throw AppError.badRequest('This invoice has not completed the area confirmation chain (Area Coordinator, QC Officer, Engineer/Officer, Area Manager)');
+        }
         if (invoice.statusA === 'SF_AUDIT_APPROVED') {
             throw AppError.badRequest('This invoice has already been cleared by SF Audit');
         }

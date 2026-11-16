@@ -598,6 +598,11 @@ export const SIDEBAR_MENU: MenuItem[] = [
                         icon: Receipt,
                     },
                     {
+                        title: 'Invoice Confirmations',
+                        path: '/invoices/confirmations',
+                        icon: Receipt,
+                    },
+                    {
                         title: 'BOM Sheets (Imports)',
                         path: '/invoices/bom-sheets',
                         icon: Upload,
