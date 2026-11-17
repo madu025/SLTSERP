@@ -1,4 +1,4 @@
-import type { NexusChart, NexusTable } from '@/services/ai/nexus-agent.service';
+import type { NexusCard, NexusChart, NexusTable } from '@/services/ai/nexus-agent.service';
 
 /**
  * Builds the answer on our own server from tool results, for "plan-only" privacy mode.
@@ -27,13 +27,26 @@ const TITLES: Record<string, string> = {
 
 const num = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 const isScalar = (v: unknown): v is string | number | boolean => ['string', 'number', 'boolean'].includes(typeof v);
-const label = (k: string) => k.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ');
+const label = (k: string) => k.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ').replace(/^./, (ch) => ch.toUpperCase());
 
 function scalarLines(obj: Record<string, unknown>, prefix = '', depth = 0, out: string[] = []): string[] {
     for (const [k, v] of Object.entries(obj)) {
         if (v === null || v === undefined || Array.isArray(v)) continue;
         if (isScalar(v)) out.push(`- ${label(prefix + k)}: ${typeof v === 'number' ? num(v) : String(v)}`);
         else if (typeof v === 'object' && depth < 1) scalarLines(v as Record<string, unknown>, `${k} `, depth + 1, out);
+    }
+    return out;
+}
+
+
+function scalarCards(obj: Record<string, unknown>, prefix: string, depth = 0, out: NexusCard[] = []): NexusCard[] {
+    for (const [k, v] of Object.entries(obj)) {
+        if (v === null || v === undefined || Array.isArray(v)) continue;
+        const name = (prefix ? `${prefix}: ` : '') + label(k);
+        if (typeof v === 'number') out.push({ label: name, value: num(v) });
+        else if (typeof v === 'boolean') out.push({ label: name, value: v ? 'Yes' : 'No' });
+        else if (typeof v === 'string' && v.length <= 24) out.push({ label: name, value: v });
+        else if (typeof v === 'object' && depth < 1) scalarCards(v as Record<string, unknown>, prefix ? `${prefix} ${label(k)}` : label(k), depth + 1, out);
     }
     return out;
 }
@@ -46,8 +59,9 @@ function firstRowsArray(obj: Record<string, unknown>): { key: string; rows: Reco
 }
 
 export class NexusLocalReplyService {
-    static build(runs: ToolRun[], message: string): { text: string; table?: NexusTable; chart?: NexusChart } {
+    static build(runs: ToolRun[], message: string): { text: string; table?: NexusTable; chart?: NexusChart; cards?: NexusCard[] } {
         const parts: string[] = [];
+        const cards: NexusCard[] = [];
         let table: NexusTable | undefined;
 
         for (const run of runs) {
@@ -70,9 +84,15 @@ export class NexusLocalReplyService {
                 continue;
             }
 
-            const lines = scalarLines(result);
+            // Presentation rule: a handful of headline numbers become KPI cards, lists become a table.
+            const found = scalarCards(result, runs.length > 1 ? title : '');
             const arr = firstRowsArray(result);
-            parts.push([`${title}:`, ...lines].join('\n'));
+            if (found.length > 0 && found.length <= 8) {
+                cards.push(...found);
+                parts.push(`${title} summary`);
+            } else {
+                parts.push([`${title}:`, ...scalarLines(result)].join('\n'));
+            }
             if (arr && !table) {
                 const columns = Object.keys(arr.rows[0]).filter((c) => isScalar(arr.rows[0][c]) || arr.rows[0][c] === null).slice(0, 8);
                 table = {
@@ -86,7 +106,7 @@ export class NexusLocalReplyService {
         }
 
         const text = parts.join('\n\n') || 'No data found for this request.';
-        return { text, table, chart: table ? this.chartFor(table, message) : undefined };
+        return { text, table, chart: table ? this.chartFor(table, message) : undefined, cards: cards.length > 0 ? cards.slice(0, 12) : undefined };
     }
 
     private static chartFor(table: NexusTable, message: string): NexusChart | undefined {

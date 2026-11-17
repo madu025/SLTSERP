@@ -59,6 +59,16 @@ test('local reply builds text, table and chart from a database result without a 
     assert.equal(r.table?.rows.length, 2);
     assert.equal(r.chart?.xAxisKey, 'status');
     const s = NexusLocalReplyService.build([{ name: 'getProcurementContext', result: { pendingPRsCount: 3, nested: { a: 1 }, list: [{ id: 'x', qty: 5 }] } }], 'procurement');
-    assert.match(s.text, /pending PRs count: 3/i);
+    assert.equal(s.cards?.[0].label, 'Pending PRs Count');
+    assert.equal(s.cards?.[0].value, '3');
     assert.equal(s.table?.rows[0].qty, 5);
+});
+
+test('headline numbers become cards and a list becomes a table (presentation rule)', () => {
+    const r = NexusLocalReplyService.build([{ name: 'getFinanceContext', result: { outstandingInvoicesSum: 1000, pendingPVsCount: 3, invoices: [{ invoiceNumber: 'A1', totalAmount: 5 }] } }], 'finance');
+    assert.equal(r.cards?.length, 2);
+    assert.equal(r.cards?.[0].label, 'Outstanding Invoices Sum');
+    assert.equal(r.cards?.[0].value, '1,000');
+    assert.equal(r.table?.rows.length, 1);
+    assert.match(r.text, /Finance summary/);
 });

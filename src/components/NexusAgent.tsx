@@ -29,6 +29,11 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 
+interface NexusCard {
+    label: string;
+    value: string;
+}
+
 interface NexusTable {
     title: string;
     columns: string[];
@@ -81,6 +86,7 @@ interface Message {
     feedbackStatus?: 'UP' | 'DOWN' | null;
     chart?: NexusChart;
     table?: NexusTable;
+    cards?: NexusCard[];
 }
 
 interface NexusAlert {
@@ -195,6 +201,37 @@ export default function NexusAgent() {
         toast.success("Nexus Agent position reset to default");
     };
     
+    const [tableChartMode, setTableChartMode] = useState<Record<string, 'bar' | 'pie' | 'line' | null>>({});
+
+    // Chart-ready means: one text column and at least one numeric column, 2 to 24 rows
+    const chartSpec = (table: NexusTable) => {
+        if (table.rows.length < 2) return null;
+        const isNum = (v: unknown) => typeof v === 'number' || (typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v)));
+        const numeric = table.columns.filter((col) => table.rows.every((r) => typeof r[col] === 'number') || (/quantity|count|sum|avg|amount|revenue|total/i.test(col) && table.rows.every((r) => isNum(r[col]))));
+        const category = table.columns.find((col) => !numeric.includes(col));
+        if (!category || numeric.length === 0) return null;
+        const series = numeric.slice(0, 2);
+        let data = table.rows.map((r) => ({ [category]: String(r[category] ?? '-'), ...Object.fromEntries(series.map((s) => [s, Number(r[s])])) }));
+        // Too many categories to read on a small chart: show the 12 largest and say so
+        const total = data.length;
+        if (total > 24) data = [...data].sort((a, b) => Number((b as Record<string, unknown>)[series[0]]) - Number((a as Record<string, unknown>)[series[0]])).slice(0, 12);
+        return { category, series, data, limitedFrom: total > 24 ? total : 0 };
+    };
+
+    const copyTable = async (table: NexusTable) => {
+        const cell = (v: unknown) => (v === null || v === undefined ? '' : String(v).replace(/[\t\r\n]+/g, ' '));
+        const tsv = [table.columns.join('\t'), ...table.rows.map((r) => table.columns.map((k) => cell(r[k])).join('\t'))].join('\n');
+        try {
+            await navigator.clipboard.writeText(tsv);
+            toast.success('Table copied. Paste it into Excel or Sheets.');
+        } catch {
+            toast.error('Could not copy. Use the CSV download instead.');
+        }
+    };
+
+    // camelCase / snake_case / dotted names to readable headings, e.g. invoiceNumber -> Invoice Number
+    const humanLabel = (s: string) => s.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[._]/g, ' ').replace(/\s+/g, ' ').trim().replace(/^./, (ch) => ch.toUpperCase());
+
     const formatCell = (v: unknown) => {
         if (v === null || v === undefined || v === '') return '—';
         if (typeof v === 'number') return v.toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -353,6 +390,7 @@ export default function NexusAgent() {
                 actions: resData.actions || undefined,
                 chart: resData.chart || undefined,
                 table: resData.table || undefined,
+                cards: resData.cards || undefined,
                 intent: resData.intent,
                 query: resData.query,
                 timestamp: new Date() 
@@ -692,25 +730,46 @@ export default function NexusAgent() {
                                                     </div>
                                                 )}
                                                 
+                                                {/* Headline numbers as KPI cards */}
+                                                {msg.cards && msg.cards.length > 0 && (
+                                                    <div className="mt-2 ml-1 grid grid-cols-2 gap-2 w-full">
+                                                        {msg.cards.map((card, ci) => (
+                                                            <div key={ci} className="rounded-xl border border-slate-700/80 bg-[#0F172A] px-3 py-2">
+                                                                <div className="text-[10px] font-semibold text-slate-300 leading-tight">{card.label}</div>
+                                                                <div className="mt-1 text-lg font-black text-white tabular-nums leading-none">{card.value}</div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+
                                                 {/* Report table (rows come straight from the database, not from the model) */}
                                                 {msg.table && (
                                                     <div className="mt-2 w-full rounded-xl border border-slate-700/80 bg-[#0F172A] shadow-md ml-1 overflow-hidden">
                                                         <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-700/80 bg-slate-800">
-                                                            <span className="text-[10px] font-bold text-white truncate">{msg.table.title}</span>
-                                                            <button
-                                                                onClick={() => downloadTableCSV(msg.table!)}
-                                                                className="text-[10px] font-bold text-sky-300 hover:text-white cursor-pointer whitespace-nowrap"
-                                                                title="Download as CSV (opens in Excel)"
-                                                            >
-                                                                Download CSV
-                                                            </button>
+                                                            <span className="text-[10px] font-bold text-white truncate">{humanLabel(msg.table.title)}</span>
+                                                            <div className="flex items-center gap-3 shrink-0">
+                                                                <button
+                                                                    onClick={() => copyTable(msg.table!)}
+                                                                    className="text-[10px] font-bold text-sky-300 hover:text-white cursor-pointer whitespace-nowrap"
+                                                                    title="Copy the table (paste into Excel or Sheets)"
+                                                                >
+                                                                    Copy
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => downloadTableCSV(msg.table!)}
+                                                                    className="text-[10px] font-bold text-sky-300 hover:text-white cursor-pointer whitespace-nowrap"
+                                                                    title="Download as CSV (opens in Excel)"
+                                                                >
+                                                                    CSV
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                         <div className="max-h-60 overflow-auto">
                                                             <table className="w-full text-[10px] border-collapse">
                                                                 <thead className="sticky top-0">
                                                                     <tr>
                                                                         {msg.table.columns.map((col) => (
-                                                                            <th key={col} className="px-2 py-1.5 text-left font-bold !bg-slate-800 !text-white whitespace-nowrap border-b border-slate-700">{col}</th>
+                                                                            <th key={col} className="px-2 py-1.5 text-left font-bold !bg-slate-800 !text-white whitespace-nowrap border-b border-slate-700 normal-case">{humanLabel(col)}</th>
                                                                         ))}
                                                                     </tr>
                                                                 </thead>
@@ -725,6 +784,75 @@ export default function NexusAgent() {
                                                                 </tbody>
                                                             </table>
                                                         </div>
+                                                        {(() => {
+                                                            const spec = chartSpec(msg.table!);
+                                                            if (!spec) return null;
+                                                            const mode = tableChartMode[msg.id] ?? null;
+                                                            const modes: Array<'bar' | 'pie' | 'line'> = ['bar', 'pie', 'line'];
+                                                            const PALETTE = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#0ca30c'];
+                                                            const first = spec.series[0];
+                                                            const tip = { backgroundColor: '#0F172A', border: '1px solid #334155', borderRadius: '8px', fontSize: '10px', color: '#f1f5f9' };
+                                                            const pieData = (() => {
+                                                                const sorted = [...spec.data].sort((a, b) => Number((b as Record<string, unknown>)[first]) - Number((a as Record<string, unknown>)[first]));
+                                                                const top = sorted.slice(0, 6);
+                                                                const rest = sorted.slice(6).reduce((sum, r) => sum + Number((r as Record<string, unknown>)[first]), 0);
+                                                                return rest > 0 ? [...top, { [spec.category]: 'Other', [first]: rest }] : top;
+                                                            })();
+                                                            return (
+                                                                <div className="border-t border-slate-700/80 px-3 py-2">
+                                                                    <div className="flex items-center gap-2 text-[10px] text-slate-200">
+                                                                        <span className="font-bold">{spec.limitedFrom ? `Show as chart (top 12 of ${spec.limitedFrom}):` : 'Show as chart:'}</span>
+                                                                        {modes.map((m) => (
+                                                                            <button
+                                                                                key={m}
+                                                                                onClick={() => setTableChartMode((prev) => ({ ...prev, [msg.id]: prev[msg.id] === m ? null : m }))}
+                                                                                className={`rounded px-2 py-0.5 font-bold capitalize cursor-pointer ${mode === m ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-100 hover:bg-slate-700'}`}
+                                                                            >
+                                                                                {m}
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
+                                                                    {mode && (
+                                                                        <div className="mt-2 h-44 w-full">
+                                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                                {mode === 'pie' ? (
+                                                                                    <PieChart>
+                                                                                        <Pie data={pieData} dataKey={first} nameKey={spec.category} cx="50%" cy="50%" innerRadius={30} outerRadius={62} paddingAngle={2} stroke="#0F172A" strokeWidth={2} label={(props: { x?: number; y?: number; textAnchor?: 'start' | 'middle' | 'end' | 'inherit'; percent?: number }) => (props.percent ?? 0) >= 0.07 ? <text x={props.x} y={props.y} textAnchor={props.textAnchor} fill="#e2e8f0" fontSize={9}>{`${((props.percent ?? 0) * 100).toFixed(0)}%`}</text> : <g />} labelLine={false}>
+                                                                                            {pieData.map((_, idx) => <Cell key={idx} fill={idx === 6 ? '#64748b' : PALETTE[idx % PALETTE.length]} />)}
+                                                                                        </Pie>
+                                                                                        <Tooltip contentStyle={tip} itemStyle={{ color: '#f1f5f9' }} />
+                                                                                    </PieChart>
+                                                                                ) : mode === 'line' ? (
+                                                                                    <LineChart data={spec.data} margin={{ top: 5, right: 8, left: -18, bottom: 5 }}>
+                                                                                        <XAxis dataKey={spec.category} tick={{ fontSize: 9, fill: '#cbd5e1' }} stroke="#334155" />
+                                                                                        <YAxis tick={{ fontSize: 9, fill: '#cbd5e1' }} stroke="#334155" />
+                                                                                        <Tooltip contentStyle={tip} itemStyle={{ color: '#f1f5f9' }} />
+                                                                                        {spec.series.map((s, idx) => <Line key={s} type="monotone" dataKey={s} stroke={PALETTE[idx]} strokeWidth={2} dot={{ r: 3, stroke: '#0F172A', strokeWidth: 2 }} />)}
+                                                                                    </LineChart>
+                                                                                ) : (
+                                                                                    <BarChart data={spec.data} margin={{ top: 5, right: 8, left: -18, bottom: 5 }}>
+                                                                                        <XAxis dataKey={spec.category} tick={{ fontSize: 9, fill: '#cbd5e1' }} stroke="#334155" interval={0} angle={spec.data.length > 8 ? -35 : 0} textAnchor={spec.data.length > 8 ? 'end' : 'middle'} height={spec.data.length > 8 ? 56 : 24} tickFormatter={(v: string) => (String(v).length > 11 ? `${String(v).slice(0, 10)}…` : String(v))} />
+                                                                                        <YAxis tick={{ fontSize: 9, fill: '#cbd5e1' }} stroke="#334155" />
+                                                                                        <Tooltip cursor={{ fill: 'rgba(148,163,184,0.12)' }} contentStyle={tip} itemStyle={{ color: '#f1f5f9' }} />
+                                                                                        {spec.series.map((s, idx) => <Bar key={s} dataKey={s} fill={PALETTE[idx]} radius={[4, 4, 0, 0]} maxBarSize={24} />)}
+                                                                                    </BarChart>
+                                                                                )}
+                                                                            </ResponsiveContainer>
+                                                                        </div>
+                                                                    )}
+                                                                    {mode === 'pie' && (
+                                                                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-200">
+                                                                            {pieData.map((row, idx) => (
+                                                                                <span key={idx} className="inline-flex items-center gap-1">
+                                                                                    <span className="inline-block h-2 w-2 rounded-sm" style={{ backgroundColor: idx === 6 ? '#64748b' : PALETTE[idx % PALETTE.length] }} />
+                                                                                    {String((row as Record<string, unknown>)[spec.category])} {formatCell((row as Record<string, unknown>)[first])}
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
                                                         <div className="px-3 py-1.5 text-[10px] text-slate-300 border-t border-slate-700/80">
                                                             {msg.table.truncated ? `Showing ${msg.table.rows.length} of ${msg.table.totalRows}${msg.table.capped ? '+' : ''} rows (limited to the most recent rows)` : `${msg.table.totalRows} row${msg.table.totalRows === 1 ? '' : 's'}`}
                                                         </div>

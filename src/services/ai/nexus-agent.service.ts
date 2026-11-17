@@ -63,6 +63,11 @@ export interface NexusChart {
     seriesKeys: string[];
 }
 
+export interface NexusCard {
+    label: string;
+    value: string;
+}
+
 export interface NexusTable {
     title: string;
     columns: string[];
@@ -75,6 +80,7 @@ export interface NexusTable {
 
 export interface NexusResponse {
     table?: NexusTable;
+    cards?: NexusCard[];
     response: string;
     actions?: NexusAction[];
     intent?: string;
@@ -597,7 +603,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
         if ((compatKey || useLocal) && process.env.NEXUS_LLM_PROVIDER !== 'gemini') {
             try {
                 const out = await this.runDeepSeekLoop(compatKey ?? '', useLocal, (!useLocal && externalPrivacy === 'plan-only') ? planSystemPrompt : systemPrompt, history, message, tools[0].functionDeclarations, { permissions, opmcScope, hasFinanceAccess });
-                if (out) return this.finalizeReply(out.text, message, out.executedIntent, out.didCheckLowStock, out.table, out.chart);
+                if (out) return this.finalizeReply(out.text, message, out.executedIntent, out.didCheckLowStock, out.table, out.chart, out.cards);
             } catch (error) {
                 console.error('[NEXUS] DeepSeek call failed:', error instanceof Error ? error.message : error, (error as { cause?: { code?: string; message?: string } })?.cause?.code ?? (error as { cause?: { message?: string } })?.cause?.message ?? '');
             }
@@ -651,7 +657,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
                     runs.push({ name: fc.name, args: fc.args, result: executed.result, table: executed.table });
                 }
                 const local = NexusLocalReplyService.build(runs, message);
-                return this.finalizeReply(local.text, message, executedIntent, didCheckLowStock, local.table, local.chart);
+                return this.finalizeReply(local.text, message, executedIntent, didCheckLowStock, local.table, local.chart, local.cards);
             }
 
             // Push the exact model response to history (preserves thought_signature)
@@ -714,7 +720,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
     }
 
     /** Turns the model's final text into the response the UI expects (shared by every provider). */
-    private static async finalizeReply(textReply: string, message: string, executedIntent: string | null, didCheckLowStock: boolean, table?: NexusTable, localChart?: NexusChart): Promise<NexusResponse> {
+    private static async finalizeReply(textReply: string, message: string, executedIntent: string | null, didCheckLowStock: boolean, table?: NexusTable, localChart?: NexusChart, cards?: NexusCard[]): Promise<NexusResponse> {
         // Automatic self-training from the model's own tool choices is disabled: a wrong choice taught the
         // classifier wrong intents (observed in testing). Only explicit user feedback trains it now.
         let parsedReply = textReply;
@@ -753,7 +759,8 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
             actions,
             suggestions,
             chart,
-            table
+            table,
+            cards
         };
     }
 
@@ -814,7 +821,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
         message: string,
         declarations: Array<{ name: string; description: string; parameters?: unknown }>,
         ctx: { permissions: ReadonlySet<string>; opmcScope: NexusOpmcScope; hasFinanceAccess: boolean },
-    ): Promise<{ text: string; executedIntent: string | null; didCheckLowStock: boolean; table?: NexusTable; chart?: NexusChart } | null> {
+    ): Promise<{ text: string; executedIntent: string | null; didCheckLowStock: boolean; table?: NexusTable; chart?: NexusChart; cards?: NexusCard[] } | null> {
         // Any OpenAI-compatible server works: DeepSeek (default), or a model on our own server (Ollama, vLLM)
         // by setting NEXUS_LLM_PROVIDER=local and NEXUS_LLM_BASE_URL, in which case data never leaves our network.
         const baseUrl = (useLocal ? process.env.NEXUS_LLM_BASE_URL! : (process.env.NEXUS_LLM_BASE_URL || 'https://api.deepseek.com')).replace(/\/+$/, '');
@@ -859,7 +866,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
                     runs.push({ name: call.function.name, args, result: executed.result, table: executed.table });
                 }
                 const local = NexusLocalReplyService.build(runs, message);
-                return { text: local.text, executedIntent, didCheckLowStock, table: local.table, chart: local.chart };
+                return { text: local.text, executedIntent, didCheckLowStock, table: local.table, chart: local.chart, cards: local.cards };
             }
             if (msg.tool_calls?.length) {
                 messages.push({ role: 'assistant', content: msg.content ?? '', tool_calls: msg.tool_calls });
