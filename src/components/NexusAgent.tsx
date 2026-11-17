@@ -35,6 +35,7 @@ interface NexusTable {
     rows: Record<string, unknown>[];
     totalRows: number;
     truncated: boolean;
+    capped?: boolean;
 }
 
 interface NexusChart {
@@ -725,7 +726,7 @@ export default function NexusAgent() {
                                                             </table>
                                                         </div>
                                                         <div className="px-3 py-1.5 text-[10px] text-slate-300 border-t border-slate-700/80">
-                                                            {msg.table.truncated ? `Showing ${msg.table.rows.length} of ${msg.table.totalRows} rows (the report is limited to the most recent rows)` : `${msg.table.totalRows} row${msg.table.totalRows === 1 ? '' : 's'}`}
+                                                            {msg.table.truncated ? `Showing ${msg.table.rows.length} of ${msg.table.totalRows}${msg.table.capped ? '+' : ''} rows (limited to the most recent rows)` : `${msg.table.totalRows} row${msg.table.totalRows === 1 ? '' : 's'}`}
                                                         </div>
                                                     </div>
                                                 )}

@@ -10,6 +10,7 @@ import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { checkRateLimit } from '@/lib/rate-limiter';
+import { NexusPrivacyService, type PrivacyMode } from '@/services/ai/nexus-privacy.service';
 import { DynamicReportService, type DynamicReportPayload, type FilterRule, type AggregationConfig } from '@/services/inventory/dynamic-report.service';
 import type { NexusOpmcScope } from '@/services/ai/nexus-context.service';
 
@@ -67,6 +68,8 @@ export interface NexusTable {
     rows: Record<string, unknown>[];
     totalRows: number;
     truncated: boolean;
+    /** true when the database limit (500 rows) cut the result, so more matching rows exist */
+    capped?: boolean;
 }
 
 export interface NexusResponse {
@@ -241,7 +244,7 @@ export class NexusAgentService {
             };
         }
 
-        if (apiKey || process.env.DEEPSEEK_API_KEY) {
+        if (apiKey || process.env.DEEPSEEK_API_KEY || process.env.NEXUS_LLM_API_KEY || (process.env.NEXUS_LLM_PROVIDER === 'local' && process.env.NEXUS_LLM_BASE_URL)) {
             try {
                 const history = await NexusMemoryService.getConversation(userId);
                 const result = await this.runAgenticLoop(message, history, userName, permissionSet, opmcScope);
@@ -582,10 +585,11 @@ CUSTOM REPORTS: if the user asks for a report/list/summary the other tools do no
 NOTE: Only include the "chart" key if the user explicitly asks to visualize, draw a graph, or chart the data. Otherwise, omit it entirely.
 `;
 
-        const deepseekKey = process.env.DEEPSEEK_API_KEY;
-        if (deepseekKey && process.env.NEXUS_LLM_PROVIDER !== 'gemini') {
+        const compatKey = process.env.NEXUS_LLM_API_KEY || process.env.DEEPSEEK_API_KEY;
+        const useLocal = process.env.NEXUS_LLM_PROVIDER === 'local' && !!process.env.NEXUS_LLM_BASE_URL;
+        if ((compatKey || useLocal) && process.env.NEXUS_LLM_PROVIDER !== 'gemini') {
             try {
-                const out = await this.runDeepSeekLoop(deepseekKey, systemPrompt, history, message, tools[0].functionDeclarations, { permissions, opmcScope, hasFinanceAccess });
+                const out = await this.runDeepSeekLoop(compatKey ?? '', useLocal, systemPrompt, history, message, tools[0].functionDeclarations, { permissions, opmcScope, hasFinanceAccess });
                 if (out) return this.finalizeReply(out.text, message, out.executedIntent, out.didCheckLowStock, out.table);
             } catch (error) {
                 console.error('[NEXUS] DeepSeek call failed:', error instanceof Error ? error.message : error, (error as { cause?: { code?: string; message?: string } })?.cause?.code ?? (error as { cause?: { message?: string } })?.cause?.message ?? '');
@@ -593,9 +597,10 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
             if (!apiKey) return null;
         }
 
+        const geminiPrivacy = NexusPrivacyService.mode('external');
         const contents: Array<{ role: string; parts: unknown[] }> = [
-            ...history,
-            { role: 'user', parts: [{ text: message }] }
+            ...history.map((m) => ({ ...m, parts: m.parts.map((p) => ({ text: NexusPrivacyService.maskText(p.text, geminiPrivacy) })) })),
+            { role: 'user', parts: [{ text: NexusPrivacyService.maskText(message, geminiPrivacy) }] }
         ];
 
         // Round 1: Ask Gemini
@@ -638,7 +643,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
             for (const fc of functionCalls) {
                 const funcName = fc.name;
                 const executed = await this.executeTool(funcName, fc.args, { permissions, opmcScope, hasFinanceAccess });
-                const funcResult = executed.result;
+                const funcResult = NexusPrivacyService.forModel(funcName, executed.result, geminiPrivacy);
                 if (executed.intent !== undefined) executedIntent = executed.intent;
                 if (executed.checkedLowStock) didCheckLowStock = true;
                 if (executed.table) reportTable = executed.table;
@@ -774,7 +779,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
 
         try {
             const report = await DynamicReportService.generateReport({ entity, columns, filters, aggregation }, { scopeWhere });
-            return { type: report.type, columns: report.columns, totalRows: report.rows.length, rows: report.rows.slice(0, 50), truncated: report.rows.length > 50 };
+            return { type: report.type, columns: report.columns, totalRows: report.rows.length, rows: report.rows.slice(0, 50), truncated: report.rows.length > 50 || report.capped, capped: report.capped };
         } catch (error) {
             return { error: error instanceof Error ? error.message : 'Report could not be built.' };
         }
@@ -787,30 +792,35 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
      */
     private static async runDeepSeekLoop(
         apiKey: string,
+        useLocal: boolean,
         systemPrompt: string,
         history: ChatMessage[],
         message: string,
         declarations: Array<{ name: string; description: string; parameters?: unknown }>,
         ctx: { permissions: ReadonlySet<string>; opmcScope: NexusOpmcScope; hasFinanceAccess: boolean },
     ): Promise<{ text: string; executedIntent: string | null; didCheckLowStock: boolean; table?: NexusTable } | null> {
-        const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+        // Any OpenAI-compatible server works: DeepSeek (default), or a model on our own server (Ollama, vLLM)
+        // by setting NEXUS_LLM_PROVIDER=local and NEXUS_LLM_BASE_URL, in which case data never leaves our network.
+        const baseUrl = (useLocal ? process.env.NEXUS_LLM_BASE_URL! : (process.env.NEXUS_LLM_BASE_URL || 'https://api.deepseek.com')).replace(/\/+$/, '');
+        const model = process.env.NEXUS_LLM_MODEL || process.env.DEEPSEEK_MODEL || (useLocal ? 'llama3.1' : 'deepseek-chat');
+        const privacy: PrivacyMode = NexusPrivacyService.mode(useLocal ? 'local' : 'external');
         const tools = declarations.map((d) => ({
             type: 'function',
             function: { name: d.name, description: d.description, parameters: d.parameters ?? { type: 'object', properties: {} } },
         }));
         const messages: Array<Record<string, unknown>> = [
             { role: 'system', content: systemPrompt },
-            ...history.slice(-20).map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.parts?.[0]?.text ?? '' })),
-            { role: 'user', content: message },
+            ...history.slice(-20).map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: NexusPrivacyService.maskText(m.parts?.[0]?.text ?? '', privacy) })),
+            { role: 'user', content: NexusPrivacyService.maskText(message, privacy) },
         ];
         let executedIntent: string | null = null;
         let didCheckLowStock = false;
         let table: NexusTable | undefined;
 
         for (let round = 0; round < 4; round++) {
-            const res = await deepseekBreaker.execute(() => fetch('https://api.deepseek.com/chat/completions', {
+            const res = await deepseekBreaker.execute(() => fetch(`${baseUrl}/chat/completions`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+                headers: { 'Content-Type': 'application/json', ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}) },
                 body: JSON.stringify({ model, messages, tools, temperature: 0.2 }),
                 signal: AbortSignal.timeout(45_000),
             }));
@@ -830,7 +840,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
                     if (executed.intent !== undefined) executedIntent = executed.intent;
                     if (executed.checkedLowStock) didCheckLowStock = true;
                     if (executed.table) table = executed.table;
-                    messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(executed.result).slice(0, 30_000) });
+                    messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(NexusPrivacyService.forModel(call.function.name, executed.result, privacy)).slice(0, 30_000) });
                 }
                 continue;
             }
@@ -883,9 +893,9 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
                 } else if (funcName === 'runCustomReport') {
                     result = await this.runCustomReportTool(args, permissions, opmcScope);
                     intent = null;
-                    const rep = result as { error?: string; columns?: string[]; rows?: Record<string, unknown>[]; totalRows?: number; truncated?: boolean };
+                    const rep = result as { error?: string; columns?: string[]; rows?: Record<string, unknown>[]; totalRows?: number; truncated?: boolean; capped?: boolean };
                     if (!rep.error && rep.columns && rep.rows) {
-                        table = { title: `Custom report: ${String(args?.entity ?? '')}`, columns: rep.columns, rows: rep.rows, totalRows: rep.totalRows ?? rep.rows.length, truncated: !!rep.truncated };
+                        table = { title: `Custom report: ${String(args?.entity ?? '')}`, columns: rep.columns, rows: rep.rows, totalRows: rep.totalRows ?? rep.rows.length, truncated: !!rep.truncated, capped: !!rep.capped };
                     }
                 } else {
                     result = { error: "Unauthorized or unknown function." };

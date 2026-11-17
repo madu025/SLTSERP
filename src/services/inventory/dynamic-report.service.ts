@@ -166,7 +166,7 @@ export class DynamicReportService {
                     const raw = aggregation.type === 'COUNT' ? g._count._all : aggregation.type === 'SUM' ? g._sum[aggregation.targetField] : g._avg[aggregation.targetField];
                     return { [aggregation.groupBy]: g[aggregation.groupBy] === null || g[aggregation.groupBy] === undefined ? 'N/A' : String(g[aggregation.groupBy]), [label]: Number(Number(raw ?? 0).toFixed(2)) };
                 }).sort((a, b) => Number(b[label]) - Number(a[label]));
-                return { type: 'AGGREGATED', columns: [aggregation.groupBy, label], rows };
+                return { type: 'AGGREGATED', columns: [aggregation.groupBy, label], rows, capped: false };
             } catch {
                 // SUM/AVG on a non-numeric column, or a column the database cannot group: use the bounded path below
             }
@@ -224,7 +224,8 @@ export class DynamicReportService {
             return {
                 type: 'AGGREGATED',
                 columns: aggCols,
-                rows: aggregatedRows
+                rows: aggregatedRows,
+                capped: rawRecords.length >= 500
             };
         }
 
@@ -240,7 +241,9 @@ export class DynamicReportService {
         return {
             type: 'STANDARD',
             columns,
-            rows: mappedRows
+            rows: mappedRows,
+            // true when the 500-row limit cut the result, so the real number of matching rows is higher
+            capped: rawRecords.length >= 500
         };
     }
 }
