@@ -9,6 +9,7 @@ import type { ChatMessage } from '@/services/ai/nexus-memory.service';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { DynamicReportService, type DynamicReportPayload, type FilterRule, type AggregationConfig } from '@/services/inventory/dynamic-report.service';
 import type { NexusOpmcScope } from '@/services/ai/nexus-context.service';
 
 import { safeJsonParse } from '@/utils/safeJsonParse';
@@ -510,6 +511,20 @@ export class NexusAgentService {
                     }
                 },
                 {
+                    name: "runCustomReport",
+                    description: "Build a custom tabular report from the database when the user asks for a report that the other tools do not cover. Entities and queryable fields: serviceOrder[soNum,status,sltsStatus,customerName,voiceNumber,rtom,completedDate,revenueAmount,createdAt]; materialUsage[serviceOrderId,quantity,unit,usageType,costPrice,unitPrice,createdAt,serviceOrder.soNum,serviceOrder.status,serviceOrder.rtom,item.code,item.name]; contractorStock[quantity,updatedAt,contractor.name,item.code,item.name]; journalEntry[referenceId,referenceType,description,date,createdAt]; wastage[month,description,status,createdAt,contractor.name,store.name]. Filter operators: equals, contains, gt, lt, gte, lte, startsWith (dates as YYYY-MM-DD). Optional aggregation groups rows and applies SUM, AVG or COUNT to one field. Returns at most 50 rows.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            entity: { type: "string", enum: ["serviceOrder", "materialUsage", "contractorStock", "journalEntry", "wastage"] },
+                            columns: { type: "array", items: { type: "string" } },
+                            filters: { type: "array", items: { type: "object", properties: { field: { type: "string" }, operator: { type: "string" }, value: { type: "string" } }, required: ["field", "operator", "value"] } },
+                            aggregation: { type: "object", properties: { groupBy: { type: "string" }, targetField: { type: "string" }, type: { type: "string", enum: ["SUM", "AVG", "COUNT"] } } }
+                        },
+                        required: ["entity", "columns"]
+                    }
+                },
+                {
                     name: "getJobCostingContext",
                     description: "Fetch Job Costing, Revenue, Material Cost, and Profitability for Service Orders. Reason across multiple tables.",
                     parameters: {
@@ -557,6 +572,8 @@ Example 2: "Show OPMC daily progress bar chart"
      "data": [ { "opmcName": "R-MD", "completed": 50, "inHand": 120, "todaysSOD": 10 } ]
   }
 }
+
+CUSTOM REPORTS: if the user asks for a report/list/summary the other tools do not cover, call runCustomReport, then present the rows as a clear markdown table in "reply" (state the filters used and how many rows). If it returns an error, tell the user plainly; never invent rows.
 
 NOTE: Only include the "chart" key if the user explicitly asks to visualize, draw a graph, or chart the data. Otherwise, omit it entirely.
 `;
@@ -638,6 +655,9 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
                     const args = fc.args as Record<string, string> | undefined;
                     funcResult = await NexusContextService.getJobCostingContext(args, opmcScope);
                     executedIntent = 'JOB_COSTING';
+                } else if (funcName === 'runCustomReport') {
+                    funcResult = await this.runCustomReportTool(fc.args, permissions, opmcScope);
+                    executedIntent = null;
                 } else {
                     funcResult = { error: "Unauthorized or unknown function." };
                 }
@@ -733,5 +753,46 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
             suggestions,
             chart
         };
+    }
+
+    /**
+     * Custom report tool. Same whitelist as the admin report builder, plus: each entity needs its module
+     * capability, cost/revenue columns need the finance/cost capability, and users limited to specific
+     * OPMCs may only report on entities that can be scoped to those OPMCs (the scope is injected here).
+     */
+    private static async runCustomReportTool(args: Record<string, unknown> | undefined, permissions: ReadonlySet<string>, opmcScope: NexusOpmcScope) {
+        const entity = String(args?.entity ?? '') as DynamicReportPayload['entity'];
+        const columns = Array.isArray(args?.columns) ? (args!.columns as unknown[]).map(String) : [];
+        const filters = (Array.isArray(args?.filters) ? args!.filters as FilterRule[] : []).map((f) => ({ field: String(f.field), operator: f.operator, value: String(f.value) }));
+        const agg = args?.aggregation as AggregationConfig | undefined;
+        const aggregation = agg && agg.groupBy && agg.targetField && agg.type ? { groupBy: String(agg.groupBy), targetField: String(agg.targetField), type: agg.type } : undefined;
+
+        const entityPermission: Record<string, string> = {
+            serviceOrder: RBAC_PERMISSIONS.SOD_READ,
+            materialUsage: RBAC_PERMISSIONS.SOD_READ,
+            contractorStock: RBAC_PERMISSIONS.INVENTORY_READ,
+            wastage: RBAC_PERMISSIONS.INVENTORY_READ,
+            journalEntry: RBAC_PERMISSIONS.FINANCE_READ,
+        };
+        const required = entityPermission[entity];
+        if (!required || !permissions.has(required)) return { error: 'You do not have access to this report.' };
+
+        const used = [...columns, ...filters.map((f) => f.field), ...(aggregation ? [aggregation.groupBy, aggregation.targetField] : [])];
+        if (used.some((f) => f === 'revenueAmount') && !permissions.has(RBAC_PERMISSIONS.FINANCE_READ)) return { error: 'Revenue figures require finance access.' };
+        if (used.some((f) => f === 'costPrice' || f === 'unitPrice') && !permissions.has(RBAC_PERMISSIONS.INVENTORY_COST_READ)) return { error: 'Cost figures require inventory cost access.' };
+
+        let scopeWhere: Record<string, unknown> | undefined;
+        if (opmcScope !== undefined) {
+            if (entity === 'serviceOrder') scopeWhere = { opmcId: { in: [...opmcScope] } };
+            else if (entity === 'materialUsage') scopeWhere = { serviceOrder: { opmcId: { in: [...opmcScope] } } };
+            else return { error: 'This report is only available to users with company-wide access.' };
+        }
+
+        try {
+            const report = await DynamicReportService.generateReport({ entity, columns, filters, aggregation }, { scopeWhere });
+            return { type: report.type, columns: report.columns, totalRows: report.rows.length, rows: report.rows.slice(0, 50), truncated: report.rows.length > 50 };
+        } catch (error) {
+            return { error: error instanceof Error ? error.message : 'Report could not be built.' };
+        }
     }
 }

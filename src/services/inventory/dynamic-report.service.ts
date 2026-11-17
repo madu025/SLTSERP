@@ -84,7 +84,16 @@ export class DynamicReportService {
         wastage: 'contractorWastage'
     };
 
-    static async generateReport(payload: DynamicReportPayload) {
+    /** Queryable fields per entity, used to tell the assistant what it may ask for. */
+    static fieldsFor(entity: string): string[] | undefined {
+        return this.whitelists[entity];
+    }
+
+    /**
+     * `scopeWhere` is an extra server-built condition (for example the caller's OPMC scope) that is
+     * AND-ed with the user's filters, so a custom report can never reach outside the caller's data.
+     */
+    static async generateReport(payload: DynamicReportPayload, opts: { scopeWhere?: Record<string, unknown> } = {}) {
         const { entity, columns, filters, aggregation } = payload;
 
         // 1. Validation
@@ -139,7 +148,7 @@ export class DynamicReportService {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const client = (prisma as any)[prismaKey];
         const rawRecords = await client.findMany({
-            where: whereClause,
+            where: opts.scopeWhere ? { AND: [whereClause, opts.scopeWhere] } : whereClause,
             include: includeClause,
             orderBy: { createdAt: 'desc' },
             // Keep interactive report generation bounded on production-sized

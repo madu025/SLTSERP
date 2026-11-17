@@ -217,19 +217,6 @@ export default function NexusAgent() {
 
 
 
-    // Fetch alerts count & alert registry
-    const fetchAlerts = useCallback(async () => {
-        try {
-            const res = await fetch('/api/ai/alerts');
-            if (res.ok) {
-                const data = await res.json();
-                setAlerts(data);
-            }
-        } catch (e) {
-            console.error("Failed to query alerts:", e);
-        }
-    }, []);
-
     // Load Chat History from Database
     const fetchHistory = useCallback(async () => {
         try {
@@ -267,18 +254,6 @@ export default function NexusAgent() {
             console.error("Failed to load chat history:", e);
         }
     }, []);
-
-    useEffect(() => {
-        // Skip API calls on public/unauthenticated pages to prevent 401 errors
-        if (isPublicPath) return;
-
-        // Let the page's own data load first; the alert badge is not needed for first paint.
-        const first = setTimeout(fetchAlerts, 4000);
-
-        // Poll alerts every 60 seconds
-        const timer = setInterval(fetchAlerts, 60000);
-        return () => { clearTimeout(first); clearInterval(timer); };
-    }, [isPublicPath, fetchAlerts]);
 
     // Chat history is only needed once the assistant is opened
     const historyLoadedRef = useRef(false);
@@ -454,7 +429,6 @@ export default function NexusAgent() {
                         ? `Replenishment complete! Stock request ${json.result.requestNr} generated.` 
                         : 'Custody assignment successfully updated in database.'
             }));
-            fetchAlerts(); // Refresh alerts
         } catch {
             toast.error("Failed to execute request due to network error.");
         } finally {
@@ -562,11 +536,6 @@ export default function NexusAgent() {
                     title="Drag to move • Click to ask Nexus AI Agent"
                 >
                     <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                    {alerts.length > 0 && (
-                        <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center bg-red-500 text-[9px] font-bold text-white rounded-full border-2 border-slate-900 shadow-md">
-                            {alerts.length}
-                        </span>
-                    )}
                 </button>
             )}
 
@@ -612,16 +581,6 @@ export default function NexusAgent() {
                                     <RotateCcw className="w-3.5 h-3.5" />
                                 </button>
                             )}
-                            <button
-                                onClick={() => setActiveTab(activeTab === 'chat' ? 'alerts' : 'chat')}
-                                className={`p-1.5 rounded-lg text-slate-400 hover:text-white transition-colors relative cursor-pointer ${activeTab === 'alerts' ? 'bg-slate-800 text-white' : ''}`}
-                                title={activeTab === 'chat' ? 'Show Alerts' : 'Show Chat'}
-                            >
-                                {activeTab === 'chat' ? <Bell className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
-                                {activeTab === 'chat' && alerts.length > 0 && (
-                                    <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full" />
-                                )}
-                            </button>
                             <button
                                 onClick={handleClearHistory}
                                 className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 transition-colors cursor-pointer"
