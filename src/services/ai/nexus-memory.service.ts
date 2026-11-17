@@ -19,6 +19,27 @@ export class NexusMemoryService {
   }
 
   /**
+   * Save one question and its answer. Keeps the latest 20 exchanges (40 messages) per user.
+   */
+  static async appendTurn(userId: string, userText: string, modelText: string) {
+    const clip = (t: string) => t.slice(0, 4000);
+    const turn: ChatMessage[] = [
+      { role: 'user', parts: [{ text: clip(userText) }] },
+      { role: 'model', parts: [{ text: clip(modelText) }] },
+    ];
+    const record = await prisma.nexusConversation.findFirst({ where: { userId } });
+    if (!record) {
+      await prisma.nexusConversation.create({ data: { userId, messages: turn as unknown as object } });
+      return;
+    }
+    const previous = Array.isArray(record.messages) ? (record.messages as unknown as ChatMessage[]) : [];
+    await prisma.nexusConversation.update({
+      where: { id: record.id },
+      data: { messages: [...previous, ...turn].slice(-40) as unknown as object },
+    });
+  }
+
+  /**
    * Clear user's conversation memory
    */
   static async clearConversation(userId: string) {

@@ -9,6 +9,7 @@ import type { ChatMessage } from '@/services/ai/nexus-memory.service';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { checkRateLimit } from '@/lib/rate-limiter';
 import { DynamicReportService, type DynamicReportPayload, type FilterRule, type AggregationConfig } from '@/services/inventory/dynamic-report.service';
 import type { NexusOpmcScope } from '@/services/ai/nexus-context.service';
 
@@ -79,46 +80,6 @@ export interface NexusResponse {
 }
 
 export class NexusAgentService {
-    // In-memory query response cache
-    private static queryCache = new Map<string, { response: NexusResponse; timestamp: number }>();
-    private static CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes TTL
-
-    /**
-     * Intelligent AI Model Router: Dynamically selects the best model based on Role, Query Complexity, and Data Volume.
-     */
-    static selectAIModel(message: string, contextData: Record<string, unknown>, userPermissions: readonly string[] = []): string {
-        // Model routing is based on canonical capabilities, never User.role.
-        const isPowerUser = [
-            RBAC_PERMISSIONS.ADMIN_RBAC,
-            RBAC_PERMISSIONS.REPORTS_MANAGER_READ,
-            RBAC_PERMISSIONS.FINANCE_READ,
-            RBAC_PERMISSIONS.PROJECT_FINANCE_READ,
-        ].some(permission => userPermissions.includes(permission));
-        if (isPowerUser) return 'gemini-3.5-flash';
-
-        // 2. Query Complexity Check (Excel export, Audits, Forecasts, Reports)
-        const msgLower = message.toLowerCase();
-        const complexKeywords = [
-            'report', 'excel', 'export', 'sheet', 'audit', 'reconcile',
-            'forecast', 'optimize', 'ld penalty', 'retention', 'mismatch',
-            'summary', 'xlsx', 'csv', 'download', 'downlaod', 'exel', 'excl',
-            'විශ්ලේෂණය', 'වාර්තාව', 'සංසන්දනය'
-        ];
-        if (complexKeywords.some(kw => msgLower.includes(kw))) {
-            return 'gemini-3.5-flash';
-        }
-
-        // 3. Context Data Volume Check (Targeted for heavy reporting/Excel limits)
-        // If context size exceeds 12000 characters, route to 3.5 Flash to ensure attention accuracy over larger contexts.
-        const contextStr = JSON.stringify(contextData);
-        if (contextStr.length > 12000) {
-            return 'gemini-3.5-flash';
-        }
-
-        // Default to cost-efficient model for normal simple queries
-        return 'gemini-2.5-flash-lite';
-    }
-
     /**
      * Unified system context helper
      */
@@ -133,7 +94,11 @@ export class NexusAgentService {
      */
     static async getSelfHealingProposals(): Promise<NexusAction[]> {
         const stocks = await prisma.inventoryStock.findMany({
-            include: { item: true, store: true }
+            select: {
+                itemId: true, storeId: true, quantity: true, minLevel: true,
+                item: { select: { code: true, name: true } },
+                store: { select: { name: true } },
+            },
         });
 
         // O(n) - Group stocks by itemId for O(1) lookup
@@ -186,6 +151,14 @@ export class NexusAgentService {
             if (!action.itemId || !action.fromStoreId || !action.toStoreId || !action.quantity) {
                 throw AppError.badRequest("MISSING_PARAMS");
             }
+            // The action object comes from the browser, so it is never trusted: it must match a proposal the
+            // server derives from current stock, and the quantity can only be at or below what was proposed.
+            const proposals = await this.getSelfHealingProposals();
+            const match = proposals.find((p) => p.itemId === action.itemId && p.fromStoreId === action.fromStoreId && p.toStoreId === action.toStoreId);
+            const qty = Number(action.quantity);
+            if (!match || !Number.isFinite(qty) || qty <= 0 || qty > Number(match.quantity)) {
+                throw AppError.badRequest('ACTION_NOT_VALID: this transfer is no longer a valid proposal for the current stock levels.');
+            }
             return await StockRequestService.createStockRequest({
                 fromStoreId: action.toStoreId, // Target store requests it
                 toStoreId: action.fromStoreId, // Source store issues it
@@ -211,11 +184,34 @@ export class NexusAgentService {
      * Process user query using Google Gemini API or fallback matching
      */
     static async ask(message: string, userId: string): Promise<NexusResponse> {
-        const cacheKey = `${userId}:${message.trim().toLowerCase()}`;
+        // Per-user limits protect the shared model quota: a short burst limit and a daily limit.
+        const burst = await checkRateLimit(userId, { max: 20, windowSecs: 600, prefix: 'nexus-burst' });
+        const daily = burst.allowed ? await checkRateLimit(userId, { max: 200, windowSecs: 86_400, prefix: 'nexus-daily' }) : burst;
+        if (!burst.allowed || !daily.allowed) {
+            const wait = Math.max(1, Math.ceil((!burst.allowed ? burst.resetSecs : daily.resetSecs) / 60));
+            return {
+                intent: 'RATE_LIMITED',
+                query: message,
+                response: `You have reached the assistant limit for now. Please try again in about ${wait} minute(s).`,
+                actions: [],
+                suggestions: [],
+            };
+        }
+        const result = await this.answer(message, userId);
+        // Remember the exchange so follow-up questions have context (best effort: never blocks the answer)
+        try {
+            const { NexusMemoryService } = await import('@/services/ai/nexus-memory.service');
+            await NexusMemoryService.appendTurn(userId, message, result.response);
+        } catch (error) {
+            console.warn('[NEXUS] Could not save conversation:', error instanceof Error ? error.message : error);
+        }
+        return result;
+    }
+
+    private static async answer(message: string, userId: string): Promise<NexusResponse> {
         const msgLower = message.toLowerCase();
 
         const apiKey = process.env.GEMINI_API_KEY;
-        console.log("[DEBUG] API KEY Status:", apiKey ? "LOADED" : "MISSING");
         const { NexusMemoryService } = await import('@/services/ai/nexus-memory.service');
 
         const [user, userPermissions, opmcScope] = await Promise.all([
@@ -250,16 +246,14 @@ export class NexusAgentService {
                 const history = await NexusMemoryService.getConversation(userId);
                 const result = await this.runAgenticLoop(message, history, userName, permissionSet, opmcScope);
                 if (result) {
-                    this.queryCache.set(cacheKey, { response: result, timestamp: Date.now() });
                     return result;
                 } else {
-                    console.log("[DEBUG] runAgenticLoop returned null");
                 }
             } catch (error: unknown) {
                 if (error instanceof Error) {
-                    console.error("[DEBUG] Gemini API Function Calling failed, falling back to offline mode:", error.message);
+                    console.error("[NEXUS] Cloud model call failed, using offline mode:", error.message);
                 } else {
-                    console.error("[DEBUG] Gemini API Function Calling failed, falling back to offline mode:", error);
+                    console.error("[NEXUS] Cloud model call failed, using offline mode");
                 }
             }
         }
@@ -292,7 +286,6 @@ export class NexusAgentService {
         }
 
         const result = { intent, query: message, response, actions, suggestions };
-        this.queryCache.set(cacheKey, { response: result, timestamp: Date.now() });
         return result;
     }
 
@@ -334,7 +327,6 @@ export class NexusAgentService {
         const wantsChart = msgLowerForChart.includes('chart') || msgLowerForChart.includes('graph') || msgLowerForChart.includes('prastar') || msgLowerForChart.includes('satahan') || msgLowerForChart.includes('plot');
         
         if (confidence > 0.85 && await NexusClassifierService.hasNearExample(message, intent)) {
-            console.log(`[ROUTER] High confidence local prediction: ${intent} (${(confidence * 100).toFixed(1)}%) -> BYPASSING CLOUD API`);
             
             // Hardcoded zero-cost Local AI static responses for known intents
             if (intent === 'INVENTORY_LOW') {
@@ -474,14 +466,12 @@ export class NexusAgentService {
                 };
             }
             // Fallback: If intent matches but no static response implemented, continue to Cloud API
-            console.log(`[ROUTER] No static handler implemented for ${intent}, continuing to Cloud API...`);
         } else {
-            console.log(`[ROUTER] Low confidence local prediction: ${intent} (${(confidence * 100).toFixed(1)}%) -> ROUTING TO CLOUD API`);
         }
 
         const apiKey = process.env.GEMINI_API_KEY;
         const modelName = 'gemini-3.5-flash-lite'; // 500 RPD limit model
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
         const tools = [{
             functionDeclarations: [
@@ -557,6 +547,7 @@ You have access to a set of internal tools (functions) to fetch live data from t
 When a user asks a question, YOU MUST dynamically decide which tool to call to get the exact data needed, OR answer directly if you already know.
 
 CRITICAL INSTRUCTIONS & ANTI-HALLUCINATION:
+0. TODAY'S DATE is ${new Date().toISOString().slice(0, 10)} (UTC). Use it to turn relative ranges such as "last 30 days" or "this month" into exact YYYY-MM-DD filter values, and state the exact range you used in your reply.
 1. GREETING: Greet the user by their name: ${userName}.
 2. LANGUAGE: Answer in the language of the user's choice (Sinhala, English, or Singlish).
 3. NO GUESSING (ANTI-HALLUCINATION): If you do NOT find the EXACT answer in the provided tool context or database output, DO NOT guess. DO NOT hallucinate numbers. You MUST explicitly say "මෙම තොරතුර මගේ දත්ත ගොනුවේ නොමැත" (I do not have this information). 
@@ -610,7 +601,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
         // Round 1: Ask Gemini
         let response = await geminiBreaker.execute(() => fetch(endpoint, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey ?? '' },
             body: JSON.stringify({
                 system_instruction: { parts: [{ text: systemPrompt }] },
                 tools,
@@ -619,8 +610,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
         }));
 
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error("[DEBUG] First Gemini API fetch failed. Status:", response.status, "Error:", errorText);
+            console.error("[NEXUS] Gemini request failed with status", response.status);
             return null;
         }
         let data = await response.json();
@@ -671,7 +661,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
             // Call Gemini again with the function results
             response = await geminiBreaker.execute(() => fetch(endpoint, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey ?? '' },
                 body: JSON.stringify({
                     system_instruction: { parts: [{ text: systemPrompt }] },
                     tools,
@@ -680,8 +670,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
             }));
 
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error("[DEBUG] Gemini API tool fetch failed. Status:", response.status, "Error:", errorText);
+                    console.error("[NEXUS] Gemini tool request failed with status", response.status);
                 return null;
             }
             data = await response.json();
@@ -695,7 +684,6 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
 
         const textReply = data.candidates?.[0]?.content?.parts?.find((p: { text?: string }) => p.text)?.text;
         if (!textReply) {
-            console.log("[DEBUG] Gemini returned no text reply");
             return null;
         }
         return this.finalizeReply(textReply, message, executedIntent, didCheckLowStock, reportTable);
