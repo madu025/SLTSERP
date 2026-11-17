@@ -153,13 +153,19 @@ export async function groundReportFilters(entity: string, filters: FilterRule[],
     return { filters: out, evidence };
 }
 
+/** "serviceOrder.contractor.name" -> "Service order › Contractor › Name" for fields the dictionary does not name. */
+export function humanizeField(path: string): string {
+    return path.split('.').map((p) => { const t = p.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase(); return t.charAt(0).toUpperCase() + t.slice(1); }).join(' › ');
+}
+const fieldLabel = (entity: string | undefined, field: string) => ENTITY_DICTIONARY[entity ?? '']?.fields[field]?.label ?? humanizeField(field);
+
 /** The one line shown under an answer: what was searched. */
 export function describeSearch(parts: { entity?: string; filters?: FilterRule[]; groupBy?: string; period?: string; rows?: number; capped?: boolean; scope?: string; asOf?: Date }): string {
     const bits: string[] = [];
     if (parts.entity) bits.push(ENTITY_DICTIONARY[parts.entity]?.label ?? parts.entity);
-    if (parts.filters?.length) bits.push(parts.filters.map((f) => `${ENTITY_DICTIONARY[parts.entity ?? '']?.fields[f.field]?.label ?? f.field} ${f.operator} ${f.value}`).join(' and '));
+    if (parts.filters?.length) bits.push(parts.filters.map((f) => `${fieldLabel(parts.entity, f.field)} ${f.operator} ${f.value}`).join(' and '));
     else if (parts.entity) bits.push('no filters');
-    if (parts.groupBy) bits.push(`grouped by ${ENTITY_DICTIONARY[parts.entity ?? '']?.fields[parts.groupBy]?.label ?? parts.groupBy}`);
+    if (parts.groupBy) bits.push(`grouped by ${fieldLabel(parts.entity, parts.groupBy)}`);
     if (parts.period) bits.push(parts.period);
     if (parts.scope) bits.push(parts.scope);
     if (parts.rows !== undefined) bits.push(`${parts.rows.toLocaleString('en-US')}${parts.capped ? '+' : ''} row${parts.rows === 1 ? '' : 's'}`);

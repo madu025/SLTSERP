@@ -572,7 +572,7 @@ export class NexusAgentService {
                 },
                 {
                     name: "runCustomReport",
-                    description: "Build a custom tabular report from the database when the user asks for a report that the other tools do not cover. Entities and queryable fields: serviceOrder[soNum,status,sltsStatus,customerName,voiceNumber,rtom,completedDate,revenueAmount,createdAt]; materialUsage[serviceOrderId,quantity,unit,usageType,costPrice,unitPrice,createdAt,serviceOrder.soNum,serviceOrder.status,serviceOrder.rtom,item.code,item.name]; contractorStock[quantity,updatedAt,contractor.name,item.code,item.name]; journalEntry[referenceId,referenceType,description,date,createdAt]; wastage[month,description,status,createdAt,contractor.name,store.name]. Filter operators: equals, contains, gt, lt, gte, lte, startsWith (dates as YYYY-MM-DD). Optional aggregation groups rows and applies SUM, AVG or COUNT to one field. Returns at most 50 rows.",
+                    description: "Build a custom tabular report from the database when the user asks for a report that the other tools do not cover. Entities and queryable fields: serviceOrder[soNum,status,sltsStatus,customerName,voiceNumber,rtom,completedDate,revenueAmount,createdAt,contractor.name,contractor.status,opmc.name,opmc.rtom,opmc.region,opmc.province]; materialUsage[serviceOrderId,quantity,unit,usageType,costPrice,unitPrice,createdAt,serviceOrder.soNum,serviceOrder.status,serviceOrder.sltsStatus,serviceOrder.rtom,serviceOrder.completedDate,serviceOrder.contractor.name,serviceOrder.opmc.name,serviceOrder.opmc.region,item.code,item.name,item.category,item.type]; contractorStock[quantity,updatedAt,contractor.name,contractor.status,item.code,item.name,item.category]; journalEntry[referenceId,referenceType,description,date,createdAt]; wastage[month,description,status,createdAt,contractor.name,store.name]. Filter operators: equals, contains, gt, lt, gte, lte, startsWith (dates as YYYY-MM-DD). Optional aggregation groups rows and applies SUM, AVG or COUNT to one field. Returns at most 50 rows.",
                     parameters: {
                         type: "object",
                         properties: {
@@ -849,7 +849,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
             // Semantic layer: every name or value is checked against real data before the query runs
             const grounded = await groundReportFilters(entity, filters, opmcScope);
             if (grounded.issue) return { error: grounded.issue };
-            const report = await DynamicReportService.generateReport({ entity, columns, filters: grounded.filters, aggregation }, { scopeWhere });
+            const report = await DynamicReportService.generateReport({ entity, columns, filters: grounded.filters, aggregation }, { scopeWhere, opmcIds: opmcScope });
             const search = describeSearch({
                 entity, filters: grounded.filters, groupBy: aggregation?.groupBy, rows: report.rows.length, capped: report.capped, asOf: new Date(),
                 scope: opmcScope === undefined ? undefined : 'limited to your OPMC',
