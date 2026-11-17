@@ -4,6 +4,8 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { LedgerReportService } from '@/services/finance/ledger-report.service';
 import { swrMemo } from '@/lib/swr-memo';
 import { slWall, slInstant, slDayKey, slDaysInMonth, slStartOfDayKey } from '@/lib/sl-time';
+import { SOD_FINANCIAL_COMPLETION_STATUSES } from '@/lib/constants/sod-constants';
+const DONE = { in: [...SOD_FINANCIAL_COMPLETION_STATUSES] };
 import { groundValue, listRtoms } from '@/services/ai/semantic-layer.service';
 import { ExecutiveMetricService, resolvePeriod, type MetricId } from '@/services/ai/executive-metrics.service';
 import type { NexusCard, NexusTable } from '@/services/ai/nexus-agent.service';
@@ -70,8 +72,8 @@ export function backtestError(history: { projected: number; actual: number }[]):
 
 async function dailyCompleted(scope: Scope, from: Date, to: Date): Promise<number[]> {
     const rows = scope === undefined
-        ? await prisma.$queryRaw<{ d: string; n: bigint }[]>(Prisma.sql`SELECT to_char(("completedDate" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Colombo', 'YYYY-MM-DD') AS d, count(*) AS n FROM "ServiceOrder" WHERE "completedDate" >= ${from} AND "completedDate" <= ${to} GROUP BY 1`)
-        : await prisma.$queryRaw<{ d: string; n: bigint }[]>(Prisma.sql`SELECT to_char(("completedDate" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Colombo', 'YYYY-MM-DD') AS d, count(*) AS n FROM "ServiceOrder" WHERE "completedDate" >= ${from} AND "completedDate" <= ${to} AND "opmcId"::text = ANY(${[...scope]}::text[]) GROUP BY 1`);
+        ? await prisma.$queryRaw<{ d: string; n: bigint }[]>(Prisma.sql`SELECT to_char(("completedDate" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Colombo', 'YYYY-MM-DD') AS d, count(*) AS n FROM "ServiceOrder" WHERE "status"::text = ANY(${[...SOD_FINANCIAL_COMPLETION_STATUSES]}::text[]) AND "completedDate" >= ${from} AND "completedDate" <= ${to} GROUP BY 1`)
+        : await prisma.$queryRaw<{ d: string; n: bigint }[]>(Prisma.sql`SELECT to_char(("completedDate" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Colombo', 'YYYY-MM-DD') AS d, count(*) AS n FROM "ServiceOrder" WHERE "status"::text = ANY(${[...SOD_FINANCIAL_COMPLETION_STATUSES]}::text[]) AND "completedDate" >= ${from} AND "completedDate" <= ${to} AND "opmcId"::text = ANY(${[...scope]}::text[]) GROUP BY 1`);
     const byDay = new Map(rows.map((r) => [r.d, Number(r.n)]));
     const out: number[] = [];
     for (let t = slStartOfDayKey(day(from)).getTime(); t <= to.getTime(); t += DAY_MS) out.push(byDay.get(day(new Date(t))) ?? 0);
@@ -102,8 +104,8 @@ export class ExecutiveInsightService {
                 const weekStart = new Date(now.getTime() - 7 * DAY_MS);
                 const priorStart = new Date(weekStart.getTime() - 28 * DAY_MS);
                 const [recent, prior, open, old] = await Promise.all([
-                    prisma.serviceOrder.groupBy({ by: ['rtom'], where: { completedDate: { gte: weekStart, lte: now }, ...scopeWhere(scope) }, _count: { _all: true } }),
-                    prisma.serviceOrder.groupBy({ by: ['rtom'], where: { completedDate: { gte: priorStart, lt: weekStart }, ...scopeWhere(scope) }, _count: { _all: true } }),
+                    prisma.serviceOrder.groupBy({ by: ['rtom'], where: { status: DONE, completedDate: { gte: weekStart, lte: now }, ...scopeWhere(scope) }, _count: { _all: true } }),
+                    prisma.serviceOrder.groupBy({ by: ['rtom'], where: { status: DONE, completedDate: { gte: priorStart, lt: weekStart }, ...scopeWhere(scope) }, _count: { _all: true } }),
                     prisma.serviceOrder.groupBy({ by: ['rtom'], where: { status: { in: [...OPEN] }, ...scopeWhere(scope) }, _count: { _all: true } }),
                     prisma.serviceOrder.groupBy({ by: ['rtom'], where: { status: { in: [...OPEN] }, receivedDate: { lt: new Date(now.getTime() - 14 * DAY_MS) }, ...scopeWhere(scope) }, _count: { _all: true } }),
                 ]);
@@ -219,12 +221,12 @@ export class ExecutiveInsightService {
             const rtom = g.value;
             const base = { rtom, ...scopeWhere(scope) };
             const [cur, prev, open, old, rev, byContractor, byStatusR] = await Promise.all([
-                prisma.serviceOrder.count({ where: { ...base, completedDate: { gte: p.from, lte: p.to } } }),
-                prisma.serviceOrder.count({ where: { ...base, completedDate: { gte: p.prevFrom, lte: p.prevTo } } }),
+                prisma.serviceOrder.count({ where: { ...base, status: DONE, completedDate: { gte: p.from, lte: p.to } } }),
+                prisma.serviceOrder.count({ where: { ...base, status: DONE, completedDate: { gte: p.prevFrom, lte: p.prevTo } } }),
                 prisma.serviceOrder.count({ where: { ...base, status: { in: [...OPEN] } } }),
                 prisma.serviceOrder.count({ where: { ...base, status: { in: [...OPEN] }, receivedDate: { lt: new Date(now.getTime() - 14 * DAY_MS) } } }),
-                permissions.has(RBAC_PERMISSIONS.FINANCE_READ) ? prisma.serviceOrder.aggregate({ where: { ...base, completedDate: { gte: p.from, lte: p.to } }, _sum: { revenueAmount: true } }) : Promise.resolve(null),
-                prisma.serviceOrder.groupBy({ by: ['contractorId'], where: { ...base, completedDate: { gte: p.from, lte: p.to }, contractorId: { not: null } }, _count: { _all: true } }),
+                permissions.has(RBAC_PERMISSIONS.FINANCE_READ) ? prisma.serviceOrder.aggregate({ where: { ...base, status: DONE, completedDate: { gte: p.from, lte: p.to } }, _sum: { revenueAmount: true } }) : Promise.resolve(null),
+                prisma.serviceOrder.groupBy({ by: ['contractorId'], where: { ...base, status: DONE, completedDate: { gte: p.from, lte: p.to }, contractorId: { not: null } }, _count: { _all: true } }),
                 prisma.serviceOrder.groupBy({ by: ['status'], where: { ...base, completedDate: { gte: p.from, lte: p.to } }, _count: { _all: true } }),
             ]);
             if (cur + prev + open === 0) return { error: `No service orders found for RTOM ${rtom} within your access.` };
@@ -265,8 +267,8 @@ export class ExecutiveInsightService {
         const base = { contractorId: c.id, ...scopeWhere(scope) };
         const canStock = permissions.has(RBAC_PERMISSIONS.INVENTORY_READ);
         const [cur, prev, open, byStatus, stock, wastage] = await Promise.all([
-            prisma.serviceOrder.count({ where: { ...base, completedDate: { gte: p.from, lte: p.to } } }),
-            prisma.serviceOrder.count({ where: { ...base, completedDate: { gte: p.prevFrom, lte: p.prevTo } } }),
+            prisma.serviceOrder.count({ where: { ...base, status: DONE, completedDate: { gte: p.from, lte: p.to } } }),
+            prisma.serviceOrder.count({ where: { ...base, status: DONE, completedDate: { gte: p.prevFrom, lte: p.prevTo } } }),
             prisma.serviceOrder.count({ where: { ...base, status: { in: [...OPEN] } } }),
             prisma.serviceOrder.groupBy({ by: ['status'], where: { ...base, completedDate: { gte: p.from, lte: p.to } }, _count: { _all: true } }),
             canStock ? prisma.contractorStock.findMany({ where: { contractorId: c.id, quantity: { gt: 0 } }, select: { quantity: true, item: { select: { name: true } } }, orderBy: { quantity: 'desc' }, take: 200 }) : Promise.resolve(null),

@@ -4,6 +4,9 @@ import { LedgerReportService } from '@/services/finance/ledger-report.service';
 import { CompanyHealthService, monthBounds, type CompanyHealth, type Comparison } from '@/services/core/company-health.service';
 import { swrMemo } from '@/lib/swr-memo';
 import { slWall, slInstant, slDayKey } from '@/lib/sl-time';
+import { SOD_FINANCIAL_COMPLETION_STATUSES } from '@/lib/constants/sod-constants';
+/** "Completed" everywhere (dashboards and the assistant): the same five statuses the finance rules treat as done. */
+export const DONE = { in: [...SOD_FINANCIAL_COMPLETION_STATUSES] };
 import type { NexusCard, NexusTable } from '@/services/ai/nexus-agent.service';
 
 /**
@@ -79,9 +82,9 @@ const OPEN = ['PENDING', 'INPROGRESS', 'ASSIGNED'] as const;
 const METRICS: Record<MetricId, MetricDef> = {
     completed_orders: {
         id: 'completed_orders', label: 'Orders completed', unit: 'count', higherIsBetter: true, permissions: [RBAC_PERMISSIONS.SOD_READ], companyWide: false,
-        total: (r, c) => prisma.serviceOrder.count({ where: { completedDate: { gte: r.from, lte: r.to }, ...scopeWhere(c) } }),
+        total: (r, c) => prisma.serviceOrder.count({ where: { status: DONE, completedDate: { gte: r.from, lte: r.to }, ...scopeWhere(c) } }),
         byRtom: async (r, c) => {
-            const rows = await prisma.serviceOrder.groupBy({ by: ['rtom'], where: { completedDate: { gte: r.from, lte: r.to }, ...scopeWhere(c) }, _count: { _all: true } });
+            const rows = await prisma.serviceOrder.groupBy({ by: ['rtom'], where: { status: DONE, completedDate: { gte: r.from, lte: r.to }, ...scopeWhere(c) }, _count: { _all: true } });
             return new Map(rows.map((x) => [x.rtom, x._count._all]));
         },
     },
@@ -103,9 +106,9 @@ const METRICS: Record<MetricId, MetricDef> = {
     },
     orders_revenue: {
         id: 'orders_revenue', label: 'Revenue of completed orders', unit: 'currency', higherIsBetter: true, permissions: [RBAC_PERMISSIONS.SOD_READ, RBAC_PERMISSIONS.FINANCE_READ], companyWide: false,
-        total: async (r, c) => Number((await prisma.serviceOrder.aggregate({ where: { completedDate: { gte: r.from, lte: r.to }, ...scopeWhere(c) }, _sum: { revenueAmount: true } }))._sum.revenueAmount ?? 0),
+        total: async (r, c) => Number((await prisma.serviceOrder.aggregate({ where: { status: DONE, completedDate: { gte: r.from, lte: r.to }, ...scopeWhere(c) }, _sum: { revenueAmount: true } }))._sum.revenueAmount ?? 0),
         byRtom: async (r, c) => {
-            const rows = await prisma.serviceOrder.groupBy({ by: ['rtom'], where: { completedDate: { gte: r.from, lte: r.to }, ...scopeWhere(c) }, _sum: { revenueAmount: true } });
+            const rows = await prisma.serviceOrder.groupBy({ by: ['rtom'], where: { status: DONE, completedDate: { gte: r.from, lte: r.to }, ...scopeWhere(c) }, _sum: { revenueAmount: true } });
             return new Map(rows.map((x) => [x.rtom, Number(x._sum.revenueAmount ?? 0)]));
         },
     },

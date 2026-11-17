@@ -1,6 +1,10 @@
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
-import { DynamicReportService, DynamicReportPayload } from '@/services/inventory/dynamic-report.service';
+import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { getUserEffectivePermissions } from '@/lib/user-permissions';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { runUserReport } from '@/services/reports/report-center.service';
 import { z } from 'zod';
 
 const dynamicReportSchema = z.object({
@@ -18,13 +22,16 @@ const dynamicReportSchema = z.object({
     }).optional()
 });
 
-export const POST = apiHandler(async (_req, _params, body) => {
-    const payload = dynamicReportSchema.parse(body) as DynamicReportPayload;
-    const report = await DynamicReportService.generateReport(payload);
-    
-    // Return the report value to apiHandler so it owns the standard response
-    // envelope (`{ success: true, data: report }`) consumed by the UI.
-    return report;
+// Same secure runner as the Report Center: entity capability, finance/cost field capability and OPMC scope are enforced.
+export const POST = apiHandler(async (_req, params, body) => {
+    const payload = dynamicReportSchema.parse(body);
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
+    const [permissions, scope] = await Promise.all([getUserEffectivePermissions(userId), resolveOpmcScope(userId)]);
+    const result = await runUserReport(payload, new Set(permissions), scope, { rowLimit: 500 });
+    if ('error' in result) throw AppError.badRequest(result.error);
+    return result;
 }, {
+    permissions: [RBAC_PERMISSIONS.REPORTS_READ],
     audit: { action: 'GENERATE_DYNAMIC_REPORT', entity: 'Reports' }
 });

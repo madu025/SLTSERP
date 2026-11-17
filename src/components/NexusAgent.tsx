@@ -18,6 +18,7 @@ import {
     MessageSquare,
     ThumbsUp,
     ThumbsDown,
+    Flag,
     Maximize2,
     Download,
     GripVertical,
@@ -420,6 +421,18 @@ export default function NexusAgent() {
         }
     };
 
+    const [flaggedIds, setFlaggedIds] = useState<string[]>([]);
+    /** "This number is wrong": sends the question, the searched line and the answer to the audit log for review. */
+    const flagWrong = async (msg: Message) => {
+        const idx = messages.findIndex((m) => m.id === msg.id);
+        const question = [...messages.slice(0, idx)].reverse().find((m) => m.sender === 'user')?.text ?? '';
+        setFlaggedIds((prev) => [...prev, msg.id]);
+        try {
+            const res = await fetch('/api/ai/report-wrong', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: question.slice(0, 500) || '(unknown)', answer: msg.text?.slice(0, 2000), evidence: msg.evidence?.slice(0, 1000) }) });
+            if (res.ok) toast.success('Flagged for review. Thank you.');
+        } catch (e) { console.error('Failed to flag answer', e); }
+    };
+
     // Auto-scroll to bottom of messages
     useEffect(() => {
         if (messagesEndRef.current) {
@@ -799,6 +812,17 @@ export default function NexusAgent() {
                                                     </div>
                                                 )}
                                                 
+                                                {msg.sender === 'agent' && (msg.evidence || msg.table || msg.cards) && (
+                                                    <button
+                                                        onClick={() => flagWrong(msg)}
+                                                        disabled={flaggedIds.includes(msg.id)}
+                                                        className="mt-1 ml-1 inline-flex items-center gap-1 rounded border border-slate-700 bg-[#0F172A] px-1.5 py-0.5 text-[10px] font-semibold text-slate-200 hover:border-rose-400 hover:text-rose-300 disabled:opacity-70"
+                                                        title="Tell us this number or list looks wrong"
+                                                    >
+                                                        <Flag className="w-3 h-3" />{flaggedIds.includes(msg.id) ? 'Flagged' : 'Looks wrong?'}
+                                                    </button>
+                                                )}
+
                                                 {msg.evidence && (
                                                     <div className="mt-1 ml-1 rounded-lg border border-slate-700/80 bg-[#0F172A] px-2 py-1 text-[10px] leading-snug text-slate-200" title="What was searched, so you can check the answer">
                                                         <span className="font-bold text-sky-300">Searched: </span>{msg.evidence}

@@ -10,7 +10,8 @@ import { ContractorScorecardService } from '@/services/contractor/contractor-sco
 import { OpsScoreboardService } from '@/services/service-order/ops-scoreboard.service';
 import { ProcurementPerformanceService } from '@/services/procurement/procurement-performance.service';
 import { InventoryHealthService } from '@/services/inventory/inventory-health.service';
-import { slWall, slInstant } from '@/lib/sl-time';
+import { slWall, slInstant, slDayKey } from '@/lib/sl-time';
+const DONE = { in: [...SOD_FINANCIAL_COMPLETION_STATUSES] };
 import { VendorScorecardService } from '@/services/procurement/vendor-scorecard.service';
 import { buildSupplyChainExceptions } from '@/services/procurement/supply-chain-exceptions';
 import { SpendService } from '@/services/procurement/spend.service';
@@ -335,8 +336,8 @@ export class CompanyHealthService {
             prisma.serviceOrder.count({ where: open }),
             prisma.serviceOrder.count({ where: { ...open, receivedDate: { lt: new Date(now.getTime() - 10 * DAY_MS) } } }),
             prisma.serviceOrder.count({ where: { ...open, receivedDate: { lt: new Date(now.getTime() - 30 * DAY_MS) } } }),
-            prisma.serviceOrder.count({ where: { completedDate: { gte: b.currentStart, lte: now } } }),
-            prisma.serviceOrder.count({ where: { completedDate: { gte: b.previousStart, lte: b.previousSameSpanEnd } } }),
+            prisma.serviceOrder.count({ where: { status: DONE, completedDate: { gte: b.currentStart, lte: now } } }),
+            prisma.serviceOrder.count({ where: { status: DONE, completedDate: { gte: b.previousStart, lte: b.previousSameSpanEnd } } }),
         ]);
 
         if (aged30 > 0) {
@@ -385,13 +386,13 @@ export class CompanyHealthService {
         const trendTask = (async () => {
         try {
             const months = lastMonths(now, 6);
-            const rows = await prisma.$queryRawUnsafe<{ m: Date; n: bigint | number }[]>(
-                `SELECT date_trunc('month', "completedDate" AT TIME ZONE 'UTC') AS m, count(*) AS n FROM "ServiceOrder"
+            const rows = await prisma.$queryRawUnsafe<{ m: string; n: bigint | number }[]>(
+                `SELECT to_char(date_trunc('month', ("completedDate" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Colombo'), 'YYYY-MM') AS m, count(*) AS n FROM "ServiceOrder"
                  WHERE "status"::text = ANY($1::text[]) AND "completedDate" >= $2::timestamptz AND "completedDate" <= $3::timestamptz GROUP BY 1`,
                 [...SOD_FINANCIAL_COMPLETION_STATUSES] as string[], months[0].start, now,
             );
-            const byMonth = new Map(rows.map((r) => [new Date(r.m).toISOString().slice(0, 7), Number(r.n)]));
-            completedMonthly = months.map((m) => ({ label: m.label, completed: byMonth.get(m.start.toISOString().slice(0, 7)) ?? 0 }));
+            const byMonth = new Map(rows.map((r) => [r.m, Number(r.n)]));
+            completedMonthly = months.map((m) => ({ label: m.label, completed: byMonth.get(slDayKey(m.start).slice(0, 7)) ?? 0 }));
         } catch (error) {
             console.warn('[COMPANY-HEALTH] Completions trend skipped:', error instanceof Error ? error.message : error);
         }

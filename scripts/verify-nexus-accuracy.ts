@@ -69,6 +69,40 @@ async function main() {
         report(bad === 0, `sweep ${entity}: ${n} group-by fields reconcile`, examples.slice(0, 2).join(' | '));
     }
 
+    // ---- executive metrics and the dashboard must agree with the database and with each other ----
+    {
+        const { ExecutiveMetricService, resolvePeriod } = await import('../src/services/ai/executive-metrics.service');
+        const { CompanyHealthService } = await import('../src/services/core/company-health.service');
+        const { RBAC_PERMISSIONS } = await import('../src/config/rbac-permissions');
+        const { ExecutiveInsightService } = await import('../src/services/ai/executive-insights.service');
+        const perms = new Set<string>(Object.values(RBAC_PERMISSIONS) as string[]);
+        const now = new Date();
+        const p = resolvePeriod('this_month', now);
+        const one = async (q: string) => Number((await prisma.$queryRawUnsafe<Array<{ v: unknown }>>(q))[0].v);
+        const DONE = `('COMPLETED','INSTALL_CLOSED','PROV_CLOSED','PAT_OPMC_PASSED','PAT_CORRECTED')`;
+        const between = (col: string) => `"${col}" >= '${p.from.toISOString()}'::timestamptz AND "${col}" <= '${p.to.toISOString()}'::timestamptz`;
+        const eq = (name: string, got: number, want: number) => report(Math.abs(got - want) < 0.01, name, `agent=${got} db=${want}`);
+        const val = async (id: string, from = p.from, to = p.to) => { const v = await ExecutiveMetricService.value(id as never, from, to, perms, undefined); return typeof v === 'number' ? v : NaN; };
+        eq('metric completed_orders (this month, Colombo) = SQL', await val('completed_orders'), await one(`select count(*)::float v from "ServiceOrder" where status::text in ${DONE} and ${between('completedDate')}`));
+        eq('metric new_orders = SQL', await val('new_orders'), await one(`select count(*)::float v from "ServiceOrder" where ${between('receivedDate')}`));
+        eq('metric open_orders = SQL', await val('open_orders'), await one(`select count(*)::float v from "ServiceOrder" where status::text in ('PENDING','INPROGRESS','ASSIGNED')`));
+        eq('metric orders_revenue = SQL', await val('orders_revenue'), await one(`select coalesce(sum("revenueAmount"),0)::float v from "ServiceOrder" where status::text in ${DONE} and ${between('completedDate')}`));
+        const health = await CompanyHealthService.getCompanyHealth([...perms], now);
+        eq('dashboard "completed" card = assistant completed_orders', health.operations?.completed.current ?? NaN, await val('completed_orders'));
+        eq('dashboard open orders = assistant open_orders', health.operations?.openOrders ?? NaN, await val('open_orders'));
+        const lastMonthly = health.operations?.completedMonthly.at(-1)?.completed ?? NaN;
+        eq('dashboard monthly chart (this month) = assistant completed_orders', lastMonthly, await val('completed_orders'));
+        if (health.finance) {
+            eq('dashboard revenue = assistant revenue', health.finance.revenue.current, await val('revenue'));
+            eq('dashboard expense = assistant expense', health.finance.expense.current, await val('expense'));
+        }
+        // brief, anomalies, projection must run end to end and never return an error for a user with full access
+        for (const [name, fn] of [['anomalies', () => ExecutiveInsightService.anomalies(perms, undefined)], ['projection (completed_orders)', () => ExecutiveInsightService.project('completed_orders', perms, undefined)], ['profile of a contractor', async () => ExecutiveInsightService.profile('contractor', (await prisma.contractor.findFirst({ select: { name: true } }))!.name, perms, undefined)]] as const) {
+            const r = await (fn as () => Promise<Record<string, unknown>>)();
+            report(!('error' in r), `executive ${name} runs`, 'error' in r ? String(r.error) : '');
+        }
+    }
+
     // ---- safety: hostile input is rejected or treated as plain text ----
     for (const g of ['item.name; drop table x', 'item."name', 'serviceOrder.contractor.password']) {
         const r = await run('materialUsage', [], [], { groupBy: g, targetField: 'quantity', type: 'SUM' });

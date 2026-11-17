@@ -15,7 +15,7 @@ import { ExecutiveMetricService, METRIC_IDS, type MetricId } from '@/services/ai
 import { ExecutiveInsightService } from '@/services/ai/executive-insights.service';
 import { groundReportFilters, describeSearch, SERVICE_ORDER_STATUSES } from '@/services/ai/semantic-layer.service';
 import { NexusLocalReplyService, type ToolRun } from '@/services/ai/nexus-local-reply.service';
-import { DynamicReportService, type DynamicReportPayload, type FilterRule, type AggregationConfig } from '@/services/inventory/dynamic-report.service';
+import { runUserReport } from '@/services/reports/report-center.service';
 import type { NexusOpmcScope } from '@/services/ai/nexus-context.service';
 
 import { safeJsonParse } from '@/utils/safeJsonParse';
@@ -819,49 +819,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
      * OPMCs may only report on entities that can be scoped to those OPMCs (the scope is injected here).
      */
     private static async runCustomReportTool(args: Record<string, unknown> | undefined, permissions: ReadonlySet<string>, opmcScope: NexusOpmcScope) {
-        const entity = String(args?.entity ?? '') as DynamicReportPayload['entity'];
-        const columns = Array.isArray(args?.columns) ? (args!.columns as unknown[]).map(String) : [];
-        const filters = (Array.isArray(args?.filters) ? args!.filters as FilterRule[] : []).map((f) => ({ field: String(f.field), operator: f.operator, value: String(f.value) }));
-        const agg = args?.aggregation as AggregationConfig | undefined;
-        const aggregation = agg && agg.groupBy && agg.targetField && agg.type ? { groupBy: String(agg.groupBy), targetField: String(agg.targetField), type: agg.type } : undefined;
-
-        const entityPermission: Record<string, string> = {
-            serviceOrder: RBAC_PERMISSIONS.SOD_READ,
-            materialUsage: RBAC_PERMISSIONS.SOD_READ,
-            contractorStock: RBAC_PERMISSIONS.INVENTORY_READ,
-            wastage: RBAC_PERMISSIONS.INVENTORY_READ,
-            journalEntry: RBAC_PERMISSIONS.FINANCE_READ,
-        };
-        const required = entityPermission[entity];
-        if (!required || !permissions.has(required)) return { error: 'You do not have access to this report.' };
-
-        const used = [...columns, ...filters.map((f) => f.field), ...(aggregation ? [aggregation.groupBy, aggregation.targetField] : [])];
-        if (used.some((f) => f === 'revenueAmount') && !permissions.has(RBAC_PERMISSIONS.FINANCE_READ)) return { error: 'Revenue figures require finance access.' };
-        if (used.some((f) => f === 'costPrice' || f === 'unitPrice') && !permissions.has(RBAC_PERMISSIONS.INVENTORY_COST_READ)) return { error: 'Cost figures require inventory cost access.' };
-
-        let scopeWhere: Record<string, unknown> | undefined;
-        if (opmcScope !== undefined) {
-            if (entity === 'serviceOrder') scopeWhere = { opmcId: { in: [...opmcScope] } };
-            else if (entity === 'materialUsage') scopeWhere = { serviceOrder: { opmcId: { in: [...opmcScope] } } };
-            else return { error: 'This report is only available to users with company-wide access.' };
-        }
-
-        try {
-            // Semantic layer: every name or value is checked against real data before the query runs
-            const grounded = await groundReportFilters(entity, filters, opmcScope);
-            if (grounded.issue) return { error: grounded.issue };
-            const report = await DynamicReportService.generateReport({ entity, columns, filters: grounded.filters, aggregation }, { scopeWhere, opmcIds: opmcScope });
-            const search = describeSearch({
-                entity, filters: grounded.filters, groupBy: aggregation?.groupBy, rows: report.rows.length, capped: report.capped, asOf: new Date(),
-                scope: opmcScope === undefined ? undefined : 'limited to your OPMC',
-            }) + ((report as { verified?: boolean }).verified ? ' · ✓ totals reconciled' : '') + (grounded.evidence.length ? ` · ${grounded.evidence.join('; ')}` : '');
-            return { type: report.type, columns: report.columns, totalRows: report.rows.length, rows: report.rows.slice(0, 50), truncated: report.rows.length > 50 || report.capped, capped: report.capped, search };
-        } catch (error) {
-            // Only our own validation messages are shown; database/Prisma errors can contain internal paths and queries.
-            const known = error instanceof Error && /^(INVALID_ENTITY|INVALID_COLUMN|INVALID_FILTER|INVALID_AGGREGATION)/.test(error.message);
-            if (!known) console.error('[NEXUS] Custom report failed:', error instanceof Error ? error.message.trim().split(/\r?\n/).filter(Boolean).slice(-4).join(' | ') : error);
-            return { error: known ? (error as Error).message : 'The report could not be built with those filters. Check the field names, operators and values.' };
-        }
+        return runUserReport(args, permissions, opmcScope);
     }
 
 
@@ -956,8 +914,31 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
             : `CURRENT REQUEST (handle only this): ${message}`;
     }
 
-    /** Runs one assistant tool for the caller. Shared by every model provider so permission and scope checks live in one place. */
+    /**
+     * Every tool call is written to the audit log (who, which tool, with what arguments, how long, how many rows,
+     * whether it was refused). The rows themselves are never stored, only counts and the "searched" line, so the
+     * log can show how a figure was produced without becoming a second copy of the data.
+     */
     private static async executeTool(
+        funcName: string,
+        args: Record<string, unknown> | undefined,
+        ctx: { permissions: ReadonlySet<string>; opmcScope: NexusOpmcScope; hasFinanceAccess: boolean; userId?: string },
+    ): ReturnType<typeof NexusAgentService.runTool> {
+        const started = Date.now();
+        const executed = await this.runTool(funcName, args, ctx);
+        const r = executed.result as { error?: unknown; totalRows?: number; search?: string } | null | undefined;
+        void import('@/services/audit').then(({ AuditService }) => AuditService.log({
+            userId: ctx.userId ?? 'SYSTEM',
+            action: 'NEXUS_TOOL',
+            entity: 'NexusAgent',
+            entityId: funcName,
+            newValue: { args, ms: Date.now() - started, refused: !!r?.error, error: typeof r?.error === 'string' ? r.error.slice(0, 200) : undefined, rows: r?.totalRows, search: r?.search, scoped: ctx.opmcScope !== undefined },
+        })).catch(() => undefined);
+        return executed;
+    }
+
+    /** Runs one assistant tool for the caller. Shared by every model provider so permission and scope checks live in one place. */
+    private static async runTool(
         funcName: string,
         args: Record<string, unknown> | undefined,
         ctx: { permissions: ReadonlySet<string>; opmcScope: NexusOpmcScope; hasFinanceAccess: boolean; userId?: string },
