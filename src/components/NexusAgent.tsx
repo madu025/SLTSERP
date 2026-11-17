@@ -29,6 +29,14 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 
+interface NexusTable {
+    title: string;
+    columns: string[];
+    rows: Record<string, unknown>[];
+    totalRows: number;
+    truncated: boolean;
+}
+
 interface NexusChart {
     type: 'bar' | 'pie' | 'line';
     title: string;
@@ -71,6 +79,7 @@ interface Message {
     query?: string;
     feedbackStatus?: 'UP' | 'DOWN' | null;
     chart?: NexusChart;
+    table?: NexusTable;
 }
 
 interface NexusAlert {
@@ -185,6 +194,23 @@ export default function NexusAgent() {
         toast.success("Nexus Agent position reset to default");
     };
     
+    const formatCell = (v: unknown) => {
+        if (v === null || v === undefined || v === '') return '—';
+        if (typeof v === 'number') return v.toLocaleString('en-US', { maximumFractionDigits: 2 });
+        const t = String(v);
+        return /^\d{4}-\d{2}-\d{2}T/.test(t) ? t.slice(0, 10) : t;
+    };
+
+    const downloadTableCSV = (table: NexusTable) => {
+        const esc = (v: unknown) => `"${String(formatCell(v) === '—' ? '' : v ?? '').replace(/"/g, '""')}"`;
+        const csv = [table.columns.map(esc).join(','), ...table.rows.map((r) => table.columns.map((k) => esc(r[k])).join(','))].join('\r\n');
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }));
+        link.download = `${table.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.csv`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+    };
+
     const downloadChartCSV = (chart: NexusChart) => {
         if (!chart.data || chart.data.length === 0) return;
         const keys = Object.keys(chart.data[0]);
@@ -325,6 +351,7 @@ export default function NexusAgent() {
                 text: resData.response || 'සමාවන්න, ප්‍රතිචාරයක් ලබා ගැනීමට නොහැකි විය.', 
                 actions: resData.actions || undefined,
                 chart: resData.chart || undefined,
+                table: resData.table || undefined,
                 intent: resData.intent,
                 query: resData.query,
                 timestamp: new Date() 
@@ -664,6 +691,45 @@ export default function NexusAgent() {
                                                     </div>
                                                 )}
                                                 
+                                                {/* Report table (rows come straight from the database, not from the model) */}
+                                                {msg.table && (
+                                                    <div className="mt-2 w-full rounded-xl border border-slate-700/80 bg-[#0F172A] shadow-md ml-1 overflow-hidden">
+                                                        <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-700/80 bg-slate-800">
+                                                            <span className="text-[10px] font-bold text-white truncate">{msg.table.title}</span>
+                                                            <button
+                                                                onClick={() => downloadTableCSV(msg.table!)}
+                                                                className="text-[10px] font-bold text-sky-300 hover:text-white cursor-pointer whitespace-nowrap"
+                                                                title="Download as CSV (opens in Excel)"
+                                                            >
+                                                                Download CSV
+                                                            </button>
+                                                        </div>
+                                                        <div className="max-h-60 overflow-auto">
+                                                            <table className="w-full text-[10px] border-collapse">
+                                                                <thead className="sticky top-0">
+                                                                    <tr>
+                                                                        {msg.table.columns.map((col) => (
+                                                                            <th key={col} className="px-2 py-1.5 text-left font-bold !bg-slate-800 !text-white whitespace-nowrap border-b border-slate-700">{col}</th>
+                                                                        ))}
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {msg.table.rows.map((row, ri) => (
+                                                                        <tr key={ri} className={ri % 2 ? 'bg-slate-900' : 'bg-[#0F172A]'}>
+                                                                            {msg.table!.columns.map((col) => (
+                                                                                <td key={col} className={`px-2 py-1 text-slate-100 whitespace-nowrap border-b border-slate-800 ${typeof row[col] === 'number' ? 'text-right tabular-nums' : ''}`}>{formatCell(row[col])}</td>
+                                                                            ))}
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                        <div className="px-3 py-1.5 text-[10px] text-slate-300 border-t border-slate-700/80">
+                                                            {msg.table.truncated ? `Showing ${msg.table.rows.length} of ${msg.table.totalRows} rows (the report is limited to the most recent rows)` : `${msg.table.totalRows} row${msg.table.totalRows === 1 ? '' : 's'}`}
+                                                        </div>
+                                                    </div>
+                                                )}
+
                                                 {/* Render Chart if available */}
                                                 {msg.chart && (
                                                     <div className="mt-2 w-[280px] md:w-[320px] bg-[#0F172A] border border-slate-700/80 rounded-xl p-3 shadow-md ml-1 relative group">

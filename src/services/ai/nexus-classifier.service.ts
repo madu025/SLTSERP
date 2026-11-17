@@ -287,6 +287,26 @@ export class NexusClassifierService {
   }
 
   /**
+   * True when the message is (nearly) one of the phrases the model was trained on for this intent.
+   * The Bayes score alone is overconfident on unseen wording (a "service orders status wise count report"
+   * request scored 96.7% PROCUREMENT), so a fixed local answer is only allowed for known phrasings.
+   */
+  static async hasNearExample(message: string, intent: string, minSimilarity = 0.75): Promise<boolean> {
+    const mine = new Set(this.tokenize(message));
+    if (mine.size === 0) return false;
+    const data = await this.getTrainingData();
+    for (const ex of data) {
+      if (ex.intent !== intent) continue;
+      const theirs = new Set(this.tokenize(ex.text));
+      let shared = 0;
+      for (const t of mine) if (theirs.has(t)) shared++;
+      const union = mine.size + theirs.size - shared;
+      if (union > 0 && shared / union >= minSimilarity) return true;
+    }
+    return false;
+  }
+
+  /**
    * Adds a new example to the dynamic dataset and triggers retraining atomically
    */
   static async addTrainingExample(intent: string, text: string): Promise<void> {

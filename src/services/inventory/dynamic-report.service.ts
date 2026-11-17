@@ -76,6 +76,9 @@ export class DynamicReportService {
         wastage: ['id', 'contractorId', 'storeId', 'month', 'description', 'status', 'approvedById', 'approvedAt', 'createdAt', 'contractor.name', 'store.name']
     };
 
+    // contractorStock has no createdAt column; ordering by a missing field made that report fail
+    private static orderField: Record<string, string> = { contractorStock: 'updatedAt' };
+
     private static prismaKeys: Record<string, string> = {
         serviceOrder: 'serviceOrder',
         materialUsage: 'sODMaterialUsage',
@@ -142,6 +145,33 @@ export class DynamicReportService {
             includeClause = undefined;
         }
 
+        // Aggregations over a flat column are computed by the database over ALL matching rows. The in-memory
+        // path below only sees the newest 500 rows, which made counts such as "orders per status" wrong.
+        if (aggregation && aggregation.groupBy && !aggregation.groupBy.includes('.') && !aggregation.targetField.includes('.')
+            && allowedFields.includes(aggregation.groupBy) && allowedFields.includes(aggregation.targetField)) {
+            const dbWhere = opts.scopeWhere ? { AND: [whereClause, opts.scopeWhere] } : whereClause;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const dbClient = (prisma as any)[this.prismaKeys[entity]];
+            const label = `${aggregation.type}_OF_${aggregation.targetField}`;
+            try {
+                const grouped = await dbClient.groupBy({
+                    by: [aggregation.groupBy],
+                    where: dbWhere,
+                    ...(aggregation.type === 'COUNT' ? { _count: { _all: true } }
+                        : aggregation.type === 'SUM' ? { _sum: { [aggregation.targetField]: true } }
+                        : { _avg: { [aggregation.targetField]: true } }),
+                });
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const rows = (grouped as any[]).map((g) => {
+                    const raw = aggregation.type === 'COUNT' ? g._count._all : aggregation.type === 'SUM' ? g._sum[aggregation.targetField] : g._avg[aggregation.targetField];
+                    return { [aggregation.groupBy]: g[aggregation.groupBy] === null || g[aggregation.groupBy] === undefined ? 'N/A' : String(g[aggregation.groupBy]), [label]: Number(Number(raw ?? 0).toFixed(2)) };
+                }).sort((a, b) => Number(b[label]) - Number(a[label]));
+                return { type: 'AGGREGATED', columns: [aggregation.groupBy, label], rows };
+            } catch {
+                // SUM/AVG on a non-numeric column, or a column the database cannot group: use the bounded path below
+            }
+        }
+
         // 4. Fetch Raw Data from Master
         // We cast prisma client to any to call dynamic methods safely
         const prismaKey = this.prismaKeys[entity];
@@ -150,7 +180,7 @@ export class DynamicReportService {
         const rawRecords = await client.findMany({
             where: opts.scopeWhere ? { AND: [whereClause, opts.scopeWhere] } : whereClause,
             include: includeClause,
-            orderBy: { createdAt: 'desc' },
+            orderBy: { [this.orderField[entity] ?? 'createdAt']: 'desc' },
             // Keep interactive report generation bounded on production-sized
             // datasets. The UI is an operational report, not an unbounded
             // table export; CSV export can be extended with server pagination.

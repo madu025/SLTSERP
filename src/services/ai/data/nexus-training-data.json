@@ -13066,5 +13066,9 @@
   {
     "intent": "PROCUREMENT",
     "text": "how any pending grn"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "how many registered contractors?"
   }
 ]

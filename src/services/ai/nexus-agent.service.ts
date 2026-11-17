@@ -16,6 +16,7 @@ import { safeJsonParse } from '@/utils/safeJsonParse';
 
 /** Circuit breaker: opens after 5 consecutive Gemini API failures, resets after 30s */
 const geminiBreaker = new CircuitBreaker(5, 30_000, 'Gemini-AI');
+const deepseekBreaker = new CircuitBreaker(5, 30_000, 'DeepSeek-AI');
 
 // Trigger background model training asynchronously on load
 NexusClassifierService.train().then(() => {
@@ -59,7 +60,16 @@ export interface NexusChart {
     seriesKeys: string[];
 }
 
+export interface NexusTable {
+    title: string;
+    columns: string[];
+    rows: Record<string, unknown>[];
+    totalRows: number;
+    truncated: boolean;
+}
+
 export interface NexusResponse {
+    table?: NexusTable;
     response: string;
     actions?: NexusAction[];
     intent?: string;
@@ -220,14 +230,14 @@ export class NexusAgentService {
         const permissionSet = new Set(userPermissions);
 
         // Predictive Intent Classification for Offline Fallback ONLY
-        const intent = NexusClassifierService.predict(message);
+        const predicted = NexusClassifierService.predict(message);
         const actions: NexusAction[] = [];
         
         // Enforce canonical capability-based information hiding. The route is
         // authenticated, but each module still needs its own read capability.
-        if (!this.canReadIntent(intent, msgLower, permissionSet)) {
+        if (!this.canReadIntent(predicted, msgLower, permissionSet)) {
             return {
-                intent,
+                intent: predicted,
                 query: message,
                 response: '⚠️ Unauthorized: you do not have the canonical permission required for this module. This query has been blocked for security.',
                 actions: [],
@@ -235,7 +245,7 @@ export class NexusAgentService {
             };
         }
 
-        if (apiKey) {
+        if (apiKey || process.env.DEEPSEEK_API_KEY) {
             try {
                 const history = await NexusMemoryService.getConversation(userId);
                 const result = await this.runAgenticLoop(message, history, userName, permissionSet, opmcScope);
@@ -255,6 +265,9 @@ export class NexusAgentService {
         }
 
         // --- OFFLINE FALLBACK ---
+        // Only answer with a fixed module summary when the question is a phrasing we know. Otherwise a
+        // report-style request ("status wise count") was answered with an unrelated Procurement summary.
+        const intent = (await NexusClassifierService.hasNearExample(message, predicted)) ? predicted : 'UNKNOWN';
         let response = 'ආයුබෝවන්! මම Nexus AI Agent. මට ඔබට Inventory, Projects, Finance, සහ Procurement ආශ්‍රිත සියලුම දත්ත ලබා දිය හැක. උදාහරණ:\n- "low stock items මොනවාද?"\n- "how many registered contractors?"';
         const suggestions = ["gabadu gana kiyada?", "total materials info danna?", "how many registered contractors?"];
 
@@ -320,7 +333,7 @@ export class NexusAgentService {
         const msgLowerForChart = message.toLowerCase();
         const wantsChart = msgLowerForChart.includes('chart') || msgLowerForChart.includes('graph') || msgLowerForChart.includes('prastar') || msgLowerForChart.includes('satahan') || msgLowerForChart.includes('plot');
         
-        if (confidence > 0.85) {
+        if (confidence > 0.85 && await NexusClassifierService.hasNearExample(message, intent)) {
             console.log(`[ROUTER] High confidence local prediction: ${intent} (${(confidence * 100).toFixed(1)}%) -> BYPASSING CLOUD API`);
             
             // Hardcoded zero-cost Local AI static responses for known intents
@@ -573,10 +586,21 @@ Example 2: "Show OPMC daily progress bar chart"
   }
 }
 
-CUSTOM REPORTS: if the user asks for a report/list/summary the other tools do not cover, call runCustomReport, then present the rows as a clear markdown table in "reply" (state the filters used and how many rows). If it returns an error, tell the user plainly; never invent rows.
+CUSTOM REPORTS: if the user asks for a report/list/summary the other tools do not cover, call runCustomReport. The system shows the rows to the user as a table automatically, so do NOT write a markdown table; in "reply" give a short summary (what you filtered, how many rows, one or two notable findings). If it returns an error, tell the user plainly; never invent rows.
 
 NOTE: Only include the "chart" key if the user explicitly asks to visualize, draw a graph, or chart the data. Otherwise, omit it entirely.
 `;
+
+        const deepseekKey = process.env.DEEPSEEK_API_KEY;
+        if (deepseekKey && process.env.NEXUS_LLM_PROVIDER !== 'gemini') {
+            try {
+                const out = await this.runDeepSeekLoop(deepseekKey, systemPrompt, history, message, tools[0].functionDeclarations, { permissions, opmcScope, hasFinanceAccess });
+                if (out) return this.finalizeReply(out.text, message, out.executedIntent, out.didCheckLowStock, out.table);
+            } catch (error) {
+                console.error('[NEXUS] DeepSeek call failed:', error instanceof Error ? error.message : error, (error as { cause?: { code?: string; message?: string } })?.cause?.code ?? (error as { cause?: { message?: string } })?.cause?.message ?? '');
+            }
+            if (!apiKey) return null;
+        }
 
         const contents: Array<{ role: string; parts: unknown[] }> = [
             ...history,
@@ -611,6 +635,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
         const MAX_ITERATIONS = 3;
         let didCheckLowStock = false;
         let executedIntent: string | null = null;
+        let reportTable: NexusTable | undefined;
 
         while (functionCalls.length > 0 && iterations < MAX_ITERATIONS) {
             iterations++;
@@ -622,45 +647,11 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
 
             for (const fc of functionCalls) {
                 const funcName = fc.name;
-                let funcResult = {};
-
-                // Execute local function
-                if (funcName === 'getFinanceContext' && hasFinanceAccess) {
-                    funcResult = await NexusContextService.getFinanceContext(opmcScope);
-                    executedIntent = 'FINANCE';
-                } else if (funcName === 'getProjectsContext' && permissions.has(RBAC_PERMISSIONS.PROJECT_READ)) {
-                    funcResult = await NexusContextService.getProjectsContext(opmcScope);
-                    executedIntent = 'PROJECTS';
-                } else if (funcName === 'getInventoryLowStockContext' && permissions.has(RBAC_PERMISSIONS.INVENTORY_READ)) {
-                    didCheckLowStock = true;
-                    funcResult = await NexusContextService.getInventoryLowStockContext(opmcScope);
-                    executedIntent = 'INVENTORY_LOW';
-                } else if (funcName === 'getContractorsContext' && permissions.has(RBAC_PERMISSIONS.CONTRACTOR_READ)) {
-                    funcResult = await NexusContextService.getContractorsContext(opmcScope);
-                    executedIntent = 'CONTRACTORS';
-                } else if (funcName === 'getStoresContext' && permissions.has(RBAC_PERMISSIONS.INVENTORY_READ)) {
-                    funcResult = await NexusContextService.getStoresContext(opmcScope);
-                    executedIntent = 'STORES';
-                } else if (funcName === 'getProcurementContext' && permissions.has(RBAC_PERMISSIONS.PROCUREMENT_READ)) {
-                    funcResult = await NexusContextService.getProcurementContext(opmcScope);
-                    executedIntent = 'PROCUREMENT';
-                } else if (funcName === 'getBOMInvoicesContext' && hasFinanceAccess) {
-                    funcResult = await NexusContextService.getBOMInvoicesContext(opmcScope);
-                    executedIntent = 'BOM_INVOICES';
-                } else if (funcName === 'getServiceOrderProgressContext' && permissions.has(RBAC_PERMISSIONS.SOD_READ)) {
-                    const args = fc.args as Record<string, string> | undefined;
-                    funcResult = await NexusContextService.getServiceOrderProgressContext(args?.opmcCode, opmcScope);
-                    // Service order maps loosely to projects or a new intent, skipping mapping for simplicity
-                } else if (funcName === 'getJobCostingContext' && hasFinanceAccess) {
-                    const args = fc.args as Record<string, string> | undefined;
-                    funcResult = await NexusContextService.getJobCostingContext(args, opmcScope);
-                    executedIntent = 'JOB_COSTING';
-                } else if (funcName === 'runCustomReport') {
-                    funcResult = await this.runCustomReportTool(fc.args, permissions, opmcScope);
-                    executedIntent = null;
-                } else {
-                    funcResult = { error: "Unauthorized or unknown function." };
-                }
+                const executed = await this.executeTool(funcName, fc.args, { permissions, opmcScope, hasFinanceAccess });
+                const funcResult = executed.result;
+                if (executed.intent !== undefined) executedIntent = executed.intent;
+                if (executed.checkedLowStock) didCheckLowStock = true;
+                if (executed.table) reportTable = executed.table;
 
                 functionResponses.push({
                     functionResponse: {
@@ -704,10 +695,14 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
 
         const textReply = data.candidates?.[0]?.content?.parts?.find((p: { text?: string }) => p.text)?.text;
         if (!textReply) {
-            console.log("[DEBUG] textReply is null! Raw data:", JSON.stringify(data, null, 2));
+            console.log("[DEBUG] Gemini returned no text reply");
             return null;
         }
+        return this.finalizeReply(textReply, message, executedIntent, didCheckLowStock, reportTable);
+    }
 
+    /** Turns the model's final text into the response the UI expects (shared by every provider). */
+    private static async finalizeReply(textReply: string, message: string, executedIntent: string | null, didCheckLowStock: boolean, table?: NexusTable): Promise<NexusResponse> {
         // Step 3: Self-Training (Continuous Learning)
         // If Gemini successfully understood the user's intent and called a tool, feed this back into Local AI!
         if (executedIntent) {
@@ -751,7 +746,8 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
             response: parsedReply,
             actions,
             suggestions,
-            chart
+            chart,
+            table
         };
     }
 
@@ -794,5 +790,119 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
         } catch (error) {
             return { error: error instanceof Error ? error.message : 'Report could not be built.' };
         }
+    }
+
+
+    /**
+     * Same tools, permission and OPMC checks as the Gemini path, driven through DeepSeek's OpenAI-compatible
+     * chat API. The key comes only from the DEEPSEEK_API_KEY environment variable.
+     */
+    private static async runDeepSeekLoop(
+        apiKey: string,
+        systemPrompt: string,
+        history: ChatMessage[],
+        message: string,
+        declarations: Array<{ name: string; description: string; parameters?: unknown }>,
+        ctx: { permissions: ReadonlySet<string>; opmcScope: NexusOpmcScope; hasFinanceAccess: boolean },
+    ): Promise<{ text: string; executedIntent: string | null; didCheckLowStock: boolean; table?: NexusTable } | null> {
+        const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+        const tools = declarations.map((d) => ({
+            type: 'function',
+            function: { name: d.name, description: d.description, parameters: d.parameters ?? { type: 'object', properties: {} } },
+        }));
+        const messages: Array<Record<string, unknown>> = [
+            { role: 'system', content: systemPrompt },
+            ...history.slice(-20).map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.parts?.[0]?.text ?? '' })),
+            { role: 'user', content: message },
+        ];
+        let executedIntent: string | null = null;
+        let didCheckLowStock = false;
+        let table: NexusTable | undefined;
+
+        for (let round = 0; round < 4; round++) {
+            const res = await deepseekBreaker.execute(() => fetch('https://api.deepseek.com/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+                body: JSON.stringify({ model, messages, tools, temperature: 0.2 }),
+                signal: AbortSignal.timeout(45_000),
+            }));
+            if (!res.ok) {
+                console.error('[NEXUS] DeepSeek request failed with status', res.status);
+                return null;
+            }
+            const data = await res.json();
+            const msg = data.choices?.[0]?.message as { content?: string | null; tool_calls?: Array<{ id: string; function: { name: string; arguments?: string } }> } | undefined;
+            if (!msg) return null;
+            if (msg.tool_calls?.length) {
+                messages.push({ role: 'assistant', content: msg.content ?? '', tool_calls: msg.tool_calls });
+                for (const call of msg.tool_calls) {
+                    let args: Record<string, unknown> | undefined;
+                    try { args = call.function.arguments ? JSON.parse(call.function.arguments) : undefined; } catch { args = undefined; }
+                    const executed = await this.executeTool(call.function.name, args, ctx);
+                    if (executed.intent !== undefined) executedIntent = executed.intent;
+                    if (executed.checkedLowStock) didCheckLowStock = true;
+                    if (executed.table) table = executed.table;
+                    messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(executed.result).slice(0, 30_000) });
+                }
+                continue;
+            }
+            return msg.content ? { text: msg.content, executedIntent, didCheckLowStock, table } : null;
+        }
+        return null;
+    }
+
+    /** Runs one assistant tool for the caller. Shared by every model provider so permission and scope checks live in one place. */
+    private static async executeTool(
+        funcName: string,
+        args: Record<string, unknown> | undefined,
+        ctx: { permissions: ReadonlySet<string>; opmcScope: NexusOpmcScope; hasFinanceAccess: boolean },
+    ): Promise<{ result: unknown; intent?: string | null; checkedLowStock?: boolean; table?: NexusTable }> {
+        const { permissions, opmcScope, hasFinanceAccess } = ctx;
+        let result: unknown = {};
+        let intent: string | null | undefined;
+        let checkedLowStock = false;
+        let table: NexusTable | undefined;
+                if (funcName === 'getFinanceContext' && hasFinanceAccess) {
+                    result = await NexusContextService.getFinanceContext(opmcScope);
+                    intent = 'FINANCE';
+                } else if (funcName === 'getProjectsContext' && permissions.has(RBAC_PERMISSIONS.PROJECT_READ)) {
+                    result = await NexusContextService.getProjectsContext(opmcScope);
+                    intent = 'PROJECTS';
+                } else if (funcName === 'getInventoryLowStockContext' && permissions.has(RBAC_PERMISSIONS.INVENTORY_READ)) {
+                    checkedLowStock = true;
+                    result = await NexusContextService.getInventoryLowStockContext(opmcScope);
+                    intent = 'INVENTORY_LOW';
+                } else if (funcName === 'getContractorsContext' && permissions.has(RBAC_PERMISSIONS.CONTRACTOR_READ)) {
+                    result = await NexusContextService.getContractorsContext(opmcScope);
+                    intent = 'CONTRACTORS';
+                } else if (funcName === 'getStoresContext' && permissions.has(RBAC_PERMISSIONS.INVENTORY_READ)) {
+                    result = await NexusContextService.getStoresContext(opmcScope);
+                    intent = 'STORES';
+                } else if (funcName === 'getProcurementContext' && permissions.has(RBAC_PERMISSIONS.PROCUREMENT_READ)) {
+                    result = await NexusContextService.getProcurementContext(opmcScope);
+                    intent = 'PROCUREMENT';
+                } else if (funcName === 'getBOMInvoicesContext' && hasFinanceAccess) {
+                    result = await NexusContextService.getBOMInvoicesContext(opmcScope);
+                    intent = 'BOM_INVOICES';
+                } else if (funcName === 'getServiceOrderProgressContext' && permissions.has(RBAC_PERMISSIONS.SOD_READ)) {
+                    const sArgs = args as Record<string, string> | undefined;
+                    result = await NexusContextService.getServiceOrderProgressContext(sArgs?.opmcCode, opmcScope);
+                    // Service order maps loosely to projects or a new intent, skipping mapping for simplicity
+                } else if (funcName === 'getJobCostingContext' && hasFinanceAccess) {
+                    const sArgs = args as Record<string, string> | undefined;
+                    result = await NexusContextService.getJobCostingContext(sArgs, opmcScope);
+                    intent = 'JOB_COSTING';
+                } else if (funcName === 'runCustomReport') {
+                    result = await this.runCustomReportTool(args, permissions, opmcScope);
+                    intent = null;
+                    const rep = result as { error?: string; columns?: string[]; rows?: Record<string, unknown>[]; totalRows?: number; truncated?: boolean };
+                    if (!rep.error && rep.columns && rep.rows) {
+                        table = { title: `Custom report: ${String(args?.entity ?? '')}`, columns: rep.columns, rows: rep.rows, totalRows: rep.totalRows ?? rep.rows.length, truncated: !!rep.truncated };
+                    }
+                } else {
+                    result = { error: "Unauthorized or unknown function." };
+                }
+
+        return { result, intent, checkedLowStock, table };
     }
 }
