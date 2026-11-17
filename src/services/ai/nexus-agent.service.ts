@@ -11,6 +11,7 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { NexusPrivacyService, type PrivacyMode } from '@/services/ai/nexus-privacy.service';
+import { ExecutiveMetricService, METRIC_IDS, type MetricId } from '@/services/ai/executive-metrics.service';
 import { NexusLocalReplyService, type ToolRun } from '@/services/ai/nexus-local-reply.service';
 import { DynamicReportService, type DynamicReportPayload, type FilterRule, type AggregationConfig } from '@/services/inventory/dynamic-report.service';
 import type { NexusOpmcScope } from '@/services/ai/nexus-context.service';
@@ -66,6 +67,12 @@ export interface NexusChart {
 export interface NexusCard {
     label: string;
     value: string;
+    /** change versus the comparison period, e.g. +4.2% */
+    delta?: string;
+    trend?: 'up' | 'down' | 'flat';
+    /** true when the change is good for the business, false when bad, null/undefined when neutral */
+    good?: boolean | null;
+    caption?: string;
 }
 
 export interface NexusTable {
@@ -254,7 +261,7 @@ export class NexusAgentService {
         if (apiKey || process.env.DEEPSEEK_API_KEY || process.env.NEXUS_LLM_API_KEY || (process.env.NEXUS_LLM_PROVIDER === 'local' && process.env.NEXUS_LLM_BASE_URL)) {
             try {
                 const history = await NexusMemoryService.getConversation(userId);
-                const result = await this.runAgenticLoop(message, history, userName, permissionSet, opmcScope);
+                const result = await this.runAgenticLoop(message, history, userName, permissionSet, opmcScope, userId);
                 if (result) {
                     return result;
                 } else {
@@ -324,7 +331,7 @@ export class NexusAgentService {
     /**
      * Fully Dynamic Agentic Loop with Gemini Function Calling
      */
-    private static async runAgenticLoop(message: string, history: ChatMessage[], userName: string, permissions: ReadonlySet<string>, opmcScope: NexusOpmcScope): Promise<NexusResponse | null> {
+    private static async runAgenticLoop(message: string, history: ChatMessage[], userName: string, permissions: ReadonlySet<string>, opmcScope: NexusOpmcScope, userId?: string): Promise<NexusResponse | null> {
         const hasFinanceAccess = [
             RBAC_PERMISSIONS.FINANCE_READ,
             RBAC_PERMISSIONS.PROJECT_FINANCE_READ,
@@ -524,6 +531,23 @@ export class NexusAgentService {
                     }
                 },
                 {
+                    name: "getExecutiveBrief",
+                    description: "One-screen answer to 'how is the company doing' / overview / summary / morning brief: headline cards (revenue, profit, cash, receivables, orders completed, open orders, projects) with change versus the same days of last month, plus the items that need attention. Users limited to an OPMC get the same for their own OPMC.",
+                },
+                {
+                    name: "compareMetric",
+                    description: `Compare one business metric between two periods (default: current period versus the previous one of the same length) and optionally split by RTOM to show what drove the change. Metrics: ${METRIC_IDS.join(', ')}. Periods: this_month, last_month, last_7_days, last_30_days, this_week, this_year.`,
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            metric: { type: "string", enum: [...METRIC_IDS] },
+                            period: { type: "string", enum: ["this_month", "last_month", "last_7_days", "last_30_days", "this_week", "this_year"] },
+                            groupBy: { type: "string", enum: ["rtom"], description: "Use when the user asks which RTOM / area / region caused or contributed to the change" }
+                        },
+                        required: ["metric"]
+                    }
+                },
+                {
                     name: "runCustomReport",
                     description: "Build a custom tabular report from the database when the user asks for a report that the other tools do not cover. Entities and queryable fields: serviceOrder[soNum,status,sltsStatus,customerName,voiceNumber,rtom,completedDate,revenueAmount,createdAt]; materialUsage[serviceOrderId,quantity,unit,usageType,costPrice,unitPrice,createdAt,serviceOrder.soNum,serviceOrder.status,serviceOrder.rtom,item.code,item.name]; contractorStock[quantity,updatedAt,contractor.name,item.code,item.name]; journalEntry[referenceId,referenceType,description,date,createdAt]; wastage[month,description,status,createdAt,contractor.name,store.name]. Filter operators: equals, contains, gt, lt, gte, lte, startsWith (dates as YYYY-MM-DD). Optional aggregation groups rows and applies SUM, AVG or COUNT to one field. Returns at most 50 rows.",
                     parameters: {
@@ -595,14 +619,14 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
         const externalPrivacy = NexusPrivacyService.mode('external');
         const planNote = `
 
-PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pick the tool(s) needed for the CURRENT request and fill in exact arguments (exact YYYY-MM-DD dates and filters). Rules: (1) Call only the tool(s) the current request needs, usually exactly one; never call tools for earlier questions. (2) Prefer runCustomReport for any list, count, sum or "by <field>" request, choosing the entity the user names (service orders -> serviceOrder, contractor stock -> contractorStock, material usage -> materialUsage, wastage -> wastage, journal entries -> journalEntry). (3) If the request needs data no tool can provide (fleet, HR/salary, helpdesk tickets, users, passwords, secrets, deleting or changing data, anything unrelated to the ERP), do NOT call any tool: reply with one short sentence saying that is not available. (4) Do not answer with figures and do not ask for data; the system presents the results itself. Vocabulary (Sinhala/Singlish): gabadu/gabada/ගබඩු = stores (warehouses) -> getStoresContext; thoguwa/තොග = stock; higa/හිඟ = outstanding or low; mudala = money; wada/ව්‍යාපෘති = projects. Tool hints: contractor bills, invoices, payment vouchers, outstanding payments -> getFinanceContext; stores list or count -> getStoresContext; purchase requisitions (PR), purchase orders (PO), GRN -> getProcurementContext; low stock -> getInventoryLowStockContext; registered contractors -> getContractorsContext.
+PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pick the tool(s) needed for the CURRENT request and fill in exact arguments (exact YYYY-MM-DD dates and filters). Rules: (1) Call only the tool(s) the current request needs, usually exactly one; never call tools for earlier questions. (2) Prefer runCustomReport for any list, count, sum or "by <field>" request, choosing the entity the user names (service orders -> serviceOrder, contractor stock -> contractorStock, material usage -> materialUsage, wastage -> wastage, journal entries -> journalEntry). (3) If the request needs data no tool can provide (fleet, HR/salary, helpdesk tickets, users, passwords, secrets, deleting or changing data, anything unrelated to the ERP), do NOT call any tool: reply with one short sentence saying that is not available. (4) Do not answer with figures and do not ask for data; the system presents the results itself. Vocabulary (Sinhala/Singlish): gabadu/gabada/ගබඩු = stores (warehouses) -> getStoresContext; thoguwa/තොග = stock; higa/හිඟ = outstanding or low; mudala = money; wada/ව්‍යාපෘති = projects. Tool hints: 'how is the company doing', overview, summary, morning brief, company eka kohomada -> getExecutiveBrief; 'compare', 'vs last month', 'this month vs previous', 'why did it change', which RTOM caused the change -> compareMetric (add groupBy rtom for 'why/which'); contractor bills, invoices, payment vouchers, outstanding payments -> getFinanceContext; stores list or count -> getStoresContext; purchase requisitions (PR), purchase orders (PO), GRN -> getProcurementContext; low stock -> getInventoryLowStockContext; registered contractors -> getContractorsContext.
 `;
         const planSystemPrompt = systemPrompt + planNote;
         const compatKey = process.env.NEXUS_LLM_API_KEY || process.env.DEEPSEEK_API_KEY;
         const useLocal = process.env.NEXUS_LLM_PROVIDER === 'local' && !!process.env.NEXUS_LLM_BASE_URL;
         if ((compatKey || useLocal) && process.env.NEXUS_LLM_PROVIDER !== 'gemini') {
             try {
-                const out = await this.runDeepSeekLoop(compatKey ?? '', useLocal, (!useLocal && externalPrivacy === 'plan-only') ? planSystemPrompt : systemPrompt, history, message, tools[0].functionDeclarations, { permissions, opmcScope, hasFinanceAccess });
+                const out = await this.runDeepSeekLoop(compatKey ?? '', useLocal, (!useLocal && externalPrivacy === 'plan-only') ? planSystemPrompt : systemPrompt, history, message, tools[0].functionDeclarations, { permissions, opmcScope, hasFinanceAccess, userId });
                 if (out) return this.finalizeReply(out.text, message, out.executedIntent, out.didCheckLowStock, out.table, out.chart, out.cards);
             } catch (error) {
                 console.error('[NEXUS] DeepSeek call failed:', error instanceof Error ? error.message : error, (error as { cause?: { code?: string; message?: string } })?.cause?.code ?? (error as { cause?: { message?: string } })?.cause?.message ?? '');
@@ -651,10 +675,10 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
             if (geminiPrivacy === 'plan-only') {
                 const runs: ToolRun[] = [];
                 for (const fc of functionCalls.slice(0, 2)) {
-                    const executed = await this.executeTool(fc.name, fc.args, { permissions, opmcScope, hasFinanceAccess });
+                    const executed = await this.executeTool(fc.name, fc.args, { permissions, opmcScope, hasFinanceAccess, userId });
                     if (executed.intent !== undefined) executedIntent = executed.intent;
                     if (executed.checkedLowStock) didCheckLowStock = true;
-                    runs.push({ name: fc.name, args: fc.args, result: executed.result, table: executed.table });
+                    runs.push({ name: fc.name, args: fc.args, result: executed.result, table: executed.table, executive: executed.executive });
                 }
                 const local = NexusLocalReplyService.build(runs, message);
                 return this.finalizeReply(local.text, message, executedIntent, didCheckLowStock, local.table, local.chart, local.cards);
@@ -667,7 +691,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
 
             for (const fc of functionCalls) {
                 const funcName = fc.name;
-                const executed = await this.executeTool(funcName, fc.args, { permissions, opmcScope, hasFinanceAccess });
+                const executed = await this.executeTool(funcName, fc.args, { permissions, opmcScope, hasFinanceAccess, userId });
                 const funcResult = NexusPrivacyService.forModel(funcName, executed.result, geminiPrivacy);
                 if (executed.intent !== undefined) executedIntent = executed.intent;
                 if (executed.checkedLowStock) didCheckLowStock = true;
@@ -820,7 +844,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
         history: ChatMessage[],
         message: string,
         declarations: Array<{ name: string; description: string; parameters?: unknown }>,
-        ctx: { permissions: ReadonlySet<string>; opmcScope: NexusOpmcScope; hasFinanceAccess: boolean },
+        ctx: { permissions: ReadonlySet<string>; opmcScope: NexusOpmcScope; hasFinanceAccess: boolean; userId?: string },
     ): Promise<{ text: string; executedIntent: string | null; didCheckLowStock: boolean; table?: NexusTable; chart?: NexusChart; cards?: NexusCard[] } | null> {
         // Any OpenAI-compatible server works: DeepSeek (default), or a model on our own server (Ollama, vLLM)
         // by setting NEXUS_LLM_PROVIDER=local and NEXUS_LLM_BASE_URL, in which case data never leaves our network.
@@ -863,7 +887,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
                     const executed = await this.executeTool(call.function.name, args, ctx);
                     if (executed.intent !== undefined) executedIntent = executed.intent;
                     if (executed.checkedLowStock) didCheckLowStock = true;
-                    runs.push({ name: call.function.name, args, result: executed.result, table: executed.table });
+                    runs.push({ name: call.function.name, args, result: executed.result, table: executed.table, executive: executed.executive });
                 }
                 const local = NexusLocalReplyService.build(runs, message);
                 return { text: local.text, executedIntent, didCheckLowStock, table: local.table, chart: local.chart, cards: local.cards };
@@ -904,13 +928,14 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
     private static async executeTool(
         funcName: string,
         args: Record<string, unknown> | undefined,
-        ctx: { permissions: ReadonlySet<string>; opmcScope: NexusOpmcScope; hasFinanceAccess: boolean },
-    ): Promise<{ result: unknown; intent?: string | null; checkedLowStock?: boolean; table?: NexusTable }> {
-        const { permissions, opmcScope, hasFinanceAccess } = ctx;
+        ctx: { permissions: ReadonlySet<string>; opmcScope: NexusOpmcScope; hasFinanceAccess: boolean; userId?: string },
+    ): Promise<{ result: unknown; intent?: string | null; checkedLowStock?: boolean; table?: NexusTable; executive?: { cards: NexusCard[]; table?: NexusTable } }> {
+        const { permissions, opmcScope, hasFinanceAccess, userId } = ctx;
         let result: unknown = {};
         let intent: string | null | undefined;
         let checkedLowStock = false;
         let table: NexusTable | undefined;
+        let executive: { cards: NexusCard[]; table?: NexusTable } | undefined;
                 if (funcName === 'getFinanceContext' && hasFinanceAccess) {
                     result = await NexusContextService.getFinanceContext(opmcScope);
                     intent = 'FINANCE';
@@ -941,6 +966,19 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
                     const sArgs = args as Record<string, string> | undefined;
                     result = await NexusContextService.getJobCostingContext(sArgs, opmcScope);
                     intent = 'JOB_COSTING';
+                } else if (funcName === 'getExecutiveBrief') {
+                    result = await ExecutiveMetricService.brief(permissions, opmcScope, userId);
+                    intent = null;
+                    const b = result as { cards?: NexusCard[]; table?: NexusTable; error?: string };
+                    if (!b.error) { executive = { cards: b.cards ?? [], table: b.table }; }
+                } else if (funcName === 'compareMetric') {
+                    const metric = String(args?.metric ?? '') as MetricId;
+                    result = await ExecutiveMetricService.compare(metric, args?.period ? String(args.period) : undefined, args?.groupBy ? String(args.groupBy) : undefined, permissions, opmcScope);
+                    intent = null;
+                    if (!('error' in (result as object))) {
+                        const cmp = result as Parameters<typeof ExecutiveMetricService.card>[0];
+                        executive = { cards: [ExecutiveMetricService.card(cmp)], table: ExecutiveMetricService.table(cmp) };
+                    }
                 } else if (funcName === 'runCustomReport') {
                     result = await this.runCustomReportTool(args, permissions, opmcScope);
                     intent = null;
@@ -952,6 +990,6 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
                     result = { error: "Unauthorized or unknown function." };
                 }
 
-        return { result, intent, checkedLowStock, table };
+        return { result, intent, checkedLowStock, table: table ?? executive?.table, executive };
     }
 }

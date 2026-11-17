@@ -32,6 +32,10 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 interface NexusCard {
     label: string;
     value: string;
+    delta?: string;
+    trend?: 'up' | 'down' | 'flat';
+    good?: boolean | null;
+    caption?: string;
 }
 
 interface NexusTable {
@@ -736,7 +740,18 @@ export default function NexusAgent() {
                                                         {msg.cards.map((card, ci) => (
                                                             <div key={ci} className="rounded-xl border border-slate-700/80 bg-[#0F172A] px-3 py-2">
                                                                 <div className="text-[10px] font-semibold text-slate-300 leading-tight">{card.label}</div>
-                                                                <div className="mt-1 text-lg font-black text-white tabular-nums leading-none">{card.value}</div>
+                                                                <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+                                                                    <span className="text-lg font-black text-white tabular-nums leading-none">{card.value}</span>
+                                                                    {card.delta && (
+                                                                        <span
+                                                                            className={`whitespace-nowrap text-[10px] font-black tabular-nums ${card.good === true ? 'text-emerald-300' : card.good === false ? 'text-rose-300' : 'text-slate-300'}`}
+                                                                            aria-label={`${card.trend === 'up' ? 'up' : card.trend === 'down' ? 'down' : 'no change'} ${card.delta}${card.good === true ? ', good' : card.good === false ? ', bad' : ''}`}
+                                                                        >
+                                                                            {card.trend === 'up' ? '▲' : card.trend === 'down' ? '▼' : '▬'} {card.delta}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                {card.caption && <div className="mt-1 text-[9px] leading-tight text-slate-300">{card.caption}</div>}
                                                             </div>
                                                         ))}
                                                     </div>

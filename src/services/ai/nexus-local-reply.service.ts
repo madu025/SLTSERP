@@ -10,6 +10,7 @@ export interface ToolRun {
     args?: Record<string, unknown>;
     result: unknown;
     table?: NexusTable;
+    executive?: { cards: NexusCard[]; table?: NexusTable };
 }
 
 const TITLES: Record<string, string> = {
@@ -23,6 +24,8 @@ const TITLES: Record<string, string> = {
     getServiceOrderProgressContext: 'Service order progress',
     getJobCostingContext: 'Job costing',
     runCustomReport: 'Custom report',
+    getExecutiveBrief: 'Executive brief',
+    compareMetric: 'Comparison',
 };
 
 const num = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -70,6 +73,18 @@ export class NexusLocalReplyService {
             if (!result || typeof result !== 'object') { parts.push(`${title}: no data.`); continue; }
             if (typeof result.error === 'string') { parts.push(`${title}: ${result.error}`); continue; }
 
+            if (run.executive) {
+                cards.push(...run.executive.cards);
+                if (run.name === 'getExecutiveBrief') {
+                    const r = run.result as { asOf?: string; scope?: string };
+                    parts.push(`Executive brief (${r.scope === 'opmc' ? 'your OPMC' : 'company-wide'}), as of ${r.asOf ? r.asOf.slice(0, 16).replace('T', ' ') + ' UTC' : 'now'}.`);
+                } else {
+                    const r = run.result as { metric?: { label: string }; period?: { label: string }; compareTo?: { label: string } | null; rows?: unknown[] };
+                    parts.push(`${r.metric?.label ?? 'Metric'}: ${r.period?.label ?? ''}${r.compareTo ? ` compared with ${r.compareTo.label}` : ''}${r.rows ? ', split by RTOM (largest change first)' : ''}.`);
+                }
+                if (run.executive.table) table = table ?? run.executive.table;
+                continue;
+            }
             if (run.name === 'runCustomReport' && run.table) {
                 const t = run.table;
                 const filters = Array.isArray(run.args?.filters) ? (run.args!.filters as Array<{ field?: string; operator?: string; value?: string }>).map((f) => `${f.field} ${f.operator} ${f.value}`).join('; ') : '';
