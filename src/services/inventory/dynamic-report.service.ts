@@ -118,7 +118,12 @@ export class DynamicReportService {
                 throw AppError.badRequest(`INVALID_FILTER: Filter on field '${rule.field}' is not permitted.`);
             }
             const parts = rule.field.split('.');
-            const filterObj = buildNestedFilter(parts, rule.operator, rule.value);
+            // Status/type columns are enums (UPPER_CASE values) and reject text operators such as `contains`,
+            // so "status contains pending" is treated as "status equals PENDING".
+            const enumLike = /(^|\.)(status|sltsStatus|usageType|referenceType)$/i.test(rule.field);
+            const operator = enumLike && (rule.operator === 'contains' || rule.operator === 'startsWith') ? 'equals' : rule.operator;
+            const value = enumLike ? rule.value.trim().toUpperCase().replace(/\s+/g, '_') : rule.value;
+            const filterObj = buildNestedFilter(parts, operator, value);
             
             // Merge filters
             const rootKey = parts[0];

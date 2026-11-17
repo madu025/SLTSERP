@@ -189,8 +189,8 @@ export class NexusAgentService {
      */
     static async ask(message: string, userId: string): Promise<NexusResponse> {
         // Per-user limits protect the shared model quota: a short burst limit and a daily limit.
-        const burst = await checkRateLimit(userId, { max: 20, windowSecs: 600, prefix: 'nexus-burst' });
-        const daily = burst.allowed ? await checkRateLimit(userId, { max: 200, windowSecs: 86_400, prefix: 'nexus-daily' }) : burst;
+        const burst = await checkRateLimit(userId, { max: Number(process.env.NEXUS_RATE_BURST) || 20, windowSecs: 600, prefix: 'nexus-burst' });
+        const daily = burst.allowed ? await checkRateLimit(userId, { max: Number(process.env.NEXUS_RATE_DAILY) || 200, windowSecs: 86_400, prefix: 'nexus-daily' }) : burst;
         if (!burst.allowed || !daily.allowed) {
             const wait = Math.max(1, Math.ceil((!burst.allowed ? burst.resetSecs : daily.resetSecs) / 60));
             return {
@@ -589,7 +589,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
         const externalPrivacy = NexusPrivacyService.mode('external');
         const planNote = `
 
-PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pick the right tool(s) and fill in exact arguments (including exact YYYY-MM-DD dates and filters) for the user's request. Call the tool immediately; do not answer with figures and do not ask for data. The system presents the results itself.
+PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pick the tool(s) needed for the CURRENT request and fill in exact arguments (exact YYYY-MM-DD dates and filters). Rules: (1) Call only the tool(s) the current request needs, usually exactly one; never call tools for earlier questions. (2) Prefer runCustomReport for any list, count, sum or "by <field>" request, choosing the entity the user names (service orders -> serviceOrder, contractor stock -> contractorStock, material usage -> materialUsage, wastage -> wastage, journal entries -> journalEntry). (3) If the request needs data no tool can provide (fleet, HR/salary, helpdesk tickets, users, passwords, secrets, deleting or changing data, anything unrelated to the ERP), do NOT call any tool: reply with one short sentence saying that is not available. (4) Do not answer with figures and do not ask for data; the system presents the results itself. Vocabulary (Sinhala/Singlish): gabadu/gabada/ගබඩු = stores (warehouses) -> getStoresContext; thoguwa/තොග = stock; higa/හිඟ = outstanding or low; mudala = money; wada/ව්‍යාපෘති = projects. Tool hints: contractor bills, invoices, payment vouchers, outstanding payments -> getFinanceContext; stores list or count -> getStoresContext; purchase requisitions (PR), purchase orders (PO), GRN -> getProcurementContext; low stock -> getInventoryLowStockContext; registered contractors -> getContractorsContext.
 `;
         const planSystemPrompt = systemPrompt + planNote;
         const compatKey = process.env.NEXUS_LLM_API_KEY || process.env.DEEPSEEK_API_KEY;
@@ -606,13 +606,8 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
 
         const geminiPrivacy = NexusPrivacyService.mode('external');
         const contents: Array<{ role: string; parts: unknown[] }> = [
-            ...(geminiPrivacy === 'plan-only'
-                // earlier questions only (no answers, no data), folded into one turn so roles stay valid
-                ? (history.some((m) => m.role === 'user')
-                    ? [{ role: 'user', parts: [{ text: 'Earlier questions from this user (context only): ' + history.filter((m) => m.role === 'user').slice(-8).map((m) => NexusPrivacyService.maskText(m.parts?.[0]?.text ?? '', geminiPrivacy)).join(' | ') }] }, { role: 'model', parts: [{ text: 'Understood.' }] }]
-                    : [])
-                : history.map((m) => ({ ...m, parts: m.parts.map((p) => ({ text: NexusPrivacyService.maskText(p.text, geminiPrivacy) })) }))),
-            { role: 'user', parts: [{ text: NexusPrivacyService.maskText(message, geminiPrivacy) }] }
+            ...(geminiPrivacy === 'plan-only' ? [] : history.map((m) => ({ ...m, parts: m.parts.map((p) => ({ text: NexusPrivacyService.maskText(p.text, geminiPrivacy) })) }))),
+            { role: 'user', parts: [{ text: NexusPrivacyService.maskText(geminiPrivacy === 'plan-only' ? this.planUserTurn(message, history) : message, geminiPrivacy) }] }
         ];
 
         // Round 1: Ask Gemini
@@ -649,7 +644,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
             
             if (geminiPrivacy === 'plan-only') {
                 const runs: ToolRun[] = [];
-                for (const fc of functionCalls.slice(0, 3)) {
+                for (const fc of functionCalls.slice(0, 2)) {
                     const executed = await this.executeTool(fc.name, fc.args, { permissions, opmcScope, hasFinanceAccess });
                     if (executed.intent !== undefined) executedIntent = executed.intent;
                     if (executed.checkedLowStock) didCheckLowStock = true;
@@ -720,14 +715,8 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
 
     /** Turns the model's final text into the response the UI expects (shared by every provider). */
     private static async finalizeReply(textReply: string, message: string, executedIntent: string | null, didCheckLowStock: boolean, table?: NexusTable, localChart?: NexusChart): Promise<NexusResponse> {
-        // Step 3: Self-Training (Continuous Learning)
-        // If Gemini successfully understood the user's intent and called a tool, feed this back into Local AI!
-        if (executedIntent) {
-            NexusClassifierService.addTrainingExample(executedIntent, message).catch(err => {
-                console.error("[ROUTER] Failed to add continuous training data:", err);
-            });
-        }
-
+        // Automatic self-training from the model's own tool choices is disabled: a wrong choice taught the
+        // classifier wrong intents (observed in testing). Only explicit user feedback trains it now.
         let parsedReply = textReply;
         let suggestions = ["Show active projects status", "List current low stock items"];
         let actions: NexusAction[] = [];
@@ -805,7 +794,10 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
             const report = await DynamicReportService.generateReport({ entity, columns, filters, aggregation }, { scopeWhere });
             return { type: report.type, columns: report.columns, totalRows: report.rows.length, rows: report.rows.slice(0, 50), truncated: report.rows.length > 50 || report.capped, capped: report.capped };
         } catch (error) {
-            return { error: error instanceof Error ? error.message : 'Report could not be built.' };
+            // Only our own validation messages are shown; database/Prisma errors can contain internal paths and queries.
+            const known = error instanceof Error && /^(INVALID_ENTITY|INVALID_COLUMN|INVALID_FILTER|INVALID_AGGREGATION)/.test(error.message);
+            if (!known) console.error('[NEXUS] Custom report failed:', error instanceof Error ? error.message.trim().split(/\r?\n/).filter(Boolean).slice(-4).join(' | ') : error);
+            return { error: known ? (error as Error).message : 'The report could not be built with those filters. Check the field names, operators and values.' };
         }
     }
 
@@ -834,8 +826,8 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
         }));
         const messages: Array<Record<string, unknown>> = [
             { role: 'system', content: systemPrompt },
-            ...history.filter((m) => privacy !== 'plan-only' || m.role === 'user').slice(-20).map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: NexusPrivacyService.maskText(m.parts?.[0]?.text ?? '', privacy) })),
-            { role: 'user', content: NexusPrivacyService.maskText(message, privacy) },
+            ...(privacy === 'plan-only' ? [] : history.slice(-20).map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: NexusPrivacyService.maskText(m.parts?.[0]?.text ?? '', privacy) }))),
+            { role: 'user', content: NexusPrivacyService.maskText(privacy === 'plan-only' ? this.planUserTurn(message, history) : message, privacy) },
         ];
         let executedIntent: string | null = null;
         let didCheckLowStock = false;
@@ -858,7 +850,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
             if (msg.tool_calls?.length && privacy === 'plan-only') {
                 // The model has chosen the tools. Run them here and build the answer locally: nothing goes back to the model.
                 const runs: ToolRun[] = [];
-                for (const call of msg.tool_calls.slice(0, 3)) {
+                for (const call of msg.tool_calls.slice(0, 2)) {
                     let args: Record<string, unknown> | undefined;
                     try { args = call.function.arguments ? JSON.parse(call.function.arguments) : undefined; } catch { args = undefined; }
                     const executed = await this.executeTool(call.function.name, args, ctx);
@@ -885,6 +877,20 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
             return msg.content ? { text: msg.content, executedIntent, didCheckLowStock, table } : null;
         }
         return null;
+    }
+
+
+    /**
+     * Plan-only user turn: the current request, plus at most the previous question as a reference for follow-ups
+     * ("and for R-HO?"). Earlier questions are never sent as separate turns, because the model then re-runs them.
+     */
+    private static planUserTurn(message: string, history: ChatMessage[]): string {
+        const previous = [...history].reverse().find((m) => m.role === 'user')?.parts?.[0]?.text?.slice(0, 300);
+        return previous
+            ? `CURRENT REQUEST (handle only this): ${message}
+
+(For reference only, the user's previous question was: "${previous}". It is already answered; do not run it again.)`
+            : `CURRENT REQUEST (handle only this): ${message}`;
     }
 
     /** Runs one assistant tool for the caller. Shared by every model provider so permission and scope checks live in one place. */

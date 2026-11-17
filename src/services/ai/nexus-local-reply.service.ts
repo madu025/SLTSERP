@@ -94,11 +94,12 @@ export class NexusLocalReplyService {
         const numeric = table.columns.filter((c) => table.rows.every((r) => typeof r[c] === 'number'));
         const category = table.columns.find((c) => !numeric.includes(c));
         if (!category || numeric.length === 0) return undefined;
+        const type: NexusChart['type'] = /pie|donut|doughnut/i.test(message) ? 'pie' : /line|trend|over time/i.test(message) ? 'line' : 'bar';
         return {
-            type: 'bar',
+            type,
             title: table.title,
             xAxisKey: category,
-            seriesKeys: numeric.slice(0, 2),
+            seriesKeys: type === 'pie' ? numeric.slice(0, 1) : numeric.slice(0, 2),
             data: table.rows.slice(0, 20).map((r) => Object.fromEntries([[category, String(r[category] ?? '')], ...numeric.slice(0, 2).map((c) => [c, r[c] as number])])) as Record<string, string | number>[],
         };
     }
