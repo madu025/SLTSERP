@@ -62,6 +62,13 @@ export async function buildContractorInvoiceWorkbook(data: InvoiceExportData, pa
     const warnings: string[] = [];
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.readFile(TEMPLATE_PATH);
+    // exceljs keeps the template's conditional formats as empty elements and rewrites the header-less
+    // table on the rate sheet; Excel then refuses the file. Neither is needed for the invoice.
+    wb.eachSheet((sheet) => {
+        (sheet as unknown as { conditionalFormattings: unknown[] }).conditionalFormattings = [];
+        const tables = (sheet as unknown as { tables?: Record<string, unknown> }).tables;
+        if (tables) for (const name of Object.keys(tables)) sheet.removeTable(name);
+    });
     const lines = fitLines(data.lines);
     const t = invoiceTotals(data.lines, part, data.partAmount);
     if (t.deductions !== 0) warnings.push(`This part includes deductions of ${t.deductions.toFixed(2)} (penalties) against ${(t.percent * 100).toFixed(0)}% of the total`);
@@ -103,7 +110,14 @@ export async function buildContractorInvoiceWorkbook(data: InvoiceExportData, pa
         const spec = SHEET_SPEC[name];
         const rows = sods.filter((s) => s.sheet === name);
         sheet.getCell(spec.contractorCell).value = c.name;
+        const cn = sheet.getCell(spec.contractorCell);
+        cn.style = { ...cn.style, alignment: { ...cn.alignment, shrinkToFit: true } }; // long contractor names are clipped by the neighbouring cell otherwise
         sheet.getCell(spec.invoiceNoCell).value = invoiceNoText;
+        // the FTTH template's date and TP columns are too narrow for the text and show ####### / wrapped digits
+        for (const [col, min] of [[spec.dateCol, 11], [spec.tpCol, 13], [spec.remarksCol, 24]] as const) {
+            const column = sheet.getColumn(col);
+            if ((column.width ?? 0) < min) column.width = min;
+        }
         const cap = spec.matTo - spec.matFrom + 1;
         const usage = new Map<string, number>();
         for (const s of rows) for (const [k, q] of Object.entries(s.materials)) usage.set(k, (usage.get(k) ?? 0) + q);
@@ -125,10 +139,20 @@ export async function buildContractorInvoiceWorkbook(data: InvoiceExportData, pa
             for (let i = 0; i < cap; i++) {
                 const mc = row.getCell(spec.matFrom + i);
                 mc.value = s && cols[i] ? (s.materials[cols[i]] ?? null) : null;
-                if (mc.value !== null) setFmt(mc, '#,##0.##'); // some template cells carry a date format; a quantity must not show as a date
+                // some template cells carry a date format; a quantity must not show as a date, and '#,##0.##' would print "2."
+                if (mc.value !== null) setFmt(mc, Number.isInteger(Number(mc.value)) ? '#,##0' : '#,##0.00');
             }
             if (s) for (const [k, q] of Object.entries(s.materials)) if (!cols.includes(k)) extras.push(`${k}: ${q}`);
             row.getCell(spec.remarksCol).value = s ? [s.remarks, extras.join(', ')].filter(Boolean).join(' | ') || null : null;
+            if (s) {
+                // the template's first rows carry rotated text and tall heights, later rows do not: make every service order row read the same
+                for (let col = 1; col <= spec.remarksCol; col++) {
+                    const cell = row.getCell(col);
+                    cell.style = { ...cell.style, font: { ...cell.font, bold: false }, alignment: { horizontal: 'center', vertical: 'middle', textRotation: 0, wrapText: col === spec.remarksCol } };
+                }
+                const remarkLen = String(row.getCell(spec.remarksCol).value ?? '').length;
+                row.height = remarkLen > 22 ? 15 * Math.ceil(remarkLen / 22) : 20;
+            }
         }
         const lastRow = Math.max(spec.first + rows.length - 1, spec.first);
         sheet.pageSetup.printArea = `A1:${spec.lastCol}${lastRow}`;

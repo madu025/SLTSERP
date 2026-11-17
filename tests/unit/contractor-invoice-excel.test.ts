@@ -55,7 +55,7 @@ test('the workbook keeps the template layout, fits A4 and carries the A/B part',
     const ftth = wb.getWorksheet('FTTH')!;
     assert.equal(ftth.getCell('E5').value, 'MD');
     assert.equal(ftth.getCell('B5').numFmt, 'dd-mmm-yy');
-    assert.equal(ftth.getCell('F5').numFmt, '#,##0.##'); // a quantity, never a date
+    assert.equal(ftth.getCell('F5').numFmt, '#,##0'); // a quantity, never a date, and no trailing dot
     assert.equal(ftth.pageSetup.orientation, 'landscape');
     assert.equal(ftth.pageSetup.printArea, 'A1:R8');
     assert.equal(wb.getWorksheet('MATERIAL BALANCE SHEET')!.getCell('E11').value, 160);
@@ -68,4 +68,14 @@ test('the download route and buttons are wired', async () => {
   assert.match(fs.readFileSync('src/app/api/invoices/[id]/excel/route.ts', 'utf8'), /SOD_INVOICE/);
   assert.match(fs.readFileSync('src/services/invoice/invoice-excel.service.ts', 'utf8'), /resolveOpmcScope/);
   assert.match(fs.readFileSync('src/app/invoices/page.tsx', 'utf8'), /downloadContractorWorkbook\(inv\.id, 'B'\)/);
+});
+
+test('workbook carries no empty conditional formats or tables, which make Excel refuse the file', async () => {
+    const { buffer } = await buildContractorInvoiceWorkbook({ invoiceNumber: 'X-1', invoiceDate: new Date(), periodYear: 2026, periodMonth: 6, contractor: { name: 'C', address: null, contactNumber: null, registrationNumber: null, bankName: null, bankBranch: null, bankAccountNumber: null }, lines: [{ description: 'FTTH', rtom: 'MD', qty: 1, rate: 100 }], partAmount: 90 } as never, 'A', []);
+    const re = new ExcelJS.Workbook();
+    await re.xlsx.load(buffer as never);
+    re.eachSheet((sheet) => {
+        assert.equal((sheet as unknown as { conditionalFormattings: unknown[] }).conditionalFormattings.length, 0, sheet.name);
+        assert.equal(Object.keys((sheet as unknown as { tables?: object }).tables ?? {}).length, 0, sheet.name);
+    });
 });
