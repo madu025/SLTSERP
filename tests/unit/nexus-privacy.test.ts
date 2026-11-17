@@ -31,13 +31,34 @@ test('strict mode never sends report rows, only columns, count and numeric total
     assert.equal(r.totalRows, 2);
 });
 
-test('off mode changes nothing, and local models default to off while external ones default to standard', () => {
+test('off mode changes nothing, and local models default to off while external ones default to plan-only', () => {
     assert.equal(NexusPrivacyService.maskText('0771234567', 'off'), '0771234567');
     const saved = process.env.NEXUS_PRIVACY_MODE;
     delete process.env.NEXUS_PRIVACY_MODE;
     assert.equal(NexusPrivacyService.mode('local'), 'off');
-    assert.equal(NexusPrivacyService.mode('external'), 'standard');
+    assert.equal(NexusPrivacyService.mode('external'), 'plan-only');
     process.env.NEXUS_PRIVACY_MODE = 'strict';
     assert.equal(NexusPrivacyService.mode('local'), 'strict');
     if (saved === undefined) delete process.env.NEXUS_PRIVACY_MODE; else process.env.NEXUS_PRIVACY_MODE = saved;
+});
+
+import { NexusLocalReplyService } from '../../src/services/ai/nexus-local-reply.service';
+
+test('plan-only is the default for external models', () => {
+    const saved = process.env.NEXUS_PRIVACY_MODE;
+    delete process.env.NEXUS_PRIVACY_MODE;
+    assert.equal(NexusPrivacyService.mode('external'), 'plan-only');
+    if (saved !== undefined) process.env.NEXUS_PRIVACY_MODE = saved;
+});
+
+test('local reply builds text, table and chart from a database result without a model', () => {
+    const table = { title: 'Custom report: serviceOrder', columns: ['status', 'COUNT_OF_soNum'], rows: [{ status: 'PENDING', COUNT_OF_soNum: 10 }, { status: 'DONE', COUNT_OF_soNum: 30 }], totalRows: 2, truncated: false };
+    const r = NexusLocalReplyService.build([{ name: 'runCustomReport', args: { entity: 'serviceOrder', filters: [{ field: 'rtom', operator: 'equals', value: 'R-JA' }], aggregation: { type: 'COUNT', groupBy: 'status', targetField: 'soNum' } }, result: { rows: [] }, table }], 'status wise chart ekak');
+    assert.match(r.text, /2 rows/);
+    assert.match(r.text, /rtom equals R-JA/);
+    assert.equal(r.table?.rows.length, 2);
+    assert.equal(r.chart?.xAxisKey, 'status');
+    const s = NexusLocalReplyService.build([{ name: 'getProcurementContext', result: { pendingPRsCount: 3, nested: { a: 1 }, list: [{ id: 'x', qty: 5 }] } }], 'procurement');
+    assert.match(s.text, /pending PRs count: 3/i);
+    assert.equal(s.table?.rows[0].qty, 5);
 });

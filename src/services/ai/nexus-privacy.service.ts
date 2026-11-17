@@ -4,11 +4,14 @@
  * Modes (env NEXUS_PRIVACY_MODE):
  *   off      nothing is changed (default only when the model runs on our own server)
  *   standard personal fields and phone/e-mail/NIC patterns are masked before text reaches the model (default)
+ *   plan-only (default for external models) the model only turns the question into a tool call. It receives the
+ *            user's question (masked) and the tool definitions, never any ERP data or earlier answers; the reply, table
+ *            and chart are built on our server from the database result.
  *   strict   standard, plus report rows never reach the model: it only receives column names, the row count and
  *            totals of numeric columns. The user still sees the full table, because rows are shown straight from the
  *            database, not through the model.
  */
-export type PrivacyMode = 'off' | 'standard' | 'strict';
+export type PrivacyMode = 'off' | 'standard' | 'strict' | 'plan-only';
 
 const MASK = '[masked]';
 
@@ -25,8 +28,8 @@ const PATTERNS: Array<[RegExp, string]> = [
 export class NexusPrivacyService {
     static mode(provider: 'external' | 'local' = 'external'): PrivacyMode {
         const raw = (process.env.NEXUS_PRIVACY_MODE || '').toLowerCase();
-        if (raw === 'off' || raw === 'standard' || raw === 'strict') return raw;
-        return provider === 'local' ? 'off' : 'standard';
+        if (raw === 'off' || raw === 'standard' || raw === 'strict' || raw === 'plan-only') return raw;
+        return provider === 'local' ? 'off' : 'plan-only';
     }
 
     /** Masks phone numbers, e-mail addresses and NICs inside free text (user messages, saved history). */

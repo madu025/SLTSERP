@@ -11,6 +11,7 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { NexusPrivacyService, type PrivacyMode } from '@/services/ai/nexus-privacy.service';
+import { NexusLocalReplyService, type ToolRun } from '@/services/ai/nexus-local-reply.service';
 import { DynamicReportService, type DynamicReportPayload, type FilterRule, type AggregationConfig } from '@/services/inventory/dynamic-report.service';
 import type { NexusOpmcScope } from '@/services/ai/nexus-context.service';
 
@@ -585,12 +586,18 @@ CUSTOM REPORTS: if the user asks for a report/list/summary the other tools do no
 NOTE: Only include the "chart" key if the user explicitly asks to visualize, draw a graph, or chart the data. Otherwise, omit it entirely.
 `;
 
+        const externalPrivacy = NexusPrivacyService.mode('external');
+        const planNote = `
+
+PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pick the right tool(s) and fill in exact arguments (including exact YYYY-MM-DD dates and filters) for the user's request. Call the tool immediately; do not answer with figures and do not ask for data. The system presents the results itself.
+`;
+        const planSystemPrompt = systemPrompt + planNote;
         const compatKey = process.env.NEXUS_LLM_API_KEY || process.env.DEEPSEEK_API_KEY;
         const useLocal = process.env.NEXUS_LLM_PROVIDER === 'local' && !!process.env.NEXUS_LLM_BASE_URL;
         if ((compatKey || useLocal) && process.env.NEXUS_LLM_PROVIDER !== 'gemini') {
             try {
-                const out = await this.runDeepSeekLoop(compatKey ?? '', useLocal, systemPrompt, history, message, tools[0].functionDeclarations, { permissions, opmcScope, hasFinanceAccess });
-                if (out) return this.finalizeReply(out.text, message, out.executedIntent, out.didCheckLowStock, out.table);
+                const out = await this.runDeepSeekLoop(compatKey ?? '', useLocal, (!useLocal && externalPrivacy === 'plan-only') ? planSystemPrompt : systemPrompt, history, message, tools[0].functionDeclarations, { permissions, opmcScope, hasFinanceAccess });
+                if (out) return this.finalizeReply(out.text, message, out.executedIntent, out.didCheckLowStock, out.table, out.chart);
             } catch (error) {
                 console.error('[NEXUS] DeepSeek call failed:', error instanceof Error ? error.message : error, (error as { cause?: { code?: string; message?: string } })?.cause?.code ?? (error as { cause?: { message?: string } })?.cause?.message ?? '');
             }
@@ -599,7 +606,12 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
 
         const geminiPrivacy = NexusPrivacyService.mode('external');
         const contents: Array<{ role: string; parts: unknown[] }> = [
-            ...history.map((m) => ({ ...m, parts: m.parts.map((p) => ({ text: NexusPrivacyService.maskText(p.text, geminiPrivacy) })) })),
+            ...(geminiPrivacy === 'plan-only'
+                // earlier questions only (no answers, no data), folded into one turn so roles stay valid
+                ? (history.some((m) => m.role === 'user')
+                    ? [{ role: 'user', parts: [{ text: 'Earlier questions from this user (context only): ' + history.filter((m) => m.role === 'user').slice(-8).map((m) => NexusPrivacyService.maskText(m.parts?.[0]?.text ?? '', geminiPrivacy)).join(' | ') }] }, { role: 'model', parts: [{ text: 'Understood.' }] }]
+                    : [])
+                : history.map((m) => ({ ...m, parts: m.parts.map((p) => ({ text: NexusPrivacyService.maskText(p.text, geminiPrivacy) })) }))),
             { role: 'user', parts: [{ text: NexusPrivacyService.maskText(message, geminiPrivacy) }] }
         ];
 
@@ -608,7 +620,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey ?? '' },
             body: JSON.stringify({
-                system_instruction: { parts: [{ text: systemPrompt }] },
+                system_instruction: { parts: [{ text: geminiPrivacy === 'plan-only' ? planSystemPrompt : systemPrompt }] },
                 tools,
                 contents
             })
@@ -635,6 +647,18 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
         while (functionCalls.length > 0 && iterations < MAX_ITERATIONS) {
             iterations++;
             
+            if (geminiPrivacy === 'plan-only') {
+                const runs: ToolRun[] = [];
+                for (const fc of functionCalls.slice(0, 3)) {
+                    const executed = await this.executeTool(fc.name, fc.args, { permissions, opmcScope, hasFinanceAccess });
+                    if (executed.intent !== undefined) executedIntent = executed.intent;
+                    if (executed.checkedLowStock) didCheckLowStock = true;
+                    runs.push({ name: fc.name, args: fc.args, result: executed.result, table: executed.table });
+                }
+                const local = NexusLocalReplyService.build(runs, message);
+                return this.finalizeReply(local.text, message, executedIntent, didCheckLowStock, local.table, local.chart);
+            }
+
             // Push the exact model response to history (preserves thought_signature)
             contents.push(data.candidates[0].content);
 
@@ -695,7 +719,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
     }
 
     /** Turns the model's final text into the response the UI expects (shared by every provider). */
-    private static async finalizeReply(textReply: string, message: string, executedIntent: string | null, didCheckLowStock: boolean, table?: NexusTable): Promise<NexusResponse> {
+    private static async finalizeReply(textReply: string, message: string, executedIntent: string | null, didCheckLowStock: boolean, table?: NexusTable, localChart?: NexusChart): Promise<NexusResponse> {
         // Step 3: Self-Training (Continuous Learning)
         // If Gemini successfully understood the user's intent and called a tool, feed this back into Local AI!
         if (executedIntent) {
@@ -707,7 +731,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
         let parsedReply = textReply;
         let suggestions = ["Show active projects status", "List current low stock items"];
         let actions: NexusAction[] = [];
-        let chart: NexusChart | undefined = undefined;
+        let chart: NexusChart | undefined = localChart;
 
         const firstBrace = textReply.indexOf('{');
         const lastBrace = textReply.lastIndexOf('}');
@@ -798,7 +822,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
         message: string,
         declarations: Array<{ name: string; description: string; parameters?: unknown }>,
         ctx: { permissions: ReadonlySet<string>; opmcScope: NexusOpmcScope; hasFinanceAccess: boolean },
-    ): Promise<{ text: string; executedIntent: string | null; didCheckLowStock: boolean; table?: NexusTable } | null> {
+    ): Promise<{ text: string; executedIntent: string | null; didCheckLowStock: boolean; table?: NexusTable; chart?: NexusChart } | null> {
         // Any OpenAI-compatible server works: DeepSeek (default), or a model on our own server (Ollama, vLLM)
         // by setting NEXUS_LLM_PROVIDER=local and NEXUS_LLM_BASE_URL, in which case data never leaves our network.
         const baseUrl = (useLocal ? process.env.NEXUS_LLM_BASE_URL! : (process.env.NEXUS_LLM_BASE_URL || 'https://api.deepseek.com')).replace(/\/+$/, '');
@@ -810,7 +834,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
         }));
         const messages: Array<Record<string, unknown>> = [
             { role: 'system', content: systemPrompt },
-            ...history.slice(-20).map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: NexusPrivacyService.maskText(m.parts?.[0]?.text ?? '', privacy) })),
+            ...history.filter((m) => privacy !== 'plan-only' || m.role === 'user').slice(-20).map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: NexusPrivacyService.maskText(m.parts?.[0]?.text ?? '', privacy) })),
             { role: 'user', content: NexusPrivacyService.maskText(message, privacy) },
         ];
         let executedIntent: string | null = null;
@@ -831,6 +855,20 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
             const data = await res.json();
             const msg = data.choices?.[0]?.message as { content?: string | null; tool_calls?: Array<{ id: string; function: { name: string; arguments?: string } }> } | undefined;
             if (!msg) return null;
+            if (msg.tool_calls?.length && privacy === 'plan-only') {
+                // The model has chosen the tools. Run them here and build the answer locally: nothing goes back to the model.
+                const runs: ToolRun[] = [];
+                for (const call of msg.tool_calls.slice(0, 3)) {
+                    let args: Record<string, unknown> | undefined;
+                    try { args = call.function.arguments ? JSON.parse(call.function.arguments) : undefined; } catch { args = undefined; }
+                    const executed = await this.executeTool(call.function.name, args, ctx);
+                    if (executed.intent !== undefined) executedIntent = executed.intent;
+                    if (executed.checkedLowStock) didCheckLowStock = true;
+                    runs.push({ name: call.function.name, args, result: executed.result, table: executed.table });
+                }
+                const local = NexusLocalReplyService.build(runs, message);
+                return { text: local.text, executedIntent, didCheckLowStock, table: local.table, chart: local.chart };
+            }
             if (msg.tool_calls?.length) {
                 messages.push({ role: 'assistant', content: msg.content ?? '', tool_calls: msg.tool_calls });
                 for (const call of msg.tool_calls) {
