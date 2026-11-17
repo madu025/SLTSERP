@@ -6,7 +6,8 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, CheckCircle2, Clock3, Info, Minus } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { CompanyHealth, Comparison, HealthException } from '@/services/core/company-health.service';
-import { AgeingBars, BudgetBar, CompletedTrend, FinanceTrend, Panel, ProjectHealthDonut, Sparkline, compact } from './health/HealthCharts';
+import { Panel, compact } from './health/HealthPanel';
+import { AgeingBars, BudgetBar, CompletedTrend, FinanceTrend, ProjectHealthDonut, Sparkline } from './health/LazyHealthCharts';
 import { AtRiskProjectsTable, WeakestRtomsTable } from './health/RiskTables';
 
 interface Props {

@@ -179,18 +179,39 @@ export class CompanyHealthService {
         const b = monthBounds(now);
         const exceptions: HealthException[] = [];
 
-        // Sections run one after another on purpose: each fans out several queries, and running all
-        // of them at once can exhaust the Prisma connection pool (P2024) shared with live traffic.
-        const finance = has(RBAC_PERMISSIONS.FINANCE_READ) ? await this.financeSection(b, now, exceptions) : null;
-        const operations = has(RBAC_PERMISSIONS.SOD_READ) ? await this.operationsSection(b, now, exceptions, userId) : null;
-        const projects = has(RBAC_PERMISSIONS.PROJECT_READ) ? await this.projectsSection(now, exceptions) : null;
-        const fleet = has(RBAC_PERMISSIONS.FLEET_READ) ? await this.fleetSection(now, exceptions) : null;
-        const helpdesk = has(RBAC_PERMISSIONS.HELPDESK_READ) ? await this.helpdeskSection(exceptions) : null;
-        const inventory = has(RBAC_PERMISSIONS.INVENTORY_READ) ? await this.inventorySection(now, exceptions) : null;
-        const controls = has(RBAC_PERMISSIONS.ADMIN_RBAC) ? await this.controlsSection(now, exceptions) : null;
-        const supplyChain = has(RBAC_PERMISSIONS.INVENTORY_READ) || has(RBAC_PERMISSIONS.PROCUREMENT_READ)
-            ? await this.supplyChainSection(has(RBAC_PERMISSIONS.PROCUREMENT_READ), has(RBAC_PERMISSIONS.INVENTORY_READ), has(RBAC_PERMISSIONS.INVENTORY_COST_READ), now, exceptions)
-            : null;
+        // Sections run with bounded concurrency (3 at a time): each fans out several queries, so
+        // running all of them at once could exhaust the Prisma pool (P2024) shared with live traffic,
+        // but running them strictly one after another made this endpoint take many seconds.
+        // Each section collects its own exceptions so the final order stays deterministic.
+        const tasks: { run: (ex: HealthException[]) => Promise<unknown>; ex: HealthException[] }[] = [];
+        const results: Record<string, unknown> = {};
+        const add = (name: string, enabled: boolean, run: (ex: HealthException[]) => Promise<unknown>) => {
+            if (!enabled) { results[name] = null; return; }
+            const ex: HealthException[] = [];
+            tasks.push({ ex, run: async (e) => { results[name] = await run(e); } });
+        };
+        add('finance', has(RBAC_PERMISSIONS.FINANCE_READ), (e) => this.financeSection(b, now, e));
+        add('operations', has(RBAC_PERMISSIONS.SOD_READ), (e) => this.operationsSection(b, now, e, userId));
+        add('projects', has(RBAC_PERMISSIONS.PROJECT_READ), (e) => this.projectsSection(now, e));
+        add('fleet', has(RBAC_PERMISSIONS.FLEET_READ), (e) => this.fleetSection(now, e));
+        add('helpdesk', has(RBAC_PERMISSIONS.HELPDESK_READ), (e) => this.helpdeskSection(e));
+        add('inventory', has(RBAC_PERMISSIONS.INVENTORY_READ), (e) => this.inventorySection(now, e));
+        add('controls', has(RBAC_PERMISSIONS.ADMIN_RBAC), (e) => this.controlsSection(now, e));
+        add('supplyChain', has(RBAC_PERMISSIONS.INVENTORY_READ) || has(RBAC_PERMISSIONS.PROCUREMENT_READ),
+            (e) => this.supplyChainSection(has(RBAC_PERMISSIONS.PROCUREMENT_READ), has(RBAC_PERMISSIONS.INVENTORY_READ), has(RBAC_PERMISSIONS.INVENTORY_COST_READ), now, e));
+        const queue = [...tasks];
+        await Promise.all(Array.from({ length: Math.min(3, queue.length) }, async () => {
+            for (let t = queue.shift(); t; t = queue.shift()) await t.run(t.ex);
+        }));
+        for (const t of tasks) exceptions.push(...t.ex);
+        const finance = results.finance as CompanyHealth['finance'];
+        const operations = results.operations as CompanyHealth['operations'];
+        const projects = results.projects as CompanyHealth['projects'];
+        const fleet = results.fleet as CompanyHealth['fleet'];
+        const helpdesk = results.helpdesk as CompanyHealth['helpdesk'];
+        const inventory = results.inventory as CompanyHealth['inventory'];
+        const controls = results.controls as CompanyHealth['controls'];
+        const supplyChain = results.supplyChain as CompanyHealth['supplyChain'];
 
         const rank: Record<Severity, number> = { critical: 0, warning: 1, info: 2 };
         exceptions.sort((a, c) => rank[a.severity] - rank[c.severity]);
@@ -209,11 +230,12 @@ export class CompanyHealthService {
             LedgerReportService.getPnlReport(b.previousStart, b.previousSameSpanEnd),
             LedgerReportService.getPnlReport(b.yearStart, now),
         ]);
-        // Six-month trend: one P&L per month, one after another (each is several ledger queries)
+        // Six-month trend: one P&L per month, three months at a time (each is several ledger queries)
+        const months = lastMonths(now, 6);
         const monthly: { label: string; revenue: number; expense: number; profit: number }[] = [];
-        for (const m of lastMonths(now, 6)) {
-            const r = await LedgerReportService.getPnlReport(m.start, m.end);
-            monthly.push({ label: m.label, revenue: r.totalRevenue, expense: r.totalExpense, profit: r.netProfit });
+        for (let i = 0; i < months.length; i += 3) {
+            const chunk = await Promise.all(months.slice(i, i + 3).map(async (m) => ({ m, r: await LedgerReportService.getPnlReport(m.start, m.end) })));
+            for (const { m, r } of chunk) monthly.push({ label: m.label, revenue: r.totalRevenue, expense: r.totalExpense, profit: r.netProfit });
         }
         const [cash, ar, ap] = await Promise.all([
             LedgerReportService.getCashFlowReport(undefined, now),
@@ -318,6 +340,8 @@ export class CompanyHealthService {
             ex.push({ id: 'ops-aged10', severity: 'warning', area: 'Operations', title: 'Service orders open over 10 days', detail: `${aged10} orders have been open for more than 10 days`, href: '/service-orders' });
         }
 
+        // The four independent reads below run together (the section itself is already limited by getCompanyHealth).
+        const slaTask = (async () => {
         // Service-level view: turnaround SLA over 30 days and the RTOMs holding the oldest backlog
         try {
             const headline = await SodPerformanceService.getHeadline(now);
@@ -331,7 +355,9 @@ export class CompanyHealthService {
         } catch (error) {
             console.warn('[COMPANY-HEALTH] SLA headline skipped:', error instanceof Error ? error.message : error);
         }
+        })();
 
+        const scorecardTask = (async () => {
         // Contractors falling short this month (ranked contractors only: thin volumes are never flagged)
         try {
             const card = await ContractorScorecardService.getCompanyScorecard(undefined, 2, now);
@@ -345,11 +371,13 @@ export class CompanyHealthService {
         } catch (error) {
             console.warn('[COMPANY-HEALTH] Contractor scorecard skipped:', error instanceof Error ? error.message : error);
         }
+        })();
 
         // Charts: completions per month, open-order ageing, weakest RTOMs (failures degrade to empty, never block the page)
         let ageing: { bucket: string; count: number }[] = [];
         let weakestRtoms: NonNullable<CompanyHealth['operations']>['weakestRtoms'] = [];
         let completedMonthly: { label: string; completed: number }[] = [];
+        const trendTask = (async () => {
         try {
             const months = lastMonths(now, 6);
             const rows = await prisma.$queryRawUnsafe<{ m: Date; n: bigint | number }[]>(
@@ -362,6 +390,8 @@ export class CompanyHealthService {
         } catch (error) {
             console.warn('[COMPANY-HEALTH] Completions trend skipped:', error instanceof Error ? error.message : error);
         }
+        })();
+        const boardTask = (async () => {
         if (userId) {
             try {
                 const board = await OpsScoreboardService.getScoreboard(userId, { windowDays: 30 }, now);
@@ -374,6 +404,8 @@ export class CompanyHealthService {
                 console.warn('[COMPANY-HEALTH] Scoreboard skipped:', error instanceof Error ? error.message : error);
             }
         }
+        })();
+        await Promise.all([slaTask, scorecardTask, trendTask, boardTask]);
 
         return { openOrders, agedOver10Days: aged10, agedOver30Days: aged30, completed: compare(doneCur, donePrev), ageing, completedMonthly, weakestRtoms };
     }
