@@ -853,7 +853,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
             const search = describeSearch({
                 entity, filters: grounded.filters, groupBy: aggregation?.groupBy, rows: report.rows.length, capped: report.capped, asOf: new Date(),
                 scope: opmcScope === undefined ? undefined : 'limited to your OPMC',
-            }) + (grounded.evidence.length ? ` · ${grounded.evidence.join('; ')}` : '');
+            }) + ((report as { verified?: boolean }).verified ? ' · ✓ totals reconciled' : '') + (grounded.evidence.length ? ` · ${grounded.evidence.join('; ')}` : '');
             return { type: report.type, columns: report.columns, totalRows: report.rows.length, rows: report.rows.slice(0, 50), truncated: report.rows.length > 50 || report.capped, capped: report.capped, search };
         } catch (error) {
             // Only our own validation messages are shown; database/Prisma errors can contain internal paths and queries.

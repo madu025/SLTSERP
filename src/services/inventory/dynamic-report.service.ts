@@ -223,11 +223,31 @@ export class DynamicReportService {
             value = `${agg.type}(${target.expr})`;
         }
         const label = `${agg.type}_OF_${agg.targetField.split('.').join('_')}`;
-        const sql = `SELECT ${group.expr}::text AS k, ${value} AS v FROM ${ident(def.table)} t ${sqlJoins(entity, rels)}${conditions.length ? ` WHERE ${conditions.join(' AND ')}` : ''} GROUP BY 1 ORDER BY 2 DESC NULLS LAST, 1 LIMIT 501`;
-        const found = await prisma.$queryRawUnsafe<Array<{ k: string | null; v: unknown }>>(sql, ...params);
+        const from = `FROM ${ident(def.table)} t ${sqlJoins(entity, rels)}${conditions.length ? ` WHERE ${conditions.join(' AND ')}` : ''}`;
+        const targetExpr = agg.type === 'COUNT' ? '1' : sqlColumn(agg.targetField).expr;
+        // s and c let every group be re-derived (AVG = s / c) and every total be reconciled
+        const sql = `SELECT ${group.expr}::text AS k, ${value} AS v, COALESCE(SUM(${targetExpr}), 0) AS s, COUNT(*) AS c, COUNT(${targetExpr}) AS cn ${from} GROUP BY 1 ORDER BY 2 DESC NULLS LAST, 1 LIMIT 501`;
+        const found = await prisma.$queryRawUnsafe<Array<{ k: string | null; v: unknown; s: unknown; c: unknown; cn: unknown }>>(sql, ...params);
         const capped = found.length > 500;
-        const rows = found.slice(0, 500).map((r) => ({ [agg.groupBy]: r.k === null ? 'N/A' : r.k, [label]: Number(Number(r.v ?? 0).toFixed(2)) }));
-        return { type: 'AGGREGATED' as const, columns: [agg.groupBy, label], rows, capped };
+        const shown = found.slice(0, 500);
+        const rows = shown.map((r) => ({ [agg.groupBy]: r.k === null ? 'N/A' : r.k, [label]: Number(Number(r.v ?? 0).toFixed(2)) }));
+
+        // Reconciliation: an independent query over the same rows must equal the sum of the groups, and each AVG must equal sum/count.
+        let verified = false;
+        if (!capped) {
+            const [total] = await prisma.$queryRawUnsafe<Array<{ s: unknown; c: unknown }>>(`SELECT COALESCE(SUM(${targetExpr}), 0) AS s, COUNT(*) AS c ${from}`, ...params);
+            const groupSum = shown.reduce((a, r) => a + Number(r.s ?? 0), 0);
+            const groupCount = shown.reduce((a, r) => a + Number(r.c ?? 0), 0);
+            const tol = 0.01 * Math.max(1, shown.length);
+            if (Number(total.c) !== groupCount || Math.abs(Number(total.s) - groupSum) > tol) {
+                throw AppError.badRequest(`INVALID_AGGREGATION: the groups do not add up to the total (rows ${groupCount} vs ${Number(total.c)}); the report was withheld.`);
+            }
+            if (agg.type === 'AVG' && shown.some((r) => Number(r.cn) > 0 && Math.abs(Number(r.s) / Number(r.cn) - Number(r.v)) > 0.01)) {
+                throw AppError.badRequest('INVALID_AGGREGATION: an average does not match its sum and count; the report was withheld.');
+            }
+            verified = true;
+        }
+        return { type: 'AGGREGATED' as const, columns: [agg.groupBy, label], rows, capped, verified };
     }
 
     /** Queryable fields per entity, used to tell the assistant what it may ask for. */
@@ -275,43 +295,17 @@ export class DynamicReportService {
         // 3. Load only the relations the report actually uses (no full-row joins for plain service order lists)
         const includeClause = buildInclude([...columns, ...filters.map((f) => f.field), ...(aggregation ? [aggregation.groupBy, aggregation.targetField] : [])]);
 
-        // Aggregations that cross tables are computed by the database over ALL matching rows with real joins.
-        const joined = !!aggregation && (aggregation.groupBy.includes('.') || aggregation.targetField.includes('.'));
-        if (aggregation && aggregation.groupBy && joined) {
+        // Every aggregation (single table or joined) is computed by the database over ALL matching rows. There is
+        // deliberately no in-memory fallback: a sampled total would look right and be wrong.
+        if (aggregation && aggregation.groupBy) {
             if (!allowedFields.includes(aggregation.groupBy) || !allowedFields.includes(aggregation.targetField)) {
                 throw AppError.badRequest(`INVALID_AGGREGATION: Group by or target field is not queryable.`);
             }
+            if (opts.scopeWhere && opts.opmcIds === undefined) throw AppError.badRequest('INVALID_AGGREGATION: a scoped aggregation needs the OPMC list.');
             return this.joinedAggregate(entity, filters.map((rule) => {
                 const enumLike = /(^|\.)(status|sltsStatus|usageType|referenceType)$/i.test(rule.field);
                 return enumLike ? { ...rule, operator: (rule.operator === 'contains' || rule.operator === 'startsWith' ? 'equals' : rule.operator) as FilterRule['operator'], value: rule.value.trim().toUpperCase().replace(/\s+/g, '_') } : rule;
             }), aggregation, opts.opmcIds);
-        }
-
-        // Aggregations over a flat column are computed by the database over ALL matching rows. The in-memory
-        // path below only sees the newest 500 rows, which made counts such as "orders per status" wrong.
-        if (aggregation && aggregation.groupBy && !aggregation.groupBy.includes('.') && !aggregation.targetField.includes('.')
-            && allowedFields.includes(aggregation.groupBy) && allowedFields.includes(aggregation.targetField)) {
-            const dbWhere = opts.scopeWhere ? { AND: [whereClause, opts.scopeWhere] } : whereClause;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const dbClient = (prisma as any)[this.prismaKeys[entity]];
-            const label = `${aggregation.type}_OF_${aggregation.targetField}`;
-            try {
-                const grouped = await dbClient.groupBy({
-                    by: [aggregation.groupBy],
-                    where: dbWhere,
-                    ...(aggregation.type === 'COUNT' ? { _count: { _all: true } }
-                        : aggregation.type === 'SUM' ? { _sum: { [aggregation.targetField]: true } }
-                        : { _avg: { [aggregation.targetField]: true } }),
-                });
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const rows = (grouped as any[]).map((g) => {
-                    const raw = aggregation.type === 'COUNT' ? g._count._all : aggregation.type === 'SUM' ? g._sum[aggregation.targetField] : g._avg[aggregation.targetField];
-                    return { [aggregation.groupBy]: g[aggregation.groupBy] === null || g[aggregation.groupBy] === undefined ? 'N/A' : String(g[aggregation.groupBy]), [label]: Number(Number(raw ?? 0).toFixed(2)) };
-                }).sort((a, b) => Number(b[label]) - Number(a[label]));
-                return { type: 'AGGREGATED', columns: [aggregation.groupBy, label], rows, capped: false };
-            } catch {
-                // SUM/AVG on a non-numeric column, or a column the database cannot group: use the bounded path below
-            }
         }
 
         // 4. Fetch Raw Data from Master
@@ -328,48 +322,6 @@ export class DynamicReportService {
             // table export; CSV export can be extended with server pagination.
             take: 500,
         });
-
-        // 5. Apply Aggregations if configured
-        if (aggregation && aggregation.groupBy) {
-            if (!allowedFields.includes(aggregation.groupBy) || !allowedFields.includes(aggregation.targetField)) {
-                throw AppError.badRequest(`INVALID_AGGREGATION: Group by or target field is not queryable.`);
-            }
-
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const groups: Record<string, any[]> = {};
-            for (const rec of rawRecords) {
-                const groupKey = String(getNestedValue(rec, aggregation.groupBy) || 'N/A');
-                if (!groups[groupKey]) groups[groupKey] = [];
-                groups[groupKey].push(rec);
-            }
-
-            const aggregatedRows = Object.entries(groups).map(([groupVal, items]) => {
-                let aggResult = 0;
-                const targetValues = items.map(i => Number(getNestedValue(i, aggregation.targetField) || 0));
-
-                if (aggregation.type === 'SUM') {
-                    aggResult = targetValues.reduce((sum, v) => sum + v, 0);
-                } else if (aggregation.type === 'AVG') {
-                    aggResult = targetValues.length > 0 ? (targetValues.reduce((sum, v) => sum + v, 0) / targetValues.length) : 0;
-                } else if (aggregation.type === 'COUNT') {
-                    aggResult = targetValues.length;
-                }
-
-                return {
-                    [aggregation.groupBy]: groupVal,
-                    [`${aggregation.type}_OF_${aggregation.targetField.replace('.', '_')}`]: Number(aggResult.toFixed(2))
-                };
-            });
-
-            // Return aggregated structure
-            const aggCols = [aggregation.groupBy, `${aggregation.type}_OF_${aggregation.targetField.replace('.', '_')}`];
-            return {
-                type: 'AGGREGATED',
-                columns: aggCols,
-                rows: aggregatedRows,
-                capped: rawRecords.length >= 500
-            };
-        }
 
         // 6. Map and Flatten columns for standard tabular result
         const mappedRows = rawRecords.map((rec: Record<string, unknown>) => {
