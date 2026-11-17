@@ -19,6 +19,7 @@ import { DynamicReportService, type DynamicReportPayload, type FilterRule, type 
 import type { NexusOpmcScope } from '@/services/ai/nexus-context.service';
 
 import { safeJsonParse } from '@/utils/safeJsonParse';
+import { slDayKey } from '@/lib/sl-time';
 
 /** Circuit breaker: opens after 5 consecutive Gemini API failures, resets after 30s */
 const geminiBreaker = new CircuitBreaker(5, 30_000, 'Gemini-AI');
@@ -604,7 +605,7 @@ You have access to a set of internal tools (functions) to fetch live data from t
 When a user asks a question, YOU MUST dynamically decide which tool to call to get the exact data needed, OR answer directly if you already know.
 
 CRITICAL INSTRUCTIONS & ANTI-HALLUCINATION:
-0. TODAY'S DATE is ${new Date().toISOString().slice(0, 10)} (UTC). Use it to turn relative ranges such as "last 30 days" or "this month" into exact YYYY-MM-DD filter values, and state the exact range you used in your reply.
+0. TODAY'S DATE is ${slDayKey(new Date())} (Sri Lanka time). Use it to turn relative ranges such as "last 30 days" or "this month" into exact YYYY-MM-DD filter values, and state the exact range you used in your reply.
 1. GREETING: Greet the user by their name: ${userName}.
 2. LANGUAGE: Answer in the language of the user's choice (Sinhala, English, or Singlish).
 3. NO GUESSING (ANTI-HALLUCINATION): If you do NOT find the EXACT answer in the provided tool context or database output, DO NOT guess. DO NOT hallucinate numbers. You MUST explicitly say "මෙම තොරතුර මගේ දත්ත ගොනුවේ නොමැත" (I do not have this information). 

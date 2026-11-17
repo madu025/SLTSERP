@@ -6,17 +6,17 @@ const NOW = new Date('2026-11-17T10:00:00Z');
 
 test('this month compares the same number of days of the previous month', () => {
     const p = resolvePeriod('this_month', NOW);
-    assert.equal(p.from.toISOString(), '2026-11-01T00:00:00.000Z');
-    assert.equal(p.prevFrom.toISOString(), '2026-10-01T00:00:00.000Z');
+    assert.equal(p.from.toISOString(), '2026-10-31T18:30:00.000Z');
+    assert.equal(p.prevFrom.toISOString(), '2026-09-30T18:30:00.000Z');
     // 16 days 10 hours into November -> the same span into October
     assert.equal(p.prevTo.toISOString(), '2026-10-17T10:00:00.000Z');
 });
 
 test('last month compares with the month before it', () => {
     const p = resolvePeriod('last_month', NOW);
-    assert.equal(p.from.toISOString(), '2026-10-01T00:00:00.000Z');
+    assert.equal(p.from.toISOString(), '2026-09-30T18:30:00.000Z');
     assert.equal(p.to.toISOString().slice(0, 10), '2026-10-31');
-    assert.equal(p.prevFrom.toISOString(), '2026-09-01T00:00:00.000Z');
+    assert.equal(p.prevFrom.toISOString(), '2026-08-31T18:30:00.000Z');
     assert.equal(p.prevTo.toISOString().slice(0, 10), '2026-09-30');
 });
 
@@ -25,8 +25,8 @@ test('rolling windows compare with the equal window before them', () => {
     assert.equal(p.to.getTime() - p.from.getTime(), 7 * 24 * 3600 * 1000);
     assert.equal(p.prevTo.getTime() + 1, p.from.getTime());
     const w = resolvePeriod('this_week', NOW); // 17 Nov 2026 is a Tuesday
-    assert.equal(w.from.toISOString(), '2026-11-16T00:00:00.000Z');
-    assert.equal(w.prevFrom.toISOString(), '2026-11-09T00:00:00.000Z');
+    assert.equal(w.from.toISOString(), '2026-11-15T18:30:00.000Z');
+    assert.equal(w.prevFrom.toISOString(), '2026-11-08T18:30:00.000Z');
 });
 
 test('metrics need their module permission and company-wide ones refuse OPMC-scoped users', () => {

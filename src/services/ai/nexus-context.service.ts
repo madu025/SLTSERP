@@ -1,4 +1,5 @@
 import { primaryClient as prisma } from '@/lib/prisma';
+import { slInstant, slDayKey, slStartOfDayKey } from '@/lib/sl-time';
 import { Prisma } from '@prisma/client';
 import { ProjectAIService } from '../project/project-ai.service';
 
@@ -519,10 +520,9 @@ export class NexusContextService {
   }
 
   static async getServiceOrderProgressContext(opmcCode?: string, opmcScope: NexusOpmcScope = undefined) {
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    // "Today" is the Colombo day, whatever timezone the server runs in
+    const today = slStartOfDayKey(slDayKey(new Date()));
+    const tomorrow = new Date(today.getTime() + 24 * 3600 * 1000);
 
     const whereClause: Record<string, unknown> = {};
     if (opmcScope !== undefined) {
@@ -586,8 +586,8 @@ export class NexusContextService {
     if (args?.monthYYYYMM) {
         const year = parseInt(args.monthYYYYMM.substring(0, 4));
         const month = parseInt(args.monthYYYYMM.substring(4, 6)) - 1;
-        const startOfMonth = new Date(year, month, 1);
-        const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59);
+        const startOfMonth = slInstant(year, month, 1);
+        const endOfMonth = new Date(slInstant(year, month + 1, 1).getTime() - 1);
         filters.completedDate = { gte: startOfMonth, lte: endOfMonth };
     }
 

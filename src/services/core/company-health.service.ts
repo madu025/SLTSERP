@@ -10,6 +10,7 @@ import { ContractorScorecardService } from '@/services/contractor/contractor-sco
 import { OpsScoreboardService } from '@/services/service-order/ops-scoreboard.service';
 import { ProcurementPerformanceService } from '@/services/procurement/procurement-performance.service';
 import { InventoryHealthService } from '@/services/inventory/inventory-health.service';
+import { slWall, slInstant } from '@/lib/sl-time';
 import { VendorScorecardService } from '@/services/procurement/vendor-scorecard.service';
 import { buildSupplyChainExceptions } from '@/services/procurement/supply-chain-exceptions';
 import { SpendService } from '@/services/procurement/spend.service';
@@ -71,9 +72,10 @@ const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 export function lastMonths(now: Date, count: number): { label: string; start: Date; end: Date }[] {
     const out: { label: string; start: Date; end: Date }[] = [];
     for (let i = count - 1; i >= 0; i--) {
-        const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
-        const endOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i + 1, 1) - 1);
-        out.push({ label: MONTH_NAMES[start.getUTCMonth()], start, end: i === 0 ? now : endOfMonth });
+        const w = slWall(now);
+        const start = slInstant(w.getUTCFullYear(), w.getUTCMonth() - i, 1);
+        const endOfMonth = new Date(slInstant(w.getUTCFullYear(), w.getUTCMonth() - i + 1, 1).getTime() - 1);
+        out.push({ label: MONTH_NAMES[slWall(start).getUTCMonth()], start, end: i === 0 ? now : endOfMonth });
     }
     return out;
 }
@@ -160,16 +162,18 @@ export function compare(current: number, previous: number): Comparison {
 }
 
 export function monthBounds(now: Date) {
-    const y = now.getUTCFullYear();
-    const m = now.getUTCMonth();
-    const currentStart = new Date(Date.UTC(y, m, 1));
-    const previousStart = new Date(Date.UTC(y, m - 1, 1));
+    // Months are Colombo months (UTC+5:30), so a completion at 01:00 on the 1st belongs to the new month.
+    const wall = slWall(now);
+    const y = wall.getUTCFullYear();
+    const m = wall.getUTCMonth();
+    const currentStart = slInstant(y, m, 1);
+    const previousStart = slInstant(y, m - 1, 1);
     const previousEnd = new Date(currentStart.getTime() - 1);
     // Compare like with like: month-to-date against the same number of days of the previous month,
     // otherwise a half-finished month always looks like a collapse against a full one.
     const previousSameSpanEnd = new Date(Math.min(previousEnd.getTime(), previousStart.getTime() + (now.getTime() - currentStart.getTime())));
-    const yearStart = new Date(Date.UTC(y, 0, 1));
-    const label = (d: Date) => d.toLocaleString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+    const yearStart = slInstant(y, 0, 1);
+    const label = (d: Date) => d.toLocaleString('en-GB', { month: 'short', year: 'numeric', timeZone: 'Asia/Colombo' });
     return { currentStart, previousStart, previousEnd, previousSameSpanEnd, yearStart, currentLabel: label(currentStart), previousLabel: label(previousStart) };
 }
 
@@ -261,7 +265,7 @@ export class CompanyHealthService {
         }
         // Budget control: only when a company-wide budget exists for the year
         try {
-            const budget = await LedgerBudgetService.getCompanyBudgetVsActual(now.getUTCFullYear(), now);
+            const budget = await LedgerBudgetService.getCompanyBudgetVsActual(slWall(now).getUTCFullYear(), now);
             const over = expenseOverruns(budget.rows);
             if (budget.hasBudget && over.length > 0) {
                 const worst = over[0];
@@ -300,8 +304,9 @@ export class CompanyHealthService {
             }
 
             // Previous month should be closed once the first ten days of the new month have passed
-            if (now.getUTCDate() > 10) {
-                const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+            if (slWall(now).getUTCDate() > 10) {
+                const w = slWall(now);
+                const prev = new Date(Date.UTC(w.getUTCFullYear(), w.getUTCMonth() - 1, 1));
                 const period = await prisma.fiscalPeriod.findUnique({
                     where: { year_month: { year: prev.getUTCFullYear(), month: prev.getUTCMonth() + 1 } },
                     select: { status: true },

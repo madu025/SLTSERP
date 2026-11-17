@@ -3,6 +3,7 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { LedgerReportService } from '@/services/finance/ledger-report.service';
 import { CompanyHealthService, monthBounds, type CompanyHealth, type Comparison } from '@/services/core/company-health.service';
 import { swrMemo } from '@/lib/swr-memo';
+import { slWall, slInstant, slDayKey } from '@/lib/sl-time';
 import type { NexusCard, NexusTable } from '@/services/ai/nexus-agent.service';
 
 /**
@@ -17,8 +18,8 @@ export interface PeriodRange { label: string; from: Date; to: Date; prevLabel: s
 
 const DAY_MS = 24 * 3600 * 1000;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const monthLabel = (d: Date) => `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
-const day = (d: Date) => d.toISOString().slice(0, 10);
+const monthLabel = (d: Date) => { const w = slWall(d); return `${MONTHS[w.getUTCMonth()]} ${w.getUTCFullYear()}`; };
+const day = slDayKey;
 
 export function resolvePeriod(period: string | undefined, now: Date = new Date()): PeriodRange {
     const b = monthBounds(now);
@@ -26,7 +27,8 @@ export function resolvePeriod(period: string | undefined, now: Date = new Date()
         case 'last_month': {
             const start = b.previousStart;
             const end = b.previousEnd;
-            const prevStart = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() - 1, 1));
+            const sw = slWall(start);
+            const prevStart = slInstant(sw.getUTCFullYear(), sw.getUTCMonth() - 1, 1);
             const prevEnd = new Date(start.getTime() - 1);
             return { label: monthLabel(start), from: start, to: end, prevLabel: monthLabel(prevStart), prevFrom: prevStart, prevTo: prevEnd };
         }
@@ -38,14 +40,16 @@ export function resolvePeriod(period: string | undefined, now: Date = new Date()
             return { label: `last ${days} days`, from, to: now, prevLabel: `the ${days} days before`, prevFrom, prevTo: new Date(from.getTime() - 1) };
         }
         case 'this_week': {
-            const dow = (now.getUTCDay() + 6) % 7; // Monday = 0
-            const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - dow));
+            const w = slWall(now);
+            const dow = (w.getUTCDay() + 6) % 7; // Monday = 0, in Colombo time
+            const monday = slInstant(w.getUTCFullYear(), w.getUTCMonth(), w.getUTCDate() - dow);
             const prevFrom = new Date(monday.getTime() - 7 * DAY_MS);
             return { label: `week of ${day(monday)}`, from: monday, to: now, prevLabel: 'same days of last week', prevFrom, prevTo: new Date(prevFrom.getTime() + (now.getTime() - monday.getTime())) };
         }
         case 'this_year': {
-            const prevFrom = new Date(Date.UTC(now.getUTCFullYear() - 1, 0, 1));
-            return { label: String(now.getUTCFullYear()), from: b.yearStart, to: now, prevLabel: `same days of ${now.getUTCFullYear() - 1}`, prevFrom, prevTo: new Date(prevFrom.getTime() + (now.getTime() - b.yearStart.getTime())) };
+            const yr = slWall(now).getUTCFullYear();
+            const prevFrom = slInstant(yr - 1, 0, 1);
+            return { label: String(yr), from: b.yearStart, to: now, prevLabel: `same days of ${yr - 1}`, prevFrom, prevTo: new Date(prevFrom.getTime() + (now.getTime() - b.yearStart.getTime())) };
         }
         default:
             return { label: monthLabel(b.currentStart), from: b.currentStart, to: now, prevLabel: `same days of ${monthLabel(b.previousStart)}`, prevFrom: b.previousStart, prevTo: b.previousSameSpanEnd };

@@ -1,5 +1,6 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { slStartOfDayKey } from '@/lib/sl-time';
 
 export interface FilterRule {
     field: string;
@@ -42,7 +43,7 @@ function mapOperator(operator: string, value: string, caseInsensitiveEquals = fa
     else if (!isNaN(Number(value)) && value.trim() !== '') {
         parsedValue = Number(value);
     } else if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-        parsedValue = new Date(value);
+        parsedValue = slStartOfDayKey(value); // a date means that Colombo day
     }
 
     // A date written without a time means the whole day, so "lte 2026-01-31" includes the 31st.
@@ -135,6 +136,7 @@ function sqlJoins(entity: string, rels: Iterable<string>): string {
     }).join(' ');
 }
 
+const REPORT_TIMEOUT_MS = 15_000;
 const escapeLike = (x: string) => x.replace(/[\\%_]/g, (c) => '\\' + c);
 
 function sqlCondition(rule: FilterRule, params: unknown[]): { sql: string; rel: string } {
@@ -147,7 +149,7 @@ function sqlCondition(rule: FilterRule, params: unknown[]): { sql: string; rel: 
         return { sql: `${expr} ${op ?? '='} ${p(Number(v), '::numeric')}`, rel };
     }
     if (kind === 'date' && DATE_ONLY.test(v)) {
-        const d = p(v, '::timestamp');
+        const d = `(${p(v, '::timestamp')} - interval '5 hours 30 minutes')`;
         switch (rule.operator) {
             case 'gt': return { sql: `${expr} >= ${d} + interval '1 day'`, rel };
             case 'gte': return { sql: `${expr} >= ${d}`, rel };
@@ -227,7 +229,20 @@ export class DynamicReportService {
         const targetExpr = agg.type === 'COUNT' ? '1' : sqlColumn(agg.targetField).expr;
         // s and c let every group be re-derived (AVG = s / c) and every total be reconciled
         const sql = `SELECT ${group.expr}::text AS k, ${value} AS v, COALESCE(SUM(${targetExpr}), 0) AS s, COUNT(*) AS c, COUNT(${targetExpr}) AS cn ${from} GROUP BY 1 ORDER BY 2 DESC NULLS LAST, 1 LIMIT 501`;
-        const found = await prisma.$queryRawUnsafe<Array<{ k: string | null; v: unknown; s: unknown; c: unknown; cn: unknown }>>(sql, ...params);
+        // One read-only transaction with a hard time limit: a heavy question can never lock or slow the live system,
+        // and both the groups and the control total are read from the same snapshot.
+        const { found, total } = await prisma.$transaction(async (tx) => {
+            await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+            await tx.$executeRawUnsafe(`SET LOCAL statement_timeout = ${REPORT_TIMEOUT_MS}`);
+            const found = await tx.$queryRawUnsafe<Array<{ k: string | null; v: unknown; s: unknown; c: unknown; cn: unknown }>>(sql, ...params);
+            const [total] = await tx.$queryRawUnsafe<Array<{ s: unknown; c: unknown }>>(`SELECT COALESCE(SUM(${targetExpr}), 0) AS s, COUNT(*) AS c ${from}`, ...params);
+            return { found, total };
+        }, { timeout: REPORT_TIMEOUT_MS + 5000, isolationLevel: 'RepeatableRead' }).catch((e: unknown) => {
+            if (/statement timeout|canceling statement/i.test(String(e instanceof Error ? e.message : e))) {
+                throw AppError.badRequest('INVALID_AGGREGATION: this question is too heavy to answer live; add a filter (a date range or an RTOM) and ask again.');
+            }
+            throw e;
+        });
         const capped = found.length > 500;
         const shown = found.slice(0, 500);
         const rows = shown.map((r) => ({ [agg.groupBy]: r.k === null ? 'N/A' : r.k, [label]: Number(Number(r.v ?? 0).toFixed(2)) }));
@@ -235,7 +250,6 @@ export class DynamicReportService {
         // Reconciliation: an independent query over the same rows must equal the sum of the groups, and each AVG must equal sum/count.
         let verified = false;
         if (!capped) {
-            const [total] = await prisma.$queryRawUnsafe<Array<{ s: unknown; c: unknown }>>(`SELECT COALESCE(SUM(${targetExpr}), 0) AS s, COUNT(*) AS c ${from}`, ...params);
             const groupSum = shown.reduce((a, r) => a + Number(r.s ?? 0), 0);
             const groupCount = shown.reduce((a, r) => a + Number(r.c ?? 0), 0);
             const tol = 0.01 * Math.max(1, shown.length);

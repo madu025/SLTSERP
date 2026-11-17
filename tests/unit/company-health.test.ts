@@ -10,12 +10,12 @@ test('compare gives a percentage change and no fake base when the previous value
   assert.equal(compare(-50, -100).changePct, 50);
 });
 
-test('monthBounds returns the current and previous calendar month in UTC', () => {
+test('monthBounds returns the current and previous calendar month in Colombo time', () => {
   const b = monthBounds(new Date('2026-01-15T10:00:00Z'));
-  assert.equal(b.currentStart.toISOString(), '2026-01-01T00:00:00.000Z');
-  assert.equal(b.previousStart.toISOString(), '2025-12-01T00:00:00.000Z');
-  assert.equal(b.previousEnd.toISOString(), '2025-12-31T23:59:59.999Z');
-  assert.equal(b.yearStart.toISOString(), '2026-01-01T00:00:00.000Z');
+  assert.equal(b.currentStart.toISOString(), '2025-12-31T18:30:00.000Z');
+  assert.equal(b.previousStart.toISOString(), '2025-11-30T18:30:00.000Z');
+  assert.equal(b.previousEnd.toISOString(), '2025-12-31T18:29:59.999Z');
+  assert.equal(b.yearStart.toISOString(), '2025-12-31T18:30:00.000Z');
   // 14.4 days into January -> the comparison window is the first 14.4 days of December
   assert.equal(b.previousSameSpanEnd.toISOString(), '2025-12-15T10:00:00.000Z');
   // late in a long month the window is capped at the end of the previous (shorter) month
@@ -257,11 +257,11 @@ test('lastMonths returns six calendar months oldest first, the last one ending n
   const m = lastMonths(now, 6);
   assert.equal(m.length, 6);
   assert.deepEqual(m.map((x) => x.label), ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov']);
-  assert.equal(m[0].start.toISOString(), '2026-06-01T00:00:00.000Z');
-  assert.equal(m[4].end.toISOString(), '2026-10-31T23:59:59.999Z');
+  assert.equal(m[0].start.toISOString(), '2026-05-31T18:30:00.000Z');
+  assert.equal(m[4].end.toISOString(), '2026-10-31T18:29:59.999Z');
   assert.equal(m[5].end.toISOString(), now.toISOString());
   // crosses a year boundary
-  assert.equal(lastMonths(new Date('2026-02-10T00:00:00Z'), 3)[0].start.toISOString(), '2025-12-01T00:00:00.000Z');
+  assert.equal(lastMonths(new Date('2026-02-10T00:00:00Z'), 3)[0].start.toISOString(), '2025-11-30T18:30:00.000Z');
 });
 
 test('classifyProject: worst signal wins', () => {

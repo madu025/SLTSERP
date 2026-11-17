@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { LedgerReportService } from '@/services/finance/ledger-report.service';
 import { swrMemo } from '@/lib/swr-memo';
+import { slWall, slInstant, slDayKey, slDaysInMonth, slStartOfDayKey } from '@/lib/sl-time';
 import { groundValue, listRtoms } from '@/services/ai/semantic-layer.service';
 import { ExecutiveMetricService, resolvePeriod, type MetricId } from '@/services/ai/executive-metrics.service';
 import type { NexusCard, NexusTable } from '@/services/ai/nexus-agent.service';
@@ -13,7 +14,7 @@ import type { NexusCard, NexusTable } from '@/services/ai/nexus-agent.service';
  */
 const DAY_MS = 24 * 3600 * 1000;
 const OPEN = ['PENDING', 'INPROGRESS', 'ASSIGNED'] as const;
-const day = (d: Date) => d.toISOString().slice(0, 10);
+const day = slDayKey;
 const n0 = (n: number) => Math.round(n).toLocaleString('en-US');
 type Scope = readonly string[] | undefined;
 const scopeWhere = (s: Scope) => (s === undefined ? {} : { opmcId: { in: [...s] } });
@@ -69,11 +70,11 @@ export function backtestError(history: { projected: number; actual: number }[]):
 
 async function dailyCompleted(scope: Scope, from: Date, to: Date): Promise<number[]> {
     const rows = scope === undefined
-        ? await prisma.$queryRaw<{ d: Date; n: bigint }[]>(Prisma.sql`SELECT date_trunc('day', "completedDate" AT TIME ZONE 'UTC') AS d, count(*) AS n FROM "ServiceOrder" WHERE "completedDate" >= ${from} AND "completedDate" <= ${to} GROUP BY 1`)
-        : await prisma.$queryRaw<{ d: Date; n: bigint }[]>(Prisma.sql`SELECT date_trunc('day', "completedDate" AT TIME ZONE 'UTC') AS d, count(*) AS n FROM "ServiceOrder" WHERE "completedDate" >= ${from} AND "completedDate" <= ${to} AND "opmcId"::text = ANY(${[...scope]}::text[]) GROUP BY 1`);
-    const byDay = new Map(rows.map((r) => [day(new Date(r.d)), Number(r.n)]));
+        ? await prisma.$queryRaw<{ d: string; n: bigint }[]>(Prisma.sql`SELECT to_char(("completedDate" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Colombo', 'YYYY-MM-DD') AS d, count(*) AS n FROM "ServiceOrder" WHERE "completedDate" >= ${from} AND "completedDate" <= ${to} GROUP BY 1`)
+        : await prisma.$queryRaw<{ d: string; n: bigint }[]>(Prisma.sql`SELECT to_char(("completedDate" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Colombo', 'YYYY-MM-DD') AS d, count(*) AS n FROM "ServiceOrder" WHERE "completedDate" >= ${from} AND "completedDate" <= ${to} AND "opmcId"::text = ANY(${[...scope]}::text[]) GROUP BY 1`);
+    const byDay = new Map(rows.map((r) => [r.d, Number(r.n)]));
     const out: number[] = [];
-    for (let t = Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()); t <= to.getTime(); t += DAY_MS) out.push(byDay.get(day(new Date(t))) ?? 0);
+    for (let t = slStartOfDayKey(day(from)).getTime(); t <= to.getTime(); t += DAY_MS) out.push(byDay.get(day(new Date(t))) ?? 0);
     return out;
 }
 
@@ -91,7 +92,7 @@ export class ExecutiveInsightService {
                 // today is incomplete, so judge complete days only
                 const complete = series.slice(0, -1);
                 for (const a of detectSeriesAnomalies(complete)) {
-                    const when = day(new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate() + a.index)));
+                    const when = day(new Date(slStartOfDayKey(day(from)).getTime() + a.index * DAY_MS));
                     out.push({
                         severity: a.value < a.expected ? 'warning' : 'info', area: 'Operations',
                         finding: a.value < a.expected ? `Completions dropped on ${when}` : `Completions spiked on ${when}`,
@@ -118,12 +119,13 @@ export class ExecutiveInsightService {
                 }
             }
             if (permissions.has(RBAC_PERMISSIONS.FINANCE_READ) && scope === undefined) {
+                const nw = slWall(now);
                 const exp = await Promise.all([
-                    LedgerReportService.getPnlReport(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)), now),
-                    ...[1, 2, 3].map((i) => LedgerReportService.getPnlReport(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1)), new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i + 1, 1) - 1))),
+                    LedgerReportService.getPnlReport(slInstant(nw.getUTCFullYear(), nw.getUTCMonth(), 1), now),
+                    ...[1, 2, 3].map((i) => LedgerReportService.getPnlReport(slInstant(nw.getUTCFullYear(), nw.getUTCMonth() - i, 1), new Date(slInstant(nw.getUTCFullYear(), nw.getUTCMonth() - i + 1, 1).getTime() - 1))),
                 ]);
-                const elapsed = Math.max(1, (now.getTime() - Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)) / DAY_MS);
-                const daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
+                const elapsed = Math.max(1, (now.getTime() - slInstant(nw.getUTCFullYear(), nw.getUTCMonth(), 1).getTime()) / DAY_MS);
+                const daysInMonth = slDaysInMonth(nw.getUTCFullYear(), nw.getUTCMonth());
                 const projected = projectMonthEnd(exp[0].totalExpense, elapsed, daysInMonth);
                 const prior = mean([exp[1].totalExpense, exp[2].totalExpense, exp[3].totalExpense]);
                 // only meaningful when each of the three earlier months has real expense data
@@ -162,12 +164,13 @@ export class ExecutiveInsightService {
         const gate = ExecutiveMetricService.allowed(metric, permissions, scope);
         if (!gate.ok) return { error: gate.reason };
         if (metric === 'open_orders') return { error: 'Open orders is a point-in-time figure; projection applies to completed orders, received orders, revenue, expense and profit.' };
-        const y = now.getUTCFullYear();
-        const m = now.getUTCMonth();
-        const monthStart = new Date(Date.UTC(y, m, 1));
+        const nw = slWall(now);
+        const y = nw.getUTCFullYear();
+        const m = nw.getUTCMonth();
+        const monthStart = slInstant(y, m, 1);
         const elapsedMs = now.getTime() - monthStart.getTime();
         const elapsedDays = Math.max(1, elapsedMs / DAY_MS);
-        const daysInMonth = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+        const daysInMonth = slDaysInMonth(y, m);
         const get = async (from: Date, to: Date) => {
             const v = await ExecutiveMetricService.value(metric, from, to, permissions, scope);
             if (typeof v !== 'number') throw new Error(v.error);
@@ -178,9 +181,9 @@ export class ExecutiveInsightService {
         const hist: { projected: number; actual: number }[] = [];
         let lastActual = 0;
         for (let i = 1; i <= 3; i++) {
-            const s = new Date(Date.UTC(y, m - i, 1));
-            const e = new Date(Date.UTC(y, m - i + 1, 1) - 1);
-            const dim = new Date(Date.UTC(y, m - i + 1, 0)).getUTCDate();
+            const s = slInstant(y, m - i, 1);
+            const e = new Date(slInstant(y, m - i + 1, 1).getTime() - 1);
+            const dim = slDaysInMonth(y, m - i);
             const [atSameDay, actual] = await Promise.all([get(s, new Date(Math.min(e.getTime(), s.getTime() + elapsedMs))), get(s, e)]);
             hist.push({ projected: projectMonthEnd(atSameDay, elapsedDays, dim), actual });
             if (i === 1) lastActual = actual;

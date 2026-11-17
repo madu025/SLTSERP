@@ -24,8 +24,8 @@ test('numbers are checked; dates written without a time cover the whole day', ()
     assert.equal(j.sqlCondition({ field: 'quantity', operator: 'gte', value: '5' }, p1).sql, 't."quantity" >= $1::numeric');
     assert.deepEqual(p1, [5]);
     const p2: unknown[] = [];
-    assert.equal(j.sqlCondition({ field: 'serviceOrder.completedDate', operator: 'lte', value: '2026-10-31' }, p2).sql, `j_serviceOrder."completedDate" < $1::timestamp + interval '1 day'`);
-    assert.equal(j.sqlCondition({ field: 'createdAt', operator: 'equals', value: '2026-10-31' }, []).sql, `(t."createdAt" >= $1::timestamp AND t."createdAt" < $1::timestamp + interval '1 day')`);
+    assert.equal(j.sqlCondition({ field: 'serviceOrder.completedDate', operator: 'lte', value: '2026-10-31' }, p2).sql, `j_serviceOrder."completedDate" < ($1::timestamp - interval '5 hours 30 minutes') + interval '1 day'`);
+    assert.equal(j.sqlCondition({ field: 'createdAt', operator: 'equals', value: '2026-10-31' }, []).sql, `(t."createdAt" >= ($1::timestamp - interval '5 hours 30 minutes') AND t."createdAt" < ($1::timestamp - interval '5 hours 30 minutes') + interval '1 day')`);
 });
 
 test('names compare without regard to case, codes and ids exactly', () => {
@@ -48,7 +48,7 @@ test('row reports load only the relations they use, nested as deep as needed', (
 test('two filters on one relation are merged, and date-only values use day bounds', () => {
     const merged = j.mergeWhere({ item: { name: { contains: 'a' } } }, { item: { code: 'X' } });
     assert.deepEqual(merged, { item: { name: { contains: 'a' }, code: 'X' } });
-    assert.deepEqual(j.mapOperator('lte', '2026-10-31'), { lt: new Date('2026-11-01T00:00:00Z') });
+    assert.deepEqual(j.mapOperator('lte', '2026-10-31'), { lt: new Date('2026-10-31T18:30:00Z') });
 });
 
 test('the evidence line names related fields in words', () => {
