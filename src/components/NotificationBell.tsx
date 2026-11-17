@@ -1,5 +1,6 @@
 "use client";
 
+import { sharedGetJson } from '@/lib/shared-fetch';
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bell } from "lucide-react";
@@ -110,16 +111,10 @@ export default function NotificationBell() {
         queryFn: async () => {
             if (!userId) return [];
             try {
-                const res = await fetch(`/api/notifications?_t=${Date.now()}`, {
-                    cache: 'no-store',
-                    headers: {
-                        'Pragma': 'no-cache',
-                        'Cache-Control': 'no-cache',
-                    }
-                });
-                if (!res.ok) return [];
-                const json = await res.json();
-                return Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+                // Shared with the sidebar so both components make a single request
+                const json = await sharedGetJson<{ data?: Notification[] } | Notification[]>('/api/notifications');
+                if (!json) return [];
+                return Array.isArray((json as { data?: unknown }).data) ? (json as { data: Notification[] }).data : (Array.isArray(json) ? json : []);
             } catch {
                 // Notifications are optional UI data; keep the header usable
                 // when a deployment briefly restarts or the session refreshes.

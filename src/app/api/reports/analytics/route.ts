@@ -2,6 +2,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { ReportService } from '@/services/core/report.service';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
+import { swrMemo } from '@/lib/swr-memo';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
@@ -42,9 +43,12 @@ export const GET = apiHandler(async (request, params) => {
         throw AppError.forbidden(`You do not have access to the ${view} view`);
     }
 
-    return await ReportService.getAnalyticsReport(view, period, {
+    // The report depends only on these inputs (the view capability was checked above), so they are the whole
+    // cache key. Fresh for 1 minute, served stale for up to 5 while one background refresh runs.
+    const key = `reports-analytics:${view}:${period}:${groupBy}:${customFrom ?? ''}:${customTo ?? ''}`;
+    return swrMemo(key, 60_000, 5 * 60_000, () => ReportService.getAnalyticsReport(view, period, {
         customFrom,
         customTo,
         groupBy
-    });
+    }));
 }, { rawResponse: true, permissions: [RBAC_PERMISSIONS.REPORTS_READ] });

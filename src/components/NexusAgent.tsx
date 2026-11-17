@@ -272,13 +272,21 @@ export default function NexusAgent() {
         // Skip API calls on public/unauthenticated pages to prevent 401 errors
         if (isPublicPath) return;
 
-        fetchAlerts();
-        fetchHistory();
-        
+        // Let the page's own data load first; the alert badge is not needed for first paint.
+        const first = setTimeout(fetchAlerts, 4000);
+
         // Poll alerts every 60 seconds
         const timer = setInterval(fetchAlerts, 60000);
-        return () => clearInterval(timer);
-    }, [isPublicPath, fetchAlerts, fetchHistory]);
+        return () => { clearTimeout(first); clearInterval(timer); };
+    }, [isPublicPath, fetchAlerts]);
+
+    // Chat history is only needed once the assistant is opened
+    const historyLoadedRef = useRef(false);
+    useEffect(() => {
+        if (isPublicPath || !isOpen || historyLoadedRef.current) return;
+        historyLoadedRef.current = true;
+        fetchHistory();
+    }, [isPublicPath, isOpen, fetchHistory]);
 
     const handleFeedback = async (messageId: string, rating: 'UP' | 'DOWN', intent?: string, query?: string, correctedIntent?: string) => {
         if (rating === 'DOWN' && !correctedIntent) {

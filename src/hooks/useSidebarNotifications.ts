@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import { playNotificationSound } from '@/lib/audio';
+import { sharedGetJson } from '@/lib/shared-fetch';
 
 export interface SidebarNotification {
     id: string;
@@ -36,14 +37,9 @@ export function useSidebarNotifications(
     const fetchMenuCounts = useCallback(async () => {
         if (!userId) return;
         try {
-            const res = await fetch(`/api/notifications/sidebar-counts?_t=${Date.now()}`, {
-                cache: 'no-store',
-            });
-            if (res.ok) {
-                const data = await res.json();
-                if (data.success && data.data) {
-                    setMenuCounts(data.data);
-                }
+            const data = await sharedGetJson<{ success?: boolean; data?: Record<string, number> }>('/api/notifications/sidebar-counts', { force: true });
+            if (data?.success && data.data) {
+                setMenuCounts(data.data);
             }
         } catch {
             // Sidebar badges are best-effort and must not make the page noisy
@@ -55,12 +51,9 @@ export function useSidebarNotifications(
         if (!userId) return;
         setLoadingNotifications(true);
         try {
-            const res = await fetch(`/api/notifications?_t=${Date.now()}`, {
-                cache: 'no-store',
-            });
-            if (res.ok) {
-                const json = await res.json();
-                const list = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+            const json = await sharedGetJson<{ data?: SidebarNotification[] } | SidebarNotification[]>('/api/notifications', { force: true });
+            if (json) {
+                const list = Array.isArray((json as { data?: unknown }).data) ? (json as { data: SidebarNotification[] }).data : (Array.isArray(json) ? json : []);
                 setNotifications(list.slice(0, 8)); // latest 8 notifications in sidebar drawer
                 setUnreadCount(list.filter((n: SidebarNotification) => !n.isRead).length);
             }
@@ -125,11 +118,9 @@ export function useSidebarNotifications(
             fetch(`/api/notifications?linkPrefix=${encodeURIComponent(prefix)}`, {
                 method: 'PATCH',
             })
-                .then(res => {
-                    if (res.ok) {
-                        fetchNotifications();
-                        fetchMenuCounts();
-                    }
+                .then(() => {
+                    fetchNotifications();
+                    fetchMenuCounts();
                 })
                 .catch(err => console.error("Failed to auto-clear notifications for link:", err));
         } else if (currentLink === '/') {
@@ -141,9 +132,7 @@ export function useSidebarNotifications(
     // SSE Connection for real-time sidebar notifications & counts
     useEffect(() => {
         if (!mounted || !userId) return;
-        
-        fetchNotifications();
-        fetchMenuCounts();
+        // The pathname effect above already loads the first notifications and counts.
 
         let eventSource: EventSource | null = null;
         let reconnectTimeout: NodeJS.Timeout | undefined;
