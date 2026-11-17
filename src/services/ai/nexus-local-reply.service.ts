@@ -65,8 +65,9 @@ function firstRowsArray(obj: Record<string, unknown>): { key: string; rows: Reco
 }
 
 export class NexusLocalReplyService {
-    static build(runs: ToolRun[], message: string): { text: string; table?: NexusTable; chart?: NexusChart; cards?: NexusCard[] } {
+    static build(runs: ToolRun[], message: string): { text: string; table?: NexusTable; chart?: NexusChart; cards?: NexusCard[]; evidence?: string } {
         const parts: string[] = [];
+        const evidence: string[] = [];
         const cards: NexusCard[] = [];
         let table: NexusTable | undefined;
 
@@ -77,6 +78,7 @@ export class NexusLocalReplyService {
             if (typeof result.error === 'string') { parts.push(`${title}: ${result.error}`); continue; }
 
             if (run.executive) {
+                evidence.push(this.executiveEvidence(run));
                 cards.push(...run.executive.cards);
                 if (run.name === 'getExecutiveBrief') {
                     const r = run.result as { asOf?: string; scope?: string };
@@ -90,6 +92,7 @@ export class NexusLocalReplyService {
                 if (run.executive.table) table = table ?? run.executive.table;
                 continue;
             }
+            if (run.name === 'runCustomReport' && typeof (run.result as { search?: string }).search === 'string') evidence.push((run.result as { search: string }).search);
             if (run.name === 'runCustomReport' && run.table) {
                 const t = run.table;
                 const filters = Array.isArray(run.args?.filters) ? (run.args!.filters as Array<{ field?: string; operator?: string; value?: string }>).map((f) => `${f.field} ${f.operator} ${f.value}`).join('; ') : '';
@@ -126,7 +129,21 @@ export class NexusLocalReplyService {
         }
 
         const text = parts.join('\n\n') || 'No data found for this request.';
-        return { text, table, chart: table ? this.chartFor(table, message) : undefined, cards: cards.length > 0 ? cards.slice(0, 12) : undefined };
+        return { text, table, chart: table ? this.chartFor(table, message) : undefined, cards: cards.length > 0 ? cards.slice(0, 12) : undefined, evidence: evidence.length ? evidence.join(' | ') : undefined };
+    }
+
+
+    private static executiveEvidence(run: ToolRun): string {
+        const r = run.result as {
+            asOf?: string; scope?: string;
+            metric?: { label: string }; period?: { label: string; from: string; to: string }; compareTo?: { label: string; from: string; to: string } | null;
+        };
+        if (run.name === 'getExecutiveBrief') return `Executive brief · ${r.scope === 'opmc' ? 'your OPMC only' : 'company-wide'} · as of ${r.asOf ? r.asOf.slice(0, 16).replace('T', ' ') + ' UTC' : 'now'}`;
+        if (run.name === 'compareMetric' && r.period) return `${r.metric?.label ?? 'Metric'} · ${r.period.label} (${r.period.from} to ${r.period.to})${r.compareTo ? ` against ${r.compareTo.label} (${r.compareTo.from} to ${r.compareTo.to})` : ''}`;
+        if (run.name === 'getProfile') return `Profile · ${String(run.args?.type ?? '')} ${String(run.args?.name ?? '')} · this month against the same days of last month`;
+        if (run.name === 'projectMetric') return `Projection · ${String(run.args?.metric ?? '')} · pace of this month so far, tested on the last 3 months`;
+        if (run.name === 'findAnomalies') return 'Unusual items · last 6 weeks of daily completions, last 7 days per RTOM, open orders older than 14 days, expense run-rate';
+        return run.name;
     }
 
     private static chartFor(table: NexusTable, message: string): NexusChart | undefined {

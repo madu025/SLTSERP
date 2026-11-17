@@ -13,6 +13,7 @@ import { checkRateLimit } from '@/lib/rate-limiter';
 import { NexusPrivacyService, type PrivacyMode } from '@/services/ai/nexus-privacy.service';
 import { ExecutiveMetricService, METRIC_IDS, type MetricId } from '@/services/ai/executive-metrics.service';
 import { ExecutiveInsightService } from '@/services/ai/executive-insights.service';
+import { groundReportFilters, describeSearch, SERVICE_ORDER_STATUSES } from '@/services/ai/semantic-layer.service';
 import { NexusLocalReplyService, type ToolRun } from '@/services/ai/nexus-local-reply.service';
 import { DynamicReportService, type DynamicReportPayload, type FilterRule, type AggregationConfig } from '@/services/inventory/dynamic-report.service';
 import type { NexusOpmcScope } from '@/services/ai/nexus-context.service';
@@ -89,6 +90,8 @@ export interface NexusTable {
 }
 
 export interface NexusResponse {
+    /** one line saying exactly what was searched, so the answer can be verified at a glance */
+    evidence?: string;
     table?: NexusTable;
     cards?: NexusCard[];
     response: string;
@@ -639,7 +642,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
         const externalPrivacy = NexusPrivacyService.mode('external');
         const planNote = `
 
-PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pick the tool(s) needed for the CURRENT request and fill in exact arguments (exact YYYY-MM-DD dates and filters). Rules: (1) Call only the tool(s) the current request needs, usually exactly one; never call tools for earlier questions. (2) Prefer runCustomReport for any list, count, sum or "by <field>" request, choosing the entity the user names (service orders -> serviceOrder, contractor stock -> contractorStock, material usage -> materialUsage, wastage -> wastage, journal entries -> journalEntry). (3) If the request needs data no tool can provide (fleet, HR/salary, helpdesk tickets, users, passwords, secrets, deleting or changing data, anything unrelated to the ERP), do NOT call any tool: reply with one short sentence saying that is not available. (4) Do not answer with figures and do not ask for data; the system presents the results itself. Vocabulary (Sinhala/Singlish): gabadu/gabada/ගබඩු = stores (warehouses) -> getStoresContext; thoguwa/තොග = stock; higa/හිඟ = outstanding or low; mudala = money; wada/ව්‍යාපෘති = projects. Tool hints: 'how is the company doing', overview, summary, morning brief, company eka kohomada -> getExecutiveBrief; 'compare', 'vs last month', 'this month vs previous', 'why did it change', which RTOM caused the change -> compareMetric (add groupBy rtom for 'why/which'); anything unusual, any problems, awulak thiyenawada, what needs attention -> findAnomalies; month end, projection, forecast, how will this month finish -> projectMetric; profile of / tell me about / drill into an RTOM (R-JA) or a contractor -> getProfile (type rtom or contractor, name); contractor bills, invoices, payment vouchers, outstanding payments -> getFinanceContext; stores list or count -> getStoresContext; purchase requisitions (PR), purchase orders (PO), GRN -> getProcurementContext; low stock -> getInventoryLowStockContext; registered contractors -> getContractorsContext.
+PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pick the tool(s) needed for the CURRENT request and fill in exact arguments (exact YYYY-MM-DD dates and filters). Rules: (1) Call only the tool(s) the current request needs, usually exactly one; never call tools for earlier questions. (2) Prefer runCustomReport for any list, count, sum or "by <field>" request, choosing the entity the user names (service orders -> serviceOrder, contractor stock -> contractorStock, material usage -> materialUsage, wastage -> wastage, journal entries -> journalEntry). (3) If the request needs data no tool can provide (fleet, HR/salary, helpdesk tickets, users, passwords, secrets, deleting or changing data, anything unrelated to the ERP), do NOT call any tool: reply with one short sentence saying that is not available. (4) Do not answer with figures and do not ask for data; the system presents the results itself. Data dictionary: serviceOrder.status values are exactly ${SERVICE_ORDER_STATUSES.join(', ')}; an RTOM (also called area, region or exchange) is a code like R-JA; use the user's own RTOM, contractor and item names exactly as written. Vocabulary (Sinhala/Singlish): gabadu/gabada/ගබඩු = stores (warehouses) -> getStoresContext; thoguwa/තොග = stock; higa/හිඟ = outstanding or low; mudala = money; wada/ව්‍යාපෘති = projects. Tool hints: 'how is the company doing', overview, summary, morning brief, company eka kohomada -> getExecutiveBrief; 'compare', 'vs last month', 'this month vs previous', 'why did it change', which RTOM caused the change -> compareMetric (add groupBy rtom for 'why/which'); anything unusual, any problems, awulak thiyenawada, what needs attention -> findAnomalies; month end, projection, forecast, how will this month finish -> projectMetric; profile of / tell me about / drill into an RTOM (R-JA) or a contractor -> getProfile (type rtom or contractor, name); contractor bills, invoices, payment vouchers, outstanding payments -> getFinanceContext; stores list or count -> getStoresContext; purchase requisitions (PR), purchase orders (PO), GRN -> getProcurementContext; low stock -> getInventoryLowStockContext; registered contractors -> getContractorsContext.
 `;
         const planSystemPrompt = systemPrompt + planNote;
         const compatKey = process.env.NEXUS_LLM_API_KEY || process.env.DEEPSEEK_API_KEY;
@@ -647,7 +650,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
         if ((compatKey || useLocal) && process.env.NEXUS_LLM_PROVIDER !== 'gemini') {
             try {
                 const out = await this.runDeepSeekLoop(compatKey ?? '', useLocal, (!useLocal && externalPrivacy === 'plan-only') ? planSystemPrompt : systemPrompt, history, message, tools[0].functionDeclarations, { permissions, opmcScope, hasFinanceAccess, userId });
-                if (out) return this.finalizeReply(out.text, message, out.executedIntent, out.didCheckLowStock, out.table, out.chart, out.cards);
+                if (out) return this.finalizeReply(out.text, message, out.executedIntent, out.didCheckLowStock, out.table, out.chart, out.cards, out.evidence);
             } catch (error) {
                 console.error('[NEXUS] DeepSeek call failed:', error instanceof Error ? error.message : error, (error as { cause?: { code?: string; message?: string } })?.cause?.code ?? (error as { cause?: { message?: string } })?.cause?.message ?? '');
             }
@@ -701,7 +704,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
                     runs.push({ name: fc.name, args: fc.args, result: executed.result, table: executed.table, executive: executed.executive });
                 }
                 const local = NexusLocalReplyService.build(runs, message);
-                return this.finalizeReply(local.text, message, executedIntent, didCheckLowStock, local.table, local.chart, local.cards);
+                return this.finalizeReply(local.text, message, executedIntent, didCheckLowStock, local.table, local.chart, local.cards, local.evidence);
             }
 
             // Push the exact model response to history (preserves thought_signature)
@@ -764,7 +767,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
     }
 
     /** Turns the model's final text into the response the UI expects (shared by every provider). */
-    private static async finalizeReply(textReply: string, message: string, executedIntent: string | null, didCheckLowStock: boolean, table?: NexusTable, localChart?: NexusChart, cards?: NexusCard[]): Promise<NexusResponse> {
+    private static async finalizeReply(textReply: string, message: string, executedIntent: string | null, didCheckLowStock: boolean, table?: NexusTable, localChart?: NexusChart, cards?: NexusCard[], evidence?: string): Promise<NexusResponse> {
         // Automatic self-training from the model's own tool choices is disabled: a wrong choice taught the
         // classifier wrong intents (observed in testing). Only explicit user feedback trains it now.
         let parsedReply = textReply;
@@ -804,7 +807,8 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
             suggestions,
             chart,
             table,
-            cards
+            cards,
+            evidence
         };
     }
 
@@ -842,8 +846,15 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
         }
 
         try {
-            const report = await DynamicReportService.generateReport({ entity, columns, filters, aggregation }, { scopeWhere });
-            return { type: report.type, columns: report.columns, totalRows: report.rows.length, rows: report.rows.slice(0, 50), truncated: report.rows.length > 50 || report.capped, capped: report.capped };
+            // Semantic layer: every name or value is checked against real data before the query runs
+            const grounded = await groundReportFilters(entity, filters, opmcScope);
+            if (grounded.issue) return { error: grounded.issue };
+            const report = await DynamicReportService.generateReport({ entity, columns, filters: grounded.filters, aggregation }, { scopeWhere });
+            const search = describeSearch({
+                entity, filters: grounded.filters, groupBy: aggregation?.groupBy, rows: report.rows.length, capped: report.capped, asOf: new Date(),
+                scope: opmcScope === undefined ? undefined : 'limited to your OPMC',
+            }) + (grounded.evidence.length ? ` · ${grounded.evidence.join('; ')}` : '');
+            return { type: report.type, columns: report.columns, totalRows: report.rows.length, rows: report.rows.slice(0, 50), truncated: report.rows.length > 50 || report.capped, capped: report.capped, search };
         } catch (error) {
             // Only our own validation messages are shown; database/Prisma errors can contain internal paths and queries.
             const known = error instanceof Error && /^(INVALID_ENTITY|INVALID_COLUMN|INVALID_FILTER|INVALID_AGGREGATION)/.test(error.message);
@@ -865,7 +876,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
         message: string,
         declarations: Array<{ name: string; description: string; parameters?: unknown }>,
         ctx: { permissions: ReadonlySet<string>; opmcScope: NexusOpmcScope; hasFinanceAccess: boolean; userId?: string },
-    ): Promise<{ text: string; executedIntent: string | null; didCheckLowStock: boolean; table?: NexusTable; chart?: NexusChart; cards?: NexusCard[] } | null> {
+    ): Promise<{ text: string; executedIntent: string | null; didCheckLowStock: boolean; table?: NexusTable; chart?: NexusChart; cards?: NexusCard[]; evidence?: string } | null> {
         // Any OpenAI-compatible server works: DeepSeek (default), or a model on our own server (Ollama, vLLM)
         // by setting NEXUS_LLM_PROVIDER=local and NEXUS_LLM_BASE_URL, in which case data never leaves our network.
         const baseUrl = (useLocal ? process.env.NEXUS_LLM_BASE_URL! : (process.env.NEXUS_LLM_BASE_URL || 'https://api.deepseek.com')).replace(/\/+$/, '');
@@ -910,7 +921,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
                     runs.push({ name: call.function.name, args, result: executed.result, table: executed.table, executive: executed.executive });
                 }
                 const local = NexusLocalReplyService.build(runs, message);
-                return { text: local.text, executedIntent, didCheckLowStock, table: local.table, chart: local.chart, cards: local.cards };
+                return { text: local.text, executedIntent, didCheckLowStock, table: local.table, chart: local.chart, cards: local.cards, evidence: local.evidence };
             }
             if (msg.tool_calls?.length) {
                 messages.push({ role: 'assistant', content: msg.content ?? '', tool_calls: msg.tool_calls });

@@ -92,6 +92,7 @@ interface Message {
     chart?: NexusChart;
     table?: NexusTable;
     cards?: NexusCard[];
+    evidence?: string;
 }
 
 interface NexusAlert {
@@ -458,6 +459,7 @@ export default function NexusAgent() {
                 chart: resData.chart || undefined,
                 table: resData.table || undefined,
                 cards: resData.cards || undefined,
+                evidence: resData.evidence || undefined,
                 intent: resData.intent,
                 query: resData.query,
                 timestamp: new Date() 
@@ -797,6 +799,12 @@ export default function NexusAgent() {
                                                     </div>
                                                 )}
                                                 
+                                                {msg.evidence && (
+                                                    <div className="mt-1 ml-1 rounded-lg border border-slate-700/80 bg-[#0F172A] px-2 py-1 text-[10px] leading-snug text-slate-200" title="What was searched, so you can check the answer">
+                                                        <span className="font-bold text-sky-300">Searched: </span>{msg.evidence}
+                                                    </div>
+                                                )}
+
                                                 {/* Headline numbers as KPI cards */}
                                                 {msg.cards && msg.cards.length > 0 && (
                                                     <div className="mt-2 ml-1 grid grid-cols-2 gap-2 w-full">

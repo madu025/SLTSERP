@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { LedgerReportService } from '@/services/finance/ledger-report.service';
 import { swrMemo } from '@/lib/swr-memo';
+import { groundValue, listRtoms } from '@/services/ai/semantic-layer.service';
 import { ExecutiveMetricService, resolvePeriod, type MetricId } from '@/services/ai/executive-metrics.service';
 import type { NexusCard, NexusTable } from '@/services/ai/nexus-agent.service';
 
@@ -208,7 +209,11 @@ export class ExecutiveInsightService {
         if (!clean) return { error: 'Tell me which RTOM or contractor.' };
 
         if (type === 'rtom') {
-            const rtom = clean.replace(/^rtom\s+/i, '').toUpperCase();
+            const typed = clean.replace(/^rtom\s+/i, '');
+            const g = groundValue(typed, await listRtoms(scope));
+            if (g.kind === 'ambiguous') return { error: `"${typed}" matches several RTOMs: ${g.options.join(', ')}. Which one do you mean?` };
+            if (g.kind === 'none') return { error: `There is no RTOM "${typed}" in the data you can see.${g.suggestions.length ? ` Closest: ${g.suggestions.join(', ')}.` : ''}` };
+            const rtom = g.value;
             const base = { rtom, ...scopeWhere(scope) };
             const [cur, prev, open, old, rev, byContractor, byStatusR] = await Promise.all([
                 prisma.serviceOrder.count({ where: { ...base, completedDate: { gte: p.from, lte: p.to } } }),

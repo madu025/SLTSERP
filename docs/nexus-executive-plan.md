@@ -103,3 +103,20 @@ Per role, five questions with the tool and the scope expected. Example rows:
 | E export | Built. XLSX and PDF of the answer text, cards and table, generated in the browser |
 
 Known limits: projections are lumpy while ledger and sync data are young (accuracy card shows it); the expense rule only fires when the three earlier months all have expense data; no targets table yet; profiles cover orders, stock and wastage (invoices and projects are the next join).
+
+## 8. Semantic layer (how a request becomes exactly the right data)
+
+Problem found: the model guesses names and values (RTOM code, status, contractor), and a wrong guess shows as "0 rows" with no sign that the filter was wrong.
+
+Pipeline, in order:
+
+1. **Extract**: the model returns intent plus names and values from the user's words (no data is sent to it).
+2. **Dictionary**: `semantic-layer.service.ts` holds each entity, its fields, plain-language labels and synonyms (English, Singlish, Sinhala), the allowed operators and the real enum values.
+3. **Ground values**: every name or value is matched against what really exists (case, spacing and typo tolerant). Exactly one match: used. Several: the user is asked which. None: the user is told it does not exist, with the closest real values. A filter is never sent to the database with an unverified value.
+4. **Build**: the server builds the query; permission and OPMC scope are added there, never by the model.
+5. **Run and check**: totals, scope sums and drill-down parity (see the accuracy plan).
+6. **Show the search**: every answer carries one line saying what was searched: entity, filters as grounded, period, row count, as-of time. The user can verify it in seconds.
+
+Acceptance: a wrong RTOM, status or contractor name never produces a silent empty result; ambiguous values produce a question; every answer shows its search line; the grounding step adds no more than one cached lookup per question.
+
+Status of section 8 (17 Nov 2026): built and tested locally. Dictionary and value grounding cover RTOM and service order status in custom reports, and RTOM in profiles. Every answer from the report, comparison, brief, profile, projection and anomaly tools carries a "Searched" line. Browser test: 12 of 14 scenarios behaved as designed; the other two were wrong expectations in the test (the data has only one RTOM starting with "R-J", so it is read as R-JA and the line says so; "R-KZ" is one typo away from eight RTOMs, so the assistant asks). Next: contractor and item name grounding, and an admin screen for synonyms.
