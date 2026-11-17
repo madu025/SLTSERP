@@ -110,6 +110,8 @@ export async function buildContractorInvoiceWorkbook(data: InvoiceExportData, pa
         const spec = SHEET_SPEC[name];
         const rows = sods.filter((s) => s.sheet === name);
         sheet.getCell(spec.contractorCell).value = c.name;
+        const label = sheet.getCell('A1'); // PEO's "Contractor Name:" label is centred in a narrow cell and loses its first letters
+        if (label.value) label.style = { ...label.style, alignment: { ...label.alignment, horizontal: 'left' } };
         const cn = sheet.getCell(spec.contractorCell);
         cn.style = { ...cn.style, alignment: { ...cn.alignment, shrinkToFit: true } }; // long contractor names are clipped by the neighbouring cell otherwise
         sheet.getCell(spec.invoiceNoCell).value = invoiceNoText;
