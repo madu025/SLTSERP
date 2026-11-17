@@ -34,5 +34,17 @@ test('local fixed answers are limited to phrasings the classifier was trained on
     assert.equal(await NexusClassifierService.hasNearExample('service orders status wise count report eka hadala denna', 'PROCUREMENT'), false);
 });
 
+test('the intent gate is per module and only guards the fixed local answers', () => {
+    type Gate = (intent: string, message: string, perms: ReadonlySet<string>) => boolean;
+    const gate = (NexusAgentService as unknown as { canReadIntent: Gate }).canReadIntent.bind(NexusAgentService);
+    // a coordinator holds sod.read but no finance capability: finance answers stay closed, service orders are not touched by this gate
+    const coordinator = new Set(['sod.read', 'inventory.read', 'project.read']);
+    assert.equal(gate('FINANCE', 'outstanding invoices', coordinator), false);
+    assert.equal(gate('SERVICE_ORDER_PROGRESS', 'service order progress', coordinator), true);
+    assert.equal(gate('PROJECTS', 'projects', coordinator), true);
+    assert.equal(gate('PROCUREMENT', 'procurement', coordinator), false);
+    assert.equal(gate('INVENTORY_LOW', 'low stock', new Set()), false);
+});
+
 // Importing the service opens Prisma/Redis handles; do not wait for them to idle out.
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });

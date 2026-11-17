@@ -249,17 +249,10 @@ export class NexusAgentService {
         const predicted = NexusClassifierService.predict(message);
         const actions: NexusAction[] = [];
         
-        // Enforce canonical capability-based information hiding. The route is
-        // authenticated, but each module still needs its own read capability.
-        if (!this.canReadIntent(predicted, msgLower, permissionSet)) {
-            return {
-                intent: predicted,
-                query: message,
-                response: '⚠️ Unauthorized: you do not have the canonical permission required for this module. This query has been blocked for security.',
-                actions: [],
-                suggestions: ["Show active projects status", "List current low stock items"]
-            };
-        }
+        // Permissions are enforced where data is read: every assistant tool checks its own capability and the caller's
+        // OPMC scope (executeTool), and the fixed local answers below check the intent's capability before they run.
+        // A keyword/classifier gate in front of everything wrongly blocked allowed questions (coordinators and QC
+        // officers could not ask about service orders because the classifier guessed "finance").
 
         if (apiKey || process.env.DEEPSEEK_API_KEY || process.env.NEXUS_LLM_API_KEY || (process.env.NEXUS_LLM_PROVIDER === 'local' && process.env.NEXUS_LLM_BASE_URL)) {
             try {
@@ -281,7 +274,17 @@ export class NexusAgentService {
         // --- OFFLINE FALLBACK ---
         // Only answer with a fixed module summary when the question is a phrasing we know. Otherwise a
         // report-style request ("status wise count") was answered with an unrelated Procurement summary.
-        const intent = (await NexusClassifierService.hasNearExample(message, predicted)) ? predicted : 'UNKNOWN';
+        const knownPhrase = await NexusClassifierService.hasNearExample(message, predicted);
+        if (knownPhrase && !this.canReadIntent(predicted, msgLower, permissionSet)) {
+            return {
+                intent: predicted,
+                query: message,
+                response: '⚠️ Unauthorized: you do not have the canonical permission required for this module. This query has been blocked for security.',
+                actions: [],
+                suggestions: ["Show active projects status", "List current low stock items"]
+            };
+        }
+        const intent = knownPhrase ? predicted : 'UNKNOWN';
         let response = 'ආයුබෝවන්! මම Nexus AI Agent. මට ඔබට Inventory, Projects, Finance, සහ Procurement ආශ්‍රිත සියලුම දත්ත ලබා දිය හැක. උදාහරණ:\n- "low stock items මොනවාද?"\n- "how many registered contractors?"';
         const suggestions = ["gabadu gana kiyada?", "total materials info danna?", "how many registered contractors?"];
 
@@ -346,7 +349,7 @@ export class NexusAgentService {
         const msgLowerForChart = message.toLowerCase();
         const wantsChart = msgLowerForChart.includes('chart') || msgLowerForChart.includes('graph') || msgLowerForChart.includes('prastar') || msgLowerForChart.includes('satahan') || msgLowerForChart.includes('plot');
         
-        if (confidence > 0.85 && await NexusClassifierService.hasNearExample(message, intent)) {
+        if (confidence > 0.85 && this.canReadIntent(intent, message.toLowerCase(), permissions) && await NexusClassifierService.hasNearExample(message, intent)) {
             
             // Hardcoded zero-cost Local AI static responses for known intents
             if (intent === 'INVENTORY_LOW') {
