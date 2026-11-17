@@ -198,6 +198,9 @@ export async function buildContractorInvoiceWorkbook(data: InvoiceExportData, pa
     ws.pageSetup.fitToWidth = 1;
     ws.pageSetup.fitToHeight = 1;
     ws.pageSetup.printArea = 'B1:H54';
+    // sheets that carry nothing for this invoice: the hidden rate sheet (rates come from the system) and service order sheets with no rows
+    const drop = ['Calculus', ...(['FTTH', 'PSTN', 'PEO'] as const).filter((n) => !sods.some((s) => s.sheet === n))];
+    for (const name of drop) { const sheet = wb.getWorksheet(name); if (sheet) wb.removeWorksheet(sheet.id); }
     wb.calcProperties.fullCalcOnLoad = true;
     wb.views = [{ x: 0, y: 0, width: 20000, height: 12000, firstSheet: 0, activeTab: 0, visibility: 'visible' }];
     return { buffer: Buffer.from(await wb.xlsx.writeBuffer()), warnings };
