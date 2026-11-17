@@ -91,3 +91,15 @@ Per role, five questions with the tool and the scope expected. Example rows:
 | Misleading comparison (a half-finished month vs a full month) | Same-days rule from `monthBounds`, shown in the card caption |
 | Over-trust in projections | Labelled "projection", with the method in the caption |
 | Scope leaks | Tests with a scoped user for every tool |
+
+## 7. Status (17 Nov 2026)
+
+| Phase | State |
+|---|---|
+| A brief, comparison, drivers | Live. 16/16 browser questions pass |
+| B anomalies (`findAnomalies`) | Built. Rules: daily completions against the last 6 weeks, weekly RTOM drops, old open orders per RTOM, expense run-rate and loss month. Pure functions unit tested |
+| C projection (`projectMetric`) | Built. Pace-based month-end projection, with the miss of the same method on the last 3 months shown on the card |
+| D drill-down and profiles (`getProfile`) | Built. Click an RTOM or contractor in a table to open its profile |
+| E export | Built. XLSX and PDF of the answer text, cards and table, generated in the browser |
+
+Known limits: projections are lumpy while ledger and sync data are young (accuracy card shows it); the expense rule only fires when the three earlier months all have expense data; no targets table yet; profiles cover orders, stock and wastage (invoices and projects are the next join).

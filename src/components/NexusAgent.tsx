@@ -45,6 +45,7 @@ interface NexusTable {
     totalRows: number;
     truncated: boolean;
     capped?: boolean;
+    drill?: { column: string; template: string };
 }
 
 interface NexusChart {
@@ -241,6 +242,68 @@ export default function NexusAgent() {
         if (typeof v === 'number') return v.toLocaleString('en-US', { maximumFractionDigits: 2 });
         const t = String(v);
         return /^\d{4}-\d{2}-\d{2}T/.test(t) ? t.slice(0, 10) : t;
+    };
+
+    // Excel and PDF of what is on screen: the answer text, the cards and the table. Libraries load only on click.
+    const exportResult = async (msg: Message, kind: 'xlsx' | 'pdf') => {
+        const title = (msg.table?.title || msg.text.split('\n')[0] || 'Nexus report').slice(0, 80);
+        const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+        const base = `nexus_${title.replace(/[^a-z0-9]+/gi, '_').toLowerCase().slice(0, 40)}`;
+        const cardRows = (msg.cards ?? []).map((cd) => [cd.label, cd.value, cd.delta ?? '', cd.caption ?? '']);
+        try {
+            if (kind === 'xlsx') {
+                const ExcelJS = (await import('exceljs')).default;
+                const wb = new ExcelJS.Workbook();
+                const ws = wb.addWorksheet('Summary');
+                ws.addRow([title]).font = { bold: true, size: 14 };
+                ws.addRow([`Generated ${stamp} UTC by Nexus Agent`]);
+                ws.addRow([]);
+                if (cardRows.length) {
+                    ws.addRow(['Metric', 'Value', 'Change', 'Comparison']).font = { bold: true };
+                    cardRows.forEach((r) => ws.addRow(r));
+                    ws.addRow([]);
+                }
+                if (msg.table) {
+                    const hdr = ws.addRow(msg.table.columns.map(humanLabel));
+                    hdr.font = { bold: true };
+                    msg.table.rows.forEach((r) => ws.addRow(msg.table!.columns.map((k) => (typeof r[k] === 'number' ? r[k] : r[k] === null || r[k] === undefined ? '' : String(r[k])))));
+                    if (msg.table.truncated) ws.addRow([`Showing ${msg.table.rows.length} of ${msg.table.totalRows}${msg.table.capped ? '+' : ''} rows`]);
+                }
+                ws.columns.forEach((col) => { col.width = 22; });
+                const buf = await wb.xlsx.writeBuffer();
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+                a.download = `${base}.xlsx`;
+                a.click();
+                URL.revokeObjectURL(a.href);
+            } else {
+                const { jsPDF } = await import('jspdf');
+                const autoTable = (await import('jspdf-autotable')).default;
+                const doc = new jsPDF({ orientation: msg.table && msg.table.columns.length > 5 ? 'landscape' : 'portrait', unit: 'pt', format: 'a4' });
+                doc.setFontSize(14);
+                doc.text(title, 40, 44);
+                doc.setFontSize(9);
+                doc.text(`Generated ${stamp} UTC by Nexus Agent`, 40, 60);
+                let y = 78;
+                if (cardRows.length) {
+                    autoTable(doc, { startY: y, head: [['Metric', 'Value', 'Change', 'Comparison']], body: cardRows, styles: { fontSize: 9 }, headStyles: { fillColor: [15, 23, 42], textColor: 255 } });
+                    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 16;
+                }
+                if (msg.table) {
+                    autoTable(doc, {
+                        startY: y,
+                        head: [msg.table.columns.map(humanLabel)],
+                        body: msg.table.rows.map((r) => msg.table!.columns.map((k) => formatCell(r[k]))),
+                        styles: { fontSize: 8 },
+                        headStyles: { fillColor: [15, 23, 42], textColor: 255 },
+                    });
+                }
+                doc.save(`${base}.pdf`);
+            }
+            toast.success(kind === 'xlsx' ? 'Excel file downloaded' : 'PDF downloaded');
+        } catch {
+            toast.error('Could not create the file. Try the CSV download instead.');
+        }
     };
 
     const downloadTableCSV = (table: NexusTable) => {
@@ -754,6 +817,12 @@ export default function NexusAgent() {
                                                                 {card.caption && <div className="mt-1 text-[9px] leading-tight text-slate-300">{card.caption}</div>}
                                                             </div>
                                                         ))}
+                                                        {!msg.table && (
+                                                            <div className="col-span-2 flex items-center gap-3 text-[10px]">
+                                                                <button onClick={() => exportResult(msg, 'xlsx')} className="font-bold text-sky-300 hover:text-white cursor-pointer" title="Download as an Excel workbook">XLSX</button>
+                                                                <button onClick={() => exportResult(msg, 'pdf')} className="font-bold text-sky-300 hover:text-white cursor-pointer" title="Download as a PDF">PDF</button>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
 
@@ -777,6 +846,20 @@ export default function NexusAgent() {
                                                                 >
                                                                     CSV
                                                                 </button>
+                                                                <button
+                                                                    onClick={() => exportResult(msg, 'xlsx')}
+                                                                    className="text-[10px] font-bold text-sky-300 hover:text-white cursor-pointer whitespace-nowrap"
+                                                                    title="Download as an Excel workbook"
+                                                                >
+                                                                    XLSX
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => exportResult(msg, 'pdf')}
+                                                                    className="text-[10px] font-bold text-sky-300 hover:text-white cursor-pointer whitespace-nowrap"
+                                                                    title="Download as a PDF"
+                                                                >
+                                                                    PDF
+                                                                </button>
                                                             </div>
                                                         </div>
                                                         <div className="max-h-60 overflow-auto">
@@ -792,7 +875,18 @@ export default function NexusAgent() {
                                                                     {msg.table.rows.map((row, ri) => (
                                                                         <tr key={ri} className={ri % 2 ? 'bg-slate-900' : 'bg-[#0F172A]'}>
                                                                             {msg.table!.columns.map((col) => (
-                                                                                <td key={col} className={`px-2 py-1 text-slate-100 whitespace-nowrap border-b border-slate-800 ${typeof row[col] === 'number' ? 'text-right tabular-nums' : ''}`}>{formatCell(row[col])}</td>
+                                                                                <td key={col} className={`px-2 py-1 text-slate-100 whitespace-nowrap border-b border-slate-800 ${typeof row[col] === 'number' ? 'text-right tabular-nums' : ''}`}>
+                                                                                    {msg.table!.drill && msg.table!.drill.column === col && row[col] ? (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() => handleSendMessage(msg.table!.drill!.template.replace('{value}', String(row[col]).replace(/^RTOM\s+/i, '')))}
+                                                                                            className="font-bold text-sky-300 underline decoration-dotted underline-offset-2 hover:text-white cursor-pointer"
+                                                                                            title="Open the profile"
+                                                                                        >
+                                                                                            {formatCell(row[col])}
+                                                                                        </button>
+                                                                                    ) : formatCell(row[col])}
+                                                                                </td>
                                                                             ))}
                                                                         </tr>
                                                                     ))}

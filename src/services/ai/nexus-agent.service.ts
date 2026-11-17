@@ -12,6 +12,7 @@ import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { NexusPrivacyService, type PrivacyMode } from '@/services/ai/nexus-privacy.service';
 import { ExecutiveMetricService, METRIC_IDS, type MetricId } from '@/services/ai/executive-metrics.service';
+import { ExecutiveInsightService } from '@/services/ai/executive-insights.service';
 import { NexusLocalReplyService, type ToolRun } from '@/services/ai/nexus-local-reply.service';
 import { DynamicReportService, type DynamicReportPayload, type FilterRule, type AggregationConfig } from '@/services/inventory/dynamic-report.service';
 import type { NexusOpmcScope } from '@/services/ai/nexus-context.service';
@@ -81,6 +82,8 @@ export interface NexusTable {
     rows: Record<string, unknown>[];
     totalRows: number;
     truncated: boolean;
+    /** a click on a value in `column` asks the assistant `template` with {value} filled in */
+    drill?: { column: string; template: string };
     /** true when the database limit (500 rows) cut the result, so more matching rows exist */
     capped?: boolean;
 }
@@ -548,6 +551,20 @@ export class NexusAgentService {
                     }
                 },
                 {
+                    name: "findAnomalies",
+                    description: "Find anything unusual right now: sudden drops or spikes in daily completions, RTOMs whose weekly completions fell sharply, RTOMs with old open orders piling up, and expense or profit problems. Use for 'anything unusual', 'any problems', 'awulak thiyenawada', 'what needs attention'.",
+                },
+                {
+                    name: "projectMetric",
+                    description: "Month-end projection of a metric from the pace so far this month, with the accuracy of the same method on past months. Use for 'month end', 'projection', 'forecast', 'how will this month finish', 'masa awasanayata'.",
+                    parameters: { type: "object", properties: { metric: { type: "string", enum: METRIC_IDS.filter((m) => m !== 'open_orders') } }, required: ["metric"] }
+                },
+                {
+                    name: "getProfile",
+                    description: "Everything about one RTOM or one contractor in one place: completed orders versus last month, open and old orders, revenue, contractors in the RTOM, or a contractor's stock and wastage. Use for 'profile of', 'tell me about', 'drill into', 'R-JA eka gana'.",
+                    parameters: { type: "object", properties: { type: { type: "string", enum: ["rtom", "contractor"] }, name: { type: "string", description: "RTOM code such as R-JA, or the contractor's name" } }, required: ["type", "name"] }
+                },
+                {
                     name: "runCustomReport",
                     description: "Build a custom tabular report from the database when the user asks for a report that the other tools do not cover. Entities and queryable fields: serviceOrder[soNum,status,sltsStatus,customerName,voiceNumber,rtom,completedDate,revenueAmount,createdAt]; materialUsage[serviceOrderId,quantity,unit,usageType,costPrice,unitPrice,createdAt,serviceOrder.soNum,serviceOrder.status,serviceOrder.rtom,item.code,item.name]; contractorStock[quantity,updatedAt,contractor.name,item.code,item.name]; journalEntry[referenceId,referenceType,description,date,createdAt]; wastage[month,description,status,createdAt,contractor.name,store.name]. Filter operators: equals, contains, gt, lt, gte, lte, startsWith (dates as YYYY-MM-DD). Optional aggregation groups rows and applies SUM, AVG or COUNT to one field. Returns at most 50 rows.",
                     parameters: {
@@ -619,7 +636,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
         const externalPrivacy = NexusPrivacyService.mode('external');
         const planNote = `
 
-PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pick the tool(s) needed for the CURRENT request and fill in exact arguments (exact YYYY-MM-DD dates and filters). Rules: (1) Call only the tool(s) the current request needs, usually exactly one; never call tools for earlier questions. (2) Prefer runCustomReport for any list, count, sum or "by <field>" request, choosing the entity the user names (service orders -> serviceOrder, contractor stock -> contractorStock, material usage -> materialUsage, wastage -> wastage, journal entries -> journalEntry). (3) If the request needs data no tool can provide (fleet, HR/salary, helpdesk tickets, users, passwords, secrets, deleting or changing data, anything unrelated to the ERP), do NOT call any tool: reply with one short sentence saying that is not available. (4) Do not answer with figures and do not ask for data; the system presents the results itself. Vocabulary (Sinhala/Singlish): gabadu/gabada/ගබඩු = stores (warehouses) -> getStoresContext; thoguwa/තොග = stock; higa/හිඟ = outstanding or low; mudala = money; wada/ව්‍යාපෘති = projects. Tool hints: 'how is the company doing', overview, summary, morning brief, company eka kohomada -> getExecutiveBrief; 'compare', 'vs last month', 'this month vs previous', 'why did it change', which RTOM caused the change -> compareMetric (add groupBy rtom for 'why/which'); contractor bills, invoices, payment vouchers, outstanding payments -> getFinanceContext; stores list or count -> getStoresContext; purchase requisitions (PR), purchase orders (PO), GRN -> getProcurementContext; low stock -> getInventoryLowStockContext; registered contractors -> getContractorsContext.
+PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pick the tool(s) needed for the CURRENT request and fill in exact arguments (exact YYYY-MM-DD dates and filters). Rules: (1) Call only the tool(s) the current request needs, usually exactly one; never call tools for earlier questions. (2) Prefer runCustomReport for any list, count, sum or "by <field>" request, choosing the entity the user names (service orders -> serviceOrder, contractor stock -> contractorStock, material usage -> materialUsage, wastage -> wastage, journal entries -> journalEntry). (3) If the request needs data no tool can provide (fleet, HR/salary, helpdesk tickets, users, passwords, secrets, deleting or changing data, anything unrelated to the ERP), do NOT call any tool: reply with one short sentence saying that is not available. (4) Do not answer with figures and do not ask for data; the system presents the results itself. Vocabulary (Sinhala/Singlish): gabadu/gabada/ගබඩු = stores (warehouses) -> getStoresContext; thoguwa/තොග = stock; higa/හිඟ = outstanding or low; mudala = money; wada/ව්‍යාපෘති = projects. Tool hints: 'how is the company doing', overview, summary, morning brief, company eka kohomada -> getExecutiveBrief; 'compare', 'vs last month', 'this month vs previous', 'why did it change', which RTOM caused the change -> compareMetric (add groupBy rtom for 'why/which'); anything unusual, any problems, awulak thiyenawada, what needs attention -> findAnomalies; month end, projection, forecast, how will this month finish -> projectMetric; profile of / tell me about / drill into an RTOM (R-JA) or a contractor -> getProfile (type rtom or contractor, name); contractor bills, invoices, payment vouchers, outstanding payments -> getFinanceContext; stores list or count -> getStoresContext; purchase requisitions (PR), purchase orders (PO), GRN -> getProcurementContext; low stock -> getInventoryLowStockContext; registered contractors -> getContractorsContext.
 `;
         const planSystemPrompt = systemPrompt + planNote;
         const compatKey = process.env.NEXUS_LLM_API_KEY || process.env.DEEPSEEK_API_KEY;
@@ -979,6 +996,15 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
                         const cmp = result as Parameters<typeof ExecutiveMetricService.card>[0];
                         executive = { cards: [ExecutiveMetricService.card(cmp)], table: ExecutiveMetricService.table(cmp) };
                     }
+                } else if (funcName === 'findAnomalies' || funcName === 'projectMetric' || funcName === 'getProfile') {
+                    intent = null;
+                    const r = funcName === 'findAnomalies'
+                        ? await ExecutiveInsightService.anomalies(permissions, opmcScope)
+                        : funcName === 'projectMetric'
+                            ? await ExecutiveInsightService.project(String(args?.metric ?? '') as MetricId, permissions, opmcScope)
+                            : await ExecutiveInsightService.profile(String(args?.type ?? ''), String(args?.name ?? ''), permissions, opmcScope);
+                    result = r;
+                    if (!('error' in r)) executive = { cards: r.cards, table: (r as { table?: NexusTable }).table };
                 } else if (funcName === 'runCustomReport') {
                     result = await this.runCustomReportTool(args, permissions, opmcScope);
                     intent = null;

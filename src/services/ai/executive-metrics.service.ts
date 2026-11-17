@@ -139,6 +139,13 @@ export class ExecutiveMetricService {
         return { ok: true };
     }
 
+    /** One number for a metric over a date range (used by projections). */
+    static async value(id: MetricId, from: Date, to: Date, permissions: ReadonlySet<string>, opmcScope: readonly string[] | undefined): Promise<number | { error: string }> {
+        const gate = this.allowed(id, permissions, opmcScope);
+        if (!gate.ok) return { error: gate.reason };
+        return METRICS[id].total({ from, to }, { permissions, opmcScope });
+    }
+
     static async compare(
         id: MetricId, period: string | undefined, groupBy: string | undefined, permissions: ReadonlySet<string>, opmcScope: readonly string[] | undefined, now: Date = new Date(),
     ): Promise<MetricComparison | { error: string }> {
@@ -193,6 +200,7 @@ export class ExecutiveMetricService {
             rows: res.rows.slice(0, 50).map((r) => ({ RTOM: r.group, Current: r.current, Previous: r.previous, Change: r.change, 'Change %': r.changePct === null ? '-' : `${r.changePct.toFixed(1)}%` })),
             totalRows: res.rows.length,
             truncated: res.rows.length > 50,
+            drill: { column: 'RTOM', template: 'Profile of RTOM {value}' },
         };
     }
 

@@ -26,6 +26,9 @@ const TITLES: Record<string, string> = {
     runCustomReport: 'Custom report',
     getExecutiveBrief: 'Executive brief',
     compareMetric: 'Comparison',
+    findAnomalies: 'Unusual items',
+    projectMetric: 'Projection',
+    getProfile: 'Profile',
 };
 
 const num = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -78,6 +81,8 @@ export class NexusLocalReplyService {
                 if (run.name === 'getExecutiveBrief') {
                     const r = run.result as { asOf?: string; scope?: string };
                     parts.push(`Executive brief (${r.scope === 'opmc' ? 'your OPMC' : 'company-wide'}), as of ${r.asOf ? r.asOf.slice(0, 16).replace('T', ' ') + ' UTC' : 'now'}.`);
+                } else if (typeof (run.result as { summary?: string }).summary === 'string') {
+                    parts.push((run.result as { summary: string }).summary);
                 } else {
                     const r = run.result as { metric?: { label: string }; period?: { label: string }; compareTo?: { label: string } | null; rows?: unknown[] };
                     parts.push(`${r.metric?.label ?? 'Metric'}: ${r.period?.label ?? ''}${r.compareTo ? ` compared with ${r.compareTo.label}` : ''}${r.rows ? ', split by RTOM (largest change first)' : ''}.`);
