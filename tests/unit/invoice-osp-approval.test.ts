@@ -67,6 +67,9 @@ test('wiring: new invoices use the chain, the old approval refuses them, and the
     const m = read('prisma/migrations/20261206000000_invoice_osp_approval/migration.sql');
     assert.ok(m.includes('"approvalFlow" TEXT NOT NULL DEFAULT \'LEGACY\''), 'older invoices stay on the old approval');
     assert.ok(m.includes("'invoice.osp.approve'"));
+    const grants = read('prisma/migrations/20261207000000_invoice_osp_approve_default_grants/migration.sql');
+    assert.ok(grants.includes("'SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'HEAD_OF_OSP'"), 'the capability has default holders without a manual seed');
+    assert.ok(grants.includes('ON CONFLICT'), 'safe to run twice');
     const caps = read('src/config/page-capabilities.ts');
     assert.ok(caps.includes("prefix: '/invoices/osp-approvals'") && caps.includes("prefix: '/finance/invoice-dispatch'"));
 });
