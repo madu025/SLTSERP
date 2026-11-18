@@ -50,7 +50,6 @@ export class HoRunService {
         const sod = await prisma.invoice.findUnique({ where: { id: item.id }, include: { contractor: { select: { id: true, name: true } } } });
         if (!sod) throw AppError.notFound('Contractor invoice not found');
         if (sod.approvalStatus !== 'APPROVED') throw AppError.badRequest('THE_CONTRACTOR_INVOICE_MUST_BE_APPROVED_FIRST');
-        if (!sod.projectId) throw AppError.badRequest('LINK_THE_INVOICE_TO_A_PROJECT_FIRST');
         const live = await prisma.paymentVoucher.aggregate({ where: { description: { startsWith: `BOM_INVOICING_REF:${sod.id}` }, status: { notIn: ['CANCELLED', 'REJECTED'] } }, _sum: { amount: true } });
         return { label: `${sod.contractor.name} · ${sod.invoiceNumber}`, category: 'SOD_CONTRACTOR' as PaymentCategory, payable: round2(num(sod.amount) - num(live._sum.amount)), projectId: sod.projectId, create: { projectId: sod.projectId, contractorInvoiceId: sod.id, type: 'CONTRACTOR', payeeId: sod.contractor.id, payeeName: sod.contractor.name, title: `Payment of ${sod.invoiceNumber}` } };
     }
@@ -70,6 +69,8 @@ export class HoRunService {
                 const r = await this.resolve(item);
                 label = r.label;
                 if (r.projectId) await assertProjectAccess(r.projectId, userId);
+                // A contractor (SOD) invoice has no project: like a vendor payment it needs company-wide finance access
+                else if (item.kind === 'SOD') await assertVoucherAccess(null, userId);
                 const blocker = requestBlocker(r.category, { amount: item.amount, payable: r.payable, retention: item.retentionAmount, taxWithheld: item.taxWithheld });
                 if (blocker) throw AppError.badRequest(blocker);
                 const pv = await PaymentVoucherService.createPaymentVoucher({ ...r.create, amount: item.amount, taxWithheld: item.taxWithheld ?? 0, retentionAmount: item.retentionAmount ?? 0, paymentMethod: 'HEAD_OFFICE', createdById: userId });

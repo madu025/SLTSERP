@@ -153,8 +153,20 @@ export class PaymentVoucherService {
       const committed = live.reduce((sum, pv) => sum.plus(pv.amount), new Prisma.Decimal(0));
       if (committed.plus(data.amount).gt(si.totalAmount)) throw AppError.badRequest('SUPPLIER_INVOICE_PAYMENT_EXCEEDS_TOTAL');
       vendorPayment = { vendorId: si.vendorId, vendorName: si.vendor.name };
-    } else if (!data.projectId) {
+    } else if (!data.projectId && !data.contractorInvoiceId) {
       throw AppError.badRequest('PROJECT_REQUIRED');
+    }
+
+    // A monthly contractor (SOD) invoice is not tied to a project: it is paid on its own approval, like a vendor payment (company-wide finance access)
+    if (!vendorPayment && !data.projectId && data.contractorInvoiceId) {
+      const sod = await prisma.invoice.findUnique({ where: { id: data.contractorInvoiceId }, select: { contractorId: true, approvalStatus: true, amount: true, projectId: true } });
+      if (!sod) throw AppError.badRequest('CONTRACTOR_INVOICE_NOT_FOUND');
+      if (sod.projectId) throw AppError.badRequest('INVOICE_PROJECT_MISMATCH');
+      if (sod.approvalStatus !== 'APPROVED') throw AppError.badRequest('THE_CONTRACTOR_INVOICE_MUST_BE_APPROVED_FIRST');
+      if (data.type !== 'CONTRACTOR' || data.payeeId !== sod.contractorId) throw AppError.badRequest('CONTRACTOR_PAYMENT_PAYEE_MISMATCH');
+      const liveSod = await prisma.paymentVoucher.findMany({ where: { description: { startsWith: `BOM_INVOICING_REF:${data.contractorInvoiceId}` }, status: { notIn: ['CANCELLED', 'REJECTED'] } }, select: { amount: true } });
+      const committedSod = liveSod.reduce((sum, pv) => sum.plus(pv.amount), new Prisma.Decimal(0));
+      if (committedSod.plus(data.amount).gt(sod.amount)) throw AppError.badRequest('INVOICE_PAYMENT_EXCEEDS_TOTAL');
     }
 
     if (data.invoiceId) {
@@ -234,7 +246,7 @@ export class PaymentVoucherService {
     return tx.paymentVoucher.create({
       data: {
         pvNumber,
-        projectId: vendorPayment ? null : data.projectId!,
+        projectId: vendorPayment ? null : (data.projectId ?? null),
         supplierInvoiceId: data.supplierInvoiceId || null,
         vendorId: vendorPayment?.vendorId ?? null,
         bankAccountId: data.bankAccountId || null,

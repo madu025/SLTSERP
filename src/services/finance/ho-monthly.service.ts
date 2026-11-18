@@ -73,7 +73,7 @@ export class HoMonthlyService {
                 const withHo = round2(mine.filter((v) => v.status === 'SUBMITTED_TO_HO').reduce((a, v) => a + num(v.amount), 0));
                 const outstanding = round2(num(i.amount) - paid);
                 if (outstanding <= 0) continue;
-                rows.push({ kind: 'SOD', category: 'SOD_CONTRACTOR', payeeId: i.contractorId, blocked: i.projectId ? null : 'LINK_THE_INVOICE_TO_A_PROJECT_FIRST', whtDefault: 0, id: i.id, number: i.invoiceNumber, payee: i.contractor?.name ?? 'Contractor', project: i.project?.name ?? null, projectId: i.projectId, dueDate: i.dueDate ? i.dueDate.toISOString().slice(0, 10) : null, overdue: !!i.dueDate && i.dueDate < range.start, outstanding, requested: liveAmt, withHeadOffice: withHo, unrequested: unrequestedAmount(outstanding, liveAmt), state: planState(outstanding, liveAmt, withHo) });
+                rows.push({ kind: 'SOD', category: 'SOD_CONTRACTOR', payeeId: i.contractorId, blocked: null, whtDefault: 0, id: i.id, number: i.invoiceNumber, payee: i.contractor?.name ?? 'Contractor', project: i.project?.name ?? null, projectId: i.projectId, dueDate: i.dueDate ? i.dueDate.toISOString().slice(0, 10) : null, overdue: !!i.dueDate && i.dueDate < range.start, outstanding, requested: liveAmt, withHeadOffice: withHo, unrequested: unrequestedAmount(outstanding, liveAmt), state: planState(outstanding, liveAmt, withHo) });
             }
         }
 

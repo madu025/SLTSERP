@@ -397,6 +397,7 @@ export const SOD_GUIDE: ModuleGuide = {
                 'The person who sent an invoice cannot approve it; a different OSP manager must.',
                 'An OSP manager only sees and approves invoices of their own area.',
                 'The older single approval on Finance → Invoice Approvals no longer works for these invoices. Invoices created before this change still use it.',
+                'A contractor invoice does not need a project to be paid. Like a vendor payment, its Head Office payment request needs company-wide finance access, and it cannot be paid for more than the invoice total.',
             ],
             anchors: [
                 { file: DISPATCH, text: 'Send Invoices to OSP Managers' },
