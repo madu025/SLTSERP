@@ -16,6 +16,7 @@ import { ExecutiveInsightService } from '@/services/ai/executive-insights.servic
 import { groundReportFilters, describeSearch, SERVICE_ORDER_STATUSES } from '@/services/ai/semantic-layer.service';
 import { NexusLocalReplyService, type ToolRun } from '@/services/ai/nexus-local-reply.service';
 import { runUserReport } from '@/services/reports/report-center.service';
+import { GuideService } from '@/services/guides/guide.service';
 import type { NexusOpmcScope } from '@/services/ai/nexus-context.service';
 
 import { safeJsonParse } from '@/utils/safeJsonParse';
@@ -586,6 +587,11 @@ export class NexusAgentService {
                     }
                 },
                 {
+                    name: "getSystemGuide",
+                    description: "Step-by-step help for using the ERP, written from the real screens (not ERP data). Use for 'how do I...', 'where do I...', 'how does the system work', 'guide me', 'I am new', 'explain the process', 'why can't I see...', and Sinhala/Singlish such as 'kohomada', 'karanne kohomada', 'mokakda'. Currently covers the Service Orders (SOD) module: process overview, finding orders, portal sync, manual entry, assigning contractors, appointments, completing orders and material, returns, bulk actions, PAT, verifying and invoicing, material deviation, performance, legacy import, contractor portal, and access. Put the topic in ENGLISH keywords.",
+                    parameters: { type: "object", properties: { topic: { type: "string", description: "The user's question as short English keywords, e.g. 'complete an order and record material'" } }, required: ["topic"] }
+                },
+                {
                     name: "getJobCostingContext",
                     description: "Fetch Job Costing, Revenue, Material Cost, and Profitability for Service Orders. Reason across multiple tables.",
                     parameters: {
@@ -643,7 +649,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
         const externalPrivacy = NexusPrivacyService.mode('external');
         const planNote = `
 
-PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pick the tool(s) needed for the CURRENT request and fill in exact arguments (exact YYYY-MM-DD dates and filters). Rules: (1) Call only the tool(s) the current request needs, usually exactly one; never call tools for earlier questions. (2) Prefer runCustomReport for any list, count, sum or "by <field>" request, choosing the entity the user names (service orders -> serviceOrder, contractor stock -> contractorStock, material usage -> materialUsage, wastage -> wastage, journal entries -> journalEntry). (3) If the request needs data no tool can provide (fleet, HR/salary, helpdesk tickets, users, passwords, secrets, deleting or changing data, anything unrelated to the ERP), do NOT call any tool: reply with one short sentence saying that is not available. (4) Do not answer with figures and do not ask for data; the system presents the results itself. Data dictionary: serviceOrder.status values are exactly ${SERVICE_ORDER_STATUSES.join(', ')}; an RTOM (also called area, region or exchange) is a code like R-JA; use the user's own RTOM, contractor and item names exactly as written. Vocabulary (Sinhala/Singlish): gabadu/gabada/ගබඩු = stores (warehouses) -> getStoresContext; thoguwa/තොග = stock; higa/හිඟ = outstanding or low; mudala = money; wada/ව්‍යාපෘති = projects. Tool hints: 'how is the company doing', overview, summary, morning brief, company eka kohomada -> getExecutiveBrief; 'compare', 'vs last month', 'this month vs previous', 'why did it change', which RTOM caused the change -> compareMetric (add groupBy rtom for 'why/which'); anything unusual, any problems, awulak thiyenawada, what needs attention -> findAnomalies; month end, projection, forecast, how will this month finish -> projectMetric; profile of / tell me about / drill into an RTOM (R-JA) or a contractor -> getProfile (type rtom or contractor, name); contractor bills, invoices, payment vouchers, outstanding payments -> getFinanceContext; stores list or count -> getStoresContext; purchase requisitions (PR), purchase orders (PO), GRN -> getProcurementContext; low stock -> getInventoryLowStockContext; registered contractors -> getContractorsContext.
+PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pick the tool(s) needed for the CURRENT request and fill in exact arguments (exact YYYY-MM-DD dates and filters). Rules: (1) Call only the tool(s) the current request needs, usually exactly one; never call tools for earlier questions. (2) Prefer runCustomReport for any list, count, sum or "by <field>" request, choosing the entity the user names (service orders -> serviceOrder, contractor stock -> contractorStock, material usage -> materialUsage, wastage -> wastage, journal entries -> journalEntry). (3) If the request needs data no tool can provide (fleet, HR/salary, helpdesk tickets, users, passwords, secrets, deleting or changing data, anything unrelated to the ERP), do NOT call any tool: reply with one short sentence saying that is not available. (4) Do not answer with figures and do not ask for data; the system presents the results itself. Data dictionary: serviceOrder.status values are exactly ${SERVICE_ORDER_STATUSES.join(', ')}; an RTOM (also called area, region or exchange) is a code like R-JA; use the user's own RTOM, contractor and item names exactly as written. Vocabulary (Sinhala/Singlish): gabadu/gabada/ගබඩු = stores (warehouses) -> getStoresContext; thoguwa/තොග = stock; higa/හිඟ = outstanding or low; mudala = money; wada/ව්‍යාපෘති = projects. Tool hints: 'how do I', 'where do I', 'guide me', 'I am new', 'explain the process', 'how does it work', 'karanne kohomada', 'kohomada ... karanne' (questions about USING the system, not about data) -> getSystemGuide with the topic as English keywords; 'how is the company doing', overview, summary, morning brief, company eka kohomada -> getExecutiveBrief; 'compare', 'vs last month', 'this month vs previous', 'why did it change', which RTOM caused the change -> compareMetric (add groupBy rtom for 'why/which'); anything unusual, any problems, awulak thiyenawada, what needs attention -> findAnomalies; month end, projection, forecast, how will this month finish -> projectMetric; profile of / tell me about / drill into an RTOM (R-JA) or a contractor -> getProfile (type rtom or contractor, name); contractor bills, invoices, payment vouchers, outstanding payments -> getFinanceContext; stores list or count -> getStoresContext; purchase requisitions (PR), purchase orders (PO), GRN -> getProcurementContext; low stock -> getInventoryLowStockContext; registered contractors -> getContractorsContext.
 `;
         const planSystemPrompt = systemPrompt + planNote;
         const compatKey = process.env.NEXUS_LLM_API_KEY || process.env.DEEPSEEK_API_KEY;
@@ -1001,6 +1007,10 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
                             : await ExecutiveInsightService.profile(String(args?.type ?? ''), String(args?.name ?? ''), permissions, opmcScope);
                     result = r;
                     if (!('error' in r)) executive = { cards: r.cards, table: (r as { table?: NexusTable }).table };
+                } else if (funcName === 'getSystemGuide') {
+                    // Written help, not ERP data: answered from the reviewed guides only, filtered by what this user may do.
+                    result = GuideService.lookup(args?.topic ? String(args.topic) : undefined, permissions);
+                    intent = null;
                 } else if (funcName === 'runCustomReport') {
                     result = await this.runCustomReportTool(args, permissions, opmcScope);
                     intent = null;

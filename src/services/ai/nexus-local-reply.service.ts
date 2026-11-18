@@ -1,4 +1,5 @@
 import type { NexusCard, NexusChart, NexusTable } from '@/services/ai/nexus-agent.service';
+import type { GuideAnswer } from '@/services/guides/guide.service';
 
 /**
  * Builds the answer on our own server from tool results, for "plan-only" privacy mode.
@@ -29,7 +30,35 @@ const TITLES: Record<string, string> = {
     findAnomalies: 'Unusual items',
     projectMetric: 'Projection',
     getProfile: 'Profile',
+    getSystemGuide: 'Guide',
 };
+
+/** Renders a guide lookup as plain, numbered text. Nothing here comes from ERP data. */
+export function renderGuide(g: GuideAnswer): string {
+    const lines: string[] = [];
+    if (!g.matched) {
+        lines.push(`I could not find that in the ${g.guide} guide, so I will not guess. The guide covers:`);
+        for (const t of g.otherTopics) lines.push(`- ${t}`);
+        lines.push('', 'Ask about one of these, for example "how do I complete an order", or ask your supervisor or an administrator.');
+        return lines.join('\n');
+    }
+    g.sections.forEach((s, i) => {
+        if (i > 0) lines.push('');
+        lines.push(`${s.title}`);
+        if (s.where) lines.push(`Where: ${s.where}`);
+        if (s.blocked) { lines.push(s.blocked); return; }
+        s.steps.forEach((step, n) => lines.push(`${n + 1}. ${step}`));
+        if (s.tips.length > 0) { lines.push('', 'Good to know:'); s.tips.forEach((t) => lines.push(`- ${t}`)); }
+    });
+    if (g.glossary.length > 0) {
+        lines.push('', 'Terms:');
+        g.glossary.forEach((e) => lines.push(`- ${e.term}: ${e.meaning}`));
+    }
+    if (g.otherTopics.length > 0) {
+        lines.push('', `Other topics in the ${g.guide} guide: ${g.otherTopics.join('; ')}.`);
+    }
+    return lines.join('\n');
+}
 
 const num = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 const isScalar = (v: unknown): v is string | number | boolean => ['string', 'number', 'boolean'].includes(typeof v);
@@ -76,6 +105,13 @@ export class NexusLocalReplyService {
             const result = run.result as Record<string, unknown> | null;
             if (!result || typeof result !== 'object') { parts.push(`${title}: no data.`); continue; }
             if (typeof result.error === 'string') { parts.push(`${title}: ${result.error}`); continue; }
+
+            if (run.name === 'getSystemGuide') {
+                const g = result as unknown as GuideAnswer;
+                parts.push(renderGuide(g));
+                evidence.push(`${g.guide} guide · reviewed ${g.reviewedAt} · written from the application's own screens, no ERP data used`);
+                continue;
+            }
 
             if (run.executive) {
                 evidence.push(this.executiveEvidence(run));

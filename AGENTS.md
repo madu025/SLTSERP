@@ -234,6 +234,12 @@ The goal: Be helpful without being annoying. Check in a few times a day, do usef
 4. **Manual grants are explicit**: `User.permissions` is an audited override and replaces inherited grants when non-null. Do not silently merge or infer tenant/organization access from display role names.
 5. **When adding a capability**: update the catalog, Prisma schema/seed if needed, admin permission UI, backend guard, frontend guard, tests, and the architecture document together. Run the RBAC, type, unit, and production build checks before handoff.
 
+## 📘 System Guides Mandate
+1. **Guides must follow the code**: the step-by-step guides in `src/content/guides` (answered by the Nexus tool `getSystemGuide`) describe the real screens, statuses, permissions and rules. Whenever you change a screen, button, workflow, status, permission or business rule of a module that has a guide, you MUST update that guide in the same change, without being reminded.
+2. **Routine**: follow the `update-system-guides` skill. Run `pnpm run check:guides`, review the change against the guide, edit the guide, then `pnpm run guides:stamp <module>`. Never stamp without reviewing.
+3. **Enforcement**: `tests/unit/system-guides.test.ts` (part of `pnpm run test:unit`) fails when a label the guide cites disappears or when files a guide watches changed since it was last stamped.
+4. **New modules**: a new module is not finished until it has a guide (see the skill). Guides contain no ERP data.
+
 ## 📧 Email Template Auto-Wiring Mandate
 1. **Automatic Template Wiring**: Whenever you add or modify any code that sends an email (`EmailService.sendMail(...)`), you MUST automatically wire it to the DB notification template system WITHOUT being reminded by the user:
    - Register a template code in `src/config/notification-templates.ts` (`TEMPLATE_CODES`) with label, description, category, placeholders, and defaultEntityType.
