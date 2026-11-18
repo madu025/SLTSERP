@@ -58,7 +58,8 @@ export const DELETE = apiHandler(async (req, params) => {
     if (!penaltyId) {
         throw AppError.badRequest('Penalty ID is required');
     }
-    await InvoiceService.deletePenalty(id, penaltyId);
+    if (!params._userId) throw AppError.unauthorized('Authentication required');
+    await InvoiceService.deletePenalty(id, penaltyId, params._userId);
     return Response.json({ success: true });
 }, {
     permissions: [RBAC_PERMISSIONS.SOD_INVOICE],

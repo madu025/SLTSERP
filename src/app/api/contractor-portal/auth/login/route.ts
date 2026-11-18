@@ -35,6 +35,11 @@ export const POST = apiHandler(async (_req, _params, data: z.infer<typeof loginS
             path: '/',
         });
 
+        // The middleware authenticates page loads and API calls from the `token` / `refresh_token` cookies (the same ones the main
+        // login sets). Without them every /contractor page bounced back to the login right after a successful sign-in.
+        cookieStore.set('token', token, { httpOnly: true, secure: isProd, sameSite: 'lax', maxAge: 900, path: '/' });
+        cookieStore.set('refresh_token', refreshToken, { httpOnly: true, secure: isProd, sameSite: 'lax', maxAge: 604800, path: '/' });
+
         return NextResponse.json({
             message: 'Contractor login successful',
             token,

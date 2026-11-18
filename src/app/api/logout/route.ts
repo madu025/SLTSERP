@@ -31,6 +31,9 @@ export const POST = apiHandler(async (request, params, body) => {
     cookieStore.set('token', '', cookieOptions);
     // Clear the refresh token cookie
     cookieStore.set('refresh_token', '', cookieOptions);
+    // Contractor portal sign-in keeps its own copies of the tokens
+    cookieStore.set('contractor_token', '', cookieOptions);
+    cookieStore.set('contractor_refresh_token', '', cookieOptions);
 
     return NextResponse.json({
         success: true,

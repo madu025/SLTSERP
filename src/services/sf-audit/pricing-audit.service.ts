@@ -5,6 +5,7 @@ import { AppError } from '@/lib/error';
 import { AuditService } from '@/services/audit/audit.service';
 import { InvoiceCalculatorService } from '@/services/invoice/invoice.calculator.service';
 import { UUID } from '@/types/common';
+import { assertInvoiceAccess } from '@/lib/invoice-access';
 
 export interface RateRuleDTO {
     id: UUID;
@@ -208,6 +209,7 @@ export class PricingAuditService {
      * Create new invoice amendment request
      */
     static async createAmendmentRequest(invoiceId: UUID, requestedAmount: number, reason: string, userId: string) {
+        await assertInvoiceAccess(invoiceId, userId);
         const invoice = await prisma.invoice.findUnique({
             where: { id: invoiceId },
             select: { id: true, totalAmount: true, amountA: true, amountB: true }

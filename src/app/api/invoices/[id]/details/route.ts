@@ -6,6 +6,6 @@ export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (_req, params) => {
     const { id } = params;
-    const response = await InvoiceService.getInvoiceDetails(id);
+    const response = await InvoiceService.getInvoiceDetails(id, params._userId);
     return Response.json(response);
 }, { permissions: [RBAC_PERMISSIONS.SOD_INVOICE] });

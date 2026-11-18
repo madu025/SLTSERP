@@ -10,10 +10,12 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { assertProjectAccess } from '@/lib/project-access';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { assertContractorInScope, assertInvoiceAccess, invoiceScopeWhere } from '@/lib/invoice-access';
 
 export class InvoiceService {
 
     static async proposePenalty(invoiceId: string, amount: number, reason: string, description: string | undefined, serviceOrderId: string | undefined, userId: string) {
+        await assertInvoiceAccess(invoiceId, userId);
         const { primaryClient } = await import('@/lib/prisma');
         const { NotificationService } = await import('@/services/notification');
 
@@ -79,6 +81,7 @@ export class InvoiceService {
         status: 'APPROVED' | 'REJECTED',
         actorUserId: string,
     ) {
+        await assertInvoiceAccess(invoiceId, actorUserId);
         await this.assertPenaltyUpdateAccess(invoiceId, actorUserId);
 
         const { primaryClient } = await import('@/lib/prisma');
@@ -153,7 +156,8 @@ export class InvoiceService {
         }
     }
 
-    static async deletePenalty(invoiceId: string, penaltyId: string) {
+    static async deletePenalty(invoiceId: string, penaltyId: string, userId: string) {
+        await assertInvoiceAccess(invoiceId, userId);
         const { primaryClient } = await import('@/lib/prisma');
         
         const penalty = await primaryClient.penalty.findUnique({
@@ -181,7 +185,8 @@ export class InvoiceService {
     /**
      * Get details of a single invoice including reconciliation
      */
-    static async getInvoiceDetails(id: string) {
+    static async getInvoiceDetails(id: string, userId: string | null | undefined) {
+        await assertInvoiceAccess(id, userId);
         const invoice = await prisma.invoice.findUnique({
             where: { id },
             include: {
@@ -567,8 +572,8 @@ export class InvoiceService {
     /**
      * Get list of contractor invoices with filters
      */
-    static async getInvoices(filters: { status?: string; contractorId?: string; projectId?: string }) {
-        const where: Prisma.InvoiceWhereInput = {};
+    static async getInvoices(filters: { status?: string; contractorId?: string; projectId?: string }, userId: string | null | undefined) {
+        const where: Prisma.InvoiceWhereInput = { ...(await invoiceScopeWhere(userId)) };
         if (filters.status) where.status = filters.status as import("@prisma/client").InvoiceStatus;
         if (filters.contractorId) where.contractorId = filters.contractorId;
         if (filters.projectId) where.projectId = filters.projectId;
@@ -609,7 +614,8 @@ export class InvoiceService {
     /**
      * Create a manual invoice
      */
-    static async createInvoice(data: CreateInvoiceDTO) {
+    static async createInvoice(data: CreateInvoiceDTO, userId: string | null | undefined) {
+        await assertContractorInScope(data.contractorId, userId);
         // Check if invoice number already exists
         const existing = await prisma.invoice.findUnique({
             where: { invoiceNumber: data.invoiceNumber }
@@ -651,7 +657,8 @@ export class InvoiceService {
     /**
      * Update an invoice
      */
-    static async updateInvoice(data: UpdateInvoiceDTO) {
+    static async updateInvoice(data: UpdateInvoiceDTO, userId: string | null | undefined) {
+        await assertInvoiceAccess(data.id, userId);
         const invoice = await prisma.invoice.findUnique({
             where: { id: data.id }
         });
@@ -695,7 +702,8 @@ export class InvoiceService {
     /**
      * Delete an invoice (only PENDING status allowed)
      */
-    static async deleteInvoice(id: string) {
+    static async deleteInvoice(id: string, userId: string | null | undefined) {
+        await assertInvoiceAccess(id, userId);
         const invoice = await prisma.invoice.findUnique({
             where: { id }
         });
@@ -720,6 +728,7 @@ export class InvoiceService {
      */
     static async approveBySfAudit(invoiceId: string, userId: string) {
         const { AuditService } = await import('@/services/audit/audit.service');
+        await assertInvoiceAccess(invoiceId, userId);
 
         const invoice = await prisma.invoice.findUnique({
             where: { id: invoiceId },
