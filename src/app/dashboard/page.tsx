@@ -159,7 +159,8 @@ export default function DashboardPage() {
         setActiveTab(effectiveDefaultTab);
     }, [effectiveDefaultTab]);
 
-    const isOperationsStats = activeTab === 'operations';
+    // The Management overview also shows service-order SLA and PAT figures, so it needs the same operations stats.
+    const isOperationsStats = activeTab === 'operations' || activeTab === 'overview';
     // DashboardFilters needs region/RTOM metadata even when a user lands directly
     // on a non-Operations tab. Keep that metadata request separate so the heavy
     // Operations aggregates are fetched only when the Operations tab is active.
@@ -389,7 +390,7 @@ export default function DashboardPage() {
                                             title="Operations performance"
                                         />
                                         {/* PAT Rejection Alert — scoped to Operations tab only */}
-                                        {(stats?.pat?.rejected || 0) > 0 && (
+                                        {(stats?.pat?.rejectedOpen ?? stats?.pat?.rejected ?? 0) > 0 && (
                                             <Link
                                                 href="/service-orders/work-order/pat"
                                                 className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent border border-rose-500/30 rounded-2xl text-rose-500 hover:bg-rose-500/15 transition-all group shadow-md"
@@ -400,7 +401,7 @@ export default function DashboardPage() {
                                                 </span>
                                                 <ShieldAlert className="w-5 h-5 shrink-0 animate-bounce" />
                                                 <span className="text-xs md:text-sm font-black">
-                                                    {stats!.pat.rejected} PAT rejection{stats!.pat.rejected > 1 ? 's' : ''} require immediate operational review
+                                                    {stats!.pat.rejectedOpen ?? stats!.pat.rejected} order{(stats!.pat.rejectedOpen ?? stats!.pat.rejected) > 1 ? 's are' : ' is'} currently PAT-rejected and need{(stats!.pat.rejectedOpen ?? stats!.pat.rejected) > 1 ? '' : 's'} review
                                                 </span>
                                                 <span className="ml-auto text-xs font-black uppercase tracking-wider opacity-80 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
                                                     Review Now →

@@ -16,6 +16,7 @@ import { Inbox, Wallet, CheckCircle2, RotateCcw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatCard } from './StatCard';
 import type { Stats } from './types';
+import Link from 'next/link';
 import { formatSmartNumber } from '@/lib/utils';
 
 export interface StatsCardGridProps {
@@ -24,13 +25,14 @@ export interface StatsCardGridProps {
 }
 
 /** Small inline card used only by the YTD strip — not shared. */
-function YtdCard({ label, value, valueClass }: { label: string; value: number; valueClass: string }) {
-    return (
-        <div className="glass-panel p-4 rounded-2xl border border-border/40 flex flex-col justify-between hover:scale-[1.03] transition-all duration-200 shadow-sm bg-card/40 hover:bg-card/70">
+function YtdCard({ label, value, valueClass, href }: { label: string; value: number; valueClass: string; href?: string }) {
+    const body = (
+        <div className="glass-panel p-4 rounded-2xl border border-border/40 flex flex-col justify-between hover:scale-[1.03] transition-all duration-200 shadow-sm bg-card/40 hover:bg-card/70 h-full">
             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-tight">{label}</p>
             <p className={`text-xl font-black mt-1 font-mono ${valueClass}`}>{formatSmartNumber(value, 0)}</p>
         </div>
     );
+    return href ? <Link href={href} aria-label={`Open ${label}`} className="block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">{body}</Link> : body;
 }
 
 export function StatsCardGrid({ isLoading, stats }: StatsCardGridProps) {
@@ -72,7 +74,7 @@ export function StatsCardGrid({ isLoading, stats }: StatsCardGridProps) {
                     ) : (
                         <>
                             <StatCard label="Monthly Received" value={stats?.monthly?.total || 0} icon={<Inbox className="w-6 h-6" />} color="blue" href="/service-orders/work-order" />
-                            <StatCard label="Monthly Invoicable" value={stats?.monthly?.invoicable || 0} icon={<Wallet className="w-6 h-6" />} color="indigo" href="/service-orders/invoicable" />
+                            <StatCard label="Monthly Invoicable" value={stats?.monthly?.invoicable || 0} icon={<Wallet className="w-6 h-6" />} color="indigo" sub="flagged ready for invoice" href="/service-orders/invoicable" />
                             <StatCard
                                 label="Monthly Completed"
                                 value={stats?.monthly?.completed || 0}
@@ -88,63 +90,63 @@ export function StatsCardGrid({ isLoading, stats }: StatsCardGridProps) {
                 </div>
             </section>
 
-            {/* Financial & SLA Health Cockpit */}
-            {stats?.financials && (
-                <section aria-label="Executive Financials & SLA">
+            {/* Order revenue (finance access only) and the SLA count */}
+            {(stats?.financials || stats?.sla) && (
+                <section aria-label="Order revenue and SLA">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="glass-panel p-5 rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent shadow-sm hover:shadow-md transition-all">
-                            <p className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">Recognized Revenue</p>
-                            <p className="text-2xl font-black font-mono text-emerald-500 mt-1">Rs. {formatSmartNumber(stats.financials.totalRevenue, 0)}</p>
-                        </div>
-                        <div className="glass-panel p-5 rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent shadow-sm hover:shadow-md transition-all">
-                            <p className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider">Contractor Cost</p>
-                            <p className="text-2xl font-black font-mono text-blue-700 dark:text-blue-400 mt-1">Rs. {formatSmartNumber(stats.financials.totalContractorCost, 0)}</p>
-                        </div>
-                        <div className="glass-panel p-5 rounded-3xl border border-indigo-500/20 bg-gradient-to-br from-indigo-500/10 via-indigo-500/5 to-transparent shadow-sm hover:shadow-md transition-all">
-                            <p className="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 tracking-wider">Recognized operating margin</p>
-                            <div className="flex items-baseline justify-between mt-1">
-                                <p className="text-2xl font-black font-mono text-indigo-700 dark:text-indigo-400">Rs. {formatSmartNumber(stats.financials.netMargin, 0)}</p>
-                                <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30">{stats.financials.marginPercentage}%</span>
+                        {stats?.financials && (
+                            <>
+                                <div className="glass-panel p-5 rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent shadow-sm">
+                                    <p className="text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-400 tracking-wider">Order revenue · year to date</p>
+                                    <p className="text-2xl font-black font-mono text-emerald-700 dark:text-emerald-400 mt-1">Rs. {formatSmartNumber(stats.financials.totalRevenue, 0)}</p>
+                                    <p className="text-[10px] font-semibold text-muted-foreground mt-0.5">
+                                        Completed orders by completion date.{(stats.financials.missingAmountCount ?? 0) > 0 ? ` ${formatSmartNumber(stats.financials.missingAmountCount, 0)} completed orders have no amount yet and are not included.` : ''}
+                                    </p>
+                                </div>
+                                <div className="glass-panel p-5 rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent shadow-sm">
+                                    <p className="text-[10px] font-black uppercase text-blue-700 dark:text-blue-400 tracking-wider">Contractor cost · year to date</p>
+                                    <p className="text-2xl font-black font-mono text-blue-700 dark:text-blue-400 mt-1">Rs. {formatSmartNumber(stats.financials.totalContractorCost, 0)}</p>
+                                </div>
+                                <div className="glass-panel p-5 rounded-3xl border border-indigo-500/20 bg-gradient-to-br from-indigo-500/10 via-indigo-500/5 to-transparent shadow-sm">
+                                    <p className="text-[10px] font-black uppercase text-indigo-700 dark:text-indigo-400 tracking-wider">Order margin · year to date</p>
+                                    <div className="flex items-baseline justify-between mt-1">
+                                        <p className="text-2xl font-black font-mono text-indigo-700 dark:text-indigo-400">Rs. {formatSmartNumber(stats.financials.netMargin, 0)}</p>
+                                        <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30">{stats.financials.marginPercentage}%</span>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                        <Link href="/service-orders/work-order" aria-label="Open pending service orders" className="block rounded-3xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                            <div className="glass-panel p-5 rounded-3xl border border-rose-500/20 bg-gradient-to-br from-rose-500/10 via-rose-500/5 to-transparent shadow-sm hover:shadow-md transition-all h-full">
+                                <p className="text-[10px] font-black uppercase text-rose-700 dark:text-rose-400 tracking-wider">Open orders older than 48 hours</p>
+                                <p className="text-2xl font-black text-rose-700 dark:text-rose-400 font-mono mt-1">{formatSmartNumber(stats?.sla?.slaBreachedCount, 0)}</p>
                             </div>
-                        </div>
-                        <div className="glass-panel p-5 rounded-3xl border border-rose-500/20 bg-gradient-to-br from-rose-500/10 via-rose-500/5 to-transparent shadow-sm hover:shadow-md transition-all">
-                            <p className="text-[10px] font-black uppercase text-rose-600 dark:text-rose-400 tracking-wider">Overdue SLA Pending (&gt;48h)</p>
-                            <div className="flex items-baseline justify-between mt-1">
-                                <p className="text-2xl font-black text-rose-500 font-mono">{formatSmartNumber(stats.sla?.slaBreachedCount, 0)}</p>
-                                <span className="text-[10px] font-extrabold text-rose-400 px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20">Target: {stats.sla?.targetSlaPercentage ?? '—'}%</span>
-                            </div>
-                        </div>
+                        </Link>
                     </div>
                 </section>
             )}
 
-            {/* Cross-Functional Enterprise Module Summary */}
+            {/* Billing (finance access only) */}
             {stats?.financeSummary && (
-                <section aria-label="Enterprise Modules Summary">
+                <section aria-label="Billing">
                     <div className="flex items-center justify-between mb-2 px-1">
-                        <h3 className="text-xs font-black uppercase tracking-wider text-muted-foreground">Finance, fleet and procurement</h3>
+                        <h3 className="text-xs font-black uppercase tracking-wider text-muted-foreground">Billing</h3>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="glass-panel p-4 rounded-2xl border border-sky-500/20 bg-sky-500/5 hover:border-sky-500/30 transition-all">
-                            <p className="text-[10px] font-black uppercase text-sky-600 dark:text-sky-400 tracking-wider">Total Invoiced Billing</p>
-                            <p className="text-xl font-black font-mono text-sky-500 mt-1">Rs. {formatSmartNumber(stats.financeSummary.invoicedTotal, 0)}</p>
-                            <p className="text-[10px] font-semibold text-muted-foreground mt-0.5">{stats.financeSummary.pendingInvoices} Pending Invoices (Rs. {formatSmartNumber(stats.financeSummary.pendingInvoiceAmount, 0)})</p>
-                        </div>
-                        <div className="glass-panel p-4 rounded-2xl border border-purple-500/20 bg-purple-500/5 hover:border-purple-500/30 transition-all">
-                            <p className="text-[10px] font-black uppercase text-purple-600 dark:text-purple-400 tracking-wider">Uninvoiced Work Pending</p>
-                            <p className="text-xl font-black font-mono text-purple-400 mt-1">Rs. {formatSmartNumber(stats.financeSummary.uninvoicedCompletedAmount, 0)}</p>
-                            <p className="text-[10px] font-semibold text-muted-foreground mt-0.5">Ready for invoice batch generation</p>
-                        </div>
-                        <div className="glass-panel p-4 rounded-2xl border border-amber-500/20 bg-amber-500/5 hover:border-amber-500/30 transition-all">
-                            <p className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider">Fleet & Vehicle Logistics</p>
-                            <p className="text-xl font-black font-mono text-amber-500 mt-1">{formatSmartNumber(stats.vehicleSummary?.activeVehicles, 0)} Vehicles</p>
-                            <p className="text-[10px] font-semibold text-muted-foreground mt-0.5">{formatSmartNumber(stats.vehicleSummary?.monthlyTrips, 0)} Monthly Trips (Pending: Rs. {formatSmartNumber(stats.vehicleSummary?.pendingVehiclePayments, 0)})</p>
-                        </div>
-                        <div className="glass-panel p-4 rounded-2xl border border-teal-500/20 bg-teal-500/5 hover:border-teal-500/30 transition-all">
-                            <p className="text-[10px] font-black uppercase text-teal-600 dark:text-teal-400 tracking-wider">Pending survey requests</p>
-                            <p className="text-xl font-black font-mono text-teal-500 mt-1">{formatSmartNumber(stats.procurementSummary?.pendingSurveyRequests, 0)} Requests</p>
-                            <p className="text-[10px] font-semibold text-muted-foreground mt-0.5">{formatSmartNumber(stats.procurementSummary?.totalVendors, 0)} Active Suppliers</p>
-                        </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <Link href="/finance/invoices" aria-label="Open invoices" className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                            <div className="glass-panel p-4 rounded-2xl border border-sky-500/20 bg-sky-500/5 hover:border-sky-500/40 transition-all h-full">
+                                <p className="text-[10px] font-black uppercase text-sky-700 dark:text-sky-400 tracking-wider">Invoiced billing</p>
+                                <p className="text-xl font-black font-mono text-sky-700 dark:text-sky-400 mt-1">Rs. {formatSmartNumber(stats.financeSummary.invoicedTotal, 0)}</p>
+                                <p className="text-[10px] font-semibold text-muted-foreground mt-0.5">{stats.financeSummary.pendingInvoices} pending invoices (Rs. {formatSmartNumber(stats.financeSummary.pendingInvoiceAmount, 0)}). Cancelled and rejected invoices are not counted.</p>
+                            </div>
+                        </Link>
+                        <Link href="/service-orders/work-order/completed" aria-label="Open completed service orders" className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                            <div className="glass-panel p-4 rounded-2xl border border-purple-500/20 bg-purple-500/5 hover:border-purple-500/40 transition-all h-full">
+                                <p className="text-[10px] font-black uppercase text-purple-700 dark:text-purple-400 tracking-wider">Completed, not yet invoiced</p>
+                                <p className="text-xl font-black font-mono text-purple-700 dark:text-purple-400 mt-1">Rs. {formatSmartNumber(stats.financeSummary.uninvoicedCompletedAmount, 0)}</p>
+                                <p className="text-[10px] font-semibold text-muted-foreground mt-0.5">Same figure as the Finance tab</p>
+                            </div>
+                        </Link>
                     </div>
                 </section>
             )}
@@ -162,11 +164,11 @@ export function StatsCardGrid({ isLoading, stats }: StatsCardGridProps) {
                         Array(5).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)
                     ) : (
                         <>
-                            <YtdCard label="Brought forward" value={stats?.allTime?.broughtForward || 0} valueClass="text-primary" />
+                            <YtdCard label="Brought forward" value={stats?.allTime?.broughtForward || 0} valueClass="text-primary" href="/service-orders/work-order" />
                             <YtdCard label="Total received" value={stats?.allTime?.total || 0} valueClass="text-foreground" />
-                            <YtdCard label="Total completed" value={stats?.allTime?.completed || 0} valueClass="text-emerald-500" />
-                            <YtdCard label="PAT pass" value={stats?.pat?.passed || 0} valueClass="text-sky-500" />
-                            <YtdCard label="PAT rejected" value={stats?.pat?.rejected || 0} valueClass="text-rose-500" />
+                            <YtdCard label="Total completed" value={stats?.allTime?.completed || 0} valueClass="text-emerald-500" href="/service-orders/work-order/completed" />
+                            <YtdCard label="PAT pass" value={stats?.pat?.passed || 0} valueClass="text-sky-500" href="/service-orders/work-order/pat" />
+                            <YtdCard label="PAT rejected (open now)" value={stats?.pat?.rejectedOpen ?? stats?.pat?.rejected ?? 0} valueClass="text-rose-500" href="/service-orders/work-order/pat" />
                         </>
                     )}
                 </div>

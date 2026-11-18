@@ -354,7 +354,8 @@ export class DashboardService {
             ? { opmc: projectOpmcConditions.length === 1 ? projectOpmcConditions[0] : { AND: projectOpmcConditions } }
             : {};
 
-        const requestStoreScope: Prisma.StockRequestWhereInput = {
+        // No store restriction (company-wide caller): an empty filter inside OR matches nothing in Prisma, so use none at all.
+        const requestStoreScope: Prisma.StockRequestWhereInput = Object.keys(storeWhere).length === 0 ? {} : {
             OR: [
                 { fromStore: storeWhere },
                 { toStore: storeWhere },
@@ -510,7 +511,8 @@ export class DashboardService {
         // store (fromStore), while internal transfers target toStore. Include
         // either relationship so the same OPMC/RTOM scope applies to every
         // procurement metric without leaking requests from another office.
-        const requestStoreScope: Prisma.StockRequestWhereInput = {
+        // No store restriction (company-wide caller): an empty filter inside OR matches nothing in Prisma, so use none at all.
+        const requestStoreScope: Prisma.StockRequestWhereInput = Object.keys(storeWhere).length === 0 ? {} : {
             OR: [
                 { fromStore: storeWhere },
                 { toStore: storeWhere }
@@ -524,7 +526,8 @@ export class DashboardService {
             pendingGRNsCount,
             lowStockItems,
             recentPendingRequests,
-            recentActivePOs
+            recentActivePOs,
+            purchaseOrderGroups
         ] = await Promise.all([
             // 1. Pending PRNs awaiting PO creation
             prisma.stockRequest.count({
@@ -620,8 +623,22 @@ export class DashboardService {
                 },
                 orderBy: { createdAt: 'desc' },
                 take: 5
+            }),
+
+            // 8. The purchase orders themselves, by status (the counts above are requests per pipeline stage)
+            prisma.purchaseOrder.groupBy({
+                by: ['status'],
+                where: { stockRequest: requestStoreScope },
+                _count: { _all: true }
             })
         ]);
+
+        const poCount = (statuses: string[]) => purchaseOrderGroups.filter(g => statuses.includes(g.status)).reduce((a, g) => a + g._count._all, 0);
+        const purchaseOrders = {
+            open: purchaseOrderGroups.filter(g => !['RECEIVED', 'CLOSED', 'CANCELLED'].includes(g.status)).reduce((a, g) => a + g._count._all, 0),
+            received: poCount(['RECEIVED', 'CLOSED']),
+            cancelled: poCount(['CANCELLED']),
+        };
 
         const lowStockCandidates = lowStockItems
             .map(stock => {
@@ -661,6 +678,7 @@ export class DashboardService {
             pendingPRNs,
             openPOs,
             completedPOs,
+            purchaseOrders,
             pendingGRNs: pendingGRNsCount,
             lowStockItems: mappedLowStockItems,
             lowStockCount,

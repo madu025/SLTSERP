@@ -140,7 +140,7 @@ export default function ExecutiveControlTower({ enabled = true, operationalStats
     const topContractors = (contractorRankings || []).slice(0, 3);
     const highRisk = recentActivity.highRiskPredictions || [];
     const overdueSlaCount = operationalStats?.sla?.slaBreachedCount ?? 0;
-    const sodPatRejectedCount = operationalStats?.pat?.rejected ?? 0;
+    const sodPatRejectedCount = operationalStats?.pat?.rejectedOpen ?? operationalStats?.pat?.rejected ?? 0;
     const priorityActions = [
         controlTower && controlTower.workflow.approvals.stageApprovalsOpen > 0
             ? {

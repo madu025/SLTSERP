@@ -534,8 +534,9 @@ export class ProjectDashboardService {
             delayedProjects,
             recentActivities
         ] = await Promise.all([
+            // Budget and spend of the active projects only (completed and cancelled projects are not "budget in use")
             prisma.project.aggregate({
-                where: projectWhere,
+                where: activeProjectWhere,
                 _sum: { budget: true, actualCost: true }
             }),
             prisma.project.groupBy({
@@ -619,8 +620,8 @@ export class ProjectDashboardService {
         const activeProjectsList = allProjects.filter(p => p.status !== 'COMPLETED' && p.status !== 'CANCELLED');
         const activeProjectsCount = activeProjectsList.length;
 
-        const totalBudget = allProjects.reduce((sum, p) => sum + Number(p.budget || 0), 0);
-        const actualSpend = allProjects.reduce((sum, p) => sum + Number(p.actualCost || 0), 0);
+        const totalBudget = activeProjectsList.reduce((sum, p) => sum + Number(p.budget || 0), 0);
+        const actualSpend = activeProjectsList.reduce((sum, p) => sum + Number(p.actualCost || 0), 0);
 
         const delayedProjectsList = activeProjectsList.filter(p => {
             if (!p.endDate) return false;

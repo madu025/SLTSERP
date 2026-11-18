@@ -26,7 +26,10 @@ export interface Stats {
     };
     pat: {
         passed: number;
+        /** rejection events this year */
         rejected: number;
+        /** orders that are rejected right now and need review */
+        rejectedOpen?: number;
         pending: number;
     };
     contractors: Array<{
@@ -59,6 +62,8 @@ export interface Stats {
         totalContractorCost: number;
         netMargin: number;
         marginPercentage: number;
+        /** completed orders this year without a revenue or contractor amount (not in the figures above) */
+        missingAmountCount?: number;
     };
     financeSummary?: {
         invoicedTotal: number;
@@ -79,7 +84,7 @@ export interface Stats {
     };
     sla?: {
         slaBreachedCount: number;
-        targetSlaPercentage: number;
+        targetSlaPercentage?: number;
     };
     availableRegions?: string[];
     rtomRegionMap?: Record<string, string>;

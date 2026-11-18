@@ -277,7 +277,7 @@ export class CompanyHealthService {
         }
         await this.financeControlAlerts(now, ex);
         if (cash.closingCash < 0) {
-            ex.push({ id: 'fin-cash', severity: 'critical', area: 'Finance', title: 'Negative cash position', detail: `Bank and petty cash net ${fmt(cash.closingCash)}`, href: '/finance/bank' });
+            ex.push({ id: 'fin-cash', severity: 'critical', area: 'Finance', title: 'Negative cash position', detail: `Bank and petty cash net ${fmt(cash.closingCash)}`, href: '/finance/bank/cash-book' });
         }
 
         return {
@@ -418,7 +418,7 @@ export class CompanyHealthService {
 
     private static async projectsSection(now: Date, ex: HealthException[]): Promise<NonNullable<CompanyHealth['projects']>> {
         const projects = await prisma.project.findMany({
-            where: { status: { in: ['IN_PROGRESS', 'ON_HOLD', 'PLANNING'] } },
+            where: { status: { notIn: ['COMPLETED', 'CANCELLED'] } },
             select: { id: true, name: true, projectCode: true, budget: true, actualCost: true, endDate: true, status: true, evm: { select: { spi: true } } },
         });
         let overdue = 0, overBudget = 0, totalBudget = 0, totalActual = 0, lowSpi = 0, untracked = 0;
@@ -525,8 +525,8 @@ export class CompanyHealthService {
             prisma.vMInsurancePolicy.count({ where: { status: 'ACTIVE', expiry_date: { lt: now } } }),
             prisma.vMInsurancePolicy.count({ where: { status: 'ACTIVE', expiry_date: { gte: now, lte: soon } } }),
         ]);
-        if (expired > 0) ex.push({ id: 'flt-exp', severity: 'critical', area: 'Fleet', title: 'Vehicle insurance expired', detail: `${expired} active policies are past their expiry date`, href: '/fleet' });
-        if (expiring > 0) ex.push({ id: 'flt-soon', severity: 'warning', area: 'Fleet', title: 'Vehicle insurance expiring', detail: `${expiring} policies expire within 30 days`, href: '/fleet' });
+        if (expired > 0) ex.push({ id: 'flt-exp', severity: 'critical', area: 'Fleet', title: 'Vehicle insurance expired', detail: `${expired} active policies are past their expiry date`, href: '/fleet/vehicles' });
+        if (expiring > 0) ex.push({ id: 'flt-soon', severity: 'warning', area: 'Fleet', title: 'Vehicle insurance expiring', detail: `${expiring} policies expire within 30 days`, href: '/fleet/vehicles' });
         return { insuranceExpired: expired, insuranceExpiring30d: expiring };
     }
 

@@ -14,7 +14,7 @@ interface RawStat {
 
 interface ContractorRawStat {
     contractorId: string | null;
-    sltsStatus: string;
+    sltsStatus?: string;
     _count: { _all: number };
 }
 
@@ -242,19 +242,26 @@ export class ServiceOrderDashboardService {
             prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'RETURN', statusDate: { gte: firstDayOfYear, lte: lastDayOfYear } } }),
         ]);
 
-        const realTimeRtomGrouped = await prisma.serviceOrder.groupBy({
-            by: ['opmcId', 'sltsStatus'],
-            where: { ...whereClause },
-            _count: { _all: true },
-            _sum: { revenueAmount: true }
-        });
-
-        // YTD revenue per RTOM (for RTOM table revenue column)
-        const ytdRtomRevenueRaw = await prisma.serviceOrder.groupBy({
-            by: ['opmcId'],
-            where: { ...whereClause, ...financialCompletionWhere, completedDate: { gte: firstDayOfYear, lte: lastDayOfYear } },
-            _sum: { revenueAmount: true }
-        });
+        // RTOM table: "pending" is what is open right now; "completed" and "returned" are this year, so every column
+        // uses the same period as the year-to-date cards (it used to mix all-time counts with a year-to-date revenue).
+        const [rtomPendingRaw, ytdRtomRevenueRaw, rtomReturnedRaw] = await Promise.all([
+            prisma.serviceOrder.groupBy({
+                by: ['opmcId'],
+                where: { AND: [whereClause, { NOT: financialCompletionWhere }, { sltsStatus: { not: 'RETURN' } }] },
+                _count: { _all: true },
+            }),
+            prisma.serviceOrder.groupBy({
+                by: ['opmcId'],
+                where: { ...whereClause, ...financialCompletionWhere, completedDate: { gte: firstDayOfYear, lte: lastDayOfYear } },
+                _count: { _all: true },
+                _sum: { revenueAmount: true },
+            }),
+            prisma.serviceOrder.groupBy({
+                by: ['opmcId'],
+                where: { ...whereClause, sltsStatus: 'RETURN', statusDate: { gte: firstDayOfYear, lte: lastDayOfYear } },
+                _count: { _all: true },
+            }),
+        ]);
         const rtomOpmcMap = new Map(allOpmcs.map(o => [o.id, o.rtom]));
         const ytdRtomRevenueMap = new Map<string, number>();
         ytdRtomRevenueRaw.forEach(g => {
@@ -273,20 +280,18 @@ export class ServiceOrderDashboardService {
             }
         });
 
-        realTimeRtomGrouped.forEach(g => {
+        for (const g of rtomPendingRaw) {
             const rtom = rtomOpmcMap.get(g.opmcId || '');
-            if (rtom && rtomStatsMap[rtom]) {
-                if (g.sltsStatus === 'COMPLETED' || g.sltsStatus === 'PROV_CLOSED' || g.sltsStatus === 'INSTALL_CLOSED') {
-                    rtomStatsMap[rtom].completed += g._count._all;
-                    const revVal = Number(g._sum?.revenueAmount || 0);
-                    rtomStatsMap[rtom].revenue += revVal;
-                } else if (g.sltsStatus === 'RETURN') {
-                    rtomStatsMap[rtom].returned += g._count._all;
-                } else {
-                    rtomStatsMap[rtom].pending += g._count._all;
-                }
-            }
-        });
+            if (rtom && rtomStatsMap[rtom]) rtomStatsMap[rtom].pending += g._count._all;
+        }
+        for (const g of ytdRtomRevenueRaw) {
+            const rtom = rtomOpmcMap.get(g.opmcId || '');
+            if (rtom && rtomStatsMap[rtom]) rtomStatsMap[rtom].completed += g._count._all;
+        }
+        for (const g of rtomReturnedRaw) {
+            const rtom = rtomOpmcMap.get(g.opmcId || '');
+            if (rtom && rtomStatsMap[rtom]) rtomStatsMap[rtom].returned += g._count._all;
+        }
 
         const cachedRtomStats = Object.values(rtomStatsMap);
 
@@ -310,11 +315,12 @@ export class ServiceOrderDashboardService {
                 { sltsStatus: 'RETURN', _count: { _all: returned } },
             ]),
             Promise.resolve([]),
-            canViewContractorPerformance ? prisma.serviceOrder.groupBy({
-                by: ['contractorId', 'sltsStatus'],
-                where: { ...baseWhere, contractorId: { not: null } },
-                _count: { _all: true }
-            }) : Promise.resolve([]),
+            // Contractor performance: every order received this year per contractor, and how many of them are completed
+            // by the one company-wide completion rule (it used to count only status COMPLETED, which missed most completions).
+            canViewContractorPerformance ? Promise.all([
+                prisma.serviceOrder.groupBy({ by: ['contractorId'], where: { ...baseWhere, contractorId: { not: null } }, _count: { _all: true } }),
+                prisma.serviceOrder.groupBy({ by: ['contractorId'], where: { ...baseWhere, ...financialCompletionWhere, contractorId: { not: null } }, _count: { _all: true } }),
+            ]) : Promise.resolve([[], []]),
             prisma.serviceOrder.count({
                 where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { lt: firstDayOfYear } }
             }),
@@ -336,7 +342,7 @@ export class ServiceOrderDashboardService {
         ]);
 
         const monthlyStats = monthlyStatsRaw as RawStat[];
-        const contractorPerf = contractorPerfRaw as ContractorRawStat[];
+        const [contractorTotals, contractorCompleted] = contractorPerfRaw as unknown as [ContractorRawStat[], ContractorRawStat[]];
 
         const allTimeSummary = {
             total: ytdTotal,
@@ -345,53 +351,46 @@ export class ServiceOrderDashboardService {
             pending: broughtForward
         };
 
+        // Order revenue and margin are finance figures: only callers with finance access receive them.
+        const canSeeFinance = effectivePermissions.includes(RBAC_PERMISSIONS.FINANCE_READ);
+        const activeInvoiceScope: Prisma.InvoiceWhereInput = { ...invoiceScopeWhere, status: { notIn: ['CANCELLED', 'REJECTED'] } };
         const [
             financialAggregates,
             slaBreachedCount,
             invoicedAggregates,
             pendingInvoiceAggregates,
             uninvoicedSodAggregates,
-            activeVehiclesCount,
-            monthlyTripsCount,
-            pendingVehiclePaymentAggregates,
-            pendingSurveyRequestsCount,
-            totalVendorsCount
+            patRejectedOpen,
+            completedWithoutAmounts,
+            agingNoDate,
         ] = await Promise.all([
-            prisma.serviceOrder.aggregate({
+            canSeeFinance ? prisma.serviceOrder.aggregate({
                 where: { ...ytdCompletedWhere, ...financialCompletionWhere },
                 _sum: {
                     revenueAmount: true,
                     contractorAmount: true
                 }
-            }),
+            }) : Promise.resolve(null),
             prisma.serviceOrder.count({
                 where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { lt: subDays(now, 2) } }
             }),
-            // Regional isolation: global Invoice/VM/Vendor/Survey aggregates
-            // must never leak to regionally-scoped users. Invoices are scoped
-            // by rtomArea; models without any OPMC relation return zeros.
-            prisma.invoice.aggregate({ where: { ...invoiceScopeWhere }, _sum: { totalAmount: true } }).catch(() => ({ _sum: { totalAmount: 0 } })),
-            prisma.invoice.aggregate({ where: { ...invoiceScopeWhere, status: 'PENDING' }, _count: { _all: true }, _sum: { totalAmount: true } }).catch(() => ({ _count: { _all: 0 }, _sum: { totalAmount: 0 } })),
-            prisma.serviceOrder.aggregate({ where: { ...whereClause, ...financialCompletionWhere, isInvoicable: true, invoiceId: null }, _sum: { revenueAmount: true } }).catch(() => ({ _sum: { revenueAmount: 0 } })),
-            canFilterGlobally
-                ? (prisma.vMVehicle?.count({ where: { status: 'AVAILABLE' } }).catch(() => 0) ?? Promise.resolve(0))
-                : Promise.resolve(0),
-            canFilterGlobally
-                ? (prisma.vMTrip?.count({ where: { createdAt: { gte: firstDayOfMonth } } }).catch(() => 0) ?? Promise.resolve(0))
-                : Promise.resolve(0),
-            canFilterGlobally
-                ? (prisma.vMPayment?.aggregate({ where: { status: 'PENDING' }, _sum: { total_amount: true } }).catch(() => ({ _sum: { total_amount: 0 } })) ?? Promise.resolve({ _sum: { total_amount: 0 } }))
-                : Promise.resolve({ _sum: { total_amount: 0 } }),
-            canFilterGlobally
-                ? (prisma.surveyRequest?.count({ where: { status: 'PENDING' } }).catch(() => 0) ?? Promise.resolve(0))
-                : Promise.resolve(0),
-            canFilterGlobally
-                ? (prisma.vendor?.count().catch(() => 0) ?? Promise.resolve(0))
-                : Promise.resolve(0)
+            // Regional isolation: invoices are scoped by rtomArea. Cancelled and rejected invoices are not billing,
+            // and the amount is the same field the Finance tab uses, so both tabs agree.
+            canSeeFinance ? prisma.invoice.aggregate({ where: activeInvoiceScope, _sum: { amount: true } }).catch(() => ({ _sum: { amount: 0 } })) : Promise.resolve(null),
+            canSeeFinance ? prisma.invoice.aggregate({ where: { ...activeInvoiceScope, status: 'PENDING' }, _count: { _all: true }, _sum: { amount: true } }).catch(() => ({ _count: { _all: 0 }, _sum: { amount: 0 } })) : Promise.resolve(null),
+            // Same rule as the Finance tab's unbilled work: completed, with amounts, not invoiced.
+            canSeeFinance ? prisma.serviceOrder.aggregate({
+                where: { AND: [whereClause, financialCompletionWhere, { revenueAmount: { not: null } }, { contractorAmount: { not: null } }], invoiced: false, invoiceId: null },
+                _sum: { revenueAmount: true },
+            }).catch(() => ({ _sum: { revenueAmount: 0 } })) : Promise.resolve(null),
+            // Orders that are rejected right now (the banner used to count every rejection event of the year, corrected ones included).
+            prisma.serviceOrder.count({ where: { AND: [whereClause, { OR: [{ status: { in: ['PAT_REJECTED', 'PAT_OPMC_REJECTED'] } }, { sltsStatus: { in: ['PAT_REJECTED', 'PAT_OPMC_REJECTED'] } }] }] } }),
+            canSeeFinance ? prisma.serviceOrder.count({ where: { AND: [ytdCompletedWhere, financialCompletionWhere, { OR: [{ revenueAmount: null }, { contractorAmount: null }] }] } }) : Promise.resolve(0),
+            prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: null } }),
         ]);
 
-        const totalRevenue = Number(financialAggregates._sum.revenueAmount || 0);
-        const totalContractorCost = Number(financialAggregates._sum.contractorAmount || 0);
+        const totalRevenue = Number(financialAggregates?._sum.revenueAmount || 0);
+        const totalContractorCost = Number(financialAggregates?._sum.contractorAmount || 0);
         const netMargin = totalRevenue - totalContractorCost;
         const marginPercentage = totalRevenue > 0 ? Math.round((netMargin / totalRevenue) * 100) : 0;
 
@@ -411,40 +410,30 @@ export class ServiceOrderDashboardService {
                 invoicable: await prisma.serviceOrder.count({ where: { ...whereClause, isInvoicable: true } }),
                 broughtForward: broughtForward
             },
-            financials: {
+            financials: canSeeFinance ? {
                 totalRevenue,
                 totalContractorCost,
                 netMargin,
-                marginPercentage
-            },
-            financeSummary: {
-                invoicedTotal: Number(invoicedAggregates._sum.totalAmount || 0),
-                pendingInvoices: Number(pendingInvoiceAggregates._count._all || 0),
-                pendingInvoiceAmount: Number(pendingInvoiceAggregates._sum.totalAmount || 0),
-                uninvoicedCompletedAmount: Number(uninvoicedSodAggregates._sum.revenueAmount || 0)
-            },
-            vehicleSummary: {
-                activeVehicles: Number(activeVehiclesCount || 0),
-                monthlyTrips: Number(monthlyTripsCount || 0),
-                pendingVehiclePayments: Number(pendingVehiclePaymentAggregates._sum?.total_amount || 0)
-            },
-            procurementSummary: {
-                // Survey requests are a separate operational queue; they are
-                // not procurement approvals. Keep the legacy numeric field
-                // for API compatibility, but expose the source metric under
-                // an explicit name instead of mislabeling it.
-                pendingApprovals: 0,
-                pendingSurveyRequests: Number(pendingSurveyRequestsCount || 0),
-                totalVendors: Number(totalVendorsCount || 0)
-            },
+                marginPercentage,
+                /** completed orders this year that have no revenue or contractor amount, so the figures above are understated by them */
+                missingAmountCount: completedWithoutAmounts,
+            } : undefined,
+            financeSummary: canSeeFinance ? {
+                invoicedTotal: Number(invoicedAggregates?._sum.amount || 0),
+                pendingInvoices: Number(pendingInvoiceAggregates?._count._all || 0),
+                pendingInvoiceAmount: Number(pendingInvoiceAggregates?._sum.amount || 0),
+                uninvoicedCompletedAmount: Number(uninvoicedSodAggregates?._sum.revenueAmount || 0)
+            } : undefined,
             sla: {
                 slaBreachedCount,
-                targetSlaPercentage: 95
             },
             statusBreakdown: [] as { status: string; count: number }[],
             pat: {
                 passed: sltPatResults.filter(s => s.status === 'PAT_PASSED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
+                /** rejection events this year (corrected ones included); the chart uses it next to "passed" */
                 rejected: sltPatResults.filter(s => s.status === 'PAT_REJECTED' || s.status === 'REJECTED' || s.status === 'PAT_OPMC_REJECTED' || s.status === 'OPMC_REJECTED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
+                /** orders that are rejected right now and still need review: used by the alert banner and the rejected card */
+                rejectedOpen: patRejectedOpen,
                 pending: await prisma.serviceOrder.count({ where: { ...whereClause, ...financialCompletionWhere, hoPatStatus: 'PENDING' } }),
             },
             contractors: [] as ContractorStat[],
@@ -455,6 +444,7 @@ export class ServiceOrderDashboardService {
                 { range: '5-7 Days', count: agingRaw[2] },
                 { range: '7-10 Days', count: agingRaw[3] },
                 { range: '10+ Days', count: agingRaw[4] },
+                ...(agingNoDate > 0 ? [{ range: 'No received date', count: agingNoDate }] : []),
             ]
         };
 
@@ -469,7 +459,7 @@ export class ServiceOrderDashboardService {
             count: s._count?._all || 0
         })).sort((a, b) => b.count - a.count);
 
-        const contractorIds = [...new Set(contractorPerf.map((c) => c.contractorId))].filter(Boolean) as string[];
+        const contractorIds = [...new Set(contractorTotals.map((c) => c.contractorId))].filter(Boolean) as string[];
         const contractorsData = await prisma.contractor.findMany({
             where: { id: { in: contractorIds } },
             select: { id: true, name: true }
@@ -477,8 +467,8 @@ export class ServiceOrderDashboardService {
 
         contractorIds.forEach(cId => {
             const cName = contractorsData.find(c => c.id === cId)?.name || 'Unknown';
-            const completed = contractorPerf.find((p) => p.contractorId === cId && p.sltsStatus === 'COMPLETED')?._count?._all || 0;
-            const total = contractorPerf.filter((p) => p.contractorId === cId).reduce((acc: number, curr) => acc + (curr._count?._all || 0), 0);
+            const completed = contractorCompleted.find((p) => p.contractorId === cId)?._count?._all || 0;
+            const total = contractorTotals.find((p) => p.contractorId === cId)?._count?._all || 0;
             stats.contractors.push({
                 name: cName,
                 completed,

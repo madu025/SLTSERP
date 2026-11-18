@@ -134,6 +134,40 @@ async function main() {
         }
     }
 
+    // ---- every operations-tab figure and the cross-tab definitions, against raw SQL (they must also agree with each other) ----
+    {
+        const { ServiceOrderDashboardService } = await import('../src/services/service-order/sod-dashboard.service');
+        const { DashboardService } = await import('../src/services/core/dashboard.service');
+        const { SOD_FINANCIAL_COMPLETION_STATUSES: ST } = await import('../src/lib/constants/sod-constants');
+        const admin = await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN' as never }, select: { id: true } });
+        if (!admin) { report(false, 'dashboard checks need a SUPER_ADMIN user'); } else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const s = await ServiceOrderDashboardService.getServiceOrderStats({ userId: admin.id, filterRegion: 'ALL', filterRtom: 'ALL' }) as any;
+            const fin = await DashboardService.getFinanceMetrics('ALL', undefined);
+            const one = async (q: string) => Number((await prisma.$queryRawUnsafe<Array<{ v: unknown }>>(q))[0].v);
+            const eq = (name: string, got: number, want: number) => report(Math.abs(got - want) < 0.011, name, `dashboard=${got} db=${want}`);
+            const list = ST.map((x: string) => `'${x}'`).join(',');
+            const done = `("sltsStatus"::text in (${list}) or status::text in (${list}))`;
+            const y = new Date().getFullYear();
+            const ys = `'${y}-01-01'::timestamp - interval '5 hours 30 minutes'`; const ye = `'${y + 1}-01-01'::timestamp - interval '5 hours 30 minutes'`;
+            eq('ops: contractor completed (YTD) = every completed order with a contractor', s.contractors.reduce((a: number, c: { completed: number }) => a + c.completed, 0), await one(`select count(*)::float v from "ServiceOrder" where ${done} and "contractorId" is not null and "receivedDate" >= ${ys} and "receivedDate" < ${ye}`));
+            eq('ops: contractor totals (YTD received)', s.contractors.reduce((a: number, c: { total: number }) => a + c.total, 0), await one(`select count(*)::float v from "ServiceOrder" where "contractorId" is not null and "receivedDate" >= ${ys} and "receivedDate" < ${ye}`));
+            eq('ops: RTOM table completed = YTD completed card', s.rtoms.reduce((a: number, r: { completed: number }) => a + r.completed, 0), s.allTime.completed);
+            eq('ops: RTOM table completed = SQL', s.rtoms.reduce((a: number, r: { completed: number }) => a + r.completed, 0), await one(`select count(*)::float v from "ServiceOrder" where ${done} and "completedDate" >= ${ys} and "completedDate" < ${ye}`));
+            eq('ops: RTOM table revenue = YTD revenue card', s.rtoms.reduce((a: number, r: { revenue: number }) => a + r.revenue, 0), s.financials?.totalRevenue ?? NaN);
+            eq('ops: aging buckets add up to every open (INPROGRESS) order', s.aging.reduce((a: number, b: { count: number }) => a + b.count, 0), await one(`select count(*)::float v from "ServiceOrder" where "sltsStatus"::text='INPROGRESS'`));
+            eq('ops: invoiced billing excludes cancelled and rejected', s.financeSummary.invoicedTotal, await one(`select coalesce(sum(amount),0)::float v from "Invoice" where status::text not in ('CANCELLED','REJECTED')`));
+            eq('ops: invoiced billing = Finance tab total invoiced', s.financeSummary.invoicedTotal, fin.totalInvoiced);
+            eq('ops: completed-not-invoiced = Finance tab unbilled revenue', s.financeSummary.uninvoicedCompletedAmount, Number(fin.unbilledRevenue));
+            eq('ops: PAT rejected (open now) = orders rejected now', s.pat.rejectedOpen, await one(`select count(*)::float v from "ServiceOrder" where status::text in ('PAT_REJECTED','PAT_OPMC_REJECTED') or "sltsStatus"::text in ('PAT_REJECTED','PAT_OPMC_REJECTED')`));
+            eq('ops: orders completed without amounts', s.financials.missingAmountCount, await one(`select count(*)::float v from "ServiceOrder" where ${done} and "completedDate" >= ${ys} and "completedDate" < ${ye} and ("revenueAmount" is null or "contractorAmount" is null)`));
+            const proc = await DashboardService.getProcurementMetrics('ALL', undefined);
+            eq('procurement: purchase orders on record (open + received + cancelled)', proc.purchaseOrders.open + proc.purchaseOrders.received + proc.purchaseOrders.cancelled, await one(`select count(*)::float v from "PurchaseOrder"`));
+            const inv = await DashboardService.getInventoryMetrics('ALL', undefined);
+            eq('inventory and procurement tabs agree on low stock', inv.lowStockCount, proc.lowStockCount);
+        }
+    }
+
     // ---- safety: hostile input is rejected or treated as plain text ----
     for (const g of ['item.name; drop table x', 'item."name', 'serviceOrder.contractor.password']) {
         const r = await run('materialUsage', [], [], { groupBy: g, targetField: 'quantity', type: 'SUM' });

@@ -163,7 +163,7 @@ export default function CompanyHealthSection({ userId, enabled = true }: Props) 
                 {f && <Kpi label={`Revenue · ${data.periods.currentLabel}`} value={compact(f.revenue.current)} delta={<Delta c={f.revenue} />} href="/finance/reports/pnl" spark={f.monthly.map((m) => m.revenue)} sparkColor="#10b981" />}
                 {f && <Kpi label="Net profit" value={compact(f.netProfit.current)} delta={<Delta c={f.netProfit} />} tone={f.netProfit.current < 0 ? 'bad' : 'good'} href="/finance/reports/pnl" spark={f.monthly.map((m) => m.profit)} sparkColor="#6366f1" />}
                 {o && <Kpi label={`Orders completed · ${data.periods.currentLabel}`} value={o.completed.current.toLocaleString()} delta={<Delta c={o.completed} />} href="/service-orders/performance" spark={o.completedMonthly.map((m) => m.completed)} sparkColor="#06b6d4" />}
-                {f && <Kpi label="Cash" value={compact(f.cashBalance)} tone={f.cashBalance < 0 ? 'bad' : 'default'} href="/finance/bank" />}
+                {f && <Kpi label="Cash" value={compact(f.cashBalance)} tone={f.cashBalance < 0 ? 'bad' : 'default'} href="/finance/bank/cash-book" />}
             </div>
 
             {/* Trends */}
@@ -214,10 +214,10 @@ export default function CompanyHealthSection({ userId, enabled = true }: Props) 
             {/* Everything else, one slim row */}
             <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
                 {f && <Mini label="Receivables" value={compact(f.receivables.total)} tone={f.receivables.over90 > 0 ? 'bad' : 'default'} href="/finance/ar/aging" />}
-                {f && <Mini label="Payables" value={compact(f.payablesTotal)} href="/finance/ap" />}
+                {f && <Mini label="Payables" value={compact(f.payablesTotal)} href="/finance/ap/aging" />}
                 {f && <Mini label="YTD profit" value={compact(f.ytdNetProfit)} tone={f.ytdNetProfit < 0 ? 'bad' : 'good'} href="/finance/reports/pnl" />}
                 {f && <Mini label="Margin" value={pct(f.marginPct)} href="/finance/reports/profitability" />}
-                {fleet && <Mini label="Insurance expired" value={String(fleet.insuranceExpired)} tone={fleet.insuranceExpired > 0 ? 'bad' : 'good'} href="/fleet" />}
+                {fleet && <Mini label="Insurance expired" value={String(fleet.insuranceExpired)} tone={fleet.insuranceExpired > 0 ? 'bad' : 'good'} href="/fleet/vehicles" />}
                 {h && <Mini label="Helpdesk open" value={`${h.openTickets} (${h.slaBreached} late)`} tone={h.slaBreached > 0 ? 'warn' : 'default'} href="/helpdesk" />}
                 {sc && sc.stockValue !== null && <Mini label="Stock value" value={compact(sc.stockValue)} href="/inventory/health" />}
                 {sc && sc.committed !== null && <Mini label="Committed (open POs)" value={compact(sc.committed)} href="/procurement/vendors" />}

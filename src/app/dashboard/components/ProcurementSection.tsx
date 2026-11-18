@@ -58,6 +58,8 @@ interface ProcurementTelemetry {
     pendingPRNs: number;
     openPOs: number;
     completedPOs: number;
+    /** purchase orders on record by status (the other counts are requests per pipeline stage) */
+    purchaseOrders?: { open: number; received: number; cancelled: number };
     pendingGRNs: number;
     lowStockItems: LowStockItem[];
     lowStockCount?: number;
@@ -216,7 +218,7 @@ export default function ProcurementSection({ rtom = 'ALL', enabled = true }: Pro
                     <Card className="bg-gradient-to-br from-indigo-500/10 via-indigo-500/5 to-transparent border-indigo-500/30 dark:border-indigo-500/20 shadow-sm hover:shadow-md transition-all rounded-2xl cursor-pointer">
                         <CardHeader className="flex flex-row items-center justify-between pb-1.5 pt-4 px-5">
                             <CardTitle className="text-xs font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
-                                Open Purchase Orders
+                                PRNs with a PO in progress
                             </CardTitle>
                             <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
                                 <ShoppingCart className="w-4 h-4" />
@@ -227,7 +229,7 @@ export default function ProcurementSection({ rtom = 'ALL', enabled = true }: Pro
                                 <div className="text-3xl font-black text-indigo-900 dark:text-indigo-200">
                                     {openPOs}
                                 </div>
-                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">POs issued &amp; vendor in-progress</p>
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">PO issued, vendor in progress</p>
                             </div>
                             <ArrowUpRight className="w-4 h-4 text-indigo-600 dark:text-indigo-400 opacity-60 group-hover:opacity-100 transition-opacity" />
                         </CardContent>
@@ -298,7 +300,7 @@ export default function ProcurementSection({ rtom = 'ALL', enabled = true }: Pro
                             Procurement Lifecycle Pipeline &amp; Stage Flow
                         </CardTitle>
                     </div>
-                    <span className="text-[11px] font-mono text-slate-400">Real-time status breakdown</span>
+                    <span className="text-[11px] font-mono text-slate-300">{data?.purchaseOrders ? `Purchase orders on record: ${data.purchaseOrders.open} open · ${data.purchaseOrders.received} received · ${data.purchaseOrders.cancelled} cancelled` : 'Requests per stage'}</span>
                 </CardHeader>
                 <CardContent className="p-5">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -312,8 +314,8 @@ export default function ProcurementSection({ rtom = 'ALL', enabled = true }: Pro
 
                         <div className="p-3.5 rounded-xl bg-slate-950 border border-indigo-500/30 flex items-center justify-between">
                             <div>
-                                <span className="text-[10px] uppercase font-bold text-indigo-400 font-mono">Stage 2 • Issued POs</span>
-                                <p className="text-lg font-black text-white mt-0.5">{openPOs} <span className="text-xs font-normal text-slate-400">POs Active</span></p>
+                                <span className="text-[10px] uppercase font-bold text-indigo-400 font-mono">Stage 2 • PO issued</span>
+                                <p className="text-lg font-black text-white mt-0.5">{openPOs} <span className="text-xs font-normal text-slate-400">PRNs with PO in progress</span></p>
                             </div>
                             <ShoppingCart className="w-5 h-5 text-indigo-400 opacity-80" />
                         </div>
@@ -329,7 +331,7 @@ export default function ProcurementSection({ rtom = 'ALL', enabled = true }: Pro
                         <div className="p-3.5 rounded-xl bg-slate-950 border border-cyan-500/30 flex items-center justify-between">
                             <div>
                                 <span className="text-[10px] uppercase font-bold text-cyan-400 font-mono">Stage 4 • Fulfilled</span>
-                                <p className="text-lg font-black text-white mt-0.5">{completedPOs} <span className="text-xs font-normal text-slate-400">POs Completed</span></p>
+                                <p className="text-lg font-black text-white mt-0.5">{completedPOs} <span className="text-xs font-normal text-slate-400">PRNs fulfilled</span></p>
                             </div>
                             <BadgeCheck className="w-5 h-5 text-cyan-400 opacity-80" />
                         </div>

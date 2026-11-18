@@ -81,6 +81,7 @@ export function RTOMTables({ isLoading, sortedRtoms }: RTOMTablesProps) {
                 <h3 className="font-extrabold text-foreground text-sm flex items-center gap-2">
                     <BarChart3 className="w-4 h-4 text-primary" />
                     RTOM Operational & Financial Breakdown ({filteredAndSortedRtoms.length} RTOMs)
+                    <span className="text-[11px] font-semibold text-muted-foreground">Comp, Ret and Revenue: this year · Pend: open now</span>
                 </h3>
                 <div className="flex items-center gap-2">
                     <select

@@ -235,14 +235,16 @@ export class ExecutiveDashboardService {
   }
 
   private static async getBudgetStats(where: Prisma.ProjectWhereInput) {
+    // Active projects only: the same definition as the Projects tab and Company health.
+    const activeWhere: Prisma.ProjectWhereInput = { AND: [where, { status: { notIn: ['COMPLETED', 'CANCELLED'] } }] };
     const [stats, overBudget] = await Promise.all([
       prisma.project.aggregate({
-        where,
+        where: activeWhere,
         _sum: { budget: true, actualCost: true, variance: true },
         _avg: { progress: true },
       }),
       prisma.project.count({
-        where: { ...where, variance: { lt: 0 } },
+        where: { AND: [activeWhere, { variance: { lt: 0 } }] },
       }),
     ]);
 
