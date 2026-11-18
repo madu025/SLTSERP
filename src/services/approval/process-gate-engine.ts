@@ -1,3 +1,4 @@
+import { defaultGateDomainAction } from './gate-default-action';
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { requireEnv } from '@/lib/env';
@@ -156,6 +157,20 @@ async function findCanonicalApprover(
         ?? null;
 }
 
+/**
+ * Tells the approver an approval is waiting. Material requests have their own email; every other entity (service orders,
+ * invoices) uses the generic approval email. The material-request email was used for all of them, failed with "Stock
+ * Request not found" for anything else, and the error was swallowed, so approvers of service order gates were never told.
+ */
+async function notifyApprover(params: { instanceId: string; entityType: string; entityId: string; approverEmail: string; approverId: string; requiredRole: string }) {
+    const { instanceId, entityType, entityId, approverEmail, approverId, requiredRole } = params;
+    if (entityType === 'MATERIAL_REQUEST') {
+        await DynamicApprovalService.sendMaterialRequestEmail(instanceId, entityId, approverEmail, approverId, requiredRole);
+    } else {
+        await DynamicApprovalService.sendActionableEmail(instanceId, entityType, entityId, approverEmail, approverId);
+    }
+}
+
 export class ProcessGateEngine {
     /**
      * Resolves the matching ProcessGatePolicy for an entity and current status using the RuleEngine.
@@ -310,13 +325,7 @@ export class ProcessGateEngine {
         // We will keep a generic email dispatch here, but remove the hardcoded check.
         try {
             if (approverEmail) {
-                await DynamicApprovalService.sendMaterialRequestEmail(
-                    instance.id,
-                    entityId,
-                    approverEmail,
-                    approverId,
-                    firstLevel.requiredRole
-                );
+                await notifyApprover({ instanceId: instance.id, entityType, entityId, approverEmail, approverId, requiredRole: firstLevel.requiredRole });
             }
             console.log(`[ProcessGateEngine] Dispatched Level ${firstLevel.level} Approval for Policy ${policy.label}`);
         } catch (emailErr) {
@@ -339,6 +348,7 @@ export class ProcessGateEngine {
         payload?: Record<string, unknown>;
     }) {
         const { instanceId, action, userId, remarks, payload } = params;
+        let notifyNext: Parameters<typeof notifyApprover>[0] | undefined;
 
         const result = await prisma.$transaction(async (tx) => {
             const instance = await tx.universalApprovalInstance.findUnique({
@@ -498,6 +508,7 @@ export class ProcessGateEngine {
                     data: nextInstanceData as unknown as Prisma.UniversalApprovalInstanceUncheckedCreateInput
                 });
 
+                notifyNext = { instanceId: nextInstance.id, entityType: instance.entityType, entityId: instance.entityId, approverEmail: nextApproverEmail, approverId: nextApproverId, requiredRole: nextLevel.requiredRole };
                 console.log(`[ProcessGateEngine] Gate Advanced: Level ${instance.level} APPROVED -> Created Level ${nextLevel.level} for ${nextApproverEmail || nextLevel.requiredRole}`);
 
                 return {
@@ -513,12 +524,14 @@ export class ProcessGateEngine {
             // All levels completed - Final Gate Passed!
             const typedPolicy = policy as typeof policy & { domainAction?: string | null };
             let domainActionResult: unknown;
-            if (typedPolicy?.domainAction) {
+            // A policy saved without an action still has to apply its status (see gate-default-action.ts)
+            const domainAction = typedPolicy?.domainAction || defaultGateDomainAction(instance.entityType, policy?.toStatus);
+            if (domainAction) {
                 // Domain actions are part of the same transaction as the final
                 // approval. A missing/unsupported action must roll back the
                 // approval instead of leaving a falsely completed gate behind.
                 domainActionResult = await DomainActionDispatcher.dispatch({
-                    action: typedPolicy.domainAction,
+                    action: domainAction,
                     entityId: instance.entityId,
                     entityType: instance.entityType,
                     userId,
@@ -532,7 +545,7 @@ export class ProcessGateEngine {
             return {
                 status: 'GATE_PASSED',
                 policyToStatus: policy?.toStatus,
-                domainActionUrl: typedPolicy?.domainAction,
+                domainActionUrl: domainAction,
                 domainActionResult,
                 entityType: instance.entityType,
                 entityId: instance.entityId,
@@ -540,7 +553,12 @@ export class ProcessGateEngine {
                 instanceId: instance.id,
                 signatureHash
             };
-        });
+        }, { timeout: 30_000, maxWait: 10_000 });
+
+        // The next approver is told only after the approval is saved (an email failure must never undo an approval)
+        if (notifyNext) {
+            try { await notifyApprover(notifyNext); } catch (emailErr) { console.error(`[ProcessGateEngine] Failed to notify the next approver for ${notifyNext.entityType}:`, emailErr); }
+        }
 
         return result;
     }
