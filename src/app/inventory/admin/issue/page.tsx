@@ -35,7 +35,11 @@ export default function MaterialIssuePage() {
         queryKey: ['contractors'],
         queryFn: async () => (await fetch('/api/admin/contractors?page=1&limit=1000')).json()
     });
-    const contractors = Array.isArray(contractorsData?.contractors) ? contractorsData.contractors : [];
+    // The API wraps its answer as { success, data: { contractors } }; reading only the top level left this list empty,
+    // so no contractor could be chosen and no material could be issued from this page.
+    const contractors = Array.isArray(contractorsData?.data?.contractors)
+        ? contractorsData.data.contractors
+        : Array.isArray(contractorsData?.contractors) ? contractorsData.contractors : [];
 
     const { data: stores = [] } = useQuery({
         queryKey: ['stores'],

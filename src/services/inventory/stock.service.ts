@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { AppError } from '@/lib/error';
 
 import { prisma } from '@/lib/prisma';
@@ -273,12 +274,14 @@ export class StockService {
                 }));
 
             if (transactionItems.length > 0) {
+                // The ledger keeps a readable reference; the transaction header's reference column is a UUID, so it gets one
+                // (passing the readable text there made every real change fail with "A supplied identifier is not valid").
                 const referenceId = `INIT-STOCK-${storeId}-${Date.now()}`;
                 await InventoryRepository.createTransaction({
                     type: 'ADJUSTMENT',
                     storeId,
                     userId: userId || 'SYSTEM',
-                    referenceId,
+                    referenceId: randomUUID(),
                     notes: reason || 'Initial Stock Setup',
                     items: {
                         create: transactionItems.map((ti) => ({
