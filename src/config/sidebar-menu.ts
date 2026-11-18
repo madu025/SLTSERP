@@ -614,6 +614,11 @@ export const SIDEBAR_MENU: MenuItem[] = [
                         icon: Receipt,
                     },
                     {
+                        title: 'OSP Manager Approvals',
+                        path: '/invoices/osp-approvals',
+                        icon: Receipt,
+                    },
+                    {
                         title: 'BOM Sheets (Imports)',
                         path: '/invoices/bom-sheets',
                         icon: Upload,
@@ -832,6 +837,11 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Contractor Billing',
                 path: '/finance/billing',
                 icon: FileText,
+            },
+            {
+                title: 'Send Invoices to OSP Managers',
+                path: '/finance/invoice-dispatch',
+                icon: CheckCircle2,
             },
             {
                 title: 'Invoice Approvals',

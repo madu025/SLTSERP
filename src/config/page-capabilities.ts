@@ -19,6 +19,7 @@ const PAGE_RULES: ReadonlyArray<{ prefix: string; permission: RbacPermission }> 
     { prefix: '/service-orders', permission: RBAC_PERMISSIONS.SOD_READ },
     // The four confirmation stages are separate capabilities (checked by the API); the page itself only needs a signed-in user
     { prefix: '/invoices/confirmations', permission: RBAC_PERMISSIONS.DASHBOARD_READ },
+    { prefix: '/invoices/osp-approvals', permission: RBAC_PERMISSIONS.INVOICE_OSP_APPROVE },
     { prefix: '/invoices', permission: RBAC_PERMISSIONS.SOD_INVOICE },
     { prefix: '/projects', permission: RBAC_PERMISSIONS.PROJECT_READ },
     { prefix: '/inventory/admin/initial', permission: RBAC_PERMISSIONS.INVENTORY_APPROVE },
@@ -38,6 +39,7 @@ const PAGE_RULES: ReadonlyArray<{ prefix: string; permission: RbacPermission }> 
     { prefix: '/finance/vendors/import', permission: RBAC_PERMISSIONS.ADMIN_RBAC },
     { prefix: '/finance/banks/import', permission: RBAC_PERMISSIONS.ADMIN_RBAC },
     { prefix: '/finance/sf-audit', permission: RBAC_PERMISSIONS.FINANCE_AUDIT },
+    { prefix: '/finance/invoice-dispatch', permission: RBAC_PERMISSIONS.FINANCE_WRITE },
     { prefix: '/finance/bank/reconciliation', permission: RBAC_PERMISSIONS.FINANCE_APPROVE },
     { prefix: '/finance/bank-reconciliation', permission: RBAC_PERMISSIONS.FINANCE_APPROVE },
     { prefix: '/finance/fpa-dashboard', permission: RBAC_PERMISSIONS.FINANCE_APPROVE },

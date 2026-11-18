@@ -19,6 +19,7 @@ interface InvoiceRecord {
     invoiceNumber: string;
     totalAmount: number;
     approvalStatus: string;
+    approvalFlow?: string;
     createdAt: string;
     contractor: { name: string };
     project?: { name: string };
@@ -90,6 +91,7 @@ export default function InvoiceApprovalPage() {
             case 'PENDING_CHECKER': return <Badge variant="outline" className="bg-amber-100 text-amber-700">AWAITING CHECKER</Badge>;
             case 'APPROVED': return <Badge className="bg-emerald-500 hover:bg-emerald-600">APPROVED</Badge>;
             case 'REJECTED': return <Badge variant="destructive">REJECTED</Badge>;
+            case 'PENDING_OSP_APPROVAL': return <Badge variant="outline" className="bg-amber-100 text-amber-900">WITH OSP MANAGERS</Badge>;
             case 'PAID': return <Badge className="bg-indigo-500">PAID</Badge>;
             default: return <Badge variant="secondary">{status}</Badge>;
         }
@@ -154,7 +156,7 @@ export default function InvoiceApprovalPage() {
                                                         <td className="px-6 py-4 text-right font-semibold text-slate-900">{formatCurrency(invoice.totalAmount)}</td>
                                                         <td className="px-6 py-4 text-center">{getStatusBadge(invoice.approvalStatus)}</td>
                                                         <td className="px-6 py-4 text-right">
-                                                            {canApprove && invoice.approvalStatus === 'DRAFT' && (
+                                                            {canApprove && invoice.approvalStatus === 'DRAFT' && invoice.approvalFlow !== 'OSP_CHAIN' && (
                                                                 <Button 
                                                                     size="sm" 
                                                                     onClick={() => handleApprove(invoice.id)}

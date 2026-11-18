@@ -344,6 +344,8 @@ export class InvoiceGeneratorService {
                     confirmStage: 'CONFIRMED',
                     // The contractor reviews the invoice first; only then does it reach OSP Quality (SF Audit)
                     contractorConfirmStatus: 'AWAITING',
+                    // SF Audit verifies, Finance sends it to the OSP managers, they approve, then Head Office pays
+                    approvalFlow: 'OSP_CHAIN',
                     amountB,
                     statusB: 'HOLD',
                     status: 'PENDING_SF_AUDIT',

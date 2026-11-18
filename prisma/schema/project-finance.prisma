@@ -74,10 +74,18 @@ model Invoice {
   contractorConfirmedAt   DateTime?
   contractorConfirmedById String?  @db.Uuid
   contractorNote          String?
+  // LEGACY = the old single finance approval; OSP_CHAIN = SF Audit -> Finance -> OSP managers -> Head Office. Older invoices are LEGACY.
+  approvalFlow            String   @default("LEGACY")
+  ospSentAt               DateTime?
+  ospSentById             String?  @db.Uuid
+  ospDecisionAt           DateTime?
+  ospDecisionById         String?  @db.Uuid
+  ospNote                 String?
 
   @@index([projectId])
   @@index([contractorId])
   @@index([contractorConfirmStatus])
+  @@index([approvalFlow, approvalStatus])
 }
 
 model InvoiceAmendmentRequest {

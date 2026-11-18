@@ -3,6 +3,7 @@ import { AppError } from '@/lib/error';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { assertProjectAccess } from '@/lib/project-access';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { legacyApprovalAllowed } from '@/lib/invoice-osp-approval-rules';
 
 export class InvoiceApprovalService {
     /**
@@ -25,6 +26,7 @@ export class InvoiceApprovalService {
 
             if (!invoice) throw AppError.notFound('Invoice not found');
             if (invoice.approvalStatus === 'APPROVED') throw AppError.badRequest('Invoice is already approved');
+            if (!legacyApprovalAllowed(invoice.approvalFlow)) throw AppError.badRequest('This invoice is approved by the OSP managers after Finance sends it (Finance > Send Invoices to OSP Managers)');
 
             // Update status only (GL already posted at generation/accrual).
             const updatedInvoice = await tx.invoice.update({
@@ -41,6 +43,8 @@ export class InvoiceApprovalService {
 
     static async rejectInvoice(invoiceId: string, reason: string, actorId?: string | null) {
         await this.assertInvoiceScope(invoiceId, actorId);
+        const current = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { approvalFlow: true } });
+        if (current && !legacyApprovalAllowed(current.approvalFlow)) throw AppError.badRequest('An OSP manager returns this invoice to Finance with a reason (Invoices > OSP Manager Approvals)');
         return await prisma.invoice.update({
             where: { id: invoiceId },
             data: {

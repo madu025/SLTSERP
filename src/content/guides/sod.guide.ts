@@ -5,7 +5,9 @@ const LIST_PAGE = 'src/app/service-orders/work-order/page.tsx';
 const TABLE = 'src/app/service-orders/work-order/components/SODSheetTable.tsx';
 const INVOICABLE = 'src/app/service-orders/invoicable/page.tsx';
 const CONTRACTOR_FINANCE = 'src/app/contractor/finance/page.tsx';
-const OSP_QUEUE = 'src/app/finance/sf-audit/queue/page.tsx';
+const DISPATCH = 'src/app/finance/invoice-dispatch/page.tsx';
+const OSP_APPROVALS = 'src/app/invoices/osp-approvals/page.tsx';
+const OSP_QUEUE ='src/app/finance/sf-audit/queue/page.tsx';
 const APPROVALS ='src/app/service-orders/approvals/page.tsx';
 const FIN_RULES ='src/services/service-order/sod-financial-validation.ts';
 const LIFECYCLE = 'src/services/service-order/sod.lifecycle.service.ts';
@@ -375,6 +377,35 @@ export const SOD_GUIDE: ModuleGuide = {
                 { file: OSP_QUEUE, text: 'OSP Quality: invoices to verify' },
                 { file: OSP_QUEUE, text: 'View invoice' },
                 { file: OSP_QUEUE, text: 'No invoices are waiting for verification.' },
+            ],
+        },
+        {
+            id: 'finance-osp-managers-head-office',
+            title: 'Finance sends verified invoices to the OSP managers, then Head Office pays',
+            summary: 'After OSP Quality verifies an invoice, Finance sends it to the OSP managers; once they approve it, it goes to Head Office, whose payment reference is shown against the invoice.',
+            keywords: ['finance', 'send invoices', 'osp manager', 'osp managers', 'approve invoice', 'head office', 'reference', 'payment', 'dispatch', 'return invoice'],
+            page: '/finance/invoice-dispatch',
+            requires: RBAC_PERMISSIONS.FINANCE_WRITE,
+            steps: [
+                'Finance opens Finance → Send Invoices to OSP Managers. "Ready to send" lists the invoices that the contractor confirmed and OSP Quality verified.',
+                'Tick one or many and click "Send selected" to OSP managers. The OSP managers are notified.',
+                'An OSP manager opens Invoices → OSP Manager Approvals, ticks one or many and clicks "Approve selected", or enters a "Reason to return" and clicks "Return selected". A returned invoice goes back to Finance with the reason.',
+                'An approved invoice is picked up by the Head Office run (Finance → Head Office Run): payment request, approval, Head Office pack, then Head Office confirms with its reference.',
+                'Finance follows each approved invoice under "Approved, with Head Office": the payment requests, where each stands, and the Head Office reference and date once paid.',
+            ],
+            tips: [
+                'The person who sent an invoice cannot approve it; a different OSP manager must.',
+                'An OSP manager only sees and approves invoices of their own area.',
+                'The older single approval on Finance → Invoice Approvals no longer works for these invoices. Invoices created before this change still use it.',
+            ],
+            anchors: [
+                { file: DISPATCH, text: 'Send Invoices to OSP Managers' },
+                { file: DISPATCH, text: 'Ready to send' },
+                { file: DISPATCH, text: 'Approved, with Head Office' },
+                { file: OSP_APPROVALS, text: 'OSP Manager Invoice Approvals' },
+                { file: OSP_APPROVALS, text: 'Approve selected' },
+                { file: OSP_APPROVALS, text: 'Return selected' },
+                { file: OSP_APPROVALS, text: 'Reason to return' },
             ],
         },
         {
