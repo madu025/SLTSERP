@@ -340,7 +340,8 @@ export class InvoiceGeneratorService {
                     advanceDeduction,
                     amountA,
                     statusA: 'PENDING_SF_AUDIT',
-                    confirmStage: 'AREA_COORDINATOR',
+                    // The area chain now happens on the service orders, before the invoice exists, so a new invoice starts confirmed
+                    confirmStage: 'CONFIRMED',
                     amountB,
                     statusB: 'HOLD',
                     status: 'PENDING_SF_AUDIT',

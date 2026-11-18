@@ -4,7 +4,8 @@ import type { ModuleGuide } from './types';
 const LIST_PAGE = 'src/app/service-orders/work-order/page.tsx';
 const TABLE = 'src/app/service-orders/work-order/components/SODSheetTable.tsx';
 const INVOICABLE = 'src/app/service-orders/invoicable/page.tsx';
-const FIN_RULES = 'src/services/service-order/sod-financial-validation.ts';
+const APPROVALS = 'src/app/service-orders/approvals/page.tsx';
+const FIN_RULES ='src/services/service-order/sod-financial-validation.ts';
 const LIFECYCLE = 'src/services/service-order/sod.lifecycle.service.ts';
 const CONTRACTOR_SODS = 'src/app/contractor/sods/page.tsx';
 
@@ -52,7 +53,7 @@ export const SOD_GUIDE: ModuleGuide = {
                 'An office user assigns a contractor team to the order and, if needed, sets an appointment date.',
                 'When the work is done, the order is completed with Confirm Completion: date, team, DP, device serial numbers and the material used.',
                 'Finished orders move to Install Closed SOD or Completed SOD. The three PAT approvals (SLTS, OPMC, HO) are tracked on PAT Status Monitor.',
-                'Once PAT has passed, an engineer verifies the order on Invoicable SODs ("Verify Completed SODs"), and the contractor\'s verified orders are bundled into a monthly invoice ("Generate Monthly Invoice").',
+                'A finished order is approved in turn by the Area Coordinator, the QC Officer, the Area Engineer / Officer and the Area Manager on Service Orders → SOD Approvals. Only after the last approval does it appear as ready on Invoicable SODs, where the contractor\'s approved orders are bundled into a monthly invoice ("Generate Monthly Invoice").',
                 'An order the customer or SLT cancels is a Return (Return SOD). An order that disappears from the portal is shown on Disappeared SODs.',
             ],
             tips: [
@@ -64,7 +65,7 @@ export const SOD_GUIDE: ModuleGuide = {
                 { file: LIST_PAGE, text: 'Manual Entry' },
                 { file: LIST_PAGE, text: 'Excel Import' },
                 { file: TABLE, text: 'Confirm Completion' },
-                { file: INVOICABLE, text: 'Verify Completed SODs' },
+                { file: APPROVALS, text: 'SOD Approvals' },
                 { file: INVOICABLE, text: 'Generate Monthly Invoice' },
                 { file: 'src/app/service-orders/work-order/completed/page.tsx', text: 'Completed Service Orders' },
                 { file: 'src/app/service-orders/work-order/install-closed/page.tsx', text: 'Install Closed Service Orders' },
@@ -291,25 +292,53 @@ export const SOD_GUIDE: ModuleGuide = {
             ],
         },
         {
+            id: 'approve-for-invoice',
+            title: 'Approve completed orders for invoicing (SOD Approvals)',
+            summary: 'A completed order passes the area chain (Area Coordinator, QC Officer, Area Engineer / Officer, Area Manager) before it can be invoiced; one or many orders can be approved at once.',
+            keywords: ['approve', 'approval', 'sod approvals', 'area coordinator', 'qc officer', 'engineer', 'area manager', 'chain', 'return', 'invoice', 'invoicable', 'confirm'],
+            page: '/service-orders/approvals',
+            requires: RBAC_PERMISSIONS.INVOICE_CONFIRM_COORDINATOR,
+            steps: [
+                'Open Service Orders → SOD Approvals. It lists the completed orders waiting at the stage you hold, in your own area. The chips at the top show how many are waiting at each of your stages.',
+                'Tick one order or many (or the box at the top to select all) and click "Approve selected", or use the Approve button on a single row.',
+                'The order moves to the next stage. The Engineer stage is skipped in an area that has no Engineer / Officer. After the Area Manager approves, the order is "Approved for invoice" and appears on Invoicable SODs.',
+                'To send orders back, tick them, type a reason in "Reason to return" and click "Return selected". They go back to the Area Coordinator and the chain starts again.',
+            ],
+            tips: [
+                'One person cannot approve two different stages of the same order; a different person must take each stage.',
+                'The last approval also checks that the order can be billed (contractor, completion date, amounts, PAT, material cost). An order that cannot be billed is listed under "Not changed" with the reasons.',
+                'Changing the completion or the material of an approved order sends it back to the start of the chain.',
+                'Orders completed before the chain existed keep the old single "Verify Completed SODs" step on Invoicable SODs.',
+            ],
+            anchors: [
+                { file: APPROVALS, text: 'SOD Approvals' },
+                { file: APPROVALS, text: 'Approve selected' },
+                { file: APPROVALS, text: 'Return selected' },
+                { file: APPROVALS, text: 'Reason to return' },
+                { file: APPROVALS, text: 'Not changed' },
+            ],
+        },
+        {
             id: 'verify-and-invoice',
-            title: 'Verify completed orders and create a contractor invoice',
-            summary: 'An engineer verifies completed orders for billing, then bundles one contractor\'s orders into a monthly invoice.',
+            title: 'Create a contractor invoice from approved orders',
+            summary: 'Approved orders are bundled into a monthly invoice for one contractor. Orders completed before the approval chain are verified here first.',
             keywords: ['invoice', 'invoicable', 'verify', 'verification', 'billing', 'bill', 'payment', 'monthly invoice', 'generate invoice', 'engineer verified', 'audit', 'gevima'],
             page: '/service-orders/invoicable',
             requires: RBAC_PERMISSIONS.SOD_INVOICE,
             steps: [
                 'Open Service Orders → Invoicable SODs and choose the billing month and year.',
-                'Click "Verify Completed SODs". Each completed order is checked; the ones that pass are marked as verified for invoice, and the screen reports how many were blocked.',
+                'Orders that finished the approval chain are ready. An order still in the chain shows a "WAITING" badge with its stage and cannot be invoiced yet. For older orders that are not in the chain, click "Verify Completed SODs"; each is checked and the screen reports how many were blocked.',
                 'Choose one contractor (an invoice is made for one contractor at a time).',
                 'Click "Generate Monthly Invoice". The invoice number and total are shown with a "View Official Invoice" link.',
             ],
             tips: [
                 'An order is blocked unless it has: an assigned contractor, a completion date, revenue and contractor cost figures above zero, all three PAT approvals passed, and a cost on every material line.',
-                'A blocked order lists its reasons (for example PAT_APPROVALS_INCOMPLETE or CONTRACTOR_ASSIGNMENT_MISSING). Fix the cause and verify again.',
-                'Every verification and invoice is written to the audit log.',
+                'A blocked order lists its reasons (for example PAT_APPROVALS_INCOMPLETE or CONTRACTOR_ASSIGNMENT_MISSING). Fix the cause and try again.',
+                'Every approval, verification and invoice is written to the audit log.',
             ],
             anchors: [
                 { file: INVOICABLE, text: 'Verify Completed SODs' },
+                { file: INVOICABLE, text: 'WAITING' },
                 { file: INVOICABLE, text: 'Generate Monthly Invoice' },
                 { file: INVOICABLE, text: 'View Official Invoice' },
                 { file: INVOICABLE, text: 'Select one contractor before generating a monthly invoice.' },

@@ -22,11 +22,15 @@ interface InvoicableSOD {
     contractorName?: string;
     isInvoicable: boolean;
     invoiced: boolean;
+    /** area approval chain stage; null for orders finished before the chain existed */
+    sodApprovalStage?: string | null;
     dropWireLength?: number;
     contractorAmount?: number | string | null;
     revenueAmount?: number | string | null;
     materialUsage?: Array<{ quantity: number; item?: { name: string; code: string } }>;
 }
+
+const SOD_STAGE_LABEL: Record<string, string> = { AREA_COORDINATOR: 'Area Coordinator', QC_OFFICER: 'QC Officer', AREA_ENGINEER: 'Area Engineer / Officer', AREA_MANAGER: 'Area Manager' };
 
 interface ContractorOption {
     id: string;
@@ -46,6 +50,7 @@ interface RawServiceOrderResponse {
     contractor?: { id?: string; name?: string };
     isInvoicable?: boolean;
     invoiced?: boolean;
+    sodApprovalStage?: string | null;
     dropWireLength?: number;
     contractorAmount?: number | string | null;
     revenueAmount?: number | string | null;
@@ -101,6 +106,7 @@ function InvoicableServiceOrdersContent() {
                         contractorName: matchedC?.name || s.contractor?.name || 'Assigned Contractor',
                         isInvoicable: s.isInvoicable ?? false,
                         invoiced: s.invoiced ?? false,
+                        sodApprovalStage: s.sodApprovalStage ?? null,
                         dropWireLength: s.dropWireLength,
                         contractorAmount: s.contractorAmount,
                         revenueAmount: s.revenueAmount
@@ -144,7 +150,8 @@ function InvoicableServiceOrdersContent() {
     }, [fetchData]);
 
     const handleVerifyCompletedSODs = async () => {
-        const targetIds = filteredSods.filter(s => !s.isInvoicable).map(s => s.id);
+        // Orders in the area approval chain are approved on SOD Approvals; this button is only for orders finished before it existed
+        const targetIds = filteredSods.filter(s => !s.isInvoicable && !s.sodApprovalStage).map(s => s.id);
         if (targetIds.length === 0) {
             setNotice({ type: 'success', message: 'All displayed completed SODs are already verified and invoicable.' });
             return;
@@ -400,6 +407,10 @@ function InvoicableServiceOrdersContent() {
                                                                 {sod.isInvoicable ? (
                                                                     <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 font-mono text-[10px] gap-1">
                                                                         <ShieldCheck className="w-3 h-3 text-emerald-600" /> INVOICABLE & VERIFIED
+                                                                    </Badge>
+                                                                ) : sod.sodApprovalStage ? (
+                                                                    <Badge className="bg-sky-100 text-sky-900 border border-sky-300 font-mono text-[10px] gap-1">
+                                                                        <AlertCircle className="w-3 h-3 text-sky-700" /> WAITING: {SOD_STAGE_LABEL[sod.sodApprovalStage] ?? sod.sodApprovalStage}
                                                                     </Badge>
                                                                 ) : (
                                                                     <Badge className="bg-amber-100 text-amber-800 border border-amber-300 font-mono text-[10px] gap-1">

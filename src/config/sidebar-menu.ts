@@ -143,6 +143,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
+                // Visible to everyone; the page and its API only show what the person's stage in the chain allows
+                title: 'SOD Approvals',
+                path: '/service-orders/approvals',
+                icon: Receipt,
+            },
+            {
                 title: 'Invoicable SODs',
                 path: '/service-orders/invoicable',
                 icon: Receipt,

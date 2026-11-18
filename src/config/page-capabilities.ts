@@ -12,6 +12,8 @@ const PAGE_RULES: ReadonlyArray<{ prefix: string; permission: RbacPermission }> 
     { prefix: '/contractors/management', permission: RBAC_PERMISSIONS.ADMIN_RBAC },
     { prefix: '/contractor', permission: RBAC_PERMISSIONS.CONTRACTOR_READ },
     { prefix: '/contractors', permission: RBAC_PERMISSIONS.CONTRACTOR_READ },
+    // The four chain stages are checked by the API per order; the page only needs a signed-in dashboard user
+    { prefix: '/service-orders/approvals', permission: RBAC_PERMISSIONS.DASHBOARD_READ },
     { prefix: '/service-orders/invoicable', permission: RBAC_PERMISSIONS.SOD_INVOICE },
     { prefix: '/service-orders/material-deviation', permission: RBAC_PERMISSIONS.SOD_INVOICE },
     { prefix: '/service-orders', permission: RBAC_PERMISSIONS.SOD_READ },

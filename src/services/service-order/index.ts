@@ -166,6 +166,8 @@ export class ServiceOrderService {
             // engineer's invoice verification step, so require verification
             // again after a completion transition.
             updateData.isInvoicable = false;
+            // An order already in the area approval chain must be approved again after its figures were refreshed
+            if (oldOrder.sodApprovalStage) updateData.sodApprovalStage = 'AREA_COORDINATOR';
         }
 
         // 4. System specific manual updates (Snapshots) - Fetch before transaction
@@ -226,8 +228,9 @@ export class ServiceOrderService {
                     tx, id, oldOrder.opmcId, contractorId, data.materialUsage!, InventoryService, userId
                 );
                 updateData.materialUsage = materialUpdate;
-                // Material changes invalidate the prior invoice snapshot.
+                // Material changes invalidate the prior invoice snapshot, and the approvals that were given on it.
                 updateData.isInvoicable = false;
+                if (oldOrder.sodApprovalStage) updateData.sodApprovalStage = 'AREA_COORDINATOR';
             }
 
             // Save collected CPEs
@@ -663,6 +666,9 @@ export class ServiceOrderService {
         const sods = await prisma.serviceOrder.findMany({
             where: {
                 id: { in: sodIds },
+                // Orders in the area approval chain become invoicable when the Area Manager approves them; this direct
+                // verification is only for orders that were finished before the chain existed.
+                sodApprovalStage: null,
                 OR: [
                     { sltsStatus: 'COMPLETED' },
                     { status: { in: ['COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED'] } }
@@ -686,7 +692,10 @@ export class ServiceOrderService {
         });
 
         if (sods.length === 0) {
-            throw AppError.badRequest('No completed SODs found matching the provided IDs');
+            const inChain = await prisma.serviceOrder.count({ where: { id: { in: sodIds }, sodApprovalStage: { not: null } } });
+            throw AppError.badRequest(inChain > 0
+                ? 'These orders are in the area approval chain (Area Coordinator, QC Officer, Engineer, Area Manager). They become invoicable when the last stage approves them: use Service Orders, SOD Approvals.'
+                : 'No completed SODs found matching the provided IDs');
         }
 
         const rejected = sods

@@ -39,6 +39,7 @@ import {
 import { isValidUuid } from '@/lib/uuid';
 import { SOD_GATE_ENTITY_TYPE } from './types';
 import { SODLifecycleService } from '../sod.lifecycle.service';
+import { SOD_CHAIN_ENTRY_STATUSES } from '@/lib/sod-approval-rules';
 
 /** The columns this writer owns. A caller may only express intent through these. */
 export interface StatusWriteIntent {
@@ -79,6 +80,8 @@ const MINIMAL_SOD_SELECT = {
     statusDate: true,
     completedDate: true,
     returnReason: true,
+    sodApprovalStage: true,
+    invoiced: true,
 } as const;
 
 /** The columns this writer reasons about, as stored. */
@@ -91,6 +94,8 @@ interface StatusRow {
     statusDate: Date | null;
     completedDate: Date | null;
     returnReason: string | null;
+    sodApprovalStage: string | null;
+    invoiced: boolean;
 }
 
 /**
@@ -298,6 +303,17 @@ export async function applySodStatus(input: {
     dropUnchanged(data, 'completedDate', stored.completedDate);
     dropUnchanged(data, 'returnReason', stored.returnReason);
     dropUnchanged(data, 'statusDate', stored.statusDate);
+
+    // Area approval chain: an order that moves INTO a finished status starts at the Area Coordinator (it cannot be invoiced
+    // before the chain is complete); one that leaves the finished statuses before the chain completes drops out of it.
+    // Orders that were already finished before the chain existed (no stage) are never pulled in by a replayed feed.
+    if (Object.keys(data).length > 0) {
+        const entry = SOD_CHAIN_ENTRY_STATUSES as readonly string[];
+        const nowFinished = entry.includes((data.sltsStatus as string | undefined) ?? stored.sltsStatus ?? '');
+        const wasFinished = entry.includes(stored.sltsStatus ?? '');
+        if (nowFinished && !wasFinished && stored.sodApprovalStage === null && !stored.invoiced) data.sodApprovalStage = 'AREA_COORDINATOR';
+        else if (!nowFinished && stored.sodApprovalStage !== null && stored.sodApprovalStage !== 'CONFIRMED') data.sodApprovalStage = null;
+    }
 
     if (Object.keys(data).length === 0) {
         // Reachable when a caller expresses only fields that already hold those values (a replaying

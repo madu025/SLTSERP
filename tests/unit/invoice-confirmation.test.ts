@@ -29,8 +29,8 @@ test('every stage has a catalogued permission', () => {
   assert.ok(!isConfirmStage('CONFIRMED'));
 });
 
-test('wiring: new invoices start at the coordinator, SF audit waits for the chain, migration seeds permissions', () => {
-  assert.match(read('src/services/invoice/invoice.generator.service.ts'), /confirmStage: 'AREA_COORDINATOR'/);
+test('wiring: new invoices start confirmed (the chain moved to the service orders), SF audit still waits for an invoice that is mid-chain, migration seeds permissions', () => {
+  assert.match(read('src/services/invoice/invoice.generator.service.ts'), /confirmStage: 'CONFIRMED'/);
   assert.match(read('src/services/invoice/invoice.service.ts'), /confirmStage !== 'CONFIRMED'/);
   const m = read('prisma/migrations/20261203000000_invoice_area_confirmation/migration.sql');
   assert.match(m, /"confirmStage" TEXT NOT NULL DEFAULT 'CONFIRMED'/);

@@ -37,6 +37,9 @@ model ServiceOrder {
   hoPatStatus      PatStatusEnum?            @default(PENDING)
   hoPatDate        DateTime?
   isInvoicable     Boolean                   @default(false)
+  /// Area approval chain before invoicing: AREA_COORDINATOR | QC_OFFICER | AREA_ENGINEER | AREA_MANAGER | CONFIRMED. NULL = not in the chain (completed before it existed).
+  sodApprovalStage String?
+  approvals        SodApproval[]
   invoiced         Boolean                   @default(false)
   invoiceId        String?                   @db.Uuid
   wiredOnly        Boolean                   @default(false)
@@ -102,6 +105,7 @@ model ServiceOrder {
   @@index([receivedDate])
   @@index([statusDate])
   @@index([isInvoicable])
+  @@index([sodApprovalStage])
   @@index([directTeam])
   @@index([woroTaskName])
   @@index([isOfflineWorkOrder])
@@ -401,4 +405,20 @@ model ServiceOrderDelayReason {
 
   @@unique([serviceOrderId, reason])
   @@index([serviceOrderId])
+}
+
+/// One step of the area approval chain of a completed service order (who confirmed or returned it, at which stage).
+model SodApproval {
+  id             String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  serviceOrderId String       @db.Uuid
+  stage          String
+  action         String // CONFIRMED | RETURNED
+  userId         String       @db.Uuid
+  note           String?
+  createdAt      DateTime     @default(now())
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  user           User         @relation("SodApprovalUser", fields: [userId], references: [id])
+
+  @@index([serviceOrderId])
+  @@index([userId])
 }
