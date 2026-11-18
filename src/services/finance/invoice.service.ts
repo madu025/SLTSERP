@@ -60,6 +60,10 @@ export class InvoiceService {
             throw AppError.notFound('Invoice not found');
         }
 
+        if (invoice.contractorConfirmStatus !== 'CONFIRMED' || invoice.confirmStage !== 'CONFIRMED') {
+            throw AppError.badRequest('The contractor and the area chain must confirm this invoice first');
+        }
+
         const updatedInvoice = await prisma.invoice.update({
             where: { id: invoiceId },
             data: {

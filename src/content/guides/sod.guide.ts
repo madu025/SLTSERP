@@ -4,7 +4,9 @@ import type { ModuleGuide } from './types';
 const LIST_PAGE = 'src/app/service-orders/work-order/page.tsx';
 const TABLE = 'src/app/service-orders/work-order/components/SODSheetTable.tsx';
 const INVOICABLE = 'src/app/service-orders/invoicable/page.tsx';
-const APPROVALS = 'src/app/service-orders/approvals/page.tsx';
+const CONTRACTOR_FINANCE = 'src/app/contractor/finance/page.tsx';
+const OSP_QUEUE = 'src/app/finance/sf-audit/queue/page.tsx';
+const APPROVALS ='src/app/service-orders/approvals/page.tsx';
 const FIN_RULES ='src/services/service-order/sod-financial-validation.ts';
 const LIFECYCLE = 'src/services/service-order/sod.lifecycle.service.ts';
 const CONTRACTOR_SODS = 'src/app/contractor/sods/page.tsx';
@@ -329,7 +331,7 @@ export const SOD_GUIDE: ModuleGuide = {
                 'Open Service Orders → Invoicable SODs and choose the billing month and year.',
                 'Orders that finished the approval chain are ready. An order still in the chain shows a "WAITING" badge with its stage and cannot be invoiced yet. For older orders that are not in the chain, click "Verify Completed SODs"; each is checked and the screen reports how many were blocked.',
                 'Choose one contractor (an invoice is made for one contractor at a time).',
-                'Click "Generate Monthly Invoice". The invoice number and total are shown with a "View Official Invoice" link.',
+                'Click "Generate Monthly Invoice". The invoice number and total are shown with a "View Official Invoice" link. The new invoice is "Awaiting contractor": it goes to the contractor to confirm before it can reach OSP Quality.',
             ],
             tips: [
                 'An order is blocked unless it has: an assigned contractor, a completion date, revenue and contractor cost figures above zero, all three PAT approvals passed, and a cost on every material line.',
@@ -346,6 +348,33 @@ export const SOD_GUIDE: ModuleGuide = {
                 { file: FIN_RULES, text: 'CONTRACTOR_COST_SNAPSHOT_MISSING_OR_INVALID' },
                 { file: FIN_RULES, text: 'MATERIAL_COST_MISSING_OR_INVALID' },
                 { file: FIN_RULES, text: 'COMPLETION_DATE_MISSING' },
+            ],
+        },
+        {
+            id: 'contractor-confirms-invoice',
+            title: 'Contractor confirms the invoice, then OSP Quality verifies it',
+            summary: 'A new contractor invoice is first checked by the contractor in the contractor portal. Once confirmed it goes on to the OSP Quality (SF Audit) queue; if disputed, the office corrects it and sends it back.',
+            keywords: ['contractor', 'confirm invoice', 'dispute', 'disputed', 'osp quality', 'sf audit', 'verify invoice', 'invoices to verify', 'send back to contractor', 'awaiting contractor'],
+            page: '/finance/sf-audit/queue',
+            requires: RBAC_PERMISSIONS.FINANCE_AUDIT,
+            steps: [
+                'The contractor opens the contractor portal, Finance page. An invoice that needs an answer is marked "Confirm needed" and a banner counts them. Opening it shows "Confirm invoice" and "Dispute".',
+                'If the contractor confirms, the invoice moves to OSP Quality automatically and the finance audit team is notified.',
+                'If the contractor disputes, a reason is required. The office sees "Disputed" with the reason on the Invoices page, corrects the invoice and clicks "Send back to contractor"; the contractor then reviews it again.',
+                'OSP Quality opens SF Audit Division → Invoices to Verify, which lists the invoices the contractor confirmed, checks one (View invoice) and clicks "Verify".',
+            ],
+            tips: [
+                'The three counters on Invoices to Verify show how many invoices are ready, how many are still with the contractor and how many are disputed.',
+                'An invoice cannot be verified until both the area approvals and the contractor confirmation are done.',
+                'Invoices created before this step existed count as already confirmed.',
+            ],
+            anchors: [
+                { file: CONTRACTOR_FINANCE, text: 'Confirm invoice' },
+                { file: CONTRACTOR_FINANCE, text: 'Dispute' },
+                { file: 'src/app/invoices/page.tsx', text: 'Send back to contractor' },
+                { file: OSP_QUEUE, text: 'OSP Quality: invoices to verify' },
+                { file: OSP_QUEUE, text: 'View invoice' },
+                { file: OSP_QUEUE, text: 'No invoices are waiting for verification.' },
             ],
         },
         {

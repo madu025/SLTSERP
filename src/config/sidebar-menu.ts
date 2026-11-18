@@ -273,6 +273,11 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: ShieldCheck,
             },
             {
+                title: 'Invoices to Verify',
+                path: '/finance/sf-audit/queue',
+                icon: ShieldCheck,
+            },
+            {
                 title: 'Contractor Invoice Pricing Audit',
                 path: '/finance/sf-audit/pricing-audit',
                 icon: Calculator,

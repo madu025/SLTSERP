@@ -342,6 +342,8 @@ export class InvoiceGeneratorService {
                     statusA: 'PENDING_SF_AUDIT',
                     // The area chain now happens on the service orders, before the invoice exists, so a new invoice starts confirmed
                     confirmStage: 'CONFIRMED',
+                    // The contractor reviews the invoice first; only then does it reach OSP Quality (SF Audit)
+                    contractorConfirmStatus: 'AWAITING',
                     amountB,
                     statusB: 'HOLD',
                     status: 'PENDING_SF_AUDIT',

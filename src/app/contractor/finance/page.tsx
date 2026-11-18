@@ -1,7 +1,7 @@
 "use client";
 
 import {  useState  } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -18,6 +18,8 @@ interface ContractorClaim {
     grossLkr?: number;
     retentionLkr?: number;
     netLkr?: number;
+    contractorConfirmStatus?: string;
+    contractorNote?: string | null;
 }
 
 interface FinanceData {
@@ -25,6 +27,7 @@ interface FinanceData {
     totalPaidLkr: number;
     retentionHeldLkr: number;
     pendingVouchersCount: number;
+    awaitingYourConfirmationCount?: number;
     claims: ContractorClaim[];
 }
 
@@ -44,7 +47,17 @@ function KpiSkeleton() {
 }
 
 // Status badge for claim row
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, confirm }: { status: string; confirm?: string }) {
+    if (confirm === 'AWAITING') return (
+        <span className="px-2 py-0.5 text-[9px] font-black uppercase rounded border bg-amber-500/20 text-amber-300 border-amber-500/50 flex items-center gap-1 w-fit mx-auto">
+            <Clock className="w-2.5 h-2.5" /> Confirm needed
+        </span>
+    );
+    if (confirm === 'DISPUTED') return (
+        <span className="px-2 py-0.5 text-[9px] font-black uppercase rounded border bg-rose-500/20 text-rose-300 border-rose-500/50 flex items-center gap-1 w-fit mx-auto">
+            <AlertTriangle className="w-2.5 h-2.5" /> Disputed
+        </span>
+    );
     if (status === 'PAID') return (
         <span className="px-2 py-0.5 text-[9px] font-black uppercase rounded border bg-emerald-500/20 text-emerald-400 border-emerald-500/40 flex items-center gap-1 w-fit mx-auto">
             <CheckCircle2 className="w-2.5 h-2.5" /> PAID
@@ -64,6 +77,9 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function ContractorFinancePage() {
     const [selectedClaim, setSelectedClaim] = useState<ContractorClaim | null>(null);
+    const [disputeNote, setDisputeNote] = useState('');
+    const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+    const queryClient = useQueryClient();
 
     const getAuthHeaders = () => {
         const contractorToken = typeof window !== 'undefined' ? (localStorage.getItem('contractor_token') || localStorage.getItem('token')) : null;
@@ -95,6 +111,28 @@ export default function ContractorFinancePage() {
 
     const claims = claimsData?.claims || [];
 
+    // Confirm the invoice (it then goes on to OSP Quality automatically) or dispute it with a reason
+    const respond = useMutation({
+        mutationFn: async (v: { id: string; action: 'CONFIRM' | 'DISPUTE'; note?: string }) => {
+            const res = await fetch(`/api/contractor-portal/invoices/${v.id}/respond`, {
+                method: 'POST',
+                headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: v.action, note: v.note }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error?.message || 'Could not save your answer');
+            return v.action;
+        },
+        onSuccess: (action) => {
+            setMessage({ ok: true, text: action === 'CONFIRM' ? 'Invoice confirmed. It has been sent on for verification.' : 'Your dispute was sent to the office.' });
+            setDisputeNote('');
+            setSelectedClaim(null);
+            queryClient.invalidateQueries({ queryKey: ['contractor-finance-claims'] });
+        },
+        onError: (e: Error) => setMessage({ ok: false, text: e.message }),
+    });
+    const isCertified = (c: ContractorClaim | null) => !!c && ['SF_AUDIT_APPROVED', 'AUDITED', 'APPROVED', 'PAID'].includes(c.status);
+
     // Determine claim card border color by status
     const claimRowClass = (status: string) =>
         status === 'PAID' ? 'border-l-4 border-l-emerald-500' :
@@ -117,6 +155,15 @@ export default function ContractorFinancePage() {
                     <span>LIVE</span>
                 </div>
             </div>
+
+            {(claimsData?.awaitingYourConfirmationCount ?? 0) > 0 && (
+                <div className="rounded-xl border border-amber-500/50 bg-amber-500/15 p-3 text-xs font-bold text-amber-200" role="status">
+                    {claimsData?.awaitingYourConfirmationCount} invoice{claimsData?.awaitingYourConfirmationCount === 1 ? '' : 's'} waiting for your confirmation. Open it, check it, then confirm or dispute.
+                </div>
+            )}
+            {message && (
+                <div className={cn('rounded-xl border p-3 text-xs font-bold', message.ok ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-200' : 'border-rose-500/50 bg-rose-500/15 text-rose-200')} role="status">{message.text}</div>
+            )}
 
             {/* Financial Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
@@ -223,7 +270,7 @@ export default function ContractorFinancePage() {
                                 {claims.map((claim: ContractorClaim) => (
                                     <tr
                                         key={claim.id}
-                                        onClick={() => setSelectedClaim(claim)}
+                                        onClick={() => { setSelectedClaim(claim); setDisputeNote(''); setMessage(null); }}
                                         className={cn(
                                             "hover:bg-slate-900/80 transition-colors cursor-pointer group",
                                             claimRowClass(claim.status)
@@ -234,7 +281,7 @@ export default function ContractorFinancePage() {
                                         <td className="p-3 text-right font-mono font-bold text-blue-400">{claim.sodCount}</td>
                                         <td className="p-3 text-right font-mono font-black text-white">Rs. {Number(claim.amountLkr).toLocaleString()}</td>
                                         <td className="p-3 text-center">
-                                            <StatusBadge status={claim.status} />
+                                            <StatusBadge status={claim.status} confirm={claim.contractorConfirmStatus} />
                                         </td>
                                     </tr>
                                 ))}
@@ -250,7 +297,7 @@ export default function ContractorFinancePage() {
                     <div className="w-12 h-1 bg-slate-700/60 rounded-full mx-auto mb-1 sm:hidden" />
                     <DialogHeader className="space-y-1">
                         <div className="flex items-center justify-between">
-                            <StatusBadge status={selectedClaim?.status || 'PENDING'} />
+                            <StatusBadge status={selectedClaim?.status || 'PENDING'} confirm={selectedClaim?.contractorConfirmStatus} />
                             <span className="text-[10px] text-slate-400 font-mono">Invoice Claim Voucher</span>
                         </div>
                         <DialogTitle className="text-base font-bold text-amber-400 font-mono tracking-tight pt-1">
@@ -288,8 +335,8 @@ export default function ContractorFinancePage() {
                             <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Payment Timeline</p>
                                 <div className="flex items-center gap-2">
-                                    <div className={cn("w-5 h-5 rounded-full flex items-center justify-center shrink-0", selectedClaim.status !== 'PENDING' ? "bg-emerald-500/20 border border-emerald-500/40" : "bg-slate-800 border border-slate-700")}>
-                                        <CheckCircle2 className={cn("w-3 h-3", selectedClaim.status !== 'PENDING' ? "text-emerald-400" : "text-slate-600")} />
+                                    <div className={cn("w-5 h-5 rounded-full flex items-center justify-center shrink-0", isCertified(selectedClaim) ? "bg-emerald-500/20 border border-emerald-500/40" : "bg-slate-800 border border-slate-700")}>
+                                        <CheckCircle2 className={cn("w-3 h-3", isCertified(selectedClaim) ? "text-emerald-400" : "text-slate-600")} />
                                     </div>
                                     <div className="flex-1">
                                         <p className="text-[10px] font-bold text-slate-200">Audited & Approved</p>
@@ -318,10 +365,38 @@ export default function ContractorFinancePage() {
                                 </div>
                             </div>
 
-                            <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/30 flex items-center justify-between text-[10px] text-emerald-400 font-bold">
-                                <span>🛡️ Audited & Certified for Disbursement</span>
-                                <span className="font-mono text-[9px] text-emerald-500 uppercase">SLTS APPROVED</span>
-                            </div>
+                            {selectedClaim.contractorConfirmStatus === 'AWAITING' && (
+                                <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/40 space-y-2">
+                                    <p className="text-[11px] font-bold text-amber-200">Check this invoice. If it is correct, confirm it and it goes to OSP Quality for verification. If something is wrong, tell us what.</p>
+                                    <textarea
+                                        value={disputeNote}
+                                        onChange={(e) => setDisputeNote(e.target.value)}
+                                        placeholder="What is wrong? (needed only when you dispute)"
+                                        aria-label="Reason for dispute"
+                                        rows={2}
+                                        className="w-full rounded-lg border border-slate-600 bg-slate-950 p-2 text-xs text-white placeholder:text-slate-400"
+                                    />
+                                    <div className="flex gap-2">
+                                        <Button type="button" disabled={respond.isPending} onClick={() => respond.mutate({ id: selectedClaim.id, action: 'CONFIRM' })} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold h-10 rounded-xl">
+                                            {respond.isPending ? 'Saving...' : 'Confirm invoice'}
+                                        </Button>
+                                        <Button type="button" disabled={respond.isPending || disputeNote.trim().length < 3} onClick={() => respond.mutate({ id: selectedClaim.id, action: 'DISPUTE', note: disputeNote })} className="flex-1 bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold h-10 rounded-xl disabled:opacity-50">
+                                            Dispute
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                            {selectedClaim.contractorConfirmStatus === 'DISPUTED' && (
+                                <div className="p-2.5 bg-rose-500/10 rounded-xl border border-rose-500/40 text-[11px] text-rose-200 font-bold">
+                                    You disputed this invoice{selectedClaim.contractorNote ? `: ${selectedClaim.contractorNote}` : ''}. The office will correct it and send it back to you.
+                                </div>
+                            )}
+                            {isCertified(selectedClaim) && (
+                                <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/30 flex items-center justify-between text-[10px] text-emerald-400 font-bold">
+                                    <span>🛡️ Audited & Certified for Disbursement</span>
+                                    <span className="font-mono text-[9px] text-emerald-500 uppercase">SLTS APPROVED</span>
+                                </div>
+                            )}
                         </div>
                     )}
 

@@ -69,9 +69,15 @@ model Invoice {
   amendmentRequests InvoiceAmendmentRequest[]
   confirmStage      String                    @default("CONFIRMED")
   confirmations     InvoiceConfirmation[]
+  // Contractor review before the invoice reaches OSP Quality (SF Audit): AWAITING | CONFIRMED | DISPUTED. Older invoices are CONFIRMED.
+  contractorConfirmStatus String   @default("CONFIRMED")
+  contractorConfirmedAt   DateTime?
+  contractorConfirmedById String?  @db.Uuid
+  contractorNote          String?
 
   @@index([projectId])
   @@index([contractorId])
+  @@index([contractorConfirmStatus])
 }
 
 model InvoiceAmendmentRequest {

@@ -31,6 +31,7 @@ export class ContractorFinanceService {
                 totalPaidLkr: 0,
                 retentionHeldLkr: 0,
                 pendingVouchersCount: 0,
+                awaitingYourConfirmationCount: 0,
                 claims: []
             };
         }
@@ -50,6 +51,7 @@ export class ContractorFinanceService {
         let totalPaidLkr = 0;
         let retentionHeldLkr = 0;
         let pendingVouchersCount = 0;
+        let awaitingYourConfirmationCount = 0;
 
         const claims = invoices.map(inv => {
             const gross = Number(inv.totalAmount || inv.amount || 0);
@@ -62,6 +64,7 @@ export class ContractorFinanceService {
             }
             retentionHeldLkr += retention;
 
+            if (inv.contractorConfirmStatus === 'AWAITING') awaitingYourConfirmationCount += 1;
             if (inv.status === 'PENDING' || inv.status === 'AUDITED') {
                 pendingVouchersCount += 1;
             }
@@ -75,6 +78,8 @@ export class ContractorFinanceService {
                 sodCount: inv.sods.length,
                 amountLkr: gross,
                 status: inv.status || 'PENDING',
+                contractorConfirmStatus: inv.contractorConfirmStatus,
+                contractorNote: inv.contractorNote,
                 grossLkr: gross,
                 retentionLkr: retention,
                 netLkr: net
@@ -86,6 +91,7 @@ export class ContractorFinanceService {
             totalPaidLkr,
             retentionHeldLkr,
             pendingVouchersCount,
+            awaitingYourConfirmationCount,
             claims
         };
     }
