@@ -162,12 +162,14 @@ function InvoicableServiceOrdersContent() {
 
             const json = await res.json();
             if (res.ok && json.success) {
-                const rejectedCount = Array.isArray(json.rejected) ? json.rejected.length : 0;
+                // The API wraps its answer as { success, data: { ... } }; reading only the top level made the count "undefined".
+                const result = (json.data ?? json) as { count?: number; rejected?: unknown[] };
+                const rejectedCount = Array.isArray(result.rejected) ? result.rejected.length : 0;
                 setNotice({
                     type: rejectedCount > 0 ? 'error' : 'success',
                     message: rejectedCount > 0
-                        ? `Verified ${json.count} SOD(s). ${rejectedCount} SOD(s) were blocked because financial or material cost data is incomplete.`
-                        : `Successfully verified ${json.count} SODs by Engineer / SF Audit!`
+                        ? `Verified ${result.count ?? 0} SOD(s). ${rejectedCount} SOD(s) were blocked because financial or material cost data is incomplete.`
+                        : `Successfully verified ${result.count ?? targetIds.length} SODs by Engineer / SF Audit!`
                 });
                 fetchData();
             } else {
@@ -222,15 +224,19 @@ function InvoicableServiceOrdersContent() {
             });
 
             const json = await res.json();
-            if (res.ok && json.success && json.invoice) {
+            // The invoice is created on the server; the API wraps its answer as { success, data: { invoice } }. Reading only the
+            // top level showed "Failed to generate invoice" for an invoice that had in fact been created.
+            const result = (json.data ?? json) as { invoice?: { invoiceNumber: string; totalAmount: number; sodCount: number; publicUrl?: string } };
+            if (res.ok && json.success && result.invoice) {
                 setNotice({
                     type: 'success',
-                    message: `Invoice ${json.invoice.invoiceNumber} generated successfully for LKR ${json.invoice.totalAmount.toLocaleString()} (${json.invoice.sodCount} SODs)!`,
-                    link: json.invoice.publicUrl
+                    message: `Invoice ${result.invoice.invoiceNumber} generated successfully for LKR ${Number(result.invoice.totalAmount).toLocaleString()} (${result.invoice.sodCount} SODs)!`,
+                    link: result.invoice.publicUrl
                 });
                 fetchData();
             } else {
-                throw new Error(json.error || 'Failed to generate invoice');
+                const apiError = json.error as unknown;
+                throw new Error(typeof apiError === 'string' ? apiError : (apiError as { message?: string } | undefined)?.message || 'Failed to generate invoice');
             }
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : 'Failed to generate invoice';
