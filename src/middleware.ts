@@ -47,6 +47,10 @@ const publicPaths = [
     '/public/invoices',
     '/api/public/invoices',
     '/api/approvals/webhook',
+    // The emailed "View and decide" page and its data call. Both are protected by the signed token in the link; without
+    // them in this list the link sent a signed-in user to the dashboard and an approver without a session to the login page.
+    '/approvals/action',
+    '/api/approvals/view',
     '/privacy',
     '/forgot-password',
     '/public/device-audit',
