@@ -31,7 +31,7 @@ test('the builder offers only what the caller may report on', () => {
     assert.ok(reportMeta(new Set([RBAC_PERMISSIONS.SOD_READ, RBAC_PERMISSIONS.FINANCE_READ]), undefined).find((e) => e.id === 'serviceOrder')!.fields.some((f) => f.path === 'revenueAmount'));
     // a user limited to specific OPMCs only gets entities that can be scoped
     const all = new Set<string>(Object.values(REPORT_ENTITY_PERMISSION));
-    assert.deepEqual(reportMeta(all, ['opmc-1']).map((e) => e.id).sort(), ['materialUsage', 'serviceOrder']);
+    assert.deepEqual(reportMeta(all, ['opmc-1']).map((e) => e.id).sort(), ['contractor', 'contractorInvoice', 'materialUsage', 'project', 'projectTask', 'serviceOrder', 'supplierInvoice']);
     assert.deepEqual(reportMeta(new Set(), undefined), []);
 });
 

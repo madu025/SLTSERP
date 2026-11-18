@@ -15,8 +15,9 @@ import { ExecutiveMetricService, METRIC_IDS, type MetricId } from '@/services/ai
 import { ExecutiveInsightService } from '@/services/ai/executive-insights.service';
 import { groundReportFilters, describeSearch, SERVICE_ORDER_STATUSES } from '@/services/ai/semantic-layer.service';
 import { NexusLocalReplyService, type ToolRun } from '@/services/ai/nexus-local-reply.service';
-import { runUserReport } from '@/services/reports/report-center.service';
+import { runUserReport, reportToolSpec } from '@/services/reports/report-center.service';
 import { GuideService } from '@/services/guides/guide.service';
+import { MAX_REPAIRS, repairNote, reportTitle } from '@/services/ai/nexus-repair';
 import type { NexusOpmcScope } from '@/services/ai/nexus-context.service';
 
 import { safeJsonParse } from '@/utils/safeJsonParse';
@@ -574,11 +575,11 @@ export class NexusAgentService {
                 },
                 {
                     name: "runCustomReport",
-                    description: "Build a custom tabular report from the database when the user asks for a report that the other tools do not cover. Entities and queryable fields: serviceOrder[soNum,status,sltsStatus,customerName,voiceNumber,rtom,completedDate,revenueAmount,createdAt,contractor.name,contractor.status,opmc.name,opmc.rtom,opmc.region,opmc.province]; materialUsage[serviceOrderId,quantity,unit,usageType,costPrice,unitPrice,createdAt,serviceOrder.soNum,serviceOrder.status,serviceOrder.sltsStatus,serviceOrder.rtom,serviceOrder.completedDate,serviceOrder.contractor.name,serviceOrder.opmc.name,serviceOrder.opmc.region,item.code,item.name,item.category,item.type]; contractorStock[quantity,updatedAt,contractor.name,contractor.status,item.code,item.name,item.category]; journalEntry[referenceId,referenceType,description,date,createdAt]; wastage[month,description,status,createdAt,contractor.name,store.name]. Filter operators: equals, contains, gt, lt, gte, lte, startsWith (dates as YYYY-MM-DD). Optional aggregation groups rows and applies SUM, AVG or COUNT to one field. Returns at most 50 rows.",
+                    description: `Build a custom tabular report from the database when the user asks for a report that the other tools do not cover. Choose the table (entity) that holds what the user asks about. Tables and queryable fields: ${reportToolSpec().tables}. Filter operators: equals, contains, gt, lt, gte, lte, startsWith (dates as YYYY-MM-DD). Optional aggregation groups rows and applies SUM, AVG or COUNT to one field. Returns at most 50 rows. If the system answers that the table, field or filter was wrong, call this tool again with a corrected request.`,
                     parameters: {
                         type: "object",
                         properties: {
-                            entity: { type: "string", enum: ["serviceOrder", "materialUsage", "contractorStock", "journalEntry", "wastage"] },
+                            entity: { type: "string", enum: reportToolSpec().ids },
                             columns: { type: "array", items: { type: "string" } },
                             filters: { type: "array", items: { type: "object", properties: { field: { type: "string" }, operator: { type: "string" }, value: { type: "string" } }, required: ["field", "operator", "value"] } },
                             aggregation: { type: "object", properties: { groupBy: { type: "string" }, targetField: { type: "string" }, type: { type: "string", enum: ["SUM", "AVG", "COUNT"] } } }
@@ -649,7 +650,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
         const externalPrivacy = NexusPrivacyService.mode('external');
         const planNote = `
 
-PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pick the tool(s) needed for the CURRENT request and fill in exact arguments (exact YYYY-MM-DD dates and filters). Rules: (1) Call only the tool(s) the current request needs, usually exactly one; never call tools for earlier questions. (2) Prefer runCustomReport for any list, count, sum or "by <field>" request, choosing the entity the user names (service orders -> serviceOrder, contractor stock -> contractorStock, material usage -> materialUsage, wastage -> wastage, journal entries -> journalEntry). (3) If the request needs data no tool can provide (fleet, HR/salary, helpdesk tickets, users, passwords, secrets, deleting or changing data, anything unrelated to the ERP), do NOT call any tool: reply with one short sentence saying that is not available. (4) Do not answer with figures and do not ask for data; the system presents the results itself. Data dictionary: serviceOrder.status values are exactly ${SERVICE_ORDER_STATUSES.join(', ')}; an RTOM (also called area, region or exchange) is a code like R-JA; use the user's own RTOM, contractor and item names exactly as written. Vocabulary (Sinhala/Singlish): gabadu/gabada/ගබඩු = stores (warehouses) -> getStoresContext; thoguwa/තොග = stock; higa/හිඟ = outstanding or low; mudala = money; wada/ව්‍යාපෘති = projects. Tool hints: 'how do I', 'where do I', 'guide me', 'I am new', 'explain the process', 'how does it work', 'karanne kohomada', 'kohomada ... karanne' (questions about USING the system, not about data) -> getSystemGuide with the topic as English keywords; 'how is the company doing', overview, summary, morning brief, company eka kohomada -> getExecutiveBrief; 'compare', 'vs last month', 'this month vs previous', 'why did it change', which RTOM caused the change -> compareMetric (add groupBy rtom for 'why/which'); anything unusual, any problems, awulak thiyenawada, what needs attention -> findAnomalies; month end, projection, forecast, how will this month finish -> projectMetric; profile of / tell me about / drill into an RTOM (R-JA) or a contractor -> getProfile (type rtom or contractor, name); contractor bills, invoices, payment vouchers, outstanding payments -> getFinanceContext; stores list or count -> getStoresContext; purchase requisitions (PR), purchase orders (PO), GRN -> getProcurementContext; low stock -> getInventoryLowStockContext; registered contractors -> getContractorsContext.
+PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pick the tool(s) needed for the CURRENT request and fill in exact arguments (exact YYYY-MM-DD dates and filters). Rules: (1) Call only the tool(s) the current request needs, usually exactly one; never call tools for earlier questions. (2) Prefer runCustomReport for any list, count, sum or "by <field>" request, choosing the table the user's words point to (${reportToolSpec().words}). (3) If the request needs data no tool can provide (fleet, HR/salary, users, passwords, secrets, deleting or changing data, anything unrelated to the ERP), do NOT call any tool: reply with one short sentence saying that is not available. (4) Do not answer with figures and do not ask for data; the system presents the results itself. Data dictionary: serviceOrder.status values are exactly ${SERVICE_ORDER_STATUSES.join(', ')}; an RTOM (also called area, region or exchange) is a code like R-JA; use the user's own RTOM, contractor and item names exactly as written. Vocabulary (Sinhala/Singlish): gabadu/gabada/ගබඩු = stores (warehouses) -> getStoresContext; thoguwa/තොග = stock; higa/හිඟ = outstanding or low; mudala = money; wada/ව්‍යාපෘති = projects. Tool hints: 'how do I', 'where do I', 'guide me', 'I am new', 'explain the process', 'how does it work', 'karanne kohomada', 'kohomada ... karanne' (questions about USING the system, not about data) -> getSystemGuide with the topic as English keywords; 'how is the company doing', overview, summary, morning brief, company eka kohomada -> getExecutiveBrief; 'compare', 'vs last month', 'this month vs previous', 'why did it change', which RTOM caused the change -> compareMetric (add groupBy rtom for 'why/which'); anything unusual, any problems, awulak thiyenawada, what needs attention -> findAnomalies; month end, projection, forecast, how will this month finish -> projectMetric; profile of / tell me about / drill into an RTOM (R-JA) or a contractor -> getProfile (type rtom or contractor, name); contractor bills, invoices, payment vouchers, outstanding payments -> getFinanceContext; stores list or count -> getStoresContext; purchase requisitions (PR), purchase orders (PO), GRN -> getProcurementContext; low stock -> getInventoryLowStockContext; registered contractors -> getContractorsContext.
 `;
         const planSystemPrompt = systemPrompt + planNote;
         const compatKey = process.env.NEXUS_LLM_API_KEY || process.env.DEEPSEEK_API_KEY;
@@ -859,6 +860,12 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
         let executedIntent: string | null = null;
         let didCheckLowStock = false;
         let table: NexusTable | undefined;
+        // Self-correction (plan-only): runs that need no fix, runs still waiting for a fix, and how many fixes were tried.
+        const done: ToolRun[] = [];
+        let waiting: ToolRun[] = [];
+        const seen = new Set<string>();
+        let repairs = 0;
+        const withNote = (evidence?: string) => (repairs > 0 ? `${evidence ?? ''}${evidence ? ' · ' : ''}request corrected automatically (${repairs} retr${repairs === 1 ? 'y' : 'ies'})` : evidence);
 
         for (let round = 0; round < 4; round++) {
             const res = await deepseekBreaker.execute(() => fetch(`${baseUrl}/chat/completions`, {
@@ -875,18 +882,41 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
             const msg = data.choices?.[0]?.message as { content?: string | null; tool_calls?: Array<{ id: string; function: { name: string; arguments?: string } }> } | undefined;
             if (!msg) return null;
             if (msg.tool_calls?.length && privacy === 'plan-only') {
-                // The model has chosen the tools. Run them here and build the answer locally: nothing goes back to the model.
-                const runs: ToolRun[] = [];
+                // The model has chosen the tools. Run them here and build the answer locally: no ERP data goes back to the model.
+                const info: Array<{ id: string; run?: ToolRun }> = [];
                 for (const call of msg.tool_calls.slice(0, 4)) {
                     let args: Record<string, unknown> | undefined;
                     try { args = call.function.arguments ? JSON.parse(call.function.arguments) : undefined; } catch { args = undefined; }
+                    // After a correction the model may repeat a call that already worked: it is not run twice.
+                    const key = `${call.function.name}|${JSON.stringify(args ?? {})}`;
+                    if (seen.has(key)) { info.push({ id: call.id }); continue; }
+                    seen.add(key);
                     const executed = await this.executeTool(call.function.name, args, ctx);
                     if (executed.intent !== undefined) executedIntent = executed.intent;
                     if (executed.checkedLowStock) didCheckLowStock = true;
-                    runs.push({ name: call.function.name, args, result: executed.result, table: executed.table, executive: executed.executive });
+                    info.push({ id: call.id, run: { name: call.function.name, args, result: executed.result, table: executed.table, executive: executed.executive } });
                 }
-                const local = NexusLocalReplyService.build(runs, message);
-                return { text: local.text, executedIntent, didCheckLowStock, table: local.table, chart: local.chart, cards: local.cards, evidence: local.evidence };
+                const current = info.map((i) => i.run).filter((r): r is ToolRun => !!r);
+                const needsFix = current.filter((r) => repairNote(r) !== null);
+                if (needsFix.length > 0 && repairs < MAX_REPAIRS) {
+                    // The request was malformed (wrong table, field or operator). Tell the model what was wrong, by name only, and let it plan again.
+                    repairs++;
+                    done.push(...current.filter((r) => repairNote(r) === null));
+                    waiting = needsFix;
+                    messages.push({ role: 'assistant', content: msg.content ?? '', tool_calls: msg.tool_calls });
+                    for (const call of msg.tool_calls) {
+                        const run = info.find((i) => i.id === call.id)?.run;
+                        messages.push({ role: 'tool', tool_call_id: call.id, content: (run && repairNote(run)) ?? (run ? 'Done. The result is already shown to the user; do not call this again.' : 'Not run (duplicate or too many calls).') });
+                    }
+                    continue;
+                }
+                const local = NexusLocalReplyService.build([...done, ...current], message);
+                return { text: local.text, executedIntent, didCheckLowStock, table: local.table, chart: local.chart, cards: local.cards, evidence: withNote(local.evidence) };
+            }
+            if (!msg.tool_calls?.length && privacy === 'plan-only' && repairs > 0) {
+                // The model gave up while correcting: show the plain error instead of a vague sentence.
+                const local = NexusLocalReplyService.build([...done, ...waiting], message);
+                return { text: local.text, executedIntent, didCheckLowStock, table: local.table, chart: local.chart, cards: local.cards, evidence: withNote(local.evidence) };
             }
             if (msg.tool_calls?.length) {
                 messages.push({ role: 'assistant', content: msg.content ?? '', tool_calls: msg.tool_calls });
@@ -1016,7 +1046,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
                     intent = null;
                     const rep = result as { error?: string; columns?: string[]; rows?: Record<string, unknown>[]; totalRows?: number; truncated?: boolean; capped?: boolean };
                     if (!rep.error && rep.columns && rep.rows) {
-                        table = { title: `Custom report: ${String(args?.entity ?? '')}`, columns: rep.columns, rows: rep.rows, totalRows: rep.totalRows ?? rep.rows.length, truncated: !!rep.truncated, capped: !!rep.capped };
+                        table = { title: reportTitle(args), columns: rep.columns, rows: rep.rows, totalRows: rep.totalRows ?? rep.rows.length, truncated: !!rep.truncated, capped: !!rep.capped };
                     }
                 } else {
                     result = { error: "Unauthorized or unknown function." };

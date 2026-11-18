@@ -25,7 +25,8 @@ test('OPMC-scoped users cannot report on company-wide entities', async () => {
 
 test('unknown entity is refused', async () => {
     const r = await tool({ entity: 'user', columns: ['password'] }, new Set(['sod.read']), undefined);
-    assert.match(r.error ?? '', /do not have access/);
+    assert.match(r.error ?? '', /no table called "user"/);
+    assert.doesNotMatch(JSON.stringify(r), /password/i, 'nothing about secrets or users is offered back');
 });
 
 test('local fixed answers are limited to phrasings the classifier was trained on', async () => {

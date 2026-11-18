@@ -9,7 +9,8 @@ import { ABSOLUTE_MAX_ROWS, DEFAULT_MAX_ROWS } from '@/services/inventory/dynami
 import { z } from 'zod';
 
 const runSchema = z.object({
-    entity: z.enum(['serviceOrder', 'materialUsage', 'contractorStock', 'journalEntry', 'wastage']),
+    // Any table in the report registry; the service refuses unknown names and checks the caller's capability for it.
+    entity: z.string().min(1).max(60),
     columns: z.array(z.string()).default([]),
     filters: z.array(z.object({
         field: z.string(),

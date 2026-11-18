@@ -131,13 +131,10 @@ export class NexusLocalReplyService {
             if (run.name === 'runCustomReport' && typeof (run.result as { search?: string }).search === 'string') evidence.push((run.result as { search: string }).search);
             if (run.name === 'runCustomReport' && run.table) {
                 const t = run.table;
-                const filters = Array.isArray(run.args?.filters) ? (run.args!.filters as Array<{ field?: string; operator?: string; value?: string }>).map((f) => `${f.field} ${f.operator} ${f.value}`).join('; ') : '';
-                const agg = run.args?.aggregation as { type?: string; groupBy?: string; targetField?: string } | undefined;
+                // The readable title and row count; exactly what was searched (filters, grouping, scope) is on the evidence line.
                 parts.push(
-                    `${title} on ${String(run.args?.entity ?? '')}: ${t.totalRows}${t.capped ? '+' : ''} row${t.totalRows === 1 ? '' : 's'}`
-                    + (t.truncated ? ` (the first ${t.rows.length} are shown below)` : '')
-                    + (agg?.groupBy ? `, grouped by ${agg.groupBy} (${agg.type} of ${agg.targetField})` : '')
-                    + (filters ? `. Filters: ${filters}` : '. No filters (all records).'),
+                    `${t.title}: ${t.totalRows}${t.capped ? '+' : ''} row${t.totalRows === 1 ? '' : 's'}`
+                    + (t.truncated ? ` (the first ${t.rows.length} are shown below)` : '') + '.',
                 );
                 table = table ?? t;
                 continue;

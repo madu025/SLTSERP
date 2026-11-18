@@ -55,16 +55,47 @@ async function main() {
         await check(`scope ${o.rtom}: material per item`, 'materialUsage', [], { groupBy: 'item.name', targetField: 'quantity', type: 'SUM' }, `select i.name k, round(sum(m.quantity),2) v from "SODMaterialUsage" m join "ServiceOrder" s on s.id=m."serviceOrderId" join "InventoryItem" i on i.id=m."itemId" where s."opmcId"='${o.id}' group by 1`, { opmcIds: [o.id] });
         await check(`scope ${o.rtom}: orders per status`, 'serviceOrder', [], { groupBy: 'status', targetField: 'id', type: 'COUNT' }, `select status::text k, count(*) v from "ServiceOrder" where "opmcId"='${o.id}' group by 1`, { opmcIds: [o.id] });
     }
+    // ---- registry tables: each compared with an independent raw-SQL query ----
+    await check('projects per status', 'project', [], { groupBy: 'status', targetField: 'id', type: 'COUNT' }, `select status::text k, count(*) v from "Project" group by 1`);
+    await check('projects per OPMC region (join)', 'project', [], { groupBy: 'opmc.region', targetField: 'id', type: 'COUNT' }, `select o.region k, count(*) v from "Project" p left join "OPMC" o on o.id=p."opmcId" group by 1`);
+    await check('project budget per status', 'project', [], { groupBy: 'status', targetField: 'budget', type: 'SUM' }, `select status::text k, round(sum(budget),2) v from "Project" group by 1`);
+    await check('project tasks per status', 'projectTask', [], { groupBy: 'status', targetField: 'id', type: 'COUNT' }, `select status k, count(*) v from "ProjectTask" group by 1`);
+    await check('project tasks per project (join)', 'projectTask', [], { groupBy: 'project.projectCode', targetField: 'id', type: 'COUNT' }, `select p."projectCode" k, count(*) v from "ProjectTask" t left join "Project" p on p.id=t."projectId" group by 1`);
+    await check('tasks per project status (join, enum)', 'projectTask', [], { groupBy: 'project.status', targetField: 'id', type: 'COUNT' }, `select p.status::text k, count(*) v from "ProjectTask" t left join "Project" p on p.id=t."projectId" group by 1`);
+    await check('contractors per status', 'contractor', [], { groupBy: 'status', targetField: 'id', type: 'COUNT' }, `select status::text k, count(*) v from "Contractor" group by 1`);
+    await check('contractor invoices per contractor', 'contractorInvoice', [], { groupBy: 'contractor.name', targetField: 'totalAmount', type: 'SUM' }, `select c.name k, round(sum(i."totalAmount"),2) v from "Invoice" i left join "Contractor" c on c.id=i."contractorId" group by 1`);
+    await check('contractor invoices per status', 'contractorInvoice', [], { groupBy: 'status', targetField: 'id', type: 'COUNT' }, `select status::text k, count(*) v from "Invoice" group by 1`);
+    await check('supplier invoices per supplier', 'supplierInvoice', [], { groupBy: 'vendor.name', targetField: 'totalAmount', type: 'SUM' }, `select v.name k, round(sum(i."totalAmount"),2) v from "SupplierInvoice" i left join "Vendor" v on v.id=i."vendorId" group by 1`);
+    await check('purchase orders per status', 'purchaseOrder', [], { groupBy: 'status', targetField: 'id', type: 'COUNT' }, `select status k, count(*) v from "PurchaseOrder" group by 1`);
+    await check('purchase order value per supplier', 'purchaseOrder', [], { groupBy: 'vendor', targetField: 'totalAmount', type: 'SUM' }, `select vendor k, round(sum("totalAmount"),2) v from "PurchaseOrder" group by 1`);
+    await check('GRNs per store (join)', 'grn', [], { groupBy: 'store.name', targetField: 'id', type: 'COUNT' }, `select s.name k, count(*) v from "GRN" g left join "InventoryStore" s on s.id=g."storeId" group by 1`);
+    await check('store stock per store', 'inventoryStock', [], { groupBy: 'store.name', targetField: 'quantity', type: 'SUM' }, `select s.name k, round(sum(t.quantity),2) v from "InventoryStock" t left join "InventoryStore" s on s.id=t."storeId" group by 1`);
+    await check('store stock per item category', 'inventoryStock', [], { groupBy: 'item.category', targetField: 'quantity', type: 'SUM' }, `select i.category k, round(sum(t.quantity),2) v from "InventoryStock" t left join "InventoryItem" i on i.id=t."itemId" group by 1`);
+    await check('items per category', 'inventoryItem', [], { groupBy: 'category', targetField: 'id', type: 'COUNT' }, `select category k, count(*) v from "InventoryItem" group by 1`);
+    await check('tickets per status', 'ticket', [], { groupBy: 'status', targetField: 'id', type: 'COUNT' }, `select status::text k, count(*) v from "Ticket" group by 1`);
+    await check('tickets per priority (filtered, enum)', 'ticket', [{ field: 'status', operator: 'equals', value: 'open' }], { groupBy: 'priority', targetField: 'id', type: 'COUNT' }, `select priority::text k, count(*) v from "Ticket" where status::text='OPEN' group by 1`);
+    for (const o of opmcs) {
+        await check(`scope ${o.rtom}: projects per status`, 'project', [], { groupBy: 'status', targetField: 'id', type: 'COUNT' }, `select status::text k, count(*) v from "Project" where "opmcId"='${o.id}' group by 1`, { opmcIds: [o.id] });
+        await check(`scope ${o.rtom}: tasks per status (scope through project)`, 'projectTask', [], { groupBy: 'status', targetField: 'id', type: 'COUNT' }, `select t.status k, count(*) v from "ProjectTask" t join "Project" p on p.id=t."projectId" where p."opmcId"='${o.id}' group by 1`, { opmcIds: [o.id] });
+        await check(`scope ${o.rtom}: contractor invoices per status (scope through contractor)`, 'contractorInvoice', [], { groupBy: 'status', targetField: 'id', type: 'COUNT' }, `select i.status::text k, count(*) v from "Invoice" i join "Contractor" c on c.id=i."contractorId" where c."opmcId"='${o.id}' group by 1`, { opmcIds: [o.id] });
+    }
+    // list mode on a registry table: the rows the engine returns equal a raw count
+    {
+        const r = await run('project', ['projectCode', 'status'], [{ field: 'status', operator: 'equals', value: 'in progress' }]);
+        const [{ v }] = await prisma.$queryRawUnsafe<Array<{ v: bigint }>>(`select count(*) v from "Project" where status::text='IN_PROGRESS'`);
+        report(r.type !== 'ERROR' && (r.capped ? r.rows.length === 500 : r.rows.length === Number(v)), 'project list (status in progress) equals the database count', `engine=${r.rows.length} db=${v}`);
+    }
+
 
     // ---- sweep: every queryable field of every entity as a group key; the engine's own reconciliation must hold ----
-    const entities = ['serviceOrder', 'materialUsage', 'contractorStock', 'wastage', 'journalEntry'];
+    const { REPORT_ENTITY_PERMISSION } = await import('../src/services/reports/report-center.service'); const entities = Object.keys(REPORT_ENTITY_PERMISSION);
     for (const entity of entities) {
         const fields = DynamicReportService.fieldsFor(entity) ?? [];
         let n = 0; let bad = 0; const examples: string[] = [];
         for (const f of fields.filter((x) => x !== 'id' && !/Id$/.test(x) && !/(quantity|costPrice|unitPrice|revenueAmount|createdAt|updatedAt|date|Date|description|customerName|voiceNumber|soNum|referenceId|approvedAt)$/.test(x))) {
             const r = await run(entity, [], [], { groupBy: f, targetField: 'id', type: 'COUNT' });
             n++;
-            if (r.type === 'ERROR' || !r.verified) { bad++; examples.push(`${f}: ${r.type === 'ERROR' ? r.rows[0].error : 'unverified'}`); }
+            if (r.type === 'ERROR' || (!r.verified && !r.capped)) { bad++; examples.push(`${f}: ${r.type === 'ERROR' ? r.rows[0].error : 'unverified'}`); }
         }
         report(bad === 0, `sweep ${entity}: ${n} group-by fields reconcile`, examples.slice(0, 2).join(' | '));
     }

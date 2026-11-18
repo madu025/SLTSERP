@@ -1,6 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { slStartOfDayKey } from '@/lib/sl-time';
+import { RESOLVED_ENTITIES, type FieldKind } from '@/services/reports/entity-registry';
 
 export interface FilterRule {
     field: string;
@@ -15,7 +16,8 @@ export interface AggregationConfig {
 }
 
 export interface DynamicReportPayload {
-    entity: 'serviceOrder' | 'materialUsage' | 'contractorStock' | 'journalEntry' | 'wastage';
+    /** One of the five original entities or an entity from the registry (see entity-registry.ts). */
+    entity: string;
     columns: string[];
     filters: FilterRule[];
     aggregation?: AggregationConfig;
@@ -111,14 +113,31 @@ const SQL_ENTITIES: Record<string, SqlEntity> = {
     wastage: { table: 'ContractorWastage', joins: { contractor: { table: 'Contractor', parent: '', fk: 'contractorId' }, store: { table: 'InventoryStore', parent: '', fk: 'storeId' } } },
     journalEntry: { table: 'JournalEntry', joins: {} },
 };
+// Entities from the registry: their tables, joins, scope and field types come from the Prisma schema.
+for (const [id, r] of Object.entries(RESOLVED_ENTITIES)) {
+    SQL_ENTITIES[id] = { table: r.table, joins: r.joins, scope: r.scope };
+}
 const aliasOf = (rel: string) => (rel ? `j_${rel.split('.').join('_')}` : 't');
 const ident = (s: string) => `"${s.split('"').join('')}"`;
 
-function sqlColumn(field: string): { expr: string; rel: string; kind: 'num' | 'date' | 'text' } {
+/** The type of a field: from the schema for registry entities, from the field name for the original five. */
+function fieldKind(entity: string | undefined, field: string): FieldKind {
+    const known = entity ? RESOLVED_ENTITIES[entity]?.kinds[field] : undefined;
+    if (known) return known === 'enum' ? 'text' : known;
+    const col = field.split('.').pop() ?? field;
+    return NUMERIC_FIELDS.has(col) ? 'num' : DATE_FIELDS.has(col) ? 'date' : 'text';
+}
+/** Status-like fields hold UPPER_CASE codes; people write "pending" or "in progress". */
+const ENUMLIKE_NAME = /(^|\.)(status|sltsStatus|usageType|referenceType)$/i;
+function isEnumField(entity: string | undefined, field: string): boolean {
+    return ENUMLIKE_NAME.test(field) || (!!entity && RESOLVED_ENTITIES[entity]?.kinds[field] === 'enum');
+}
+
+function sqlColumn(field: string, entity?: string): { expr: string; rel: string; kind: 'num' | 'date' | 'text' } {
     const parts = field.split('.');
     const col = parts[parts.length - 1];
     const rel = parts.slice(0, -1).join('.');
-    return { expr: `${aliasOf(rel)}.${ident(col)}`, rel, kind: NUMERIC_FIELDS.has(col) ? 'num' : DATE_FIELDS.has(col) ? 'date' : 'text' };
+    return { expr: `${aliasOf(rel)}.${ident(col)}`, rel, kind: fieldKind(entity, field) as 'num' | 'date' | 'text' };
 }
 
 function sqlJoins(entity: string, rels: Iterable<string>): string {
@@ -142,8 +161,8 @@ export const DEFAULT_MAX_ROWS = 500;
 export const ABSOLUTE_MAX_ROWS = 10_000;
 const escapeLike = (x: string) => x.replace(/[\\%_]/g, (c) => '\\' + c);
 
-function sqlCondition(rule: FilterRule, params: unknown[]): { sql: string; rel: string } {
-    const { expr, rel, kind } = sqlColumn(rule.field);
+function sqlCondition(rule: FilterRule, params: unknown[], entity?: string): { sql: string; rel: string } {
+    const { expr, rel, kind } = sqlColumn(rule.field, entity);
     const p = (v: unknown, cast = '') => { params.push(v); return `$${params.length}${cast}`; };
     const v = rule.value.trim();
     const op = ({ gt: '>', lt: '<', gte: '>=', lte: '<=' } as Record<string, string>)[rule.operator];
@@ -187,18 +206,20 @@ export class DynamicReportService {
         materialUsage: ['id', 'serviceOrderId', 'itemId', 'quantity', 'unit', 'usageType', 'costPrice', 'unitPrice', 'createdAt', 'serviceOrder.soNum', 'serviceOrder.status', 'serviceOrder.sltsStatus', 'serviceOrder.rtom', 'serviceOrder.completedDate', 'serviceOrder.contractor.name', 'serviceOrder.opmc.name', 'serviceOrder.opmc.region', 'item.code', 'item.name', 'item.category', 'item.type'],
         contractorStock: ['id', 'contractorId', 'itemId', 'quantity', 'updatedAt', 'contractor.name', 'contractor.status', 'item.code', 'item.name', 'item.category'],
         journalEntry: ['id', 'referenceId', 'referenceType', 'description', 'date', 'createdAt'],
-        wastage: ['id', 'contractorId', 'storeId', 'month', 'description', 'status', 'approvedById', 'approvedAt', 'createdAt', 'contractor.name', 'store.name']
+        wastage: ['id', 'contractorId', 'storeId', 'month', 'description', 'status', 'approvedById', 'approvedAt', 'createdAt', 'contractor.name', 'store.name'],
+        ...Object.fromEntries(Object.entries(RESOLVED_ENTITIES).map(([id, r]) => [id, r.whitelist])),
     };
 
     // contractorStock has no createdAt column; ordering by a missing field made that report fail
-    private static orderField: Record<string, string> = { contractorStock: 'updatedAt' };
+    private static orderField: Record<string, string> = { contractorStock: 'updatedAt', ...Object.fromEntries(Object.entries(RESOLVED_ENTITIES).map(([id, r]) => [id, r.orderField])) };
 
     private static prismaKeys: Record<string, string> = {
         serviceOrder: 'serviceOrder',
         materialUsage: 'sODMaterialUsage',
         contractorStock: 'contractorStock',
         journalEntry: 'journalEntry',
-        wastage: 'contractorWastage'
+        wastage: 'contractorWastage',
+        ...Object.fromEntries(Object.entries(RESOLVED_ENTITIES).map(([id, r]) => [id, r.prismaKey])),
     };
 
     /**
@@ -211,25 +232,25 @@ export class DynamicReportService {
         const params: unknown[] = [];
         const rels = new Set<string>();
         const conditions: string[] = [];
-        for (const rule of filters) { const c = sqlCondition(rule, params); conditions.push(c.sql); rels.add(c.rel); }
+        for (const rule of filters) { const c = sqlCondition(rule, params, entity); conditions.push(c.sql); rels.add(c.rel); }
         if (opmcIds !== undefined) {
             if (!def.scope) throw AppError.badRequest(`INVALID_ENTITY: '${entity}' cannot be limited to an OPMC.`);
             params.push([...opmcIds]);
             conditions.push(`${aliasOf(def.scope.rel)}.${ident(def.scope.column)} = ANY($${params.length}::uuid[])`);
             rels.add(def.scope.rel);
         }
-        const group = sqlColumn(agg.groupBy);
+        const group = sqlColumn(agg.groupBy, entity);
         rels.add(group.rel);
         let value = 'COUNT(*)';
         if (agg.type !== 'COUNT') {
-            const target = sqlColumn(agg.targetField);
+            const target = sqlColumn(agg.targetField, entity);
             if (target.kind !== 'num') throw AppError.badRequest(`INVALID_AGGREGATION: ${agg.type} needs a numeric field, '${agg.targetField}' is not numeric.`);
             rels.add(target.rel);
             value = `${agg.type}(${target.expr})`;
         }
         const label = `${agg.type}_OF_${agg.targetField.split('.').join('_')}`;
         const from = `FROM ${ident(def.table)} t ${sqlJoins(entity, rels)}${conditions.length ? ` WHERE ${conditions.join(' AND ')}` : ''}`;
-        const targetExpr = agg.type === 'COUNT' ? '1' : sqlColumn(agg.targetField).expr;
+        const targetExpr = agg.type === 'COUNT' ? '1' : sqlColumn(agg.targetField, entity).expr;
         // s and c let every group be re-derived (AVG = s / c) and every total be reconciled
         const sql = `SELECT ${group.expr}::text AS k, ${value} AS v, COALESCE(SUM(${targetExpr}), 0) AS s, COUNT(*) AS c, COUNT(${targetExpr}) AS cn ${from} GROUP BY 1 ORDER BY 2 DESC NULLS LAST, 1 LIMIT ${maxRows + 1}`;
         // One read-only transaction with a hard time limit: a heavy question can never lock or slow the live system,
@@ -267,6 +288,18 @@ export class DynamicReportService {
         return { type: 'AGGREGATED' as const, columns: [agg.groupBy, label], rows, capped, verified };
     }
 
+    /** Prisma `where` limiting an entity's rows to the given OPMCs; undefined when the entity cannot be scoped. */
+    static scopeWhereFor(entity: string, opmcIds: readonly string[]): Record<string, unknown> | undefined {
+        if (entity === 'serviceOrder') return { opmcId: { in: [...opmcIds] } };
+        if (entity === 'materialUsage') return { serviceOrder: { opmcId: { in: [...opmcIds] } } };
+        return RESOLVED_ENTITIES[entity]?.scopeWhere(opmcIds);
+    }
+
+    /** The type of a queryable field (number, date or text). */
+    static kindOf(entity: string, field: string): 'num' | 'date' | 'text' {
+        return fieldKind(entity, field) as 'num' | 'date' | 'text';
+    }
+
     /** Queryable fields per entity, used to tell the assistant what it may ask for. */
     static fieldsFor(entity: string): string[] | undefined {
         return this.whitelists[entity];
@@ -301,7 +334,7 @@ export class DynamicReportService {
             const parts = rule.field.split('.');
             // Status/type columns are enums (UPPER_CASE values) and reject text operators such as `contains`,
             // so "status contains pending" is treated as "status equals PENDING".
-            const enumLike = /(^|\.)(status|sltsStatus|usageType|referenceType)$/i.test(rule.field);
+            const enumLike = isEnumField(entity, rule.field);
             const operator = enumLike && (rule.operator === 'contains' || rule.operator === 'startsWith') ? 'equals' : rule.operator;
             const value = enumLike ? rule.value.trim().toUpperCase().replace(/\s+/g, '_') : rule.value;
             const filterObj = buildNestedFilter(parts, operator, value);
@@ -321,7 +354,7 @@ export class DynamicReportService {
             }
             if (opts.scopeWhere && opts.opmcIds === undefined) throw AppError.badRequest('INVALID_AGGREGATION: a scoped aggregation needs the OPMC list.');
             return this.joinedAggregate(entity, filters.map((rule) => {
-                const enumLike = /(^|\.)(status|sltsStatus|usageType|referenceType)$/i.test(rule.field);
+                const enumLike = isEnumField(entity, rule.field);
                 return enumLike ? { ...rule, operator: (rule.operator === 'contains' || rule.operator === 'startsWith' ? 'equals' : rule.operator) as FilterRule['operator'], value: rule.value.trim().toUpperCase().replace(/\s+/g, '_') } : rule;
             }), aggregation, opts.opmcIds, maxRows);
         }

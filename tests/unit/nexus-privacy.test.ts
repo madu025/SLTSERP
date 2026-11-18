@@ -52,10 +52,10 @@ test('plan-only is the default for external models', () => {
 });
 
 test('local reply builds text, table and chart from a database result without a model', () => {
-    const table = { title: 'Custom report: serviceOrder', columns: ['status', 'COUNT_OF_soNum'], rows: [{ status: 'PENDING', COUNT_OF_soNum: 10 }, { status: 'DONE', COUNT_OF_soNum: 30 }], totalRows: 2, truncated: false };
+    const table = { title: 'Service orders by Status', columns: ['status', 'COUNT_OF_soNum'], rows: [{ status: 'PENDING', COUNT_OF_soNum: 10 }, { status: 'DONE', COUNT_OF_soNum: 30 }], totalRows: 2, truncated: false };
     const r = NexusLocalReplyService.build([{ name: 'runCustomReport', args: { entity: 'serviceOrder', filters: [{ field: 'rtom', operator: 'equals', value: 'R-JA' }], aggregation: { type: 'COUNT', groupBy: 'status', targetField: 'soNum' } }, result: { rows: [] }, table }], 'status wise chart ekak');
     assert.match(r.text, /2 rows/);
-    assert.match(r.text, /rtom equals R-JA/);
+    assert.match(r.text, /Service orders by Status: 2 rows/);
     assert.equal(r.table?.rows.length, 2);
     assert.equal(r.chart?.xAxisKey, 'status');
     const s = NexusLocalReplyService.build([{ name: 'getProcurementContext', result: { pendingPRsCount: 3, nested: { a: 1 }, list: [{ id: 'x', qty: 5 }] } }], 'procurement');

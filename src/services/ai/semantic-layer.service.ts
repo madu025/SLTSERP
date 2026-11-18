@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { swrMemo } from '@/lib/swr-memo';
+import { EXTRA_ENTITIES, RESOLVED_ENTITIES } from '@/services/reports/entity-registry';
 
 /**
  * Semantic layer for the assistant: a data dictionary (what each entity and field means, with plain-language
@@ -47,6 +48,12 @@ export const ENTITY_DICTIONARY: Record<string, EntityDef> = {
         fields: { referenceType: { label: 'Reference type', synonyms: ['type'] }, date: { label: 'Date', synonyms: ['posted on'] } },
     },
 };
+
+// The tables added through the registry describe themselves there; this keeps one dictionary for the whole assistant.
+for (const e of EXTRA_ENTITIES) {
+    if (!RESOLVED_ENTITIES[e.id]) continue;
+    ENTITY_DICTIONARY[e.id] = { label: e.label, synonyms: e.synonyms, description: e.description, fields: Object.fromEntries(Object.entries(e.labels ?? {}).map(([k, label]) => [k, { label, synonyms: [] }])) };
+}
 
 /** Service order status values (mirrors the database enum) with the words people use for them. */
 export const SERVICE_ORDER_STATUSES = ['PENDING', 'INPROGRESS', 'ASSIGNED', 'COMPLETED', 'RETURN', 'DISAPPEARED', 'INSTALL_CLOSED', 'PROV_CLOSED', 'PAT_OPMC_PASSED', 'PAT_OPMC_REJECTED', 'PAT_CORRECTED', 'PAT_REJECTED'] as const;
@@ -146,6 +153,14 @@ export async function groundReportFilters(entity: string, filters: FilterRule[],
             if (g.kind === 'ambiguous') return { filters, evidence, issue: `"${f.value}" could be ${g.options.join(', ')}. Which status do you mean?` };
             if (g.kind === 'none') return { filters, evidence, issue: `"${f.value}" is not a service order status. Statuses: ${SERVICE_ORDER_STATUSES.join(', ')}.` };
             if (g.value !== f.value) evidence.push(`status "${f.value}" read as ${g.value}`);
+            rule = { ...rule, operator: 'equals', value: g.value };
+        } else if (RESOLVED_ENTITIES[entity]?.enums[f.field]) {
+            // A fixed list from the database schema (for example a project or ticket status): fix spelling or say what is allowed.
+            const values = RESOLVED_ENTITIES[entity].enums[f.field];
+            const g = groundValue(f.value.trim().replace(/\s+/g, '_'), values);
+            if (g.kind === 'ambiguous') return { filters, evidence, issue: `"${f.value}" could be ${g.options.join(', ')}. Which one do you mean?` };
+            if (g.kind === 'none') return { filters, evidence, issue: `"${f.value}" is not a valid ${humanizeField(f.field).toLowerCase()}. Allowed values: ${values.join(', ')}.` };
+            if (g.value !== f.value) evidence.push(`${humanizeField(f.field).toLowerCase()} "${f.value}" read as ${g.value}`);
             rule = { ...rule, operator: 'equals', value: g.value };
         }
         out.push(rule);
