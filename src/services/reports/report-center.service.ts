@@ -48,7 +48,8 @@ export function reportMeta(permissions: ReadonlySet<string>, scope: OpmcScope): 
         });
 }
 
-export interface RunReportOptions { rowLimit?: number }
+/** rowLimit: rows returned to the caller. maxRows: rows the database may read (default 500, ceiling 10,000). */
+export interface RunReportOptions { rowLimit?: number; maxRows?: number }
 
 export type ReportResult =
     | { error: string }
@@ -79,7 +80,7 @@ export async function runUserReport(args: Record<string, unknown> | undefined, p
         // Semantic layer: every name or value is checked against real data before the query runs
         const grounded = await groundReportFilters(entity, filters, opmcScope);
         if (grounded.issue) return { error: grounded.issue };
-        const report = await DynamicReportService.generateReport({ entity, columns, filters: grounded.filters, aggregation }, { scopeWhere, opmcIds: opmcScope });
+        const report = await DynamicReportService.generateReport({ entity, columns, filters: grounded.filters, aggregation }, { scopeWhere, opmcIds: opmcScope, maxRows: options.maxRows });
         const verified = (report as { verified?: boolean }).verified === true;
         const search = describeSearch({
             entity, filters: grounded.filters, groupBy: aggregation?.groupBy, rows: report.rows.length, capped: report.capped, asOf: new Date(),

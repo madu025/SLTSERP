@@ -209,8 +209,8 @@ export class NexusAgentService {
      */
     static async ask(message: string, userId: string): Promise<NexusResponse> {
         // Per-user limits protect the shared model quota: a short burst limit and a daily limit.
-        const burst = await checkRateLimit(userId, { max: Number(process.env.NEXUS_RATE_BURST) || 20, windowSecs: 600, prefix: 'nexus-burst' });
-        const daily = burst.allowed ? await checkRateLimit(userId, { max: Number(process.env.NEXUS_RATE_DAILY) || 200, windowSecs: 86_400, prefix: 'nexus-daily' }) : burst;
+        const burst = await checkRateLimit(userId, { max: Number(process.env.NEXUS_RATE_BURST) || 40, windowSecs: 600, prefix: 'nexus-burst' });
+        const daily = burst.allowed ? await checkRateLimit(userId, { max: Number(process.env.NEXUS_RATE_DAILY) || 500, windowSecs: 86_400, prefix: 'nexus-daily' }) : burst;
         if (!burst.allowed || !daily.allowed) {
             const wait = Math.max(1, Math.ceil((!burst.allowed ? burst.resetSecs : daily.resetSecs) / 60));
             return {
@@ -871,7 +871,7 @@ PRIVACY (plan-only): you will NOT be shown any ERP data. Your only job is to pic
             if (msg.tool_calls?.length && privacy === 'plan-only') {
                 // The model has chosen the tools. Run them here and build the answer locally: nothing goes back to the model.
                 const runs: ToolRun[] = [];
-                for (const call of msg.tool_calls.slice(0, 2)) {
+                for (const call of msg.tool_calls.slice(0, 4)) {
                     let args: Record<string, unknown> | undefined;
                     try { args = call.function.arguments ? JSON.parse(call.function.arguments) : undefined; } catch { args = undefined; }
                     const executed = await this.executeTool(call.function.name, args, ctx);

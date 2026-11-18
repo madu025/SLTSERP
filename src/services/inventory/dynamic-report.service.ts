@@ -137,6 +137,9 @@ function sqlJoins(entity: string, rels: Iterable<string>): string {
 }
 
 const REPORT_TIMEOUT_MS = 15_000;
+/** Rows a report returns by default, and the hard ceiling for an explicit export request. */
+export const DEFAULT_MAX_ROWS = 500;
+export const ABSOLUTE_MAX_ROWS = 10_000;
 const escapeLike = (x: string) => x.replace(/[\\%_]/g, (c) => '\\' + c);
 
 function sqlCondition(rule: FilterRule, params: unknown[]): { sql: string; rel: string } {
@@ -202,7 +205,7 @@ export class DynamicReportService {
      * GROUP BY across joined tables, executed by the database over every matching row (not a 500-row sample).
      * Values travel as bound parameters; column and table names come only from the whitelist maps above.
      */
-    private static async joinedAggregate(entity: string, filters: FilterRule[], agg: AggregationConfig, opmcIds?: readonly string[]) {
+    private static async joinedAggregate(entity: string, filters: FilterRule[], agg: AggregationConfig, opmcIds?: readonly string[], maxRows = DEFAULT_MAX_ROWS) {
         const def = SQL_ENTITIES[entity];
         if (!def) throw AppError.badRequest(`INVALID_ENTITY: Entity '${entity}' is not queryable.`);
         const params: unknown[] = [];
@@ -228,7 +231,7 @@ export class DynamicReportService {
         const from = `FROM ${ident(def.table)} t ${sqlJoins(entity, rels)}${conditions.length ? ` WHERE ${conditions.join(' AND ')}` : ''}`;
         const targetExpr = agg.type === 'COUNT' ? '1' : sqlColumn(agg.targetField).expr;
         // s and c let every group be re-derived (AVG = s / c) and every total be reconciled
-        const sql = `SELECT ${group.expr}::text AS k, ${value} AS v, COALESCE(SUM(${targetExpr}), 0) AS s, COUNT(*) AS c, COUNT(${targetExpr}) AS cn ${from} GROUP BY 1 ORDER BY 2 DESC NULLS LAST, 1 LIMIT 501`;
+        const sql = `SELECT ${group.expr}::text AS k, ${value} AS v, COALESCE(SUM(${targetExpr}), 0) AS s, COUNT(*) AS c, COUNT(${targetExpr}) AS cn ${from} GROUP BY 1 ORDER BY 2 DESC NULLS LAST, 1 LIMIT ${maxRows + 1}`;
         // One read-only transaction with a hard time limit: a heavy question can never lock or slow the live system,
         // and both the groups and the control total are read from the same snapshot.
         const { found, total } = await prisma.$transaction(async (tx) => {
@@ -243,8 +246,8 @@ export class DynamicReportService {
             }
             throw e;
         });
-        const capped = found.length > 500;
-        const shown = found.slice(0, 500);
+        const capped = found.length > maxRows;
+        const shown = found.slice(0, maxRows);
         const rows = shown.map((r) => ({ [agg.groupBy]: r.k === null ? 'N/A' : r.k, [label]: Number(Number(r.v ?? 0).toFixed(2)) }));
 
         // Reconciliation: an independent query over the same rows must equal the sum of the groups, and each AVG must equal sum/count.
@@ -273,8 +276,9 @@ export class DynamicReportService {
      * `scopeWhere` is an extra server-built condition (for example the caller's OPMC scope) that is
      * AND-ed with the user's filters, so a custom report can never reach outside the caller's data.
      */
-    static async generateReport(payload: DynamicReportPayload, opts: { scopeWhere?: Record<string, unknown>; opmcIds?: readonly string[] } = {}) {
+    static async generateReport(payload: DynamicReportPayload, opts: { scopeWhere?: Record<string, unknown>; opmcIds?: readonly string[]; maxRows?: number } = {}) {
         const { entity, columns, filters, aggregation } = payload;
+        const maxRows = Math.min(Math.max(Math.floor(opts.maxRows ?? DEFAULT_MAX_ROWS), 1), ABSOLUTE_MAX_ROWS);
 
         // 1. Validation
         if (!this.whitelists[entity]) {
@@ -319,7 +323,7 @@ export class DynamicReportService {
             return this.joinedAggregate(entity, filters.map((rule) => {
                 const enumLike = /(^|\.)(status|sltsStatus|usageType|referenceType)$/i.test(rule.field);
                 return enumLike ? { ...rule, operator: (rule.operator === 'contains' || rule.operator === 'startsWith' ? 'equals' : rule.operator) as FilterRule['operator'], value: rule.value.trim().toUpperCase().replace(/\s+/g, '_') } : rule;
-            }), aggregation, opts.opmcIds);
+            }), aggregation, opts.opmcIds, maxRows);
         }
 
         // 4. Fetch Raw Data from Master
@@ -331,10 +335,8 @@ export class DynamicReportService {
             where: opts.scopeWhere ? { AND: [whereClause, opts.scopeWhere] } : whereClause,
             include: includeClause,
             orderBy: { [this.orderField[entity] ?? 'createdAt']: 'desc' },
-            // Keep interactive report generation bounded on production-sized
-            // datasets. The UI is an operational report, not an unbounded
-            // table export; CSV export can be extended with server pagination.
-            take: 500,
+            // Always bounded (default 500, hard ceiling ABSOLUTE_MAX_ROWS) so a report can never exhaust the server.
+            take: maxRows,
         });
 
         // 6. Map and Flatten columns for standard tabular result
@@ -350,8 +352,8 @@ export class DynamicReportService {
             type: 'STANDARD',
             columns,
             rows: mappedRows,
-            // true when the 500-row limit cut the result, so the real number of matching rows is higher
-            capped: rawRecords.length >= 500
+            // true when the row limit cut the result, so the real number of matching rows is higher
+            capped: rawRecords.length >= maxRows
         };
     }
 }

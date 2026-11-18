@@ -5,6 +5,7 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { reportMeta, runUserReport } from '@/services/reports/report-center.service';
+import { ABSOLUTE_MAX_ROWS, DEFAULT_MAX_ROWS } from '@/services/inventory/dynamic-report.service';
 import { z } from 'zod';
 
 const runSchema = z.object({
@@ -16,6 +17,8 @@ const runSchema = z.object({
         value: z.string(),
     })).default([]),
     aggregation: z.object({ groupBy: z.string(), targetField: z.string(), type: z.enum(['SUM', 'AVG', 'COUNT']) }).optional(),
+    // Larger exports are allowed up to a hard ceiling so one request can never exhaust the server.
+    maxRows: z.number().int().min(1).max(ABSOLUTE_MAX_ROWS).default(DEFAULT_MAX_ROWS),
 });
 
 async function caller(userId: string | undefined) {
@@ -35,7 +38,7 @@ export const POST = apiHandler(async (_req, params, body) => {
     const payload = runSchema.parse(body);
     if (!payload.aggregation && payload.columns.length === 0) throw AppError.badRequest('Choose at least one column or a grouping.');
     const { permissions, scope } = await caller(params._userId ?? undefined);
-    const result = await runUserReport(payload, permissions, scope, { rowLimit: 500 });
+    const result = await runUserReport(payload, permissions, scope, { rowLimit: payload.maxRows, maxRows: payload.maxRows });
     if ('error' in result) throw AppError.badRequest(result.error);
     return result;
 }, {

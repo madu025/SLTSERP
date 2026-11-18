@@ -13,6 +13,10 @@ import { resolvePageCapability } from '@/config/page-capabilities';
 interface FieldMeta { path: string; label: string; kind: 'number' | 'date' | 'text'; groupable: boolean }
 interface EntityMeta { id: string; label: string; description: string; fields: FieldMeta[] }
 interface FilterRow { field: string; operator: string; value: string }
+/** The table shows the first SCREEN_ROWS; the CSV carries everything the server returned (up to EXPORT_ROWS). */
+const SCREEN_ROWS = 500;
+const EXPORT_ROWS = 10_000;
+
 interface ReportResult { columns: string[]; rows: Record<string, unknown>[]; totalRows: number; truncated: boolean; search: string; verified: boolean }
 
 const OPERATORS: { id: string; label: string }[] = [
@@ -84,6 +88,7 @@ export default function ReportCenterPage() {
                 columns: mode === 'rows' ? columns : [],
                 filters: filters.filter((f) => f.field && f.value.trim() !== ''),
                 aggregation: mode === 'summary' ? { groupBy, targetField: measure === 'COUNT' ? 'id' : target, type: measure } : undefined,
+                maxRows: EXPORT_ROWS,
             };
             const res = await fetch('/api/reports/custom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
             const json = await res.json();
@@ -223,14 +228,15 @@ export default function ReportCenterPage() {
                                             <div className="flex items-center gap-2 text-sm text-slate-900">
                                                 <b>{result.totalRows.toLocaleString('en-US')}</b> row{result.totalRows === 1 ? '' : 's'}
                                                 {result.verified && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-900"><ShieldCheck className="w-3 h-3" />Totals reconciled</span>}
-                                                {result.truncated && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">Showing the first {result.rows.length.toLocaleString('en-US')}; narrow with a filter</span>}
+                                                {result.rows.length > SCREEN_ROWS && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-900">Screen shows the first {SCREEN_ROWS.toLocaleString('en-US')}; CSV has all {result.rows.length.toLocaleString('en-US')}</span>}
+                                                {result.truncated && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">Limited to {result.rows.length.toLocaleString('en-US')} rows; narrow with a filter</span>}
                                             </div>
                                             <Button onClick={exportCsv} variant="outline" className="border-slate-400 text-slate-900"><Download className="w-4 h-4 mr-2" />CSV</Button>
                                         </div>
                                         <div className="overflow-auto max-h-[60vh] rounded-md border border-slate-300">
                                             <table className="w-full text-sm">
                                                 <thead><tr>{result.columns.map((c) => <th key={c} className="sticky top-0 border-b border-slate-300 !bg-slate-100 px-3 py-2 text-left text-xs font-bold !text-slate-900">{label(c)}</th>)}</tr></thead>
-                                                <tbody>{result.rows.map((r, i) => (
+                                                <tbody>{result.rows.slice(0, SCREEN_ROWS).map((r, i) => (
                                                     <tr key={i} className="border-b border-slate-200 odd:bg-white even:bg-slate-50">{result.columns.map((c) => <td key={c} className={`px-3 py-1.5 text-slate-900 ${typeof r[c] === 'number' ? 'text-right tabular-nums' : ''}`}>{fmt(r[c])}</td>)}</tr>
                                                 ))}</tbody>
                                             </table>
