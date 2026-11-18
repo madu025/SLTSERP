@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, CheckCircle2, Clock3, Info, Minus } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { CompanyHealth, Comparison, HealthException } from '@/services/core/company-health.service';
+import type { CompanyHealth, Comparison } from '@/services/core/company-health.service';
+import NeedsAttention from './health/NeedsAttention';
 import { Panel, compact } from './health/HealthPanel';
 import { AgeingBars, BudgetBar, CompletedTrend, FinanceTrend, ProjectHealthDonut, Sparkline } from './health/LazyHealthCharts';
 import { AtRiskProjectsTable, WeakestRtomsTable } from './health/RiskTables';
@@ -60,14 +60,7 @@ function Mini({ label, value, tone = 'default', href }: { label: string; value: 
     );
 }
 
-const SEVERITY_STYLE: Record<HealthException['severity'], { box: string; icon: React.ReactNode }> = {
-    critical: { box: 'border-rose-500/40 bg-rose-500/5', icon: <AlertTriangle className="h-4 w-4 text-rose-600 dark:text-rose-400" /> },
-    warning: { box: 'border-amber-500/40 bg-amber-500/5', icon: <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" /> },
-    info: { box: 'border-slate-300 bg-slate-500/5 dark:border-slate-700', icon: <Info className="h-4 w-4 text-slate-600 dark:text-slate-400" /> },
-};
-
 export default function CompanyHealthSection({ userId, enabled = true }: Props) {
-    const [showAll, setShowAll] = useState(false);
     const { data, isLoading, error, refetch } = useQuery<CompanyHealth>({
         queryKey: ['dashboard-company-health', userId],
         queryFn: async ({ signal }) => {
@@ -111,7 +104,6 @@ export default function CompanyHealthSection({ userId, enabled = true }: Props) 
 
     const { finance: f, operations: o, projects: p, fleet, helpdesk: h, inventory: inv, supplyChain: sc, controls: ctl, exceptions } = data;
     const asOf = new Date(data.asOf).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
-    const shown = showAll ? exceptions : exceptions.slice(0, 6);
     const arData = f ? [
         { name: '0-30', value: f.arBuckets.current }, { name: '31-60', value: f.arBuckets.days31to60 },
         { name: '61-90', value: f.arBuckets.days61to90 }, { name: '90+', value: f.arBuckets.over90 },
@@ -119,44 +111,13 @@ export default function CompanyHealthSection({ userId, enabled = true }: Props) 
 
     return (
         <div className="space-y-5">
-            {/* Needs attention */}
-            <section className="space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-slate-100">Needs attention <span className="ml-1 rounded-full bg-rose-600 px-2 py-0.5 text-[10px] text-white">{exceptions.length}</span></h3>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300" title={`${data.periods.currentLabel} to date vs the same days of ${data.periods.previousLabel}`}>
-                        <Clock3 className="h-3.5 w-3.5" />{asOf}
-                    </span>
-                </div>
-                {exceptions.length === 0 ? (
-                    <div className="flex items-center gap-2 rounded-2xl border border-emerald-500/40 bg-emerald-500/5 p-3 text-sm font-semibold text-slate-900 dark:text-white">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />All clear
-                    </div>
-                ) : (
-                    <>
-                        <ul className="grid grid-cols-1 gap-2 lg:grid-cols-2 xl:grid-cols-3">
-                            {shown.map((e) => {
-                                const s = SEVERITY_STYLE[e.severity];
-                                return (
-                                    <li key={e.id}>
-                                        <Link href={e.href} className={`flex h-full items-start gap-2.5 rounded-xl border p-2.5 transition hover:shadow-md ${s.box}`}>
-                                            <span className="mt-0.5 shrink-0">{s.icon}</span>
-                                            <span className="min-w-0">
-                                                <span className="block text-xs font-black text-slate-900 dark:text-white">{e.title}</span>
-                                                <span className="block truncate text-[11px] text-slate-700 dark:text-slate-300" title={e.detail}>{e.detail}</span>
-                                            </span>
-                                        </Link>
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                        {exceptions.length > 6 && (
-                            <button type="button" onClick={() => setShowAll((v) => !v)} className="text-xs font-bold text-indigo-700 hover:underline dark:text-indigo-300">
-                                {showAll ? 'Show fewer' : `Show all ${exceptions.length}`}
-                            </button>
-                        )}
-                    </>
-                )}
-            </section>
+            {/* Needs attention: one headline, the few things that need action, the rest as a quiet list */}
+            <NeedsAttention
+                exceptions={exceptions}
+                asOf={asOf}
+                asOfTitle={`${data.periods.currentLabel} to date vs the same days of ${data.periods.previousLabel}`}
+                userId={userId}
+            />
 
             {/* Headline numbers */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
