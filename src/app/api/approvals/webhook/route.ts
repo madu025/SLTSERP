@@ -33,7 +33,7 @@ async function applyDomainStep(result: GateResult) {
 function confirmPage(token: string) {
     const safe = token.replace(/[^A-Za-z0-9._-]/g, '');
     return generateHtmlResponse('Confirm your decision', 'Press the button to record this approval decision.', true)
-        .replace('</p>', `</p><form method="POST" action="/api/approvals/webhook?token=${safe}" style="margin-top:20px"><button type="submit" style="background:#0f172a;color:#fff;border:0;border-radius:8px;padding:12px 24px;font-size:15px;cursor:pointer">Confirm</button></form>`);
+        .replace('</p>', `</p><form method="POST" action="/api/approvals/webhook?token=${safe}" style="margin-top:20px" onsubmit="var b=this.querySelector('button');b.disabled=true;b.textContent='Recording…';b.style.opacity='0.7'"><button type="submit" style="background:#0f172a;color:#fff;border:0;border-radius:8px;padding:12px 24px;font-size:15px;cursor:pointer">Confirm</button></form>`);
 }
 
 /**
