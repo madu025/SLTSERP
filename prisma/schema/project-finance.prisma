@@ -27,66 +27,70 @@ model ProjectFinanceAssignment {
 }
 
 model Invoice {
-  id                String                    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  invoiceNumber     String                    @unique
-  contractorId      String                    @db.Uuid
-  projectId         String?                   @db.Uuid
-  year              Int?
-  month             Int?
-  totalAmount       Decimal                   @default(0)
-  amountA           Decimal                   @default(0)
-  statusA           InvoiceStatus             @default(PENDING)
-  paidDateA         DateTime?
-  amountB           Decimal                   @default(0)
-  statusB           InvoiceStatus             @default(HOLD)
-  paidDateB         DateTime?
-  amount            Decimal
-  status            InvoiceStatus             @default(PENDING)
-  approvalStatus    String                    @default("DRAFT")
-  idempotencyKey    String?                   @unique
-  retentionAmount   Decimal                   @default(0)
-  advanceDeduction  Decimal                   @default(0)
-  description       String?
-  vatAmount         Decimal                   @default(0)
-  ssclAmount        Decimal                   @default(0)
-  whtAmount         Decimal                   @default(0)
-  vatPercent        Decimal                   @default(18) @db.Decimal(8, 4)
-  ssclPercent       Decimal                   @default(2.5) @db.Decimal(8, 4)
-  whtPercent        Decimal                   @default(5) @db.Decimal(8, 4)
-  dueDate           DateTime?
-  date              DateTime                  @default(now())
-  createdAt         DateTime                  @default(now())
-  updatedAt         DateTime                  @updatedAt
-  agreementNumber   String?
-  bomNumber         String?
-  connectionTitle   String?
-  projectNumber     Int?
-  rtomArea          String?
-  contractor        Contractor                @relation(fields: [contractorId], references: [id])
-  project           Project?                  @relation(fields: [projectId], references: [id])
-  penalties         Penalty[]
-  sods              ServiceOrder[]
-  amendmentRequests InvoiceAmendmentRequest[]
-  confirmStage      String                    @default("CONFIRMED")
-  confirmations     InvoiceConfirmation[]
-  sodRemovals       InvoiceSodRemoval[]
+  id                      String                    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  invoiceNumber           String                    @unique
+  contractorId            String                    @db.Uuid
+  projectId               String?                   @db.Uuid
+  year                    Int?
+  month                   Int?
+  totalAmount             Decimal                   @default(0)
+  amountA                 Decimal                   @default(0)
+  statusA                 InvoiceStatus             @default(PENDING)
+  paidDateA               DateTime?
+  amountB                 Decimal                   @default(0)
+  statusB                 InvoiceStatus             @default(HOLD)
+  paidDateB               DateTime?
+  amount                  Decimal
+  status                  InvoiceStatus             @default(PENDING)
+  approvalStatus          String                    @default("DRAFT")
+  idempotencyKey          String?                   @unique
+  retentionAmount         Decimal                   @default(0)
+  advanceDeduction        Decimal                   @default(0)
+  description             String?
+  vatAmount               Decimal                   @default(0)
+  ssclAmount              Decimal                   @default(0)
+  whtAmount               Decimal                   @default(0)
+  vatPercent              Decimal                   @default(18) @db.Decimal(8, 4)
+  ssclPercent             Decimal                   @default(2.5) @db.Decimal(8, 4)
+  whtPercent              Decimal                   @default(5) @db.Decimal(8, 4)
+  dueDate                 DateTime?
+  date                    DateTime                  @default(now())
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  agreementNumber         String?
+  bomNumber               String?
+  connectionTitle         String?
+  projectNumber           Int?
+  rtomArea                String?
+  /// The area of the invoice (the area of its orders); the contractor's home area does not decide it.
+  opmcId                  String?                   @db.Uuid
+  opmc                    OPMC?                     @relation(fields: [opmcId], references: [id])
+  contractor              Contractor                @relation(fields: [contractorId], references: [id])
+  project                 Project?                  @relation(fields: [projectId], references: [id])
+  penalties               Penalty[]
+  sods                    ServiceOrder[]
+  amendmentRequests       InvoiceAmendmentRequest[]
+  confirmStage            String                    @default("CONFIRMED")
+  confirmations           InvoiceConfirmation[]
+  sodRemovals             InvoiceSodRemoval[]
   // Contractor review before the invoice reaches OSP Quality (SF Audit): AWAITING | CONFIRMED | DISPUTED. Older invoices are CONFIRMED.
-  contractorConfirmStatus String   @default("CONFIRMED")
+  contractorConfirmStatus String                    @default("CONFIRMED")
   contractorConfirmedAt   DateTime?
-  contractorConfirmedById String?  @db.Uuid
+  contractorConfirmedById String?                   @db.Uuid
   contractorNote          String?
   // LEGACY = the old single finance approval; OSP_CHAIN = SF Audit -> Finance -> OSP managers -> Head Office. Older invoices are LEGACY.
-  approvalFlow            String   @default("LEGACY")
+  approvalFlow            String                    @default("LEGACY")
   ospSentAt               DateTime?
-  ospSentById             String?  @db.Uuid
+  ospSentById             String?                   @db.Uuid
   ospDecisionAt           DateTime?
-  ospDecisionById         String?  @db.Uuid
+  ospDecisionById         String?                   @db.Uuid
   ospNote                 String?
 
   @@index([projectId])
   @@index([contractorId])
   @@index([contractorConfirmStatus])
   @@index([approvalFlow, approvalStatus])
+  @@index([opmcId])
 }
 
 /// A service order taken out of an invoice during its approval (a quality problem, or it was invoiced by mistake). The order goes
@@ -261,14 +265,14 @@ model Quotation {
   requisition    ProjectRequisition @relation("RequisitionQuotations", fields: [requisitionId], references: [id], onDelete: Cascade)
   vendor         Vendor             @relation(fields: [vendorId], references: [id])
   items          QuotationItem[]
+  /// Set when the quotation was requested from the vendor (RFQ) and not yet received
+  requestedAt    DateTime?
 
   @@index([requisitionId])
   @@index([vendorId])
   @@index([status])
   @@index([quoteNumber])
   @@index([acceptedById])
-  /// Set when the quotation was requested from the vendor (RFQ) and not yet received
-  requestedAt    DateTime?
 }
 
 model QuotationItem {

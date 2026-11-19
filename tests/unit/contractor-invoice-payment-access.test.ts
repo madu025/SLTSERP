@@ -42,7 +42,7 @@ test('the first timeline line says what the invoice waits for instead of claimin
 });
 
 test('wiring: payments, the list and the run use the contractor area, and OSP Quality verifies several at once', () => {
-    assert.ok(read('src/services/finance/ho-monthly.service.ts').includes('projectId: null, contractor: { opmcId: { in: scope } }'));
+    assert.ok(read('src/services/finance/ho-monthly.service.ts').includes('projectId: null, opmcId: { in: scope } }'));
     const run = read('src/services/finance/ho-run.service.ts');
     assert.ok(run.includes('assertContractorAreaAccess') && !run.includes("assertVoucherAccess(null, userId)"));
     for (const route of ['src/app/api/finance/payment-vouchers/[id]/route.ts', 'src/app/api/finance/payment-vouchers/[id]/status/route.ts', 'src/app/api/projects/payment-vouchers/route.ts']) {

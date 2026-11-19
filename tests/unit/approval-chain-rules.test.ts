@@ -91,25 +91,31 @@ test('a step flagged skip-when-nobody-holds-it is skipped only when nobody does'
 
 const read = (p: string) => fs.readFileSync(path.resolve(__dirname, '../..', p), 'utf8');
 
-test('wiring: the approval is a gate on the INVOICE in the agreed order; service orders have no approval of their own', () => {
-    const m = read('prisma/migrations/20261209000000_invoice_approval_gate/migration.sql');
-    assert.ok(m.includes("'INVOICE', 'CREATED', 'AREA_APPROVED'") && m.includes("'MARK_INVOICE_AREA_APPROVED'") && m.includes('"InvoiceSodRemoval"'));
-    assert.ok(m.includes("DELETE FROM \"ProcessGatePolicy\" WHERE \"entityType\" = 'SERVICE_ORDER'"), 'the per-order gate is retired');
-    const from = m.indexOf('CROSS JOIN');
-    const order = ['AREA_COORDINATOR', 'QC_OFFICER', 'CONTRACTOR', 'ENGINEER', 'AREA_MANAGER'].map((r) => m.indexOf(`'${r}', `, from));
-    assert.ok(order.every((i, n) => i > 0 && (n === 0 || i > order[n - 1])), 'Coordinator, QC, Contractor, Engineer, ARM in that order');
+test('wiring: orders are passed by Coordinator and QC, the engineer creates the invoice, the invoice is accepted by the contractor and approved by the Area Manager', () => {
+    // the invoice gate (still created by the earlier migration) is shortened to Contractor -> Area Manager by the v2 migration
+    const m1 = read('prisma/migrations/20261209000000_invoice_approval_gate/migration.sql');
+    assert.ok(m1.includes("'INVOICE', 'CREATED', 'AREA_APPROVED'") && m1.includes("'MARK_INVOICE_AREA_APPROVED'") && m1.includes('"InvoiceSodRemoval"'));
+    const m = read('prisma/migrations/20261210000000_invoice_flow_v2/migration.sql');
+    assert.ok(m.includes("'SERVICE_ORDER', 'COMPLETED', 'READY_FOR_INVOICE'") && m.includes("'MARK_SOD_READY_FOR_INVOICE'"), 'the order gate');
+    assert.ok(m.indexOf("'AREA_COORDINATOR', 'invoice.confirm.coordinator'") < m.indexOf("'QC_OFFICER',       'invoice.confirm.qc'"), 'Coordinator before QC');
+    assert.ok(m.includes('"Invoice" ADD COLUMN IF NOT EXISTS "opmcId"') && m.includes('"invoicingHeldAt"'), 'the invoice has its own area; orders can be held back');
+    assert.ok(m.includes("\"requiredRole\" IN ('AREA_COORDINATOR', 'QC_OFFICER', 'ENGINEER')") && m.includes("WHEN 'CONTRACTOR' THEN 1 WHEN 'AREA_MANAGER' THEN 2"), 'the invoice gate keeps Contractor then Area Manager');
     const gen = read('src/services/invoice/invoice.generator.service.ts');
     assert.ok(gen.includes("confirmStage: 'IN_GATE'") && gen.includes('InvoiceGateService.startFor'), 'a new invoice starts the gate');
     assert.ok(gen.includes("createHash('sha1')"), 'a selection of orders, not a contractor-month, is the idempotency identity');
+    assert.ok(gen.includes('allowLate') && gen.includes('opmcId: other.opmcId'), 'late SODs are allowed and the invoice stores its area');
     const svc = read('src/services/invoice/invoice-gate.service.ts');
     assert.ok(svc.includes('ProcessGateEngine.advanceGate') && svc.includes('ProcessGateEngine.startGate'), 'the service drives the gate engine');
     assert.ok(svc.includes('LedgerService.reverseTransaction') && svc.includes("'INVOICE_GENERATION'"), 'taking orders out reverses and re-posts the ledger');
     assert.ok(svc.includes('isInvoicable: false') && svc.includes('invoiceId: null'), 'removed orders go back to the verification list');
     assert.ok(svc.includes('FOR UPDATE'), 'the invoice row is locked while orders are taken out');
-    assert.ok(read('src/services/approval/domain-dispatcher.service.ts').includes("case 'MARK_INVOICE_AREA_APPROVED'"));
+    const dispatcher = read('src/services/approval/domain-dispatcher.service.ts');
+    assert.ok(dispatcher.includes("case 'MARK_INVOICE_AREA_APPROVED'") && dispatcher.includes("case 'MARK_SOD_READY_FOR_INVOICE'"));
     assert.ok(read('src/app/api/invoices/confirmations/route.ts').includes('REMOVE_SODS'));
     assert.ok(read('src/app/api/contractor-portal/invoice-approvals/route.ts').includes('CONTRACTOR_WRITE'));
-    assert.ok(!fs.existsSync(path.resolve(__dirname, '../../src/services/service-order/sod-approval.service.ts')), 'no per-order approval service');
+    const orders = read('src/services/service-order/sod-approval.service.ts');
+    assert.ok(orders.includes('ProcessGateEngine.advanceGate') && orders.includes('startMany') && orders.includes('SOD_CHAIN_ENTRY_STATUSES'), 'the order approval is a bulk gate queue by area');
+    assert.ok(read('src/app/api/invoicing/route.ts').includes('SOD_INVOICE') && read('src/services/invoice/invoicing.service.ts').includes('isLateSod'), 'the engineer creates the invoices, late SODs are marked');
     assert.ok(!read('src/services/service-order/sync/sod-status.writer.ts').includes('sodApprovalStage'), 'the status writer does not start an approval for an order');
 });
 

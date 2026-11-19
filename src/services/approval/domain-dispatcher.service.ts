@@ -6,6 +6,7 @@ import { LedgerService } from '@/services/finance/ledger.service';
 import { SODMaterialService } from '@/services/service-order/sod.material.service';
 import { InvoiceGeneratorService } from '@/services/invoice/invoice.generator.service';
 import { markInvoiceAreaApproved } from '@/services/invoice/invoice-gate.action';
+import { markSodReadyForInvoice } from '@/services/service-order/sod-ready.action';
 
 export interface ActionPayload {
     action: string;
@@ -75,6 +76,9 @@ export class DomainActionDispatcher {
                 break;
             case 'HANDLE_SOD_COMPLETED':
                 result = await DomainActionDispatcher.handleSodCompleted(payload, tx);
+                break;
+            case 'MARK_SOD_READY_FOR_INVOICE':
+                result = await markSodReadyForInvoice(tx, { entityId: payload.entityId, userId: payload.userId });
                 break;
             case 'MARK_INVOICE_AREA_APPROVED':
                 result = await markInvoiceAreaApproved(tx, { entityId: payload.entityId, userId: payload.userId });

@@ -16,13 +16,15 @@ afterEach(() => {
 const areaUser = () => { db.user.findUnique = async () => ({ permissions: JSON.stringify(['sod.invoice']), accessibleOpmcs: [{ id: 'opmc-1' }], systemRole: null, sectionAssignments: [] }); };
 const companyWide = () => { db.user.findUnique = async () => ({ permissions: JSON.stringify(['sod.invoice', 'admin.rbac']), accessibleOpmcs: [], systemRole: null, sectionAssignments: [] }); };
 
-test('a user limited to an area sees only the invoices of contractors in that area', async () => {
+const areaWhere = (ids: string[]) => ({ OR: [{ opmcId: { in: ids } }, { opmcId: null, contractor: { opmcId: { in: ids } } }] });
+
+test('a user limited to an area sees only the invoices of that area (the invoice\'s own area, or its contractor\'s for older invoices)', async () => {
     areaUser();
-    assert.deepEqual(await invoiceScopeWhere('u1'), { contractor: { opmcId: { in: ['opmc-1'] } } });
+    assert.deepEqual(await invoiceScopeWhere('u1'), areaWhere(['opmc-1']));
     let where: any;
     db.invoice.findMany = async (args: any) => { where = args.where; return []; };
     await InvoiceService.getInvoices({ status: 'PENDING' }, 'u1');
-    assert.deepEqual(where.contractor, { opmcId: { in: ['opmc-1'] } });
+    assert.deepEqual(where.OR, areaWhere(['opmc-1']).OR);
     assert.equal(where.status, 'PENDING');
 });
 
@@ -30,8 +32,8 @@ test('company-wide access sees all invoices, and no identity sees none', async (
     companyWide();
     assert.deepEqual(await invoiceScopeWhere('admin'), {});
     db.user.findUnique = async () => null;
-    assert.deepEqual(await invoiceScopeWhere('ghost'), { contractor: { opmcId: { in: [] } } });
-    assert.deepEqual(await invoiceScopeWhere(null), { contractor: { opmcId: { in: [] } } });
+    assert.deepEqual(await invoiceScopeWhere('ghost'), areaWhere([]));
+    assert.deepEqual(await invoiceScopeWhere(null), areaWhere([]));
 });
 
 test('one invoice is reachable only when its contractor is inside the caller\'s area', async () => {
@@ -39,6 +41,10 @@ test('one invoice is reachable only when its contractor is inside the caller\'s 
     db.invoice.findUnique = async () => ({ contractor: { opmcId: 'opmc-1' } });
     await assertInvoiceAccess('inv-1', 'u1');
     db.invoice.findUnique = async () => ({ contractor: { opmcId: 'opmc-2' } });
+    await assert.rejects(() => assertInvoiceAccess('inv-1', 'u1'), /outside your area/);
+    db.invoice.findUnique = async () => ({ opmcId: 'opmc-1', contractor: { opmcId: 'opmc-2' } });
+    await assertInvoiceAccess('inv-1', 'u1');
+    db.invoice.findUnique = async () => ({ opmcId: 'opmc-2', contractor: { opmcId: 'opmc-1' } });
     await assert.rejects(() => assertInvoiceAccess('inv-1', 'u1'), /outside your area/);
     db.invoice.findUnique = async () => ({ contractor: null });
     await assert.rejects(() => assertInvoiceAccess('inv-1', 'u1'), /outside your area/);

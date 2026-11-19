@@ -75,7 +75,7 @@ export default function OspQualityQueuePage() {
                     <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2"><ShieldCheck className="w-7 h-7 text-indigo-700" />OSP Quality: invoices to verify</h1>
-                            <p className="mt-1 text-sm text-slate-800">An invoice appears here after it passed the area approvals (Area Coordinator, QC Officer, the contractor, Engineer, Area Manager). Check it, then verify it so it can go to Finance.</p>
+                            <p className="mt-1 text-sm text-slate-800">An invoice appears here after the contractor accepted it and the Area Manager approved it. Check it, then verify it so it can go to Finance.</p>
                         </div>
 
                         {q.data && (

@@ -57,7 +57,7 @@ export class HoMonthlyService {
 
         // SOD contractors: the monthly contractor invoices (legacy Invoice model) that have been approved and are not fully paid
         const sodInvoices = await prisma.invoice.findMany({
-            where: { approvalStatus: 'APPROVED', status: { not: 'PAID' }, AND: [{ OR: [{ dueDate: null }, { dueDate: { lte: range.end } }] }, ...(scope === undefined ? [] : [{ OR: [{ project: { opmcId: { in: scope } } }, { projectId: null, contractor: { opmcId: { in: scope } } }] }])] },
+            where: { approvalStatus: 'APPROVED', status: { not: 'PAID' }, AND: [{ OR: [{ dueDate: null }, { dueDate: { lte: range.end } }] }, ...(scope === undefined ? [] : [{ OR: [{ project: { opmcId: { in: scope } } }, { projectId: null, opmcId: { in: scope } }, { projectId: null, opmcId: null, contractor: { opmcId: { in: scope } } }] }])] },
             orderBy: { dueDate: 'asc' }, take: 500,
             select: { id: true, invoiceNumber: true, amount: true, dueDate: true, projectId: true, contractorId: true, project: { select: { name: true } }, contractor: { select: { name: true } } },
         });

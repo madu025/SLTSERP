@@ -19,7 +19,7 @@ export function areaAllows(scope: readonly string[] | undefined, opmcId: string 
     return scope === undefined || (!!opmcId && scope.includes(opmcId));
 }
 
-/** A contractor invoice follows the area of its contractor, because it has no project. */
+/** A contractor invoice follows its own area (the area of its orders), because it has no project. */
 export async function assertContractorAreaAccess(opmcId: string | null | undefined, userId: string | null | undefined): Promise<void> {
     if (!areaAllows(await resolveOpmcScope(userId), opmcId)) {
         throw AppError.forbidden('This contractor invoice is outside your area');
@@ -40,8 +40,8 @@ export async function assertVoucherAccess(projectId: string | null | undefined, 
     if (scope === undefined) return;
     const invoiceId = sodInvoiceIdOf(description);
     if (invoiceId) {
-        const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { contractor: { select: { opmcId: true } } } });
-        if (areaAllows(scope, invoice?.contractor?.opmcId)) return;
+        const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { opmcId: true, contractor: { select: { opmcId: true } } } });
+        if (areaAllows(scope, invoice?.opmcId ?? invoice?.contractor?.opmcId)) return;
         throw AppError.forbidden('This contractor invoice is outside your area');
     }
     throw AppError.forbidden('Vendor payments need company-wide finance access');
@@ -54,6 +54,6 @@ export async function sodVoucherIdsInScope(scope: readonly string[]): Promise<st
         SELECT pv.id FROM "PaymentVoucher" pv
         JOIN "Invoice" i ON pv."description" LIKE ${SOD_INVOICE_REF} || i.id::text || '%'
         JOIN "Contractor" c ON c.id = i."contractorId"
-        WHERE pv."projectId" IS NULL AND c."opmcId" = ANY(${[...scope]}::uuid[])`;
+        WHERE pv."projectId" IS NULL AND COALESCE(i."opmcId", c."opmcId") = ANY(${[...scope]}::uuid[])`;
     return rows.map((r) => r.id);
 }

@@ -659,7 +659,7 @@ export class ServiceOrderService {
     /**
      * Mark SODs as invoicable after engineer verification
      */
-    static async verifyInvoicable(sodIds: string[], userId: string, notes?: string) {
+    static async verifyInvoicable(sodIds: string[], userId: string, notes?: string, opts: { lenient?: boolean } = {}) {
         const sods = await prisma.serviceOrder.findMany({
             where: {
                 id: { in: sodIds },
@@ -686,6 +686,7 @@ export class ServiceOrderService {
         });
 
         if (sods.length === 0) {
+            if (opts.lenient) return { count: 0, verifiedIds: [] as string[], rejected: [] as Array<{ soNum: string; eligible: boolean; reasons: string[] }> };
             throw AppError.badRequest('No completed SODs found matching the provided IDs');
         }
 
@@ -712,6 +713,7 @@ export class ServiceOrderService {
             .filter((result) => !result.eligible);
         const eligibleSods = priced.filter((sod) => validateSodForInvoicing(sod).eligible);
 
+        if (eligibleSods.length === 0 && opts.lenient) return { count: 0, verifiedIds: [] as string[], rejected };
         if (eligibleSods.length === 0) {
             throw AppError.validation(
                 'No selected SODs passed financial verification. Correct the missing contractor, revenue, contractor cost or material cost data first.',

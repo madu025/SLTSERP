@@ -18,6 +18,10 @@ export class InvoiceGeneratorService {
         month?: string | number;
         year?: string | number;
         sodIds?: string[];
+        /** The invoice's own area (the area of its orders). Without it the contractor's home area is used. */
+        opmcId?: string;
+        /** Orders completed in an earlier month than the billing month may be on this invoice (late SODs). */
+        allowLate?: boolean;
         description?: string;
         retentionPercent?: number;
         whtPercent?: number;
@@ -58,9 +62,12 @@ export class InvoiceGeneratorService {
         if (!contractor) throw AppError.notFound('Contractor not found');
 
         const accessibleOpmcs = await resolveOpmcScope(userId);
-        if (accessibleOpmcs !== undefined && (!contractor.opmcId || !accessibleOpmcs.includes(contractor.opmcId))) {
-            throw AppError.forbidden('Contractor is outside your OPMC access');
+        const areaId = data.opmcId ?? contractor.opmcId;
+        if (accessibleOpmcs !== undefined && (!areaId || !accessibleOpmcs.includes(areaId))) {
+            throw AppError.forbidden('The area of this invoice is outside your OPMC access');
         }
+        const area = data.opmcId ? await db.oPMC.findUnique({ where: { id: data.opmcId }, select: { rtom: true } }) : contractor.opmc;
+        if (data.opmcId && !area) throw AppError.notFound('Area not found');
 
         const periodStart = new Date(Date.UTC(currentYear, currentMonth - 1, 1));
         const periodEnd = new Date(Date.UTC(currentYear, currentMonth, 1));
@@ -82,7 +89,8 @@ export class InvoiceGeneratorService {
             sodWhere = {
                 id: { in: data.sodIds },
                 contractorId: data.contractorId,
-                completedDate: { gte: periodStart, lt: periodEnd },
+                ...(data.opmcId ? { opmcId: data.opmcId } : {}),
+                completedDate: data.allowLate ? { lt: periodEnd } : { gte: periodStart, lt: periodEnd },
                 OR: [
                     { status: { in: ['COMPLETED', 'INSTALL_CLOSED'] } },
                     { sltsStatus: 'COMPLETED' }
@@ -109,7 +117,7 @@ export class InvoiceGeneratorService {
             throw AppError.badRequest('One or more selected SODs are outside the invoice period, scope, or already invoiced');
         }
 
-        const regionName = contractor.opmc?.rtom || 'METRO';
+        const regionName = area?.rtom || 'METRO';
         const contractorPrefix = contractor.registrationNumber ? contractor.registrationNumber.slice(-4) : 'LOTS';
 
         const invoiceNumber = await this.generateUniqueNumber(
@@ -150,6 +158,7 @@ export class InvoiceGeneratorService {
         const invoice = await this.createRegionalInvoice({
             invoiceNumber,
             contractorId: contractor.id,
+            opmcId: areaId ?? null,
             year: currentYear,
             month: currentMonth,
             totalAmount: totalGrossAmount,
@@ -254,6 +263,7 @@ export class InvoiceGeneratorService {
     static async createRegionalInvoice(data: {
         invoiceNumber: string;
         contractorId: string;
+        opmcId?: string | null;
         year: number;
         month: number;
         totalAmount: number;
@@ -337,6 +347,7 @@ export class InvoiceGeneratorService {
                 data: {
                     invoiceNumber: other.invoiceNumber,
                     contractorId: other.contractorId,
+                    opmcId: other.opmcId ?? null,
                     projectId,
                     year: other.year,
                     month: other.month,

@@ -51,7 +51,7 @@ export class HoRunService {
         if (!sod) throw AppError.notFound('Contractor invoice not found');
         if (sod.approvalStatus !== 'APPROVED') throw AppError.badRequest('THE_CONTRACTOR_INVOICE_MUST_BE_APPROVED_FIRST');
         const live = await prisma.paymentVoucher.aggregate({ where: { description: { startsWith: `BOM_INVOICING_REF:${sod.id}` }, status: { notIn: ['CANCELLED', 'REJECTED'] } }, _sum: { amount: true } });
-        return { label: `${sod.contractor.name} · ${sod.invoiceNumber}`, category: 'SOD_CONTRACTOR' as PaymentCategory, payable: round2(num(sod.amount) - num(live._sum.amount)), projectId: sod.projectId, opmcId: sod.contractor.opmcId as string | null, create: { projectId: sod.projectId, contractorInvoiceId: sod.id, type: 'CONTRACTOR', payeeId: sod.contractor.id, payeeName: sod.contractor.name, title: `Payment of ${sod.invoiceNumber}` } };
+        return { label: `${sod.contractor.name} · ${sod.invoiceNumber}`, category: 'SOD_CONTRACTOR' as PaymentCategory, payable: round2(num(sod.amount) - num(live._sum.amount)), projectId: sod.projectId, opmcId: (sod.opmcId ?? sod.contractor.opmcId) as string | null, create: { projectId: sod.projectId, contractorInvoiceId: sod.id, type: 'CONTRACTOR', payeeId: sod.contractor.id, payeeName: sod.contractor.name, title: `Payment of ${sod.invoiceNumber}` } };
     }
 
     /** Create a payment request for each selected payable, optionally submitting each for approval. */
@@ -113,7 +113,7 @@ export class HoRunService {
         const scope = await resolveOpmcScope(userId);
         const sodAreas = new Map<string, string | null>();
         const sodIds = rows.map((r) => (r.projectId ? null : sodInvoiceIdOf(r.description))).filter((x): x is string => !!x);
-        if (scope !== undefined && sodIds.length) for (const i of await prisma.invoice.findMany({ where: { id: { in: sodIds } }, select: { id: true, contractor: { select: { opmcId: true } } } })) sodAreas.set(i.id, i.contractor?.opmcId ?? null);
+        if (scope !== undefined && sodIds.length) for (const i of await prisma.invoice.findMany({ where: { id: { in: sodIds } }, select: { id: true, opmcId: true, contractor: { select: { opmcId: true } } } })) sodAreas.set(i.id, i.opmcId ?? i.contractor?.opmcId ?? null);
         const visible = rows.filter((r) => scope === undefined || areaAllows(scope, r.project?.opmcId ?? (r.projectId ? null : (sodAreas.get(sodInvoiceIdOf(r.description) ?? '') ?? null))));
         const siIds = visible.map((r) => r.supplierInvoiceId).filter((x): x is string => !!x);
         const sis = siIds.length ? await prisma.supplierInvoice.findMany({ where: { id: { in: siIds } }, select: { id: true, category: true } }) : [];

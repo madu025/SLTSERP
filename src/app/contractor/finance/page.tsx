@@ -370,7 +370,7 @@ export default function ContractorFinancePage() {
 
                             {selectedClaim.confirmStage === 'CONTRACTOR' && (
                                 <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/40 space-y-2">
-                                    <p className="text-[11px] font-bold text-amber-200">Check this invoice. If it is correct, confirm it and it goes on to the Engineer and the Area Manager. If something is wrong, tell us what and it goes back to the start.</p>
+                                    <p className="text-[11px] font-bold text-amber-200">Check this invoice. If it is correct, accept it and it goes on to the Area Manager. If something is wrong, tell us what and it goes back to the Engineer.</p>
                                     <textarea
                                         value={disputeNote}
                                         onChange={(e) => setDisputeNote(e.target.value)}

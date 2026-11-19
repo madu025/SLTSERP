@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { invoiceAreaOf } from '@/lib/invoice-access';
 import { deriveEffectivePermissions } from '@/lib/effective-permissions';
 import { mayActOnLevel, roleLabel, type GateActor } from '@/lib/gate-eligibility';
 import { ProcessGateEngine } from '@/services/approval/process-gate-engine';
@@ -157,14 +158,14 @@ export class InvoiceGateService {
             orderBy: [{ createdAt: 'asc' }],
             select: {
                 id: true, invoiceNumber: true, totalAmount: true, amountA: true, amountB: true, month: true, year: true, rtomArea: true, confirmStage: true, contractorId: true,
-                contractor: { select: { name: true, opmcId: true } }, _count: { select: { sods: true, sodRemovals: true } },
+                opmcId: true, contractor: { select: { name: true, opmcId: true } }, _count: { select: { sods: true, sodRemovals: true } },
             },
         });
         const visible = rows.filter((inv) => {
             const level = levels.find((l) => l.level === byInvoice.get(inv.id));
             if (!level) return false;
             if (level.assignee === 'ORDER_CONTRACTOR') return !!inv.contractorId && inv.contractorId === actor.contractorId;
-            return scope === undefined || (!!inv.contractor?.opmcId && scope.includes(inv.contractor.opmcId));
+            return scope === undefined || (!!invoiceAreaOf(inv) && scope.includes(invoiceAreaOf(inv) as string));
         });
         const counts: Record<string, number> = {};
         for (const inv of visible) { const role = levels.find((l) => l.level === byInvoice.get(inv.id))!.requiredRole; counts[role] = (counts[role] ?? 0) + 1; }
@@ -189,7 +190,7 @@ export class InvoiceGateService {
         const levels = policy.approvalLevels as Level[];
         const scope = await resolveOpmcScope(userId);
         await this.healPending(ids.length, ids);
-        const invoices = await prisma.invoice.findMany({ where: { id: { in: ids } }, select: { id: true, invoiceNumber: true, contractorId: true, confirmStage: true, contractor: { select: { opmcId: true } } } });
+        const invoices = await prisma.invoice.findMany({ where: { id: { in: ids } }, select: { id: true, invoiceNumber: true, contractorId: true, confirmStage: true, opmcId: true, contractor: { select: { opmcId: true } } } });
         const open = await prisma.universalApprovalInstance.findMany({ where: { entityType: INVOICE_GATE.entityType, policyId: policy.id, status: 'PENDING', entityId: { in: ids } }, select: { id: true, entityId: true, level: true } });
         const history = await historyFor(ids, policy.id);
         return { policy, actor, permissions, levels, scope, invoices, open, history };
@@ -212,7 +213,7 @@ export class InvoiceGateService {
             const inst = open.find((i) => i.entityId === inv.id);
             const level = inst ? levels.find((l) => l.level === inst.level) : undefined;
             const isContractorStep = level?.assignee === 'ORDER_CONTRACTOR';
-            const opmcId = inv.contractor?.opmcId ?? null;
+            const opmcId = invoiceAreaOf(inv);
             const plan = planApproval({
                 waiting: !!inst && !!level, stageLabel: level ? roleLabel(level.requiredRole) : '-', userId,
                 canAct: !!level && mayActOnLevel(actor, permissions, level, { contractorId: inv.contractorId }),
@@ -254,7 +255,7 @@ export class InvoiceGateService {
             const level = inst ? levels.find((l) => l.level === inst.level) : undefined;
             if (!inst || !level) { failed.push({ invoiceNumber: inv.invoiceNumber, message: 'This invoice is not waiting for an approval' }); continue; }
             if (!mayActOnLevel(actor, permissions, level, { contractorId: inv.contractorId })) { failed.push({ invoiceNumber: inv.invoiceNumber, message: `Waiting for the ${roleLabel(level.requiredRole)}; you do not hold that step` }); continue; }
-            const opmcId = inv.contractor?.opmcId ?? null;
+            const opmcId = invoiceAreaOf(inv);
             if (level.assignee !== 'ORDER_CONTRACTOR' && scope !== undefined && (!opmcId || !scope.includes(opmcId))) { failed.push({ invoiceNumber: inv.invoiceNumber, message: 'This invoice is outside your area' }); continue; }
             try {
                 await ProcessGateEngine.advanceGate({ instanceId: inst.id, action: 'REJECTED', userId, remarks: reason });
@@ -287,11 +288,11 @@ export class InvoiceGateService {
         if (!policy) throw AppError.badRequest('The invoice approval gate is not configured');
         const { actor, permissions } = await loadActor(userId);
         const levels = policy.approvalLevels as Level[];
-        const inv = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { id: true, contractorId: true, contractor: { select: { opmcId: true } } } });
+        const inv = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { id: true, contractorId: true, opmcId: true, contractor: { select: { opmcId: true } } } });
         if (!inv) throw AppError.notFound('Invoice not found');
         const scope = await resolveOpmcScope(userId);
         const ownContractor = !!actor.contractorId && actor.contractorId === inv.contractorId;
-        const inArea = scope === undefined || (!!inv.contractor?.opmcId && scope.includes(inv.contractor.opmcId));
+        const inArea = scope === undefined || (!!invoiceAreaOf(inv) && scope.includes(invoiceAreaOf(inv) as string));
         const staffStep = levels.some((l) => l.assignee !== 'ORDER_CONTRACTOR' && mayActOnLevel(actor, permissions, l, { contractorId: inv.contractorId }));
         if (!(ownContractor || (inArea && staffStep))) throw AppError.forbidden('This invoice is outside your area');
         return { actor, permissions, levels, policy, canChange: inArea && staffStep };

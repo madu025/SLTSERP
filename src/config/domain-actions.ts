@@ -20,6 +20,8 @@ export const DOMAIN_ACTIONS_REGISTRY: DomainAction[] = [
   { entityType: 'SERVICE_ORDER', value: '/api/projects/update-sod-phase', label: 'Update Project Phase', desc: 'Move SOD to next implementation phase' },
   { entityType: 'SERVICE_ORDER', value: '/api/projects/trigger-pat', label: 'Trigger PAT Workflow', desc: 'Initiate Provisional Acceptance Testing' },
   
+  { entityType: 'SERVICE_ORDER', value: 'MARK_SOD_READY_FOR_INVOICE', label: 'Mark order ready for the engineer (after the area approvals)', desc: 'The Engineer of the area can then put the order on an invoice' },
+
   // INVOICE
   { entityType: 'INVOICE', value: '', label: 'None (Only Status Update)', desc: 'Just update the status of the invoice' },
   { entityType: 'INVOICE', value: 'MARK_INVOICE_AREA_APPROVED', label: 'Mark invoice area-approved', desc: 'After the area approvals the invoice goes to OSP Quality for verification' },

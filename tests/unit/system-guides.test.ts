@@ -22,7 +22,7 @@ for (const guide of GUIDES) {
 
 test('questions find the right section', () => {
     assert.equal(GuideService.lookup('how do I complete an order and record material', all).sections[0].id, 'complete-order');
-    assert.equal(GuideService.lookup('generate a contractor invoice', all).sections[0].id, 'verify-and-invoice');
+    assert.equal(GuideService.lookup('generate a contractor invoice', all).sections[0].id, 'engineer-invoicing');
     assert.equal(GuideService.lookup('assign contractor team', all).sections[0].id, 'assign-contractor');
     assert.equal(GuideService.lookup('return an order or restore it', all).sections[0].id, 'returns-and-restore');
     assert.equal(GuideService.lookup('why can I not see the invoice page, permission', all).sections[0].id, 'access');
@@ -30,10 +30,10 @@ test('questions find the right section', () => {
 
 test('the module name in a question does not drag every answer to the overview', () => {
     assert.equal(GuideService.lookup('assign service order to contractor', all).sections[0].id, 'assign-contractor');
-    assert.equal(GuideService.lookup('verify and invoice a service order', all).sections[0].id, 'verify-and-invoice');
-    assert.equal(GuideService.lookup('generate contractor invoice from completed service orders', all).sections[0].id, 'verify-and-invoice');
+    assert.equal(GuideService.lookup('verify and invoice a service order', all).sections[0].id, 'engineer-invoicing');
+    assert.equal(GuideService.lookup('generate contractor invoice from completed service orders', all).sections[0].id, 'engineer-invoicing');
     assert.equal(GuideService.lookup('complete an order and record material', all).sections[0].id, 'complete-order');
-    assert.equal(GuideService.lookup('invoice eka hadanne kohomada', all).sections[0].id, 'verify-and-invoice');
+    assert.equal(GuideService.lookup('invoice eka hadanne kohomada', all).sections[0].id, 'engineer-invoicing');
 });
 
 test('a question about another module is not answered with a stray shared word', () => {
@@ -66,7 +66,7 @@ test('a question the guide does not cover is not answered by guessing', () => {
 test('a user without the capability is told what is missing instead of being taught the steps', () => {
     const a = GuideService.lookup('generate a contractor invoice', readOnly);
     const s = a.sections[0];
-    assert.equal(s.id, 'verify-and-invoice');
+    assert.equal(s.id, 'engineer-invoicing');
     assert.equal(s.steps.length, 0);
     assert.match(s.blocked ?? '', /sod\.invoice/);
     const c = GuideService.lookup('complete an order', readOnly).sections[0];
@@ -82,7 +82,7 @@ test('the contractor portal section is not blocked by an office capability', () 
 
 test('"where" comes from the real sidebar', () => {
     assert.equal(pageTrail('/service-orders/work-order'), 'Service Orders → Pending SOD');
-    assert.equal(pageTrail('/service-orders/invoicable'), 'Service Orders → Invoicable SODs');
+    assert.equal(pageTrail('/service-orders/invoicing'), 'Service Orders → Invoicing');
     assert.equal(pageTrail('/nope'), undefined);
 });
 

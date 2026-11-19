@@ -8,6 +8,7 @@ model OPMC {
   createdAt                   DateTime                     @default(now())
   updatedAt                   DateTime                     @updatedAt
   contractors                 Contractor[]
+  invoices                    Invoice[]
   contractorPaymentConfigs    ContractorPaymentConfig[]
   contractorTeams             ContractorTeam[]
   store                       InventoryStore?              @relation(fields: [storeId], references: [id])

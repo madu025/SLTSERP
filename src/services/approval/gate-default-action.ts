@@ -9,6 +9,7 @@
 export function defaultGateDomainAction(entityType: string, toStatus: string | null | undefined): string | undefined {
     if (entityType === 'INVOICE' && toStatus === 'AREA_APPROVED') return 'MARK_INVOICE_AREA_APPROVED';
     if (entityType !== 'SERVICE_ORDER') return undefined;
+    if (toStatus === 'READY_FOR_INVOICE') return 'MARK_SOD_READY_FOR_INVOICE';
     if (toStatus === 'COMPLETED') return 'HANDLE_SOD_COMPLETED';
     if (toStatus === 'INPROGRESS') return 'HANDLE_SOD_ASSIGNED';
     return undefined;

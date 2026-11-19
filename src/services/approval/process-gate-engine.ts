@@ -98,8 +98,8 @@ export async function assertActorEligibleForGateLevel(
 export async function loadGateScope(client: Prisma.TransactionClient, entityType: string, entityId: string): Promise<GateScope> {
     if (entityType === 'INVOICE') {
         try {
-            const invoice = await client.invoice.findUnique({ where: { id: entityId }, select: { contractorId: true, contractor: { select: { opmcId: true } } } });
-            return { opmcId: invoice?.contractor?.opmcId ?? null, contractorId: invoice?.contractorId ?? null };
+            const invoice = await client.invoice.findUnique({ where: { id: entityId }, select: { contractorId: true, opmcId: true, contractor: { select: { opmcId: true } } } });
+            return { opmcId: invoice?.opmcId ?? invoice?.contractor?.opmcId ?? null, contractorId: invoice?.contractorId ?? null };
         } catch {
             return {};
         }
