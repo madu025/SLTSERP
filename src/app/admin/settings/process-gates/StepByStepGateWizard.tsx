@@ -94,7 +94,8 @@ function SortableLevel({ lvl, total, roleOptions, usersList, queueMode, onChange
           </select>
           <label className="block text-xs font-bold text-slate-800 mt-2">Eligible SystemRole:</label>
           <select value={lvl.requiredRole || ''} onChange={(e) => onRole(e.target.value)} className={field}>
-            {(roleOptions.length > 0 ? roleOptions : [lvl.requiredRole].filter((role): role is string => Boolean(role))).map((role) => (
+            {/* the step's own role is always listed, even when it is not a system role (e.g. CONTRACTOR), so the box never shows another role */}
+            {[...new Set([...(roleOptions.length > 0 ? roleOptions : []), ...(lvl.requiredRole ? [lvl.requiredRole] : [])])].map((role) => (
               <option key={role} value={role}>{role.replace(/_/g, ' ')}</option>
             ))}
           </select>
