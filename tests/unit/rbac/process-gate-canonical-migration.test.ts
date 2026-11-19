@@ -65,7 +65,7 @@ test('a gate with work in flight cannot be switched off or moved, and unconnecte
   assert.match(service, /GATE_IN_USE/);
   assert.match(service, /universalApprovalInstance\.count\(\{ where: \{ policyId: id, status: 'PENDING' \}/);
   const modules = fs.readFileSync('src/config/process-gate-modules.ts', 'utf8');
-  assert.match(modules, /\['MATERIAL_REQUEST', 'SERVICE_ORDER'\]/);
+  assert.match(modules, /\['MATERIAL_REQUEST', 'SERVICE_ORDER', 'INVOICE'\]/);
   assert.match(fs.readFileSync('src/app/admin/settings/process-gates/page.tsx', 'utf8'), /Not connected to a workflow/);
   assert.match(fs.readFileSync('src/app/admin/settings/process-gates/StepByStepGateWizard.tsx', 'utf8'), /isGateModuleConnected\(formData\.entityType\)/);
 });
