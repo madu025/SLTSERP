@@ -7,13 +7,9 @@ import { SodApprovalService } from '@/services/service-order/sod-approval.servic
 
 export const dynamic = 'force-dynamic';
 
-// The four stage capabilities of the area approval chain; which stage a person may act on is checked per order in the service.
-const STAGE_PERMISSIONS = [
-    RBAC_PERMISSIONS.INVOICE_CONFIRM_COORDINATOR,
-    RBAC_PERMISSIONS.INVOICE_CONFIRM_QC,
-    RBAC_PERMISSIONS.INVOICE_CONFIRM_ENGINEER,
-    RBAC_PERMISSIONS.INVOICE_CONFIRM_MANAGER,
-];
+// Which step a person holds (the capability, role and area each step of the gate names) is decided per order by the gate, so this
+// route only needs a signed-in user; someone who holds no step sees an empty list and cannot approve anything.
+const STAGE_PERMISSIONS = [RBAC_PERMISSIONS.DASHBOARD_READ];
 
 const bodySchema = z.object({
     action: z.enum(['APPROVE', 'RETURN']),

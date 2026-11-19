@@ -9,6 +9,8 @@ const DISPATCH = 'src/app/finance/invoice-dispatch/page.tsx';
 const OSP_APPROVALS = 'src/app/invoices/osp-approvals/page.tsx';
 const OSP_QUEUE ='src/app/finance/sf-audit/queue/page.tsx';
 const APPROVALS ='src/app/service-orders/approvals/page.tsx';
+const CONTRACTOR_CONFIRM = 'src/app/contractor/sods/ContractorSodConfirmations.tsx';
+const GATE_WIZARD = 'src/app/admin/settings/process-gates/StepByStepGateWizard.tsx';
 const FIN_RULES ='src/services/service-order/sod-financial-validation.ts';
 const LIFECYCLE = 'src/services/service-order/sod.lifecycle.service.ts';
 const CONTRACTOR_SODS = 'src/app/contractor/sods/page.tsx';
@@ -298,20 +300,24 @@ export const SOD_GUIDE: ModuleGuide = {
         {
             id: 'approve-for-invoice',
             title: 'Approve completed orders for invoicing (SOD Approvals)',
-            summary: 'A completed order passes the area chain (Area Coordinator, QC Officer, Area Engineer / Officer, Area Manager) before it can be invoiced; one or many orders can be approved at once.',
-            keywords: ['approve', 'approval', 'sod approvals', 'area coordinator', 'qc officer', 'engineer', 'area manager', 'chain', 'return', 'invoice', 'invoicable', 'confirm'],
+            summary: 'A completed order passes the invoicing approval gate before it can be invoiced. By default: Area Coordinator, QC Officer, the order\'s Contractor, Area Engineer / Officer, then Area Manager (ARM). The steps are a process gate an administrator can reorder by dragging.',
+            keywords: ['approve', 'approval', 'sod approvals', 'area coordinator', 'qc officer', 'contractor', 'engineer', 'area manager', 'arm', 'gate', 'chain', 'return', 'invoice', 'invoicable', 'confirm', 'drag', 'reorder'],
             page: '/service-orders/approvals',
             requires: RBAC_PERMISSIONS.INVOICE_CONFIRM_COORDINATOR,
             steps: [
-                'Open Service Orders → SOD Approvals. It lists the completed orders waiting at the stage you hold, in your own area. The chips at the top show how many are waiting at each of your stages.',
+                'Open Service Orders → SOD Approvals. It lists the completed orders waiting at the step you hold, in your own area. The chips at the top show how many are waiting at each of your steps.',
                 'Tick one order or many (or the box at the top to select all) and click "Approve selected", or use the Approve button on a single row.',
-                'The order moves to the next stage. The Engineer stage is skipped in an area that has no Engineer / Officer. After the Area Manager approves, the order is "Approved for invoice" and appears on Invoicable SODs.',
-                'To send orders back, tick them, type a reason in "Reason to return" and click "Return selected". They go back to the Area Coordinator and the chain starts again.',
+                'The order moves to the next step. The default order is Area Coordinator, QC Officer, Contractor, Area Engineer / Officer, Area Manager. The Engineer step is skipped in an area that has no Engineer / Officer. After the last step the order is "Approved for invoice" and appears on Invoicable SODs.',
+                'The Contractor step is done by the order\'s own contractor in the contractor portal (Field SODs): the contractor ticks its completed orders and clicks "Confirm selected", or disputes them with a reason ("Dispute selected").',
+                'To send orders back, tick them, type a reason in "Reason to return" and click "Return selected". They go back to the first step and the chain starts again.',
+                'To change the flow, an administrator opens Admin → Settings → Process Gates, edits the Service Order gate "COMPLETED to INVOICABLE" and drags the steps into the new order (Step 3). Each step also sets who approves (a role in the order\'s area, or the order\'s own contractor) and whether it is skipped when nobody in the area holds it.',
             ],
             tips: [
-                'One person cannot approve two different stages of the same order; a different person must take each stage.',
+                'One person cannot approve two different steps of the same order; a different person must take each step.',
+                'A person sees and approves only orders of their own area; a contractor sees only its own orders.',
                 'The last approval also checks that the order can be billed (contractor, completion date, amounts, PAT, material cost). An order that cannot be billed is listed under "Not changed" with the reasons.',
-                'Changing the completion or the material of an approved order sends it back to the start of the chain.',
+                'Changing the completion or the material of an approved order sends it back to the first step.',
+                'Orders already waiting stay at the step they are on when the order of the steps is changed; moving a step ahead of one an order already passed asks for it again.',
                 'Orders completed before the chain existed keep the old single "Verify Completed SODs" step on Invoicable SODs.',
             ],
             anchors: [
@@ -320,6 +326,10 @@ export const SOD_GUIDE: ModuleGuide = {
                 { file: APPROVALS, text: 'Return selected' },
                 { file: APPROVALS, text: 'Reason to return' },
                 { file: APPROVALS, text: 'Not changed' },
+                { file: CONTRACTOR_CONFIRM, text: 'Confirm selected' },
+                { file: CONTRACTOR_CONFIRM, text: 'Dispute selected' },
+                { file: GATE_WIZARD, text: 'Drag a step by its handle' },
+                { file: GATE_WIZARD, text: 'Shared queue.' },
             ],
         },
         {

@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { deriveEffectivePermissions } from '@/lib/effective-permissions';
 import { isCanonicalPermission, RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import crypto from 'crypto';
+import { firstApplicableLevel, hasEligibleRole, mayActOnLevel, parseEligibleRoles, type GateScope } from '@/lib/gate-eligibility';
 
 export interface CreateUniversalApprovalInstancePayload {
     entityId: string;
@@ -41,39 +42,23 @@ type ApprovalPolicyLevel = {
     eligibleRoles: Prisma.JsonValue | null;
     specificUserId: string | null;
     description?: string | null;
+    /** ROLE (default) or ORDER_CONTRACTOR: the contractor the service order is assigned to */
+    assignee?: string | null;
+    skipIfNoApprover?: boolean | null;
 };
-
-function parseEligibleRoles(value: Prisma.JsonValue | null | undefined): string[] {
-    if (!Array.isArray(value)) return [];
-    return value.filter((role): role is string => typeof role === 'string' && role.trim().length > 0)
-        .map((role) => role.trim().replace(/_GLOBAL$/, ''));
-}
 
 function assertCanonicalLevel(level: ApprovalPolicyLevel, context: string) {
     if (!level.requiredPermission || !isCanonicalPermission(level.requiredPermission)) {
         throw AppError.badRequest(`Workflow policy is incomplete: ${context} requires a valid canonical approval permission.`);
     }
     const eligibleRoles = parseEligibleRoles(level.eligibleRoles);
-    if (!level.specificUserId && eligibleRoles.length === 0) {
+    if (!level.specificUserId && eligibleRoles.length === 0 && level.assignee !== 'ORDER_CONTRACTOR') {
         throw AppError.badRequest(`Workflow policy is incomplete: ${context} requires canonical eligible role assignments.`);
     }
     return { requiredPermission: level.requiredPermission, eligibleRoles };
 }
 
-function hasEligibleCanonicalRole(
-    user: { systemRole?: { code: string; isActive: boolean } | null; sectionAssignments: Array<{ role: { code: string; isActive: boolean } }> },
-    eligibleRoles: readonly string[],
-) {
-    if (eligibleRoles.length === 0) return false;
-    const activeRoles = [
-        user.systemRole,
-        ...user.sectionAssignments.map((assignment) => assignment.role),
-    ].filter((role): role is { code: string; isActive: boolean } => Boolean(role?.isActive));
-    return activeRoles.some((role) => eligibleRoles.some((eligible) => {
-        const code = role.code.replace(/_GLOBAL$/, '');
-        return code === eligible || code.endsWith(`_${eligible}`);
-    }));
-}
+const hasEligibleCanonicalRole = hasEligibleRole;
 
 /**
  * In-app approvals (no approval-instance row) must honour the same eligibility the gate policy defines:
@@ -109,9 +94,21 @@ export async function assertActorEligibleForGateLevel(
     }
 }
 
+/** The area and contractor a gate entity belongs to (only service orders carry them). Used by queue gates. */
+export async function loadGateScope(client: Prisma.TransactionClient, entityType: string, entityId: string): Promise<GateScope> {
+    if (entityType !== 'SERVICE_ORDER') return {};
+    try {
+        const order = await client.serviceOrder.findUnique({ where: { id: entityId }, select: { opmcId: true, contractorId: true } });
+        return { opmcId: order?.opmcId ?? null, contractorId: order?.contractorId ?? null };
+    } catch {
+        return {};
+    }
+}
+
 async function findCanonicalApprover(
     client: Prisma.TransactionClient,
     level: ApprovalPolicyLevel,
+    scope?: GateScope,
 ) {
     const { requiredPermission, eligibleRoles } = assertCanonicalLevel(level, `level ${level.level}`);
     const users = await client.user.findMany({
@@ -121,6 +118,8 @@ async function findCanonicalApprover(
             email: true,
             isOOO: true,
             delegatedUserId: true,
+            contractorId: true,
+            accessibleOpmcs: { select: { id: true } },
             permissions: true,
             systemRole: {
                 select: {
@@ -147,14 +146,43 @@ async function findCanonicalApprover(
 
     const candidates = users.filter((user) => {
         if (level.specificUserId && user.id !== level.specificUserId) return false;
-        return deriveEffectivePermissions(user).includes(requiredPermission);
+        const permissions = deriveEffectivePermissions(user);
+        if (!permissions.includes(requiredPermission)) return false;
+        if (level.assignee === 'ORDER_CONTRACTOR') return !!scope?.contractorId && user.contractorId === scope.contractorId;
+        if (scope?.opmcId && !permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC) && !user.accessibleOpmcs.some((o) => o.id === scope.opmcId)) return false;
+        return true;
     });
+    if (level.assignee === 'ORDER_CONTRACTOR') return candidates[0] ?? null;
     // The person who holds the eligible role gets the approval. An RBAC admin can always act, but is only the
     // assignee when nobody with the role exists: taking the first match in table order used to hand approvals that
     // a role holder could have actioned to an admin account instead.
     return candidates.find((user) => hasEligibleCanonicalRole(user, eligibleRoles))
         ?? candidates.find((user) => deriveEffectivePermissions(user).includes(RBAC_PERMISSIONS.ADMIN_RBAC))
         ?? null;
+}
+
+/** Somebody who holds the step's role (not just an administrator) exists in the entity's area. */
+async function levelHolderExists(client: Prisma.TransactionClient, level: ApprovalPolicyLevel, scope?: GateScope): Promise<boolean> {
+    const { requiredPermission, eligibleRoles } = assertCanonicalLevel(level, `level ${level.level}`);
+    const users = await client.user.findMany({
+        where: { status: 'active', ...(level.assignee === 'ORDER_CONTRACTOR' && scope?.contractorId ? { contractorId: scope.contractorId } : {}) },
+        select: {
+            id: true, contractorId: true, permissions: true, accessibleOpmcs: { select: { id: true } },
+            systemRole: { select: { code: true, isActive: true, permissions: true, rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true, isActive: true } } } } } },
+            sectionAssignments: { select: { role: { select: { code: true, isActive: true, permissions: true, rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true, isActive: true } } } } } } } },
+        },
+    });
+    return users.some((user) => {
+        const permissions = deriveEffectivePermissions(user);
+        if (!permissions.includes(requiredPermission) || permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC)) return false;
+        if (level.assignee === 'ORDER_CONTRACTOR') return !!scope?.contractorId && user.contractorId === scope.contractorId;
+        if (scope?.opmcId && !user.accessibleOpmcs.some((o) => o.id === scope.opmcId)) return false;
+        return hasEligibleCanonicalRole(user, eligibleRoles);
+    });
+}
+
+function resolveApplicableLevel(client: Prisma.TransactionClient, levels: ApprovalPolicyLevel[], from: number, scope?: GateScope) {
+    return firstApplicableLevel(levels, from, (level) => levelHolderExists(client, level, scope));
 }
 
 /**
@@ -274,44 +302,54 @@ export class ProcessGateEngine {
             throw AppError.badRequest('Transition Blocked: HO PAT Acceptance is required by the workflow policy.');
         }
 
-        // 2. Start at Level 1 (Index 0)
-        const firstLevel = policyLevels[0];
+        // 2. Start at the first step that applies. A step can be skipped when nobody holding it exists in the entity's area.
+        const queueMode = Boolean((policy as { queueMode?: boolean }).queueMode);
+        const scope = queueMode ? await loadGateScope(prisma as unknown as Prisma.TransactionClient, entityType, entityId) : undefined;
+        const startIndex = await resolveApplicableLevel(prisma as unknown as Prisma.TransactionClient, policyLevels, 0, scope);
+        if (startIndex < 0) {
+            throw AppError.badRequest(`Workflow policy ${policy.label} has no step that applies to this ${entityType}.`);
+        }
+        const firstLevel = policyLevels[startIndex];
         const firstLevelPolicy = assertCanonicalLevel(firstLevel, `${policy.entityType} level ${firstLevel.level}`);
 
-        // Determine approver user
-        const approver = await findCanonicalApprover(prisma as unknown as Prisma.TransactionClient, firstLevel);
-        let approverId = approver?.id;
-        let approverEmail = approver?.email;
+        // A queue gate has no single assigned approver and sends no per-entity email: approvers work from the queue page.
+        let approverId: string | undefined;
+        let approverEmail: string | null | undefined;
+        if (!queueMode) {
+            const approver = await findCanonicalApprover(prisma as unknown as Prisma.TransactionClient, firstLevel);
+            approverId = approver?.id;
+            approverEmail = approver?.email;
 
-        // Handle Out-Of-Office (OOO) Auto-Delegation
-        if (approver?.isOOO && approver.delegatedUserId) {
-            const delegate = await findCanonicalApprover(
-                prisma as unknown as Prisma.TransactionClient,
-                { ...firstLevel, specificUserId: approver.delegatedUserId },
-            );
-            if (delegate) {
-                console.log(`[ProcessGateEngine] Approver ${approver.email} was OOO. Auto-delegated approval to ${delegate.email}`);
-                approverId = delegate.id;
-                approverEmail = delegate.email;
+            // Handle Out-Of-Office (OOO) Auto-Delegation
+            if (approver?.isOOO && approver.delegatedUserId) {
+                const delegate = await findCanonicalApprover(
+                    prisma as unknown as Prisma.TransactionClient,
+                    { ...firstLevel, specificUserId: approver.delegatedUserId },
+                );
+                if (delegate) {
+                    console.log(`[ProcessGateEngine] Approver ${approver.email} was OOO. Auto-delegated approval to ${delegate.email}`);
+                    approverId = delegate.id;
+                    approverEmail = delegate.email;
+                }
+            }
+
+            if (!approverId || !approverEmail) {
+                 throw AppError.badRequest(`Cannot dispatch approval: no active canonical approver is configured for ${firstLevel.requiredRole}.`);
             }
         }
 
-        if (!approverId || !approverEmail) {
-             throw AppError.badRequest(`Cannot dispatch approval: no active canonical approver is configured for ${firstLevel.requiredRole}.`);
-        }
-
-        // 3. Create UniversalApprovalInstance for Level 1
+        // 3. Create UniversalApprovalInstance for the first step
         const instanceData: CreateUniversalApprovalInstancePayload = {
             entityId,
             entityType,
             policyId: policy.id,
-            levelIndex: 0,
+            levelIndex: startIndex,
             level: firstLevel.level,
             requiredRole: firstLevel.requiredRole,
             requiredPermission: firstLevelPolicy.requiredPermission,
             eligibleRoles: firstLevelPolicy.eligibleRoles,
             policyVariant: 'DEFAULT',
-            assignedUserId: approverId,
+            assignedUserId: approverId ?? null,
             makerId: makerId, // Assign Maker for SoD checks later
             status: 'PENDING'
         };
@@ -321,10 +359,8 @@ export class ProcessGateEngine {
         });
 
         // 4. Dispatch Event for External Listeners (Zero-Coding Webhook pattern)
-        // Instead of hardcoding email sends, we emit an event or return dispatch details.
-        // We will keep a generic email dispatch here, but remove the hardcoded check.
         try {
-            if (approverEmail) {
+            if (approverEmail && approverId) {
                 await notifyApprover({ instanceId: instance.id, entityType, entityId, approverEmail, approverId, requiredRole: firstLevel.requiredRole });
             }
             console.log(`[ProcessGateEngine] Dispatched Level ${firstLevel.level} Approval for Policy ${policy.label}`);
@@ -332,7 +368,7 @@ export class ProcessGateEngine {
             console.error(`[ProcessGateEngine] Failed to dispatch email for ${entityType}:`, emailErr);
         }
 
-        return { status: 'GATE_STARTED', instanceId: instance.id, policyId: policy.id };
+        return { status: 'GATE_STARTED', instanceId: instance.id, policyId: policy.id, level: firstLevel.level, requiredRole: firstLevel.requiredRole };
     }
 
     /**
@@ -385,6 +421,8 @@ export class ProcessGateEngine {
                 select: {
                     id: true,
                     status: true,
+                    contractorId: true,
+                    accessibleOpmcs: { select: { id: true } },
                     permissions: true,
                     systemRole: { select: { code: true, isActive: true, permissions: true, rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } } } },
                     sectionAssignments: { select: { role: { select: { code: true, isActive: true, permissions: true, rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } } } } } },
@@ -399,10 +437,19 @@ export class ProcessGateEngine {
             if (!capabilities.includes(canonicalPolicy.requiredPermission)) {
                 throw AppError.forbidden(`${canonicalPolicy.requiredPermission} is required for this approval action.`);
             }
-            const hasRequiredRole = hasEligibleCanonicalRole(user, canonicalPolicy.eligibleRoles);
-
-            if (!isAdmin && instance.assignedUserId !== userId && !hasRequiredRole) {
-                throw AppError.forbidden('You are not authorized to action this request.');
+            const queueMode = Boolean((policy as { queueMode?: boolean } | null)?.queueMode);
+            const scope = queueMode ? await loadGateScope(tx as unknown as Prisma.TransactionClient, instance.entityType, instance.entityId) : undefined;
+            if (queueMode) {
+                // Queue gate: the actor must hold the step inside the entity's area (or be the entity's own contractor)
+                const actor = { ...user, accessibleOpmcIds: user.accessibleOpmcs.map((o) => o.id) };
+                if (!mayActOnLevel(actor, capabilities, { ...effectiveLevel, assignee: (currentPolicyLevel as { assignee?: string } | undefined)?.assignee }, scope)) {
+                    throw AppError.forbidden('You are not authorized to action this request.');
+                }
+            } else {
+                const hasRequiredRole = hasEligibleCanonicalRole(user, canonicalPolicy.eligibleRoles);
+                if (!isAdmin && instance.assignedUserId !== userId && !hasRequiredRole) {
+                    throw AppError.forbidden('You are not authorized to action this request.');
+                }
             }
 
             // Universal Segregation of Duties (Maker != Checker) Security
@@ -463,29 +510,34 @@ export class ProcessGateEngine {
             const currentLevelIndex = typedInstance.levelIndex ?? 0;
             const policyLevels = policy?.approvalLevels.filter((level) => level.policyVariant === instance.policyVariant) ?? [];
             policyLevels.forEach((level) => assertCanonicalLevel(level, `${instance.entityType} level ${level.level}`));
-            if (policy && policyLevels.length > currentLevelIndex + 1) {
-                const nextLevelIndex = currentLevelIndex + 1;
+            // The next step that applies (a step is skipped when nobody holding it exists in the entity's area)
+            const nextLevelIndex = policy ? await resolveApplicableLevel(tx as unknown as Prisma.TransactionClient, policyLevels, currentLevelIndex + 1, scope) : -1;
+            if (policy && nextLevelIndex >= 0) {
                 const nextLevel = policyLevels[nextLevelIndex];
                 const nextLevelPolicy = assertCanonicalLevel(nextLevel, `${instance.entityType} level ${nextLevel.level}`);
 
-                // Determine approver for next level
-                const nextApprover = await findCanonicalApprover(tx as unknown as Prisma.TransactionClient, nextLevel);
-                let nextApproverId = nextApprover?.id;
-                let nextApproverEmail = nextApprover?.email;
+                // A queue gate has no single assigned approver and sends no per-entity email
+                let nextApproverId: string | undefined;
+                let nextApproverEmail: string | null | undefined;
+                if (!queueMode) {
+                    const nextApprover = await findCanonicalApprover(tx as unknown as Prisma.TransactionClient, nextLevel);
+                    nextApproverId = nextApprover?.id;
+                    nextApproverEmail = nextApprover?.email;
 
-                if (!nextApproverId || !nextApproverEmail) {
-                    throw AppError.badRequest(`Cannot advance approval: no active canonical approver is configured for ${nextLevel.requiredRole}.`);
-                }
+                    if (!nextApproverId || !nextApproverEmail) {
+                        throw AppError.badRequest(`Cannot advance approval: no active canonical approver is configured for ${nextLevel.requiredRole}.`);
+                    }
 
-                // Handle OOO Delegation for next approver
-                if (nextApprover?.isOOO && nextApprover.delegatedUserId) {
-                    const delegate = await findCanonicalApprover(
-                        tx as unknown as Prisma.TransactionClient,
-                        { ...nextLevel, specificUserId: nextApprover.delegatedUserId },
-                    );
-                    if (delegate?.email) {
-                        nextApproverId = delegate.id;
-                        nextApproverEmail = delegate.email;
+                    // Handle OOO Delegation for next approver
+                    if (nextApprover?.isOOO && nextApprover.delegatedUserId) {
+                        const delegate = await findCanonicalApprover(
+                            tx as unknown as Prisma.TransactionClient,
+                            { ...nextLevel, specificUserId: nextApprover.delegatedUserId },
+                        );
+                        if (delegate?.email) {
+                            nextApproverId = delegate.id;
+                            nextApproverEmail = delegate.email;
+                        }
                     }
                 }
 
@@ -499,7 +551,7 @@ export class ProcessGateEngine {
                     requiredPermission: nextLevelPolicy.requiredPermission,
                     eligibleRoles: nextLevelPolicy.eligibleRoles,
                     policyVariant: instance.policyVariant,
-                    assignedUserId: nextApproverId,
+                    assignedUserId: nextApproverId ?? null,
                     makerId: (instance as typeof instance & { makerId?: string | null }).makerId ?? undefined,
                     status: 'PENDING'
                 };
@@ -508,7 +560,9 @@ export class ProcessGateEngine {
                     data: nextInstanceData as unknown as Prisma.UniversalApprovalInstanceUncheckedCreateInput
                 });
 
-                notifyNext = { instanceId: nextInstance.id, entityType: instance.entityType, entityId: instance.entityId, approverEmail: nextApproverEmail, approverId: nextApproverId, requiredRole: nextLevel.requiredRole };
+                if (nextApproverId && nextApproverEmail) {
+                    notifyNext = { instanceId: nextInstance.id, entityType: instance.entityType, entityId: instance.entityId, approverEmail: nextApproverEmail, approverId: nextApproverId, requiredRole: nextLevel.requiredRole };
+                }
                 console.log(`[ProcessGateEngine] Gate Advanced: Level ${instance.level} APPROVED -> Created Level ${nextLevel.level} for ${nextApproverEmail || nextLevel.requiredRole}`);
 
                 return {

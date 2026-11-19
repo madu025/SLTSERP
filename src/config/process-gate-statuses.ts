@@ -33,6 +33,7 @@ export const MODULE_STATUS_REGISTRY: Record<string, StatusOption[]> = {
     { value: 'PENDING_PAT', label: 'PENDING_PAT (Awaiting Acceptance Test)' },
     { value: 'PAT_PASSED', label: 'PAT_PASSED (PAT Approved)' },
     { value: 'COMPLETED', label: 'COMPLETED (Work Finished)' },
+    { value: 'INVOICABLE', label: 'INVOICABLE (Approved for invoicing)' },
     { value: 'INVOICED', label: 'INVOICED (Billed)' },
     { value: 'RETURN', label: 'RETURN (Returned to SLT)' },
     { value: 'CLOSED', label: 'CLOSED (Archived)' },

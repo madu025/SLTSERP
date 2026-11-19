@@ -167,7 +167,8 @@ export class ServiceOrderService {
             // again after a completion transition.
             updateData.isInvoicable = false;
             // An order already in the area approval chain must be approved again after its figures were refreshed
-            if (oldOrder.sodApprovalStage) updateData.sodApprovalStage = 'AREA_COORDINATOR';
+            // (the gate restarts it the next time the approvals queue is opened)
+            if (oldOrder.sodApprovalStage) updateData.sodApprovalStage = 'IN_GATE';
         }
 
         // 4. System specific manual updates (Snapshots) - Fetch before transaction
@@ -230,7 +231,7 @@ export class ServiceOrderService {
                 updateData.materialUsage = materialUpdate;
                 // Material changes invalidate the prior invoice snapshot, and the approvals that were given on it.
                 updateData.isInvoicable = false;
-                if (oldOrder.sodApprovalStage) updateData.sodApprovalStage = 'AREA_COORDINATOR';
+                if (oldOrder.sodApprovalStage) updateData.sodApprovalStage = 'IN_GATE';
             }
 
             // Save collected CPEs

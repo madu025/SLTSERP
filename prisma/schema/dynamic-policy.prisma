@@ -22,6 +22,10 @@ model ProcessGatePolicy {
   rejectionBehavior String @default("PERMANENT_CANCEL") // "PERMANENT_CANCEL", "REWORK_TO_CREATOR", "STEP_BACK_ONE_LEVEL"
   approvalStrategy  String @default("ANY_CAN_APPROVE") // "ANY_CAN_APPROVE", "ALL_MUST_APPROVE", "PERCENTAGE_THRESHOLD"
 
+  /// Shared queue: approvers work from a queue page limited to the entity's area (OPMC), nobody is assigned one entity and no
+  /// per-entity email is sent. Used by the service order invoicing gate, where hundreds of orders wait at the same step.
+  queueMode Boolean @default(false)
+
   /// Canonical notification audience capability identifier.
   notificationAudience String?
   domainAction  String? // e.g. "RESERVE_STOCK_MAIN"
@@ -57,6 +61,11 @@ model ProcessApprovalLevel {
   minAmount      Decimal? // Condition: Only apply if amount >= X
   maxAmount      Decimal? // Condition: Only apply if amount <= X
   slaHours       Int?     @default(24) // SLA Escalation Timeout in hours
+  /// ROLE = anyone holding the eligible role (inside the entity's area in a queue gate); ORDER_CONTRACTOR = a user of the
+  /// contractor the service order is assigned to.
+  assignee       String   @default("ROLE")
+  /// The step is skipped when nobody holding the role exists in the entity's area (e.g. an area without an Engineer).
+  skipIfNoApprover Boolean @default(false)
 
   gatePolicy   ProcessGatePolicy @relation(fields: [gatePolicyId], references: [id], onDelete: Cascade)
   specificUser User?             @relation(fields: [specificUserId], references: [id])

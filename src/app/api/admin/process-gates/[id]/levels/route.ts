@@ -15,6 +15,10 @@ const levelSchema = z.object({
   description: z.string().max(500).optional().nullable(),
   minAmount: z.number().nonnegative().optional().nullable(),
   maxAmount: z.number().nonnegative().optional().nullable(),
+  // ROLE = anyone holding the role (in the order's area for a queue gate); ORDER_CONTRACTOR = the order's own contractor
+  assignee: z.enum(['ROLE', 'ORDER_CONTRACTOR']).optional(),
+  // skip the step when nobody holding the role exists in the order's area
+  skipIfNoApprover: z.boolean().optional(),
 });
 
 const createLevelSchema = levelSchema;
@@ -38,6 +42,8 @@ export const POST = apiHandler(async (req, params, body) => {
       description: parsedBody.description ?? undefined,
       minAmount: parsedBody.minAmount ?? undefined,
       maxAmount: parsedBody.maxAmount ?? undefined,
+      assignee: parsedBody.assignee,
+      skipIfNoApprover: parsedBody.skipIfNoApprover,
     };
 
     const newLevel = await ProcessGateAdminService.addApprovalLevel(gateId, data);
@@ -61,3 +67,14 @@ export const PUT = apiHandler(async (req, params, body) => {
       data: result
     };
 }, { schema: replaceLevelsSchema, audit: { action: 'REPLACE_LEVELS', entity: 'PROCESS_GATE_LEVEL' } });
+
+// Reorder the steps of a gate (drag and drop): the body lists every step id in its new order
+const reorderSchema = z.object({ orderedLevelIds: z.array(databaseUuidSchema).min(1).max(10) });
+
+export const PATCH = apiHandler(async (req, params, body) => {
+    const gateId = params?.id as string;
+    if (!gateId) throw AppError.badRequest('Gate ID is required');
+    const parsed = reorderSchema.parse(body);
+    const levels = await ProcessGateAdminService.reorderApprovalLevels(gateId, parsed.orderedLevelIds);
+    return { message: 'Approval steps reordered', data: levels };
+}, { schema: reorderSchema, audit: { action: 'REORDER_LEVELS', entity: 'PROCESS_GATE_LEVEL' } });

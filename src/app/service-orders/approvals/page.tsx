@@ -10,15 +10,15 @@ import { Loader2, ClipboardCheck } from 'lucide-react';
 
 interface Hist { stage: string; action: string; note: string | null; createdAt: string; user: { name: string | null } }
 interface Order {
-    id: string; soNum: string; rtom: string; customerName: string | null; completedDate: string | null; sodApprovalStage: string;
+    id: string; soNum: string; rtom: string; customerName: string | null; completedDate: string | null; sodApprovalStage: string; stageLabel: string;
     sltsPatStatus: string | null; opmcPatStatus: string | null; hoPatStatus: string | null; qcStatus: string | null;
     contractor: { name: string } | null; approvals: Hist[];
 }
-interface Queue { stages: string[]; counts: Record<string, number>; orders: Order[] }
+interface Queue { stages: Array<{ key: string; label: string }>; counts: Record<string, number>; orders: Order[] }
 interface Outcome { soNum: string; stage?: string; message?: string }
 interface Result { approved?: Outcome[]; returned?: Outcome[]; failed: Outcome[] }
 
-const LABEL: Record<string, string> = { AREA_COORDINATOR: 'Area Coordinator', QC_OFFICER: 'QC Officer', AREA_ENGINEER: 'Area Engineer / Officer', AREA_MANAGER: 'Area Manager', CONFIRMED: 'Approved for invoice' };
+const LABEL: Record<string, string> = { AREA_COORDINATOR: 'Area Coordinator', QC_OFFICER: 'QC Officer', CONTRACTOR: 'Contractor', ENGINEER: 'Area Engineer / Officer', AREA_ENGINEER: 'Area Engineer / Officer', AREA_MANAGER: 'Area Manager (ARM)', CONFIRMED: 'Approved for invoice' };
 const th = 'py-2 pr-3 text-left text-xs font-bold uppercase tracking-wide text-slate-900';
 const day = (d: string | null) => (d ? new Date(d).toLocaleDateString('en-GB') : '-');
 const pat = (s: string | null) => (s === 'PAT_PASSED' ? { t: 'Passed', c: 'bg-emerald-100 text-emerald-900 border-emerald-300' } : { t: s ? s.replace('PAT_', '').toLowerCase() : 'pending', c: 'bg-amber-100 text-amber-900 border-amber-300' });
@@ -77,14 +77,14 @@ export default function SodApprovalsPage() {
                     <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2"><ClipboardCheck className="w-7 h-7 text-indigo-700" />SOD Approvals</h1>
-                            <p className="mt-1 text-sm text-slate-800">Completed service orders must pass the area chain before they can be invoiced: Area Coordinator, QC Officer, Area Engineer / Officer (skipped when the area has none), Area Manager. You see the orders waiting at your stage, in your area. Tick one or many and approve.</p>
+                            <p className="mt-1 text-sm text-slate-800">Completed service orders must pass the approval gate before they can be invoiced (by default Area Coordinator, QC Officer, Contractor, Area Engineer / Officer, Area Manager; an administrator can reorder the steps on the gate screen). You see the orders waiting at your step, in your area. Tick one or many and approve.</p>
                         </div>
 
                         {q.data && q.data.stages.length > 0 && (
                             <div className="flex flex-wrap gap-2" role="group" aria-label="Stage">
                                 <button type="button" aria-pressed={stage === ''} onClick={() => { setStage(''); setPicked(new Set()); }} className={`rounded-full border px-3 py-1 text-xs font-bold ${stage === '' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-900 hover:border-slate-500'}`}>All my stages {Object.values(q.data.counts).reduce((a, b) => a + b, 0)}</button>
                                 {q.data.stages.map((s) => (
-                                    <button key={s} type="button" aria-pressed={stage === s} onClick={() => { setStage(s); setPicked(new Set()); }} className={`rounded-full border px-3 py-1 text-xs font-bold ${stage === s ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-900 hover:border-slate-500'}`}>{LABEL[s]} {q.data.counts[s] ?? 0}</button>
+                                    <button key={s.key} type="button" aria-pressed={stage === s.key} onClick={() => { setStage(s.key); setPicked(new Set()); }} className={`rounded-full border px-3 py-1 text-xs font-bold ${stage === s.key ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-900 hover:border-slate-500'}`}>{s.label} {q.data.counts[s.key] ?? 0}</button>
                                 ))}
                             </div>
                         )}
@@ -125,8 +125,8 @@ export default function SodApprovalsPage() {
                                                             <td className="py-2 pr-3 whitespace-nowrap">{day(o.completedDate)}</td>
                                                             <td className="py-2 pr-3 whitespace-nowrap">{[o.sltsPatStatus, o.opmcPatStatus, o.hoPatStatus].map((s, i) => { const p = pat(s); return <span key={i} className={`mr-1 inline-block rounded border px-1.5 py-0.5 text-[11px] font-semibold ${p.c}`}>{p.t}</span>; })}</td>
                                                             <td className="py-2 pr-3 text-xs">{o.qcStatus ? o.qcStatus.replace('QC_', '').replace('_', ' ').toLowerCase() : '-'}</td>
-                                                            <td className="py-2 pr-3 font-semibold">{LABEL[o.sodApprovalStage] ?? o.sodApprovalStage}</td>
-                                                            <td className="py-2 pr-3 text-xs text-slate-800">{o.approvals.length === 0 ? '-' : o.approvals.slice(-3).map((h, n) => <div key={n}>{LABEL[h.stage] ?? h.stage}: {h.action === 'RETURNED' ? 'returned' : 'approved'} by {h.user.name ?? 'user'}{h.note ? ` (${h.note})` : ''}</div>)}</td>
+                                                            <td className="py-2 pr-3 font-semibold">{o.stageLabel ?? LABEL[o.sodApprovalStage] ?? o.sodApprovalStage}</td>
+                                                            <td className="py-2 pr-3 text-xs text-slate-800">{o.approvals.length === 0 ? '-' : o.approvals.slice(-3).map((h, n) => <div key={n}>{LABEL[h.stage] ?? h.stage}: {h.action === 'RETURNED' ? 'returned' : h.action === 'RESTARTED' ? 'restarted' : 'approved'}{h.action === 'RESTARTED' ? '' : ` by ${h.user.name ?? 'user'}`}{h.note ? ` (${h.note})` : ''}</div>)}</td>
                                                             <td className="py-2 whitespace-nowrap"><button type="button" disabled={act.isPending} onClick={() => act.mutate({ action: 'APPROVE', ids: [o.id] })} className="rounded bg-emerald-700 px-3 py-1 text-xs font-bold text-white disabled:opacity-50">Approve</button></td>
                                                         </tr>
                                                     ))}

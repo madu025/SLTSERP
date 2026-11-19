@@ -1,6 +1,9 @@
 'use client';
 
 import {  useState, useEffect  } from 'react';
+import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { isGateModuleConnected } from '@/config/process-gate-modules';
 import {
   X,
@@ -15,6 +18,7 @@ import {
   Users,
   Plus,
   Trash2,
+  GripVertical,
   Sparkles,
   Layers,
   ArrowRight,
@@ -27,6 +31,100 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 type GatePolicyWithLevels = ProcessGatePolicy & {
   approvalLevels: ProcessApprovalLevel[];
 };
+
+type WizardLevel = {
+  uid: string;
+  level: number;
+  requiredRole?: string;
+  requiredPermission: string;
+  eligibleRoles: string[];
+  specificUserId?: string;
+  description?: string;
+  /** ROLE = anyone holding the role (in the order's area for a queue gate); ORDER_CONTRACTOR = the order's own contractor */
+  assignee?: 'ROLE' | 'ORDER_CONTRACTOR';
+  skipIfNoApprover?: boolean;
+};
+
+let levelUid = 0;
+const nextUid = () => `lvl-${Date.now().toString(36)}-${levelUid++}`;
+
+const LEVEL_PERMISSIONS = [
+  RBAC_PERMISSIONS.PROJECT_APPROVE, RBAC_PERMISSIONS.INVENTORY_APPROVE, RBAC_PERMISSIONS.PROCUREMENT_WRITE, RBAC_PERMISSIONS.SOD_WRITE,
+  RBAC_PERMISSIONS.CONTRACTOR_WRITE, RBAC_PERMISSIONS.FINANCE_APPROVE, RBAC_PERMISSIONS.INVOICE_CONFIRM_COORDINATOR, RBAC_PERMISSIONS.INVOICE_CONFIRM_QC,
+  RBAC_PERMISSIONS.INVOICE_CONFIRM_ENGINEER, RBAC_PERMISSIONS.INVOICE_CONFIRM_MANAGER,
+];
+
+/** One approval step. Drag the handle (or focus it and press space, then the arrow keys) to move it in the flow. */
+function SortableLevel({ lvl, total, roleOptions, usersList, queueMode, onChange, onRole, onRemove }: {
+  lvl: WizardLevel;
+  total: number;
+  roleOptions: string[];
+  usersList: Array<{ id: string; name: string; username?: string; employeeId?: string }>;
+  queueMode: boolean;
+  onChange: (patch: Partial<WizardLevel>) => void;
+  onRole: (role: string) => void;
+  onRemove: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: lvl.uid });
+  const field = 'w-full h-10 text-xs border border-slate-300 rounded-xl px-3 bg-slate-50 font-semibold text-slate-900';
+  return (
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className={`p-4 rounded-2xl border border-slate-300 bg-white shadow-sm space-y-3 ${isDragging ? 'relative z-20 opacity-80 ring-2 ring-indigo-500' : ''}`}>
+      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+        <span className="font-bold text-xs text-indigo-950 flex items-center gap-2">
+          <button type="button" aria-label={`Drag to move step ${lvl.level}, ${lvl.requiredRole ?? ''}`} className="cursor-grab touch-none rounded p-1 text-slate-700 hover:bg-slate-100 active:cursor-grabbing" {...attributes} {...listeners}>
+            <GripVertical className="w-4 h-4" />
+          </button>
+          <span className="w-6 h-6 rounded-full bg-indigo-700 text-white font-bold text-xs flex items-center justify-center">{lvl.level}</span>
+          Step {lvl.level}: {(lvl.requiredRole ?? '').replace(/_/g, ' ')}
+          {lvl.assignee === 'ORDER_CONTRACTOR' && <span className="rounded border border-sky-300 bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-900">the order&apos;s own contractor</span>}
+          {lvl.skipIfNoApprover && <span className="rounded border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">skipped when nobody in the area</span>}
+        </span>
+        {total > 1 && (
+          <button type="button" onClick={onRemove} className="text-xs text-rose-700 hover:text-rose-800 flex items-center gap-1 font-semibold">
+            <Trash2 className="w-3.5 h-3.5" /> Remove Level
+          </button>
+        )}
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-3">
+        <div className="space-y-1">
+          <label className="block text-xs font-bold text-slate-800">Canonical Approval Capability:</label>
+          <select value={lvl.requiredPermission} onChange={(e) => onChange({ requiredPermission: e.target.value })} className={field}>
+            {LEVEL_PERMISSIONS.map((permission) => <option key={permission} value={permission}>{permission}</option>)}
+          </select>
+          <label className="block text-xs font-bold text-slate-800 mt-2">Eligible SystemRole:</label>
+          <select value={lvl.requiredRole || ''} onChange={(e) => onRole(e.target.value)} className={field}>
+            {(roleOptions.length > 0 ? roleOptions : [lvl.requiredRole].filter((role): role is string => Boolean(role))).map((role) => (
+              <option key={role} value={role}>{role.replace(/_/g, ' ')}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-1">
+          <label className="block text-xs font-bold text-slate-800">Who approves:</label>
+          <select value={lvl.assignee ?? 'ROLE'} onChange={(e) => onChange({ assignee: e.target.value as 'ROLE' | 'ORDER_CONTRACTOR' })} className={field}>
+            <option value="ROLE">Anyone holding the role{queueMode ? " (in the order's area)" : ''}</option>
+            <option value="ORDER_CONTRACTOR">The order&apos;s own contractor</option>
+          </select>
+          <label className="block text-xs font-bold text-slate-800 mt-2">Designated Specific User (Optional):</label>
+          <select value={lvl.specificUserId || ''} onChange={(e) => onChange({ specificUserId: e.target.value || undefined })} className={field}>
+            <option value="">Any User with Role (Dynamic OPMC Scope)</option>
+            {usersList.map((u) => <option key={u.id} value={u.id}>👤 {u.name} ({u.username || u.employeeId || u.id})</option>)}
+          </select>
+        </div>
+
+        <div className="space-y-1">
+          <label className="block text-xs font-bold text-slate-800">Instructions / Description:</label>
+          <input type="text" value={lvl.description || ''} onChange={(e) => onChange({ description: e.target.value })} placeholder="e.g. Verify field materials" className="w-full h-10 text-xs border border-slate-300 rounded-xl px-3 bg-white text-slate-900" />
+          <label className="flex items-start gap-2 text-xs text-slate-900 mt-2">
+            <input type="checkbox" className="mt-0.5" checked={Boolean(lvl.skipIfNoApprover)} onChange={(e) => onChange({ skipIfNoApprover: e.target.checked })} />
+            <span>Skip this step when nobody holding the role exists in the order&apos;s area</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface StepByStepGateWizardProps {
   gate: GatePolicyWithLevels | null;
@@ -103,12 +201,16 @@ export function StepByStepGateWizard({
     generateIssueNote: gate?.generateIssueNote || false,
     domainAction: gate?.domainAction || '',
     notificationAudience: gate?.notificationAudience || '',
+    queueMode: Boolean(gate?.queueMode),
   });
 
   // Form State for Approval Levels
-  const [levels, setLevels] = useState<Array<{ level: number; requiredRole?: string; requiredPermission: string; eligibleRoles: string[]; specificUserId?: string; description?: string }>>(
+  const [levels, setLevels] = useState<WizardLevel[]>(
     gate?.approvalLevels && gate.approvalLevels.length > 0
       ? gate.approvalLevels.map(l => ({
+          uid: nextUid(),
+          assignee: (l.assignee === 'ORDER_CONTRACTOR' ? 'ORDER_CONTRACTOR' : 'ROLE') as 'ROLE' | 'ORDER_CONTRACTOR',
+          skipIfNoApprover: l.skipIfNoApprover,
           level: l.level,
           requiredRole: l.requiredRole,
           requiredPermission: l.requiredPermission || RBAC_PERMISSIONS.PROJECT_APPROVE,
@@ -117,7 +219,7 @@ export function StepByStepGateWizard({
           description: l.description || ''
         }))
       : [
-          { level: 1, requiredRole: 'OSP_MANAGER', requiredPermission: RBAC_PERMISSIONS.PROJECT_APPROVE, eligibleRoles: ['OSP_MANAGER'], description: 'Level 1 Operational Verification' }
+          { uid: nextUid(), level: 1, requiredRole: 'OSP_MANAGER', requiredPermission: RBAC_PERMISSIONS.PROJECT_APPROVE, eligibleRoles: ['OSP_MANAGER'], description: 'Level 1 Operational Verification' }
         ]
   );
 
@@ -149,7 +251,7 @@ export function StepByStepGateWizard({
     const defaultRole = nextLevelNum === 2 ? 'STORES_MANAGER' : nextLevelNum === 3 ? 'FINANCE_MANAGER' : 'ADMIN';
     setLevels(prev => [
       ...prev,
-      { level: nextLevelNum, requiredRole: defaultRole, requiredPermission: RBAC_PERMISSIONS.PROJECT_APPROVE, eligibleRoles: [defaultRole], description: `Level ${nextLevelNum} Verification` }
+      { uid: nextUid(), level: nextLevelNum, requiredRole: defaultRole, requiredPermission: RBAC_PERMISSIONS.PROJECT_APPROVE, eligibleRoles: [defaultRole], description: `Level ${nextLevelNum} Verification` }
     ]);
   };
 
@@ -162,11 +264,16 @@ export function StepByStepGateWizard({
     setLevels(updated);
   };
 
-  const updateLevelRole = (index: number, role: string) => {
-    const updated = [...levels];
-    updated[index].requiredRole = role;
-    updated[index].eligibleRoles = [role];
-    setLevels(updated);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  // Dropping a step renumbers the flow; the order is saved with the rest of the gate when you press Activate
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setLevels((prev) => {
+      const from = prev.findIndex((l) => l.uid === active.id);
+      const to = prev.findIndex((l) => l.uid === over.id);
+      return from < 0 || to < 0 ? prev : arrayMove(prev, from, to).map((l, i) => ({ ...l, level: i + 1 }));
+    });
   };
 
   // Validation (Simple)
@@ -211,7 +318,7 @@ export function StepByStepGateWizard({
       const levelsRes = await fetch(`/api/admin/process-gates/${savedGateId}/levels`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ levels })
+        body: JSON.stringify({ levels: levels.map((l) => { const rest: Partial<WizardLevel> = { ...l }; delete rest.uid; return rest; }) })
       });
 
       if (!levelsRes.ok) {
@@ -493,94 +600,33 @@ export function StepByStepGateWizard({
                 <span>🛡️ <strong>Maker-Checker Enforced:</strong> Request එක සෑදූ කෙනාට එය තමන්ටම Approve කිරීමට පද්ධතිය ඉඩ නොදේ.</span>
               </div>
 
+              {/* Shared queue + drag hint */}
+              <label className="flex items-start gap-2 rounded-2xl border border-slate-300 bg-white p-3 text-xs text-slate-900">
+                <input type="checkbox" className="mt-0.5" checked={Boolean(formData.queueMode)} onChange={(e) => setFormData((prev) => ({ ...prev, queueMode: e.target.checked }))} />
+                <span><strong>Shared queue.</strong> Approvers work from a queue page limited to the order&apos;s own area; nobody is assigned one order and no email is sent per order.</span>
+              </label>
+              <p className="text-xs text-slate-800">Drag a step by its handle (or focus the handle, press space, then the arrow keys) to change the order of the flow. Orders already waiting stay at the step they are on.</p>
+
               {/* Levels List */}
-              <div className="space-y-3">
-                {levels.map((lvl, index) => (
-                  <div key={index} className="p-4 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-3">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                      <span className="font-bold text-xs text-indigo-950 flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center">
-                          {lvl.level}
-                        </span>
-                        Level {lvl.level} Approver
-                      </span>
-                      {levels.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeApprovalLevel(index)}
-                          className="text-xs text-rose-600 hover:text-rose-700 flex items-center gap-1 font-semibold"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" /> Remove Level
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="grid md:grid-cols-3 gap-3">
-                      <div className="space-y-1">
-                        <label className="block text-xs font-bold text-slate-700">Canonical Approval Capability:</label>
-                        <select
-                          value={lvl.requiredPermission}
-                          onChange={(e) => {
-                            const updated = [...levels];
-                            updated[index].requiredPermission = e.target.value;
-                            setLevels(updated);
-                          }}
-                          className="w-full h-10 text-xs border border-slate-200 rounded-xl px-3 bg-slate-50 font-semibold text-slate-800"
-                        >
-                          {[RBAC_PERMISSIONS.PROJECT_APPROVE, RBAC_PERMISSIONS.INVENTORY_APPROVE, RBAC_PERMISSIONS.PROCUREMENT_WRITE, RBAC_PERMISSIONS.SOD_WRITE, RBAC_PERMISSIONS.CONTRACTOR_WRITE, RBAC_PERMISSIONS.FINANCE_APPROVE].map(permission => (
-                            <option key={permission} value={permission}>{permission}</option>
-                          ))}
-                        </select>
-                        <label className="block text-xs font-bold text-slate-700 mt-2">Eligible SystemRole:</label>
-                        <select
-                          value={lvl.requiredRole || ''}
-                          onChange={(e) => updateLevelRole(index, e.target.value)}
-                          className="w-full h-10 text-xs border border-slate-200 rounded-xl px-3 bg-slate-50 font-semibold text-slate-800"
-                        >
-                          {(roleOptions.length > 0 ? roleOptions : [lvl.requiredRole].filter((role): role is string => Boolean(role))).map(role => (
-                            <option key={role} value={role}>{role.replace(/_/g, ' ')}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="block text-xs font-bold text-slate-700">Designated Specific User (Optional):</label>
-                        <select
-                          value={lvl.specificUserId || ''}
-                          onChange={(e) => {
-                            const updated = [...levels];
-                            updated[index].specificUserId = e.target.value || undefined;
-                            setLevels(updated);
-                          }}
-                          className="w-full h-10 text-xs border border-slate-200 rounded-xl px-3 bg-slate-50 font-semibold text-slate-800"
-                        >
-                          <option value="">Any User with Role (Dynamic OPMC Scope)</option>
-                          {usersList.map(u => (
-                              <option key={u.id} value={u.id}>
-                                👤 {u.name} ({u.username || u.employeeId || u.id})
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="block text-xs font-bold text-slate-700">Instructions / Description:</label>
-                        <input
-                          type="text"
-                          value={lvl.description || ''}
-                          onChange={(e) => {
-                            const updated = [...levels];
-                            updated[index].description = e.target.value;
-                            setLevels(updated);
-                          }}
-                          placeholder="e.g. Verify field materials"
-                          className="w-full h-10 text-xs border border-slate-200 rounded-xl px-3 bg-white"
-                        />
-                      </div>
-                    </div>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={levels.map((l) => l.uid)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-3">
+                    {levels.map((lvl, index) => (
+                      <SortableLevel
+                        key={lvl.uid}
+                        lvl={lvl}
+                        total={levels.length}
+                        roleOptions={roleOptions}
+                        usersList={usersList}
+                        queueMode={Boolean(formData.queueMode)}
+                        onChange={(patch) => setLevels((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)))}
+                        onRole={(role) => setLevels((prev) => prev.map((l, i) => (i === index ? { ...l, requiredRole: role, eligibleRoles: [role] } : l)))}
+                        onRemove={() => removeApprovalLevel(index)}
+                      />
+                    ))}
                   </div>
-                ))}
-              </div>
+                </SortableContext>
+              </DndContext>
 
               {/* Add Level Button */}
               {levels.length < 5 && (

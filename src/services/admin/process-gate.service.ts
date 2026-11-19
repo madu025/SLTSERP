@@ -13,6 +13,8 @@ type ApprovalLevelInput = {
   description?: string | null;
   minAmount?: number | null;
   maxAmount?: number | null;
+  assignee?: 'ROLE' | 'ORDER_CONTRACTOR';
+  skipIfNoApprover?: boolean;
 };
 
 type SeedGate = {
@@ -40,7 +42,7 @@ function validateApprovalLevelInput(input: ApprovalLevelInput) {
   }
 
   const roles = [...new Set((input.eligibleRoles ?? []).map((role) => role.trim()).filter(Boolean))];
-  if (!input.specificUserId && roles.length === 0) {
+  if (!input.specificUserId && roles.length === 0 && input.assignee !== 'ORDER_CONTRACTOR') {
     throw AppError.badRequest('At least one eligible canonical SystemRole is required when no specific approver is selected');
   }
   return roles;
@@ -53,6 +55,27 @@ function validateNotificationAudience(value: string | null | undefined): Notific
     throw AppError.badRequest(`Unknown canonical notification audience: ${value}`);
   }
   return value as NotificationAudienceId;
+}
+
+/**
+ * After the steps of a queue gate were reordered, added or removed, an order that is waiting at a step must keep waiting at that same
+ * step. Pending approvals carry the step's number and position, so they are pointed at the step with the same role.
+ * (Orders in progress continue from their current step; moving a step ahead of one they already passed asks for it again.)
+ */
+async function remapPendingInstances(tx: Prisma.TransactionClient, gatePolicyId: string) {
+  const gate = await tx.processGatePolicy.findUnique({ where: { id: gatePolicyId }, select: { queueMode: true } });
+  if (!gate?.queueMode) return;
+  const levels = await tx.processApprovalLevel.findMany({ where: { gatePolicyId, policyVariant: 'DEFAULT' }, orderBy: { level: 'asc' } });
+  const pending = await tx.universalApprovalInstance.findMany({ where: { policyId: gatePolicyId, status: 'PENDING' }, select: { id: true, requiredRole: true, level: true, levelIndex: true } });
+  for (const p of pending) {
+    const idx = levels.findIndex((l) => l.requiredRole === p.requiredRole);
+    if (idx < 0) continue;
+    if (p.level === levels[idx].level && p.levelIndex === idx) continue;
+    await tx.universalApprovalInstance.update({
+      where: { id: p.id },
+      data: { level: levels[idx].level, levelIndex: idx, requiredPermission: levels[idx].requiredPermission, eligibleRoles: levels[idx].eligibleRoles ?? Prisma.JsonNull },
+    });
+  }
 }
 
 export class ProcessGateAdminService {
@@ -111,6 +134,7 @@ export class ProcessGateAdminService {
     generateIssueNote?: boolean;
     domainAction?: string | null;
     notificationAudience?: string | null;
+    queueMode?: boolean;
   }) {
     const notificationAudience = validateNotificationAudience(data.notificationAudience);
     // Normalize empty webhook selection to NULL (column is nullable)
@@ -235,6 +259,8 @@ export class ProcessGateAdminService {
     description?: string;
     minAmount?: number;
     maxAmount?: number;
+    assignee?: 'ROLE' | 'ORDER_CONTRACTOR';
+    skipIfNoApprover?: boolean;
   }) {
     const gate = await prisma.processGatePolicy.findUnique({
       where: { id: gatePolicyId },
@@ -270,11 +296,37 @@ export class ProcessGateAdminService {
           eligibleRoles,
           specificUserId: data.specificUserId,
           description: data.description,
+          assignee: data.assignee ?? 'ROLE',
+          skipIfNoApprover: data.skipIfNoApprover ?? false,
           minAmount: data.minAmount !== undefined ? new Prisma.Decimal(data.minAmount) : null,
           maxAmount: data.maxAmount !== undefined ? new Prisma.Decimal(data.maxAmount) : null,
         }
       });
     });
+  }
+
+  /**
+   * Reorder the steps of a gate: `orderedLevelIds` is every step id in the new order (the drag-and-drop result). Steps keep their
+   * rows and settings; only their numbers change, and orders already waiting stay at the step they are on.
+   */
+  static async reorderApprovalLevels(gatePolicyId: string, orderedLevelIds: string[]) {
+    const gate = await prisma.processGatePolicy.findUnique({ where: { id: gatePolicyId }, select: { id: true, entityType: true } });
+    if (!gate) throw AppError.notFound('Process Gate Policy not found');
+    if (gate.entityType === 'PROJECT_BOQ_APPROVAL' || gate.entityType === 'PROJECT_CHANGE_REQUEST') {
+      throw AppError.badRequest('Project approval policies are managed by their workflow policy configuration, not the generic gate level editor');
+    }
+    return prisma.$transaction(async (tx) => {
+      const levels = await tx.processApprovalLevel.findMany({ where: { gatePolicyId, policyVariant: 'DEFAULT' }, select: { id: true } });
+      const current = new Set(levels.map((l) => l.id));
+      if (orderedLevelIds.length !== current.size || new Set(orderedLevelIds).size !== current.size || orderedLevelIds.some((id) => !current.has(id))) {
+        throw AppError.badRequest('The new order must list every step of the gate exactly once');
+      }
+      // Two phases: step numbers are unique per gate, so move them out of the way first
+      for (let i = 0; i < orderedLevelIds.length; i++) await tx.processApprovalLevel.update({ where: { id: orderedLevelIds[i] }, data: { level: 1000 + i } });
+      for (let i = 0; i < orderedLevelIds.length; i++) await tx.processApprovalLevel.update({ where: { id: orderedLevelIds[i] }, data: { level: i + 1 } });
+      await remapPendingInstances(tx as unknown as Prisma.TransactionClient, gatePolicyId);
+      return tx.processApprovalLevel.findMany({ where: { gatePolicyId, policyVariant: 'DEFAULT' }, orderBy: { level: 'asc' } });
+    }, { timeout: 30_000 });
   }
 
   /**
@@ -291,6 +343,8 @@ export class ProcessGateAdminService {
       description?: string | null;
       minAmount?: number | null;
       maxAmount?: number | null;
+      assignee?: 'ROLE' | 'ORDER_CONTRACTOR';
+      skipIfNoApprover?: boolean;
     }>
   ) {
     const gate = await prisma.processGatePolicy.findUnique({
@@ -326,10 +380,13 @@ export class ProcessGateAdminService {
           eligibleRoles: lvl.eligibleRoles,
           specificUserId: lvl.specificUserId ?? null,
           description: lvl.description ?? null,
+          assignee: lvl.assignee ?? 'ROLE',
+          skipIfNoApprover: lvl.skipIfNoApprover ?? false,
           minAmount: lvl.minAmount != null ? new Prisma.Decimal(lvl.minAmount) : null,
           maxAmount: lvl.maxAmount != null ? new Prisma.Decimal(lvl.maxAmount) : null
         }))
       });
+      await remapPendingInstances(tx as unknown as Prisma.TransactionClient, gatePolicyId);
 
       return created;
     });
@@ -365,6 +422,7 @@ export class ProcessGateAdminService {
           });
         }
       }
+      await remapPendingInstances(tx as unknown as Prisma.TransactionClient, gatePolicyId);
 
       return true;
     });

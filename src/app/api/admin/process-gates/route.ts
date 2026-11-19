@@ -21,6 +21,8 @@ const createGateSchema = z.object({
   // Zero-Coding webhook mapping from the Domain Action registry
   domainAction: z.string().max(200).optional().nullable(),
   notificationAudience: z.string().max(120).optional().nullable(),
+  // Shared queue: approvers work from a queue page limited to the entity's area
+  queueMode: z.boolean().optional(),
 });
 
 export const GET = apiHandler(async () => {

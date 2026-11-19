@@ -30,7 +30,7 @@ interface InvoicableSOD {
     materialUsage?: Array<{ quantity: number; item?: { name: string; code: string } }>;
 }
 
-const SOD_STAGE_LABEL: Record<string, string> = { AREA_COORDINATOR: 'Area Coordinator', QC_OFFICER: 'QC Officer', AREA_ENGINEER: 'Area Engineer / Officer', AREA_MANAGER: 'Area Manager' };
+const SOD_STAGE_LABEL: Record<string, string> = { AREA_COORDINATOR: 'Area Coordinator', QC_OFFICER: 'QC Officer', CONTRACTOR: 'Contractor', ENGINEER: 'Area Engineer / Officer', AREA_ENGINEER: 'Area Engineer / Officer', AREA_MANAGER: 'Area Manager (ARM)', IN_GATE: 'Starting approval', STARTING: 'Starting approval' };
 
 interface ContractorOption {
     id: string;

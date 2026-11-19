@@ -10,5 +10,6 @@ export function defaultGateDomainAction(entityType: string, toStatus: string | n
     if (entityType !== 'SERVICE_ORDER') return undefined;
     if (toStatus === 'COMPLETED') return 'HANDLE_SOD_COMPLETED';
     if (toStatus === 'INPROGRESS') return 'HANDLE_SOD_ASSIGNED';
+    if (toStatus === 'INVOICABLE') return 'MARK_SOD_INVOICABLE';
     return undefined;
 }

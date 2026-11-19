@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import ContractorSodConfirmations from './ContractorSodConfirmations';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { ClipboardList, QrCode, CheckCircle2, Layers, MapPin, Search, ChevronLeft, ChevronRight, Filter, Package, Zap, ChevronDown, ChevronUp, Cpu, RefreshCw, Bell, AlertTriangle, RotateCcw } from "lucide-react";
@@ -347,6 +348,7 @@ export default function ContractorSODsPage() {
 
     return (
         <div className="space-y-5">
+            <ContractorSodConfirmations />
             {/* Header & Controls */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-900 p-5 rounded-2xl border border-slate-800 gap-4 shadow-lg">
                 <div>
