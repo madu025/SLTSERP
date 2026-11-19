@@ -125,7 +125,7 @@ export default function ContractorFinancePage() {
             return v.action;
         },
         onSuccess: (action) => {
-            setMessage({ ok: true, text: action === 'CONFIRM' ? 'Invoice confirmed. It has been sent on for verification.' : 'Your dispute was sent to the office.' });
+            setMessage({ ok: true, text: action === 'CONFIRM' ? 'Invoice confirmed. It goes on to the next approval step.' : 'Your dispute was sent to the office.' });
             setDisputeNote('');
             setSelectedClaim(null);
             queryClient.invalidateQueries({ queryKey: ['contractor-finance-claims'] });
