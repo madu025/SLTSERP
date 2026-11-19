@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { GateSteps, statusLabel, type StepStats } from './GateSteps';
 import { ProcessGatePolicy, ProcessApprovalLevel } from '@prisma/client';
 import { 
   ArrowDown,
@@ -48,6 +49,16 @@ export function VisualWorkflowPipeline({
   onRefreshGates,
 }: VisualWorkflowPipelineProps) {
   const [seeding, setSeeding] = useState(false);
+  // live figures per step: how many items wait and how many people can act on it
+  const [stats, setStats] = useState<Record<string, StepStats[]>>({});
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/admin/process-gates/stats', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (alive && j) setStats((j.data ?? j) as Record<string, StepStats[]>); })
+      .catch(() => undefined);
+    return () => { alive = false; };
+  }, [gates]);
 
   // Filter gates for the selected entity type and sort in chronological sequence
   const rawGates = gates.filter(g => entityType === 'ALL' || g.entityType === entityType);
@@ -214,8 +225,8 @@ export function VisualWorkflowPipeline({
               <div className="w-full max-w-2xl bg-white border-2 border-indigo-200/90 shadow-md shadow-indigo-950/5 rounded-xl relative z-10 hover:border-indigo-400 transition-all p-3.5 sm:p-4">
                 
                 {/* Entry Point Status Badge */}
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-900 text-white border border-indigo-700 px-3 py-0.5 rounded-full text-[10px] font-bold font-mono shadow-xs tracking-wider">
-                  {gate.fromStatus}
+                <div title={gate.fromStatus} className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-900 text-white border border-indigo-700 px-3 py-0.5 rounded-full text-[10px] font-bold shadow-xs tracking-wider">
+                  {statusLabel(gate.entityType, gate.fromStatus)}
                 </div>
 
                 {/* Top Bar: Gate Title & Actions */}
@@ -282,35 +293,18 @@ export function VisualWorkflowPipeline({
                   )}
                 </div>
 
-                {/* Bottom: Horizontal Approval Chain */}
-                <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-1.5 font-bold text-slate-700">
-                    <Layers className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>Approvals:</span>
-                    {(!gate.approvalLevels || gate.approvalLevels.length === 0) ? (
-                      <span className="text-amber-600 font-normal text-[11px] italic">Auto-Pass (No Reviewers)</span>
-                    ) : (
-                      <div className="flex items-center gap-1">
-                        {gate.approvalLevels.map((lvl, lIdx) => (
-                          <React.Fragment key={lvl.id}>
-                            <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                              L{lvl.level}: {lvl.requiredRole}
-                            </span>
-                            {lIdx < gate.approvalLevels.length - 1 && (
-                              <ArrowRight className="w-3 h-3 text-slate-300" />
-                            )}
-                          </React.Fragment>
-                        ))}
-                      </div>
-                    )}
+                {/* Approval steps in plain language, with live figures */}
+                <div className="mt-2.5 pt-2 border-t border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-xs font-bold text-slate-900"><Layers className="w-3.5 h-3.5 text-indigo-700" />Who approves, in order</span>
+                    <button
+                      onClick={() => onOpenBuilder(gate)}
+                      className="text-[11px] font-bold text-indigo-800 hover:text-indigo-950 underline flex items-center gap-0.5"
+                    >
+                      <Settings2 className="w-3 h-3" /> Change the steps
+                    </button>
                   </div>
-
-                  <button
-                    onClick={() => onOpenBuilder(gate)}
-                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 underline flex items-center gap-0.5"
-                  >
-                    <Settings2 className="w-3 h-3" /> Config
-                  </button>
+                  <GateSteps gate={gate} stats={stats[gate.id]} />
                 </div>
 
               </div>
@@ -343,8 +337,8 @@ export function VisualWorkflowPipeline({
                   
                   {/* If last node, show final status target */}
                   {index === entityGates.length - 1 && (
-                    <div className="absolute -bottom-1 bg-emerald-600 text-white font-mono text-[10px] font-bold px-3 py-1 rounded-md shadow-sm whitespace-nowrap z-10">
-                      {gate.toStatus}
+                    <div title={gate.toStatus} className="absolute -bottom-1 bg-emerald-700 text-white text-[10px] font-bold px-3 py-1 rounded-md shadow-sm whitespace-nowrap z-10">
+                      {statusLabel(gate.entityType, gate.toStatus)}
                     </div>
                   )}
                 </div>

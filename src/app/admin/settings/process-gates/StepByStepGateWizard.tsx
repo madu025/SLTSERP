@@ -25,6 +25,7 @@ import {
   ShieldAlert
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { GateSteps, type StepStats } from './GateSteps';
 import { ProcessGatePolicy, ProcessApprovalLevel } from '@prisma/client';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
@@ -145,6 +146,16 @@ export function StepByStepGateWizard({
   const [usersList, setUsersList] = useState<Array<{ id: string; name: string; username?: string; employeeId?: string }>>([]);
   // Dynamic role list — source of truth is the Postgres Role enum (AGENTS.md Rule 4: no hardcoded role lists)
   const [roleOptions, setRoleOptions] = useState<string[]>([]);
+
+  // Live figures of this gate (items waiting, people who can act) for the review step
+  const [liveStats, setLiveStats] = useState<StepStats[] | undefined>(undefined);
+  useEffect(() => {
+    if (!gate) return;
+    fetch('/api/admin/process-gates/stats', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { const all = (j?.data ?? j) as Record<string, StepStats[]> | null; if (all) setLiveStats(all[gate.id]); })
+      .catch(() => undefined);
+  }, [gate]);
 
   // Fetch registered Domain Actions and Workflow Statuses from API
   useEffect(() => {
@@ -653,6 +664,29 @@ export function StepByStepGateWizard({
                 <p className="text-xs text-indigo-800">
                   ඔබ විසින් සාදන ලද Process Gate Configuration එකේ සාරාංශය (Summary):
                 </p>
+              </div>
+
+              {/* The flow as it will be saved, in plain words, with what happens to work already in progress */}
+              <div className="space-y-3 rounded-2xl border border-slate-300 bg-white p-4">
+                <h5 className="text-sm font-bold text-slate-900">What will happen after you save</h5>
+                <GateSteps
+                  gate={{
+                    ...(gate ?? ({} as ProcessGatePolicy)),
+                    id: gate?.id ?? 'new',
+                    entityType: formData.entityType,
+                    fromStatus: formData.fromStatus,
+                    toStatus: formData.toStatus,
+                    queueMode: Boolean(formData.queueMode),
+                    approvalLevels: levels.map((l) => ({ id: l.uid, level: l.level, requiredRole: l.requiredRole ?? '', specificUserId: l.specificUserId ?? null, assignee: l.assignee ?? 'ROLE', skipIfNoApprover: Boolean(l.skipIfNoApprover) })) as unknown as ProcessApprovalLevel[],
+                  } as unknown as GatePolicyWithLevels}
+                  stats={liveStats}
+                />
+                {(liveStats ?? []).some((x) => x.waiting > 0) && (
+                  <p className="rounded-lg border border-sky-300 bg-sky-50 p-2 text-xs font-semibold text-sky-950">
+                    {(liveStats ?? []).reduce((a, x) => a + x.waiting, 0)} item(s) are waiting on this gate now. They stay at the step they are on; if you move a step ahead of one an item already passed, that step is asked again.
+                  </p>
+                )}
+                {levels.length === 0 && <p className="text-xs font-semibold text-amber-950">There are no approval steps. Add at least one, or every item will pass this gate without approval.</p>}
               </div>
 
               {/* Summary Card */}
