@@ -44,13 +44,16 @@ export function planApproval(input: {
     canAct: boolean;
     inScope: boolean;
     history: ApprovalHistoryEntry[];
+    /** what is being approved, for the messages (default: invoice) */
+    noun?: string;
 }): ApprovalPlan {
     const { waiting, stageLabel: label, userId, canAct, inScope, history } = input;
-    if (!waiting) return { ok: false, reason: 'NOT_IN_CHAIN', message: 'This invoice is not waiting for an approval' };
+    const noun = input.noun ?? 'invoice';
+    if (!waiting) return { ok: false, reason: 'NOT_IN_CHAIN', message: `This ${noun} is not waiting for an approval` };
     if (!canAct) return { ok: false, reason: 'NO_PERMISSION_FOR_STAGE', message: `Waiting for the ${label}; you do not hold that step` };
-    if (!inScope) return { ok: false, reason: 'OUTSIDE_AREA', message: 'This invoice is outside your area' };
+    if (!inScope) return { ok: false, reason: 'OUTSIDE_AREA', message: `This ${noun} is outside your area` };
     if (confirmationsSinceReturn(history).some((h) => h.userId === userId)) {
-        return { ok: false, reason: 'SAME_PERSON_TWO_STAGES', message: 'You already approved another step of this invoice; a different person must approve this step' };
+        return { ok: false, reason: 'SAME_PERSON_TWO_STAGES', message: `You already approved another step of this ${noun}; a different person must approve this step` };
     }
     return { ok: true };
 }

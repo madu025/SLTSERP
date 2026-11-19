@@ -238,14 +238,14 @@ export class InvoiceGateService {
         return { approved, failed };
     }
 
-    /** Send invoices back to the first step with a reason (a person who holds the step they are waiting at may do this). */
+    /** Send invoices back to the Engineer with a reason (a person who holds the step they are waiting at may do this: the Area Manager rejecting, the contractor disputing). */
     static async returnInvoices(userId: string, invoiceIds: string[], note: string) {
         const reason = note?.trim() ?? '';
         if (reason.length < 3) throw AppError.badRequest('A reason is required to return an invoice');
         const ids = [...new Set(invoiceIds)];
         if (ids.length === 0) throw AppError.badRequest('Select at least one invoice');
         if (ids.length > MAX_BATCH) throw AppError.badRequest(`Return at most ${MAX_BATCH} invoices at a time`);
-        const { actor, permissions, levels, scope, invoices, open } = await this.judge(userId, ids);
+        const { actor, permissions, levels, scope, invoices, open, policy } = await this.judge(userId, ids);
 
         const returned: InvoiceApprovalOutcome[] = [];
         const failed: InvoiceApprovalOutcome[] = [];
@@ -259,9 +259,10 @@ export class InvoiceGateService {
             if (level.assignee !== 'ORDER_CONTRACTOR' && scope !== undefined && (!opmcId || !scope.includes(opmcId))) { failed.push({ invoiceNumber: inv.invoiceNumber, message: 'This invoice is outside your area' }); continue; }
             try {
                 await ProcessGateEngine.advanceGate({ instanceId: inst.id, action: 'REJECTED', userId, remarks: reason });
-                await prisma.invoice.update({ where: { id: inv.id }, data: { confirmStage: STAGE_RESTART, contractorNote: reason } });
-                const restart = await this.startFor(inv.id, `Returned: ${reason}`);
-                returned.push({ invoiceNumber: inv.invoiceNumber, stage: restart.stage ?? STAGE_RESTART });
+                await prisma.invoice.update({ where: { id: inv.id }, data: { contractorNote: reason } });
+                // the invoice is cancelled and every order goes back to the Engineer (held back, with the reason), who corrects and invoices again
+                await this.takeOut(userId, inv.id, null, `Returned by the ${roleLabel(level.requiredRole)}: ${reason}`, policy.id);
+                returned.push({ invoiceNumber: inv.invoiceNumber, stage: 'RETURNED_TO_ENGINEER' });
             } catch (e) {
                 failed.push({ invoiceNumber: inv.invoiceNumber, message: e instanceof Error ? e.message : 'Could not return' });
             }
@@ -311,7 +312,14 @@ export class InvoiceGateService {
         if (ids.length > MAX_BATCH) throw AppError.badRequest(`Remove at most ${MAX_BATCH} service orders at a time`);
         const { canChange, policy } = await this.access(userId, invoiceId);
         if (!canChange) throw AppError.forbidden('Only an approver of the invoice can take service orders out of it');
+        return this.takeOut(userId, invoiceId, ids, why, policy.id);
+    }
 
+    /**
+     * The orders leave the invoice and go back to the Engineer: they stay passed by the Area Coordinator and the QC Officer, are marked held
+     * back with the reason, and the invoice total and its ledger posting are redone (an invoice left empty is cancelled). `ids` = null takes every order out.
+     */
+    private static async takeOut(userId: string, invoiceId: string, ids: string[] | null, why: string, policyId: string) {
         const result = await prisma.$transaction(async (tx) => {
             await tx.$executeRaw`SELECT "id" FROM "Invoice" WHERE "id" = ${invoiceId}::uuid FOR UPDATE`;
             const inv = await tx.invoice.findUnique({
@@ -324,15 +332,16 @@ export class InvoiceGateService {
             if (!inv) throw AppError.notFound('Invoice not found');
             if (inv.status === 'CANCELLED') throw AppError.badRequest('This invoice was cancelled');
             if (inv.confirmStage === STAGE_DONE) throw AppError.badRequest('This invoice already finished its area approval; service orders can no longer be taken out of it here');
-            const removing = inv.sods.filter((s) => ids.includes(s.id));
-            if (removing.length !== ids.length) throw AppError.badRequest('One or more of the service orders are not in this invoice');
-            const staying = inv.sods.filter((s) => !ids.includes(s.id));
+            const wanted = ids ?? inv.sods.map((s) => s.id);
+            const removing = inv.sods.filter((s) => wanted.includes(s.id));
+            if (removing.length !== wanted.length) throw AppError.badRequest('One or more of the service orders are not in this invoice');
+            const staying = inv.sods.filter((s) => !wanted.includes(s.id));
             const removedAmount = removing.reduce((a, s) => a + Number(s.contractorAmount ?? 0), 0);
             const newTotal = staying.reduce((a, s) => a + Number(s.contractorAmount ?? 0), 0);
 
-            await tx.serviceOrder.updateMany({ where: { id: { in: ids }, invoiceId }, data: { invoiced: false, invoiceId: null, isInvoicable: false } });
+            await tx.serviceOrder.updateMany({ where: { id: { in: wanted }, invoiceId }, data: { invoiced: false, invoiceId: null, isInvoicable: false, invoicingHeldAt: new Date(), invoicingHoldReason: `Taken out of invoice ${inv.invoiceNumber}: ${why}` } });
             await tx.invoiceSodRemoval.createMany({ data: removing.map((s) => ({ invoiceId, serviceOrderId: s.id, soNum: s.soNum, amount: Number(s.contractorAmount ?? 0), reason: why, userId })) });
-            await tx.penalty.updateMany({ where: { invoiceId, serviceOrderId: { in: ids }, status: { not: 'REJECTED' } }, data: { status: 'REJECTED' } });
+            await tx.penalty.updateMany({ where: { invoiceId, serviceOrderId: { in: wanted }, status: { not: 'REJECTED' } }, data: { status: 'REJECTED' } });
 
             // The ledger posting of the invoice is cancelled and, for the orders that stay, posted again
             const posting = await tx.journalEntry.findFirst({ where: { referenceId: invoiceId, referenceType: 'INVOICE_GENERATION', status: { not: 'REVERSED' } }, orderBy: { createdAt: 'desc' }, select: { id: true } });
@@ -340,7 +349,7 @@ export class InvoiceGateService {
 
             if (staying.length === 0) {
                 await tx.invoice.update({ where: { id: invoiceId }, data: { status: 'CANCELLED', statusA: 'CANCELLED', statusB: 'CANCELLED', approvalStatus: 'CANCELLED', confirmStage: 'CANCELLED', totalAmount: 0, amount: 0, amountA: 0, amountB: 0, retentionAmount: 0, whtAmount: 0 } });
-                await tx.universalApprovalInstance.updateMany({ where: { entityType: INVOICE_GATE.entityType, entityId: invoiceId, policyId: policy.id, status: 'PENDING' }, data: { status: 'REJECTED', actionedAt: new Date(), comments: `${RESTART_PREFIX} every service order was taken out` } });
+                await tx.universalApprovalInstance.updateMany({ where: { entityType: INVOICE_GATE.entityType, entityId: invoiceId, policyId, status: 'PENDING' }, data: { status: 'REJECTED', actionedAt: new Date(), comments: `${RESTART_PREFIX} every service order was taken out` } });
             } else {
                 const figures = figuresAfterRemoval({ oldTotal: Number(inv.totalAmount), newTotal, retention: Number(inv.retentionAmount), wht: Number(inv.whtAmount), advance: Number(inv.advanceDeduction) });
                 const approvedPenalties = await tx.penalty.findMany({ where: { invoiceId, status: 'APPROVED' }, select: { amount: true } });

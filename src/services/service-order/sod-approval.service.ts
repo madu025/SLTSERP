@@ -199,7 +199,7 @@ export class SodApprovalService {
                 waiting: !!inst && !!level, stageLabel: level ? roleLabel(level.requiredRole) : '-', userId,
                 canAct: !!level && mayActOnLevel(actor, permissions, level, { opmcId: o.opmcId }),
                 inScope: scope === undefined || (!!o.opmcId && scope.includes(o.opmcId)),
-                history: history.get(o.id) ?? [],
+                history: history.get(o.id) ?? [], noun: 'order',
             });
             if (!plan.ok) { failed.push({ soNum: o.soNum, message: plan.message }); continue; }
             try {

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { isLateSod, completedMonthLabel, sodStageLabel, SOD_READY_STAGES, SOD_GATE } from '../../src/lib/sod-approval-rules';
 import { monthRange } from '../../src/services/service-order/sod-approval.service';
+import { planApproval } from '../../src/lib/approval-chain-rules';
 
 const read = (p: string) => fs.readFileSync(path.resolve(__dirname, '../..', p), 'utf8');
 
@@ -44,6 +45,24 @@ test('wiring: the engineer invoices by contractor and area, the invoice carries 
     assert.ok(read('src/app/service-orders/invoicable/page.tsx').includes("redirect('/service-orders/invoicing')"));
     assert.ok(read('src/config/page-capabilities.ts').includes("'/service-orders/invoicing'") && read('src/config/page-capabilities.ts').includes("'/service-orders/approvals'"));
     assert.ok(read('src/lib/invoice-access.ts').includes('invoiceAreaOf') && read('src/services/approval/process-gate-engine.ts').includes('invoice?.opmcId'), 'the invoice area decides who sees it and who approves it');
+});
+
+test('the approval messages name what is approved, and one person cannot pass two steps', () => {
+    const base = { stageLabel: 'QC Officer', userId: 'u1', canAct: true, inScope: true, history: [] as Array<{ userId: string; stage: string; action: string }> };
+    assert.equal((planApproval({ ...base, waiting: false, noun: 'order' }) as { message: string }).message, 'This order is not waiting for an approval');
+    assert.equal((planApproval({ ...base, waiting: false }) as { message: string }).message, 'This invoice is not waiting for an approval');
+    assert.equal((planApproval({ ...base, waiting: true, inScope: false, noun: 'order' }) as { message: string }).message, 'This order is outside your area');
+    const twice = planApproval({ ...base, waiting: true, noun: 'order', history: [{ userId: 'u1', stage: 'AREA_COORDINATOR', action: 'CONFIRMED' }] });
+    assert.equal(twice.ok, false);
+    assert.equal(planApproval({ ...base, waiting: true, history: [{ userId: 'u2', stage: 'AREA_COORDINATOR', action: 'CONFIRMED' }] }).ok, true);
+});
+
+test('wiring: a rejection or a dispute sends the invoice back to the Engineer, and a re-issue has its own key', () => {
+    const gate = read('src/services/invoice/invoice-gate.service.ts');
+    assert.ok(gate.includes('this.takeOut(userId, inv.id, null,') && gate.includes("'RETURNED_TO_ENGINEER'"), 'returning an invoice takes every order out');
+    assert.ok(gate.includes('invoicingHeldAt: new Date(), invoicingHoldReason'), 'taken-out orders are held back with the reason, ready for the Engineer');
+    const gen = read('src/services/invoice/invoice.generator.service.ts');
+    assert.ok(gen.includes('reissueKey') && gen.includes('startsWith: baseKey'), 'the same orders can be invoiced again after a cancelled invoice');
 });
 
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });

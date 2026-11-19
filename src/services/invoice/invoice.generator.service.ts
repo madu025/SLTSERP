@@ -155,6 +155,9 @@ export class InvoiceGeneratorService {
         }
 
         const sodIdsList = sods.map(s => s.id);
+        const baseKey = `CONTRACTOR_MONTHLY_INVOICE_${contractor.id}_${currentYear}_${currentMonth}_${createHash('sha1').update([...sodIdsList].sort().join(',')).digest('hex').slice(0, 16)}`;
+        const earlier = await db.idempotencyLog.count({ where: { idempotencyKey: { startsWith: baseKey } } });
+        const reissueKey = earlier > 0 ? `${baseKey}_R${earlier}` : baseKey;
         const invoice = await this.createRegionalInvoice({
             invoiceNumber,
             contractorId: contractor.id,
@@ -170,9 +173,10 @@ export class InvoiceGeneratorService {
             sodIds: sodIdsList,
             rtomArea: regionName,
             description: data.description || `Contractor Monthly Invoice for ${contractor.name} - ${regionName} (${currentMonth}/${currentYear})`,
-            // The same selection of orders cannot be submitted twice, but another selection of the same contractor and month can be invoiced
-            // (for example orders that were taken out of an earlier invoice)
-            idempotencyKey: `CONTRACTOR_MONTHLY_INVOICE_${contractor.id}_${currentYear}_${currentMonth}_${createHash('sha1').update([...sodIdsList].sort().join(',')).digest('hex').slice(0, 16)}`
+            // The same selection of orders cannot be submitted twice at once, but it can be invoiced again after an earlier invoice of it was
+            // cancelled (rejected or disputed): each re-issue gets its own key. A second request for orders that are still on an invoice is
+            // refused by the claim check on the orders themselves.
+            idempotencyKey: reissueKey
         }, transaction);
 
         // Open the approval gate once the invoice is saved (a missed start is healed the next time anyone opens the approvals queue)
