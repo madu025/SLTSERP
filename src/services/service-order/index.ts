@@ -680,7 +680,7 @@ export class ServiceOrderService {
                 opmcPatStatus: true,
                 hoPatStatus: true,
                 materialUsage: {
-                    select: { quantity: true, unitPrice: true, costPrice: true }
+                    select: { id: true, quantity: true, unitPrice: true, costPrice: true, item: { select: { costPrice: true, unitPrice: true } } }
                 }
             }
         });
@@ -689,13 +689,28 @@ export class ServiceOrderService {
             throw AppError.badRequest('No completed SODs found matching the provided IDs');
         }
 
-        const rejected = sods
+        // A material line that was recorded without a cost (portal sync, or the item had no cost then) is priced at the item's cost now.
+        // The price is written onto the line when the order passes, so the invoice reads the same figure.
+        const positive = (v: unknown) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null; };
+        const repricing: Array<{ id: string; costPrice: number; unitPrice: number }> = [];
+        const priced = sods.map((sod) => ({
+            ...sod,
+            materialUsage: sod.materialUsage.map((m) => {
+                if (positive(m.costPrice) || positive(m.unitPrice)) return m;
+                const itemCost = positive(m.item?.costPrice) ?? positive(m.item?.unitPrice);
+                if (!itemCost) return m;
+                repricing.push({ id: m.id, costPrice: itemCost, unitPrice: positive(m.item?.unitPrice) ?? itemCost });
+                return { ...m, costPrice: itemCost, unitPrice: positive(m.item?.unitPrice) ?? itemCost };
+            }),
+        }));
+
+        const rejected = priced
             .map((sod) => ({
                 soNum: sod.soNum,
                 ...validateSodForInvoicing(sod)
             }))
             .filter((result) => !result.eligible);
-        const eligibleSods = sods.filter((sod) => validateSodForInvoicing(sod).eligible);
+        const eligibleSods = priced.filter((sod) => validateSodForInvoicing(sod).eligible);
 
         if (eligibleSods.length === 0) {
             throw AppError.validation(
@@ -707,6 +722,10 @@ export class ServiceOrderService {
         const verifiedIds: string[] = [];
 
         await prisma.$transaction(async (tx) => {
+            const eligibleLineIds = new Set(eligibleSods.flatMap((sod) => sod.materialUsage.map((m) => m.id)));
+            for (const line of repricing.filter((r) => eligibleLineIds.has(r.id))) {
+                await tx.sODMaterialUsage.update({ where: { id: line.id }, data: { costPrice: line.costPrice, unitPrice: line.unitPrice } });
+            }
             for (const sod of eligibleSods) {
                 await tx.serviceOrder.update({
                     where: { id: sod.id },

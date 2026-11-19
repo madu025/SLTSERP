@@ -91,5 +91,9 @@ test('test mail is redirected to the single test mailbox, also for test accounts
   assert.match(mail, /EMAIL_TEST_RECIPIENT \|\| 'prasad@slts\.lk'/);
   assert.match(mail, /isDev \|\| !!process\.env\.EMAIL_REDIRECT_ALL_TO \|\| await this\.isTestActor\(\)/);
   assert.match(mail, /\[TEST - for \$\{originalTo\}\]/);
-  assert.match(mail, /qa3b_\|qa_\|rbac_qa_\|prod_smoke_\|testadmin/);
+  const found = mail.match(/TEST_ACCOUNT_PATTERN = \/(.*)\/i;/);
+  assert.ok(found, 'the test-account pattern exists');
+  const pattern = new RegExp(found[1], 'i');
+  for (const user of ['qa3b_x', 'qa_x', 'qa11_coord_1', 'zztest_qc', 'prod_smoke_1', 'testadmin']) assert.ok(pattern.test(user), `${user} is test traffic`);
+  for (const user of ['prasad', 'kamal', 'sanjeewa', 'tiroshan']) assert.ok(!pattern.test(user), `${user} is a real user`);
 });

@@ -6,7 +6,7 @@ import { getAuthenticatedUserId } from '@/lib/request-context';
 export const TEST_MAIL_RECIPIENT = process.env.EMAIL_TEST_RECIPIENT || 'prasad@slts.lk';
 
 /** Accounts that exist only for testing: mail caused by their actions is test mail, even on production. */
-export const TEST_ACCOUNT_PATTERN = /^(qa3b_|qa_|rbac_qa_|prod_smoke_|testadmin$)/i;
+export const TEST_ACCOUNT_PATTERN = /^(qa\d*[a-z]?_|rbac_qa_|prod_smoke_|zztest_|testadmin$)/i;
 
 interface SmtpConfig {
     host: string;
