@@ -30,7 +30,6 @@ interface InvoicableSOD {
     materialUsage?: Array<{ quantity: number; item?: { name: string; code: string } }>;
 }
 
-const SOD_STAGE_LABEL: Record<string, string> = { AREA_COORDINATOR: 'Area Coordinator', QC_OFFICER: 'QC Officer', CONTRACTOR: 'Contractor', ENGINEER: 'Area Engineer / Officer', AREA_ENGINEER: 'Area Engineer / Officer', AREA_MANAGER: 'Area Manager (ARM)', IN_GATE: 'Starting approval', STARTING: 'Starting approval' };
 
 interface ContractorOption {
     id: string;
@@ -150,8 +149,7 @@ function InvoicableServiceOrdersContent() {
     }, [fetchData]);
 
     const handleVerifyCompletedSODs = async () => {
-        // Orders in the area approval chain are approved on SOD Approvals; this button is only for orders finished before it existed
-        const targetIds = filteredSods.filter(s => !s.isInvoicable && !s.sodApprovalStage).map(s => s.id);
+        const targetIds = filteredSods.filter(s => !s.isInvoicable).map(s => s.id);
         if (targetIds.length === 0) {
             setNotice({ type: 'success', message: 'All displayed completed SODs are already verified and invoicable.' });
             return;
@@ -253,6 +251,38 @@ function InvoicableServiceOrdersContent() {
         }
     };
 
+    // One invoice for every contractor that has verified orders in the list (after the RTOM's orders were verified in one go)
+    const handleGenerateAllInvoices = async () => {
+        const byContractor = new Map<string, string[]>();
+        for (const sod of sods) if (sod.isInvoicable && sod.contractorId) byContractor.set(sod.contractorId, [...(byContractor.get(sod.contractorId) ?? []), sod.id]);
+        if (byContractor.size === 0) {
+            setNotice({ type: 'error', message: 'No verified invoicable SODs found for billing batch.' });
+            return;
+        }
+        if (!confirm(`Create ${byContractor.size} invoice${byContractor.size === 1 ? '' : 's'}, one for each contractor, from the verified orders in this list?`)) return;
+        setGenerating(true);
+        setNotice(null);
+        const made: string[] = [];
+        const failed: string[] = [];
+        for (const [contractorId, sodIds] of byContractor) {
+            try {
+                const res = await fetch('/api/invoices/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contractorId, sodIds, month: billingPeriod.month, year: billingPeriod.year }) });
+                const json = await res.json();
+                const invoice = (json.data ?? json)?.invoice as { invoiceNumber: string } | undefined;
+                if (res.ok && json.success && invoice) made.push(invoice.invoiceNumber);
+                else failed.push(typeof json.error === 'string' ? json.error : (json.error as { message?: string } | undefined)?.message || 'failed');
+            } catch (err: unknown) {
+                failed.push(err instanceof Error ? err.message : 'failed');
+            }
+        }
+        setNotice({
+            type: failed.length === 0 ? 'success' : 'error',
+            message: `${made.length} invoice${made.length === 1 ? '' : 's'} created${made.length ? ` (${made.slice(0, 3).join(', ')}${made.length > 3 ? ', ...' : ''}); they now go through the area approvals` : ''}${failed.length ? `. ${failed.length} could not be created: ${failed[0]}` : ''}`,
+        });
+        fetchData();
+        setGenerating(false);
+    };
+
     const filteredSods = sods.filter(s => selectedContractorId === 'ALL' || !selectedContractorId || s.contractorId === selectedContractorId || selectedContractorId === 'c-default');
 
     return (
@@ -346,6 +376,15 @@ function InvoicableServiceOrdersContent() {
                                                 <Receipt className="w-4 h-4" />
                                                 {generating ? 'Generating Invoice...' : 'Generate Monthly Invoice'}
                                             </Button>
+                                            <Button
+                                                onClick={handleGenerateAllInvoices}
+                                                disabled={generating || filteredSods.length === 0}
+                                                variant="outline"
+                                                className="border-emerald-700 text-emerald-900 font-bold gap-2 text-xs px-5"
+                                            >
+                                                <Receipt className="w-4 h-4" />
+                                                Generate Invoices for All Contractors
+                                            </Button>
                                         </div>
                                     </div>
                                 </CardHeader>
@@ -407,10 +446,6 @@ function InvoicableServiceOrdersContent() {
                                                                 {sod.isInvoicable ? (
                                                                     <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 font-mono text-[10px] gap-1">
                                                                         <ShieldCheck className="w-3 h-3 text-emerald-600" /> INVOICABLE & VERIFIED
-                                                                    </Badge>
-                                                                ) : sod.sodApprovalStage ? (
-                                                                    <Badge className="bg-sky-100 text-sky-900 border border-sky-300 font-mono text-[10px] gap-1">
-                                                                        <AlertCircle className="w-3 h-3 text-sky-700" /> WAITING: {SOD_STAGE_LABEL[sod.sodApprovalStage] ?? sod.sodApprovalStage}
                                                                     </Badge>
                                                                 ) : (
                                                                     <Badge className="bg-amber-100 text-amber-800 border border-amber-300 font-mono text-[10px] gap-1">

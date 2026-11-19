@@ -18,11 +18,11 @@ export const DOMAIN_ACTIONS_REGISTRY: DomainAction[] = [
   // SERVICE_ORDER
   { entityType: 'SERVICE_ORDER', value: '', label: 'None (Only Status Update)', desc: 'Just update the status of the SOD' },
   { entityType: 'SERVICE_ORDER', value: '/api/projects/update-sod-phase', label: 'Update Project Phase', desc: 'Move SOD to next implementation phase' },
-  { entityType: 'SERVICE_ORDER', value: 'MARK_SOD_INVOICABLE', label: 'Mark order invoicable (after the area approvals)', desc: 'Checks the order can be billed, then lets it be invoiced' },
   { entityType: 'SERVICE_ORDER', value: '/api/projects/trigger-pat', label: 'Trigger PAT Workflow', desc: 'Initiate Provisional Acceptance Testing' },
   
   // INVOICE
   { entityType: 'INVOICE', value: '', label: 'None (Only Status Update)', desc: 'Just update the status of the invoice' },
+  { entityType: 'INVOICE', value: 'MARK_INVOICE_AREA_APPROVED', label: 'Mark invoice area-approved', desc: 'After the area approvals the invoice goes to OSP Quality for verification' },
   { entityType: 'INVOICE', value: '/api/finance/post-ledger', label: 'Post to General Ledger', desc: 'Record financial transactions automatically' },
   { entityType: 'INVOICE', value: '/api/finance/approve-payment', label: 'Approve Contractor Payment', desc: 'Authorize payout split for the contractor' }
 ];

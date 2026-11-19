@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { InvoiceCalculatorService } from './invoice.calculator.service';
@@ -160,8 +161,15 @@ export class InvoiceGeneratorService {
             sodIds: sodIdsList,
             rtomArea: regionName,
             description: data.description || `Contractor Monthly Invoice for ${contractor.name} - ${regionName} (${currentMonth}/${currentYear})`,
-            idempotencyKey: `CONTRACTOR_MONTHLY_INVOICE_${contractor.id}_${currentYear}_${currentMonth}`
+            // The same selection of orders cannot be submitted twice, but another selection of the same contractor and month can be invoiced
+            // (for example orders that were taken out of an earlier invoice)
+            idempotencyKey: `CONTRACTOR_MONTHLY_INVOICE_${contractor.id}_${currentYear}_${currentMonth}_${createHash('sha1').update([...sodIdsList].sort().join(',')).digest('hex').slice(0, 16)}`
         }, transaction);
+
+        // Open the approval gate once the invoice is saved (a missed start is healed the next time anyone opens the approvals queue)
+        if (!transaction) {
+            void import('@/services/invoice/invoice-gate.service').then(({ InvoiceGateService }) => InvoiceGateService.startFor(invoice.id, 'Invoice created')).catch((e) => console.error('[InvoiceGate] start after invoice creation failed:', e));
+        }
 
         const auditPayload = {
             action: 'CONTRACTOR_INVOICE_GENERATED',
@@ -340,9 +348,9 @@ export class InvoiceGeneratorService {
                     advanceDeduction,
                     amountA,
                     statusA: 'PENDING_SF_AUDIT',
-                    // The area chain now happens on the service orders, before the invoice exists, so a new invoice starts confirmed
-                    confirmStage: 'CONFIRMED',
-                    // The contractor reviews the invoice first; only then does it reach OSP Quality (SF Audit)
+                    // The area approval gate (Area Coordinator, QC, Contractor, Engineer, Area Manager) starts on the invoice; only after it
+                    // does the invoice reach OSP Quality (SF Audit). IN_GATE = waiting for the gate to be started.
+                    confirmStage: 'IN_GATE',
                     contractorConfirmStatus: 'AWAITING',
                     // SF Audit verifies, Finance sends it to the OSP managers, they approve, then Head Office pays
                     approvalFlow: 'OSP_CHAIN',

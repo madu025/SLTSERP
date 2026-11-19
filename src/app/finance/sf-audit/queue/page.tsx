@@ -12,7 +12,7 @@ interface QueueInvoice {
     month: number | null; year: number | null; rtomArea: string | null; contractorConfirmedAt: string | null; createdAt: string;
     contractor: { name: string } | null; _count: { sods: number };
 }
-interface Queue { ready: QueueInvoice[]; awaitingContractor: number; disputed: number }
+interface Queue { ready: QueueInvoice[]; inApproval: number }
 
 const th = 'py-2 pr-3 text-left text-xs font-bold uppercase tracking-wide text-slate-900';
 const money = (v: string | number) => `Rs. ${Number(v || 0).toLocaleString('en-LK', { maximumFractionDigits: 2 })}`;
@@ -53,14 +53,13 @@ export default function OspQualityQueuePage() {
                     <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2"><ShieldCheck className="w-7 h-7 text-indigo-700" />OSP Quality: invoices to verify</h1>
-                            <p className="mt-1 text-sm text-slate-800">An invoice appears here after its orders passed the area approvals and the contractor confirmed the invoice. Check it, then verify it so it can go to Finance.</p>
+                            <p className="mt-1 text-sm text-slate-800">An invoice appears here after it passed the area approvals (Area Coordinator, QC Officer, the contractor, Engineer, Area Manager). Check it, then verify it so it can go to Finance.</p>
                         </div>
 
                         {q.data && (
                             <div className="flex flex-wrap gap-2 text-xs font-bold text-slate-900">
                                 <span className="rounded-full border border-emerald-400 bg-emerald-100 px-3 py-1">Ready to verify {ready.length}</span>
-                                <span className="rounded-full border border-amber-400 bg-amber-100 px-3 py-1">Waiting for the contractor {q.data.awaitingContractor}</span>
-                                <span className="rounded-full border border-red-400 bg-red-100 px-3 py-1">Disputed by the contractor {q.data.disputed}</span>
+                                <span className="rounded-full border border-amber-400 bg-amber-100 px-3 py-1">Still in area approval {q.data.inApproval}</span>
                             </div>
                         )}
 

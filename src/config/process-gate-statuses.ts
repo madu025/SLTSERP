@@ -33,7 +33,6 @@ export const MODULE_STATUS_REGISTRY: Record<string, StatusOption[]> = {
     { value: 'PENDING_PAT', label: 'PENDING_PAT (Awaiting Acceptance Test)' },
     { value: 'PAT_PASSED', label: 'PAT_PASSED (PAT Approved)' },
     { value: 'COMPLETED', label: 'COMPLETED (Work Finished)' },
-    { value: 'INVOICABLE', label: 'INVOICABLE (Approved for invoicing)' },
     { value: 'INVOICED', label: 'INVOICED (Billed)' },
     { value: 'RETURN', label: 'RETURN (Returned to SLT)' },
     { value: 'CLOSED', label: 'CLOSED (Archived)' },
@@ -41,6 +40,8 @@ export const MODULE_STATUS_REGISTRY: Record<string, StatusOption[]> = {
 
   INVOICE: [
     { value: 'DRAFT', label: 'DRAFT (Invoice Prepared)' },
+    { value: 'CREATED', label: 'CREATED (Invoice Generated)' },
+    { value: 'AREA_APPROVED', label: 'AREA_APPROVED (Area approvals complete)' },
     { value: 'SUBMITTED', label: 'SUBMITTED (Pending Audit)' },
     { value: 'SF_AUDIT_APPROVED', label: 'SF_AUDIT_APPROVED (SF Audit Verified)' },
     { value: 'FINANCE_APPROVED', label: 'FINANCE_APPROVED (Finance Manager Approved)' },

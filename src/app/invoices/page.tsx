@@ -37,8 +37,7 @@ interface Invoice {
     statusB: string;
     date: string;
     status: string;
-    contractorConfirmStatus?: string;
-    contractorNote?: string | null;
+    confirmStage?: string;
 }
 
 interface Contractor {
@@ -231,22 +230,6 @@ export default function InvoicesPage() {
         } catch (error) {
             console.error('Error deleting invoice:', error);
             alert('Failed to delete invoice');
-        }
-    };
-
-    // After correcting a disputed invoice, ask the contractor to review it again
-    const handleResendToContractor = async (id: string) => {
-        try {
-            const res = await fetch(`/api/invoices/${id}/resend-to-contractor`, { method: 'POST' });
-            const json = await res.json();
-            if (!res.ok) {
-                alert(json.error?.message || json.error || 'Could not send the invoice back to the contractor');
-                return;
-            }
-            fetchInvoices();
-        } catch (error) {
-            console.error('Error sending invoice back to contractor:', error);
-            alert('Could not send the invoice back to the contractor');
         }
     };
 
@@ -889,14 +872,8 @@ export default function InvoicesPage() {
                                                 <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors">
                                                     <td className="font-mono font-bold text-slate-900">
                                                         {inv.invoiceNumber}
-                                                        {inv.contractorConfirmStatus === 'AWAITING' && (
-                                                            <span className="mt-1 block w-fit rounded border border-amber-400 bg-amber-100 px-1.5 py-0.5 font-sans text-[10px] font-bold text-amber-900">Awaiting contractor</span>
-                                                        )}
-                                                        {inv.contractorConfirmStatus === 'DISPUTED' && (
-                                                            <span className="mt-1 block max-w-[220px] rounded border border-red-400 bg-red-100 px-1.5 py-0.5 font-sans text-[10px] font-bold text-red-900">
-                                                                Disputed: {inv.contractorNote}
-                                                                <button type="button" onClick={() => handleResendToContractor(inv.id)} className="mt-1 block rounded bg-red-800 px-2 py-0.5 text-[10px] font-bold text-white">Send back to contractor</button>
-                                                            </span>
+                                                        {inv.confirmStage && !['CONFIRMED', 'CANCELLED'].includes(inv.confirmStage) && (
+                                                            <span className="mt-1 block w-fit rounded border border-sky-400 bg-sky-100 px-1.5 py-0.5 font-sans text-[10px] font-bold text-sky-900">In area approval: {inv.confirmStage.toLowerCase().replace(/_/g, ' ')}</span>
                                                         )}
                                                     </td>
                                                     <td className="text-slate-600 font-medium">{inv.contractor?.name}</td>

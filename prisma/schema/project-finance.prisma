@@ -69,6 +69,7 @@ model Invoice {
   amendmentRequests InvoiceAmendmentRequest[]
   confirmStage      String                    @default("CONFIRMED")
   confirmations     InvoiceConfirmation[]
+  sodRemovals       InvoiceSodRemoval[]
   // Contractor review before the invoice reaches OSP Quality (SF Audit): AWAITING | CONFIRMED | DISPUTED. Older invoices are CONFIRMED.
   contractorConfirmStatus String   @default("CONFIRMED")
   contractorConfirmedAt   DateTime?
@@ -86,6 +87,25 @@ model Invoice {
   @@index([contractorId])
   @@index([contractorConfirmStatus])
   @@index([approvalFlow, approvalStatus])
+}
+
+/// A service order taken out of an invoice during its approval (a quality problem, or it was invoiced by mistake). The order goes
+/// back to the verification list; this row keeps who removed it and why.
+model InvoiceSodRemoval {
+  id             String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  invoiceId      String   @db.Uuid
+  serviceOrderId String   @db.Uuid
+  soNum          String
+  amount         Decimal  @default(0)
+  reason         String
+  userId         String   @db.Uuid
+  createdAt      DateTime @default(now())
+  invoice        Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  user           User     @relation("InvoiceSodRemovalUser", fields: [userId], references: [id])
+
+  @@index([invoiceId])
+  @@index([serviceOrderId])
+  @@index([userId])
 }
 
 model InvoiceAmendmentRequest {

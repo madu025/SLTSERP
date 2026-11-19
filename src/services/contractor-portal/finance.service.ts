@@ -42,7 +42,8 @@ export class ContractorFinanceService {
             include: {
                 sods: {
                     select: { id: true, contractorAmount: true, revenueAmount: true }
-                }
+                },
+                sodRemovals: { select: { soNum: true, reason: true } }
             },
             orderBy: { date: 'desc' }
         });
@@ -64,7 +65,7 @@ export class ContractorFinanceService {
             }
             retentionHeldLkr += retention;
 
-            if (inv.contractorConfirmStatus === 'AWAITING') awaitingYourConfirmationCount += 1;
+            if (inv.confirmStage === 'CONTRACTOR') awaitingYourConfirmationCount += 1;
             if (inv.status === 'PENDING' || inv.status === 'AUDITED') {
                 pendingVouchersCount += 1;
             }
@@ -78,8 +79,8 @@ export class ContractorFinanceService {
                 sodCount: inv.sods.length,
                 amountLkr: gross,
                 status: inv.status || 'PENDING',
-                contractorConfirmStatus: inv.contractorConfirmStatus,
-                contractorNote: inv.contractorNote,
+                confirmStage: inv.confirmStage,
+                removedSods: inv.sodRemovals,
                 grossLkr: gross,
                 retentionLkr: retention,
                 netLkr: net

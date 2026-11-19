@@ -18,8 +18,9 @@ interface ContractorClaim {
     grossLkr?: number;
     retentionLkr?: number;
     netLkr?: number;
-    contractorConfirmStatus?: string;
-    contractorNote?: string | null;
+    /** where the invoice is in the area approval: a role code while it waits, CONFIRMED when done */
+    confirmStage?: string;
+    removedSods?: Array<{ soNum: string; reason: string }>;
 }
 
 interface FinanceData {
@@ -48,14 +49,14 @@ function KpiSkeleton() {
 
 // Status badge for claim row
 function StatusBadge({ status, confirm }: { status: string; confirm?: string }) {
-    if (confirm === 'AWAITING') return (
+    if (confirm === 'CONTRACTOR') return (
         <span className="px-2 py-0.5 text-[9px] font-black uppercase rounded border bg-amber-500/20 text-amber-300 border-amber-500/50 flex items-center gap-1 w-fit mx-auto">
             <Clock className="w-2.5 h-2.5" /> Confirm needed
         </span>
     );
-    if (confirm === 'DISPUTED') return (
-        <span className="px-2 py-0.5 text-[9px] font-black uppercase rounded border bg-rose-500/20 text-rose-300 border-rose-500/50 flex items-center gap-1 w-fit mx-auto">
-            <AlertTriangle className="w-2.5 h-2.5" /> Disputed
+    if (confirm && confirm !== 'CONFIRMED' && confirm !== 'CANCELLED') return (
+        <span className="px-2 py-0.5 text-[9px] font-black uppercase rounded border bg-sky-500/20 text-sky-200 border-sky-500/50 flex items-center gap-1 w-fit mx-auto">
+            <Clock className="w-2.5 h-2.5" /> In approval
         </span>
     );
     if (status === 'PAID') return (
@@ -114,10 +115,10 @@ export default function ContractorFinancePage() {
     // Confirm the invoice (it then goes on to OSP Quality automatically) or dispute it with a reason
     const respond = useMutation({
         mutationFn: async (v: { id: string; action: 'CONFIRM' | 'DISPUTE'; note?: string }) => {
-            const res = await fetch(`/api/contractor-portal/invoices/${v.id}/respond`, {
+            const res = await fetch('/api/contractor-portal/invoice-approvals', {
                 method: 'POST',
                 headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: v.action, note: v.note }),
+                body: JSON.stringify({ action: v.action === 'CONFIRM' ? 'APPROVE' : 'RETURN', invoiceIds: [v.id], note: v.note }),
             });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error?.message || 'Could not save your answer');
@@ -281,7 +282,7 @@ export default function ContractorFinancePage() {
                                         <td className="p-3 text-right font-mono font-bold text-blue-400">{claim.sodCount}</td>
                                         <td className="p-3 text-right font-mono font-black text-white">Rs. {Number(claim.amountLkr).toLocaleString()}</td>
                                         <td className="p-3 text-center">
-                                            <StatusBadge status={claim.status} confirm={claim.contractorConfirmStatus} />
+                                            <StatusBadge status={claim.status} confirm={claim.confirmStage} />
                                         </td>
                                     </tr>
                                 ))}
@@ -297,7 +298,7 @@ export default function ContractorFinancePage() {
                     <div className="w-12 h-1 bg-slate-700/60 rounded-full mx-auto mb-1 sm:hidden" />
                     <DialogHeader className="space-y-1">
                         <div className="flex items-center justify-between">
-                            <StatusBadge status={selectedClaim?.status || 'PENDING'} confirm={selectedClaim?.contractorConfirmStatus} />
+                            <StatusBadge status={selectedClaim?.status || 'PENDING'} confirm={selectedClaim?.confirmStage} />
                             <span className="text-[10px] text-slate-400 font-mono">Invoice Claim Voucher</span>
                         </div>
                         <DialogTitle className="text-base font-bold text-amber-400 font-mono tracking-tight pt-1">
@@ -365,9 +366,9 @@ export default function ContractorFinancePage() {
                                 </div>
                             </div>
 
-                            {selectedClaim.contractorConfirmStatus === 'AWAITING' && (
+                            {selectedClaim.confirmStage === 'CONTRACTOR' && (
                                 <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/40 space-y-2">
-                                    <p className="text-[11px] font-bold text-amber-200">Check this invoice. If it is correct, confirm it and it goes to OSP Quality for verification. If something is wrong, tell us what.</p>
+                                    <p className="text-[11px] font-bold text-amber-200">Check this invoice. If it is correct, confirm it and it goes on to the Engineer and the Area Manager. If something is wrong, tell us what and it goes back to the start.</p>
                                     <textarea
                                         value={disputeNote}
                                         onChange={(e) => setDisputeNote(e.target.value)}
@@ -386,9 +387,10 @@ export default function ContractorFinancePage() {
                                     </div>
                                 </div>
                             )}
-                            {selectedClaim.contractorConfirmStatus === 'DISPUTED' && (
+                            {(selectedClaim.removedSods?.length ?? 0) > 0 && (
                                 <div className="p-2.5 bg-rose-500/10 rounded-xl border border-rose-500/40 text-[11px] text-rose-200 font-bold">
-                                    You disputed this invoice{selectedClaim.contractorNote ? `: ${selectedClaim.contractorNote}` : ''}. The office will correct it and send it back to you.
+                                    Service orders taken out of this invoice:
+                                    <ul className="mt-1 list-disc pl-4 font-normal">{selectedClaim.removedSods?.map((r) => <li key={r.soNum}><span className="font-bold">{r.soNum}</span>: {r.reason}</li>)}</ul>
                                 </div>
                             )}
                             {isCertified(selectedClaim) && (

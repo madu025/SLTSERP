@@ -5,7 +5,7 @@ import { AppError } from '@/lib/error';
 import { LedgerService } from '@/services/finance/ledger.service';
 import { SODMaterialService } from '@/services/service-order/sod.material.service';
 import { InvoiceGeneratorService } from '@/services/invoice/invoice.generator.service';
-import { markSodInvoicable } from '@/services/service-order/sod-invoicable.action';
+import { markInvoiceAreaApproved } from '@/services/invoice/invoice-gate.action';
 
 export interface ActionPayload {
     action: string;
@@ -76,8 +76,8 @@ export class DomainActionDispatcher {
             case 'HANDLE_SOD_COMPLETED':
                 result = await DomainActionDispatcher.handleSodCompleted(payload, tx);
                 break;
-            case 'MARK_SOD_INVOICABLE':
-                result = await markSodInvoicable(tx, { entityId: payload.entityId, userId: payload.userId });
+            case 'MARK_INVOICE_AREA_APPROVED':
+                result = await markInvoiceAreaApproved(tx, { entityId: payload.entityId, userId: payload.userId });
                 break;
             default:
                 throw AppError.badRequest(`UNSUPPORTED_DOMAIN_ACTION: ${actionId}`);

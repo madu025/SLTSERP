@@ -39,7 +39,6 @@ import {
 import { isValidUuid } from '@/lib/uuid';
 import { SOD_GATE_ENTITY_TYPE } from './types';
 import { SODLifecycleService } from '../sod.lifecycle.service';
-import { SOD_CHAIN_ENTRY_STATUSES, SOD_STAGE_DONE, SOD_STAGE_RESTART } from '@/lib/sod-approval-rules';
 
 /** The columns this writer owns. A caller may only express intent through these. */
 export interface StatusWriteIntent {
@@ -80,8 +79,6 @@ const MINIMAL_SOD_SELECT = {
     statusDate: true,
     completedDate: true,
     returnReason: true,
-    sodApprovalStage: true,
-    invoiced: true,
 } as const;
 
 /** The columns this writer reasons about, as stored. */
@@ -94,8 +91,6 @@ interface StatusRow {
     statusDate: Date | null;
     completedDate: Date | null;
     returnReason: string | null;
-    sodApprovalStage: string | null;
-    invoiced: boolean;
 }
 
 /**
@@ -304,17 +299,6 @@ export async function applySodStatus(input: {
     dropUnchanged(data, 'returnReason', stored.returnReason);
     dropUnchanged(data, 'statusDate', stored.statusDate);
 
-    // Area approval chain (the SOD invoicing process gate): an order that moves INTO a finished status is marked for the gate to start
-    // (it cannot be invoiced before the chain is complete); one that leaves the finished statuses before the chain completes drops out of it.
-    // Orders that were already finished before the chain existed (no stage) are never pulled in by a replayed feed.
-    if (Object.keys(data).length > 0) {
-        const entry = SOD_CHAIN_ENTRY_STATUSES as readonly string[];
-        const nowFinished = entry.includes((data.sltsStatus as string | undefined) ?? stored.sltsStatus ?? '');
-        const wasFinished = entry.includes(stored.sltsStatus ?? '');
-        if (nowFinished && !wasFinished && stored.sodApprovalStage === null && !stored.invoiced) data.sodApprovalStage = SOD_STAGE_RESTART;
-        else if (!nowFinished && stored.sodApprovalStage !== null && stored.sodApprovalStage !== SOD_STAGE_DONE) data.sodApprovalStage = null;
-    }
-
     if (Object.keys(data).length === 0) {
         // Reachable when a caller expresses only fields that already hold those values (a replaying
         // feed with a fresh completedDate equal to the stored one). Bumping updatedAt for that is the
@@ -361,15 +345,6 @@ export async function applySodStatus(input: {
         tx,
         actor,
     );
-
-    // Open (or close) the invoicing gate for the order. Best effort and outside the write: a start that is missed here is picked up
-    // the next time anybody opens the approvals queue, because the order stays marked for start.
-    if (data.sodApprovalStage === SOD_STAGE_RESTART || data.sodApprovalStage === null) {
-        const starting = data.sodApprovalStage === SOD_STAGE_RESTART;
-        void import('@/services/service-order/sod-approval.service')
-            .then(async ({ SodApprovalService }) => { if (starting) await SodApprovalService.startFor(sodId, 'Order completed'); else await SodApprovalService.cancel(sodId, 'The order left the finished statuses'); })
-            .catch((e) => console.error(`[SOD-WRITER] ${soNum}: approval gate ${starting ? 'start' : 'close'} failed:`, e));
-    }
 
     console.log(`[SOD-WRITER] ${soNum}: ${stored.sltsStatus || '-'} -> ${incoming || stored.sltsStatus} (${reason}, actor=${actor}${wouldHaveBlocked ? ', LOGONLY: policy would block' : ''})`);
 

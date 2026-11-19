@@ -96,6 +96,14 @@ export async function assertActorEligibleForGateLevel(
 
 /** The area and contractor a gate entity belongs to (only service orders carry them). Used by queue gates. */
 export async function loadGateScope(client: Prisma.TransactionClient, entityType: string, entityId: string): Promise<GateScope> {
+    if (entityType === 'INVOICE') {
+        try {
+            const invoice = await client.invoice.findUnique({ where: { id: entityId }, select: { contractorId: true, contractor: { select: { opmcId: true } } } });
+            return { opmcId: invoice?.contractor?.opmcId ?? null, contractorId: invoice?.contractorId ?? null };
+        } catch {
+            return {};
+        }
+    }
     if (entityType !== 'SERVICE_ORDER') return {};
     try {
         const order = await client.serviceOrder.findUnique({ where: { id: entityId }, select: { opmcId: true, contractorId: true } });

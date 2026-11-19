@@ -7,9 +7,9 @@
  * approval. When no action is configured, a Service Order gate applies its own target status.
  */
 export function defaultGateDomainAction(entityType: string, toStatus: string | null | undefined): string | undefined {
+    if (entityType === 'INVOICE' && toStatus === 'AREA_APPROVED') return 'MARK_INVOICE_AREA_APPROVED';
     if (entityType !== 'SERVICE_ORDER') return undefined;
     if (toStatus === 'COMPLETED') return 'HANDLE_SOD_COMPLETED';
     if (toStatus === 'INPROGRESS') return 'HANDLE_SOD_ASSIGNED';
-    if (toStatus === 'INVOICABLE') return 'MARK_SOD_INVOICABLE';
     return undefined;
 }
