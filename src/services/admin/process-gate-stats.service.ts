@@ -22,7 +22,7 @@ export interface SimulatedStep {
     title: string;
     who: string;
     /** ACTIVE: somebody can act; SKIPPED: nobody holds it and the step is set to be skipped; NOBODY: nobody can act, the item waits here */
-    outcome: 'ACTIVE' | 'SKIPPED' | 'NOBODY';
+    outcome: 'ACTIVE' | 'SKIPPED' | 'NOBODY' | 'DEPENDS';
     people: string[];
     morePeople: number;
 }
@@ -70,7 +70,7 @@ export class ProcessGateStatsService {
 
     /**
      * What would happen to an item of this gate in this area (and for this contractor): which steps apply, who could act on each, and
-     * where it would wait for nobody. Read-only.
+     * where it would wait for nobody. A step that belongs to the item's own contractor cannot be judged until a contractor is chosen (DEPENDS). Read-only.
      */
     static async simulate(gateId: string, scope: { opmcId?: string | null; contractorId?: string | null }): Promise<{ steps: SimulatedStep[]; stuckAt: number | null; areaName: string | null; contractorName: string | null }> {
         const gate = await prisma.processGatePolicy.findUnique({ where: { id: gateId }, select: { entityType: true, queueMode: true, approvalLevels: { where: { policyVariant: 'DEFAULT' }, orderBy: { level: 'asc' } } } });
@@ -92,7 +92,7 @@ export class ProcessGateStatsService {
                 return mayActOnLevel(actor, permissions, level, { opmcId: gate.queueMode ? opmcId : null, contractorId });
             });
             const named = holders.map(({ u }) => u.name ?? 'Unnamed user');
-            const outcome: SimulatedStep['outcome'] = holders.length > 0 ? 'ACTIVE' : level.skipIfNoApprover ? 'SKIPPED' : 'NOBODY';
+            const outcome: SimulatedStep['outcome'] = level.assignee === 'ORDER_CONTRACTOR' && !contractorId ? 'DEPENDS' : holders.length > 0 ? 'ACTIVE' : level.skipIfNoApprover ? 'SKIPPED' : 'NOBODY';
             return { level: level.level, role: level.requiredRole, title: d.title, who: d.who, outcome, people: named.slice(0, 5), morePeople: Math.max(0, named.length - 5) };
         });
         const stuck = steps.find((s) => s.outcome === 'NOBODY');

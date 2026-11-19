@@ -1,15 +1,16 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { CheckCircle2, AlertTriangle, SkipForward, FlaskConical } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, SkipForward, FlaskConical, Info } from 'lucide-react';
 
 interface Option { areas: Array<{ id: string; name: string }>; contractors: Array<{ id: string; name: string; opmcId: string | null }> }
-interface Step { level: number; role: string; title: string; who: string; outcome: 'ACTIVE' | 'SKIPPED' | 'NOBODY'; people: string[]; morePeople: number }
+interface Step { level: number; role: string; title: string; who: string; outcome: 'ACTIVE' | 'SKIPPED' | 'NOBODY' | 'DEPENDS'; people: string[]; morePeople: number }
 interface Result { steps: Step[]; stuckAt: number | null; areaName: string | null; contractorName: string | null }
 
 const OUTCOME = {
     ACTIVE: { Icon: CheckCircle2, box: 'border-emerald-300 bg-emerald-50 text-emerald-950', label: 'Can approve' },
     SKIPPED: { Icon: SkipForward, box: 'border-slate-300 bg-slate-100 text-slate-900', label: 'Skipped: nobody holds it here' },
+    DEPENDS: { Icon: Info, box: 'border-slate-300 bg-slate-100 text-slate-900', label: 'Choose a contractor to see who can approve' },
     NOBODY: { Icon: AlertTriangle, box: 'border-red-400 bg-red-50 text-red-950', label: 'Nobody can approve: the item waits here' },
 } as const;
 
