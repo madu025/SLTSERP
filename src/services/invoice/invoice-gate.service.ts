@@ -71,6 +71,23 @@ export interface InvoiceApprovalOutcome { invoiceNumber: string; stage?: string;
 
 export class InvoiceGateService {
     /**
+     * A sentence when an invoice of this contractor would get stuck because nobody holds a step in its area, otherwise null. Shown to the
+     * person who generates the invoice, so the problem is known at once rather than found later in a waiting queue.
+     */
+    static async approvalGap(contractorId: string): Promise<string | null> {
+        try {
+            const policy = await loadPolicy();
+            if (!policy || !policy.isEnabled) return null;
+            const { ProcessGateStatsService } = await import('@/services/admin/process-gate-stats.service');
+            const sim = await ProcessGateStatsService.simulate(policy.id, { contractorId });
+            const stuck = sim.steps.find((x) => x.outcome === 'NOBODY');
+            return stuck ? `Nobody holds the "${stuck.title}" step in ${sim.areaName ?? 'this area'}, so this invoice will wait at that step until someone is given the role.` : null;
+        } catch {
+            return null;
+        }
+    }
+
+    /**
      * Starts (or restarts) the area approval gate for an invoice: any open step is ended and the first applicable step is opened. Safe
      * to call twice; a second caller loses the claim on the invoice and does nothing.
      */

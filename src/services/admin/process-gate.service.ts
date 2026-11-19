@@ -305,6 +305,25 @@ export class ProcessGateAdminService {
     });
   }
 
+  /** The steps of a gate as they stand now (kept with every change, so the history can say what was there before). */
+  static async stepSnapshot(gatePolicyId: string) {
+    return prisma.processApprovalLevel.findMany({
+      where: { gatePolicyId, policyVariant: 'DEFAULT' }, orderBy: { level: 'asc' },
+      select: { id: true, requiredRole: true, eligibleRoles: true, assignee: true, skipIfNoApprover: true },
+    });
+  }
+
+  /** Who changed this gate and when, newest first, each change in words. */
+  static async history(gatePolicyId: string, limit = 30) {
+    const rows = await prisma.auditLog.findMany({
+      where: { entityId: gatePolicyId, entity: { in: ['PROCESS_GATE', 'PROCESS_GATE_LEVEL'] } },
+      orderBy: { createdAt: 'desc' }, take: limit,
+      select: { id: true, action: true, entity: true, oldValue: true, newValue: true, createdAt: true, user: { select: { name: true } } },
+    });
+    const { summariseGateChange } = await import('@/lib/gate-history');
+    return rows.map((r) => ({ id: r.id, at: r.createdAt, by: r.user?.name ?? 'System', summary: summariseGateChange(r.action, r.entity, r.oldValue, r.newValue) }));
+  }
+
   /**
    * Reorder the steps of a gate: `orderedLevelIds` is every step id in the new order (the drag-and-drop result). Steps keep their
    * rows and settings; only their numbers change, and orders already waiting stay at the step they are on.

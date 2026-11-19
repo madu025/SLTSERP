@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { GateSteps, type StepStats } from './GateSteps';
+import { roleLabel } from '@/lib/gate-eligibility';
 import { ProcessGatePolicy, ProcessApprovalLevel } from '@prisma/client';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
@@ -48,6 +49,16 @@ type WizardLevel = {
 
 let levelUid = 0;
 const nextUid = () => `lvl-${Date.now().toString(36)}-${levelUid++}`;
+
+/** The capability a role's step needs, where the role has one of its own. Choosing the role fills the capability in. */
+const ROLE_CAPABILITY: Record<string, string> = {
+  AREA_COORDINATOR: RBAC_PERMISSIONS.INVOICE_CONFIRM_COORDINATOR,
+  QC_OFFICER: RBAC_PERMISSIONS.INVOICE_CONFIRM_QC,
+  ENGINEER: RBAC_PERMISSIONS.INVOICE_CONFIRM_ENGINEER,
+  ASSISTANT_ENGINEER: RBAC_PERMISSIONS.INVOICE_CONFIRM_ENGINEER,
+  AREA_MANAGER: RBAC_PERMISSIONS.INVOICE_CONFIRM_MANAGER,
+  CONTRACTOR: RBAC_PERMISSIONS.CONTRACTOR_WRITE,
+};
 
 const LEVEL_PERMISSIONS = [
   RBAC_PERMISSIONS.PROJECT_APPROVE, RBAC_PERMISSIONS.INVENTORY_APPROVE, RBAC_PERMISSIONS.PROCUREMENT_WRITE, RBAC_PERMISSIONS.SOD_WRITE,
@@ -76,7 +87,7 @@ function SortableLevel({ lvl, total, roleOptions, usersList, queueMode, onChange
             <GripVertical className="w-4 h-4" />
           </button>
           <span className="w-6 h-6 rounded-full bg-indigo-700 text-white font-bold text-xs flex items-center justify-center">{lvl.level}</span>
-          Step {lvl.level}: {(lvl.requiredRole ?? '').replace(/_/g, ' ')}
+          Step {lvl.level}: {roleLabel(lvl.requiredRole ?? '')}
           {lvl.assignee === 'ORDER_CONTRACTOR' && <span className="rounded border border-sky-300 bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-900">the order&apos;s own contractor</span>}
           {lvl.skipIfNoApprover && <span className="rounded border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">skipped when nobody in the area</span>}
         </span>
@@ -87,43 +98,53 @@ function SortableLevel({ lvl, total, roleOptions, usersList, queueMode, onChange
         )}
       </div>
 
-      <div className="grid md:grid-cols-3 gap-3">
+      {/* The three things most people need: who, how, and whether to skip */}
+      <div className="grid md:grid-cols-2 gap-3">
         <div className="space-y-1">
-          <label className="block text-xs font-bold text-slate-800">Canonical Approval Capability:</label>
-          <select value={lvl.requiredPermission} onChange={(e) => onChange({ requiredPermission: e.target.value })} className={field}>
-            {LEVEL_PERMISSIONS.map((permission) => <option key={permission} value={permission}>{permission}</option>)}
-          </select>
-          <label className="block text-xs font-bold text-slate-800 mt-2">Eligible SystemRole:</label>
+          <label className="block text-xs font-bold text-slate-900">Role that approves:</label>
           <select value={lvl.requiredRole || ''} onChange={(e) => onRole(e.target.value)} className={field}>
             {/* the step's own role is always listed, even when it is not a system role (e.g. CONTRACTOR), so the box never shows another role */}
             {[...new Set([...(roleOptions.length > 0 ? roleOptions : []), ...(lvl.requiredRole ? [lvl.requiredRole] : [])])].map((role) => (
-              <option key={role} value={role}>{role.replace(/_/g, ' ')}</option>
+              <option key={role} value={role}>{roleLabel(role)}</option>
             ))}
           </select>
         </div>
-
         <div className="space-y-1">
-          <label className="block text-xs font-bold text-slate-800">Who approves:</label>
+          <label className="block text-xs font-bold text-slate-900">Who approves:</label>
           <select value={lvl.assignee ?? 'ROLE'} onChange={(e) => onChange({ assignee: e.target.value as 'ROLE' | 'ORDER_CONTRACTOR' })} className={field}>
             <option value="ROLE">Anyone holding the role{queueMode ? " (in the order's area)" : ''}</option>
             <option value="ORDER_CONTRACTOR">The order&apos;s own contractor</option>
           </select>
-          <label className="block text-xs font-bold text-slate-800 mt-2">Designated Specific User (Optional):</label>
-          <select value={lvl.specificUserId || ''} onChange={(e) => onChange({ specificUserId: e.target.value || undefined })} className={field}>
-            <option value="">Any User with Role (Dynamic OPMC Scope)</option>
-            {usersList.map((u) => <option key={u.id} value={u.id}>👤 {u.name} ({u.username || u.employeeId || u.id})</option>)}
-          </select>
-        </div>
-
-        <div className="space-y-1">
-          <label className="block text-xs font-bold text-slate-800">Instructions / Description:</label>
-          <input type="text" value={lvl.description || ''} onChange={(e) => onChange({ description: e.target.value })} placeholder="e.g. Verify field materials" className="w-full h-10 text-xs border border-slate-300 rounded-xl px-3 bg-white text-slate-900" />
-          <label className="flex items-start gap-2 text-xs text-slate-900 mt-2">
-            <input type="checkbox" className="mt-0.5" checked={Boolean(lvl.skipIfNoApprover)} onChange={(e) => onChange({ skipIfNoApprover: e.target.checked })} />
-            <span>Skip this step when nobody holding the role exists in the order&apos;s area</span>
-          </label>
         </div>
       </div>
+      <label className="flex items-start gap-2 text-xs text-slate-900">
+        <input type="checkbox" className="mt-0.5" checked={Boolean(lvl.skipIfNoApprover)} onChange={(e) => onChange({ skipIfNoApprover: e.target.checked })} />
+        <span>Skip this step when nobody holding the role exists in the order&apos;s area</span>
+      </label>
+
+      {/* Technical settings: matched automatically from the role, rarely changed */}
+      <details className="rounded-xl border border-slate-300 bg-slate-50 p-3" open={Boolean(lvl.specificUserId)}>
+        <summary className="cursor-pointer text-xs font-bold text-slate-900">Advanced settings (matched automatically from the role)</summary>
+        <div className="mt-3 grid md:grid-cols-3 gap-3">
+          <div className="space-y-1">
+            <label className="block text-xs font-bold text-slate-900">Approval capability:</label>
+            <select value={lvl.requiredPermission} onChange={(e) => onChange({ requiredPermission: e.target.value })} className={field}>
+              {LEVEL_PERMISSIONS.map((permission) => <option key={permission} value={permission}>{permission}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="block text-xs font-bold text-slate-900">One named person instead of the role (optional):</label>
+            <select value={lvl.specificUserId || ''} onChange={(e) => onChange({ specificUserId: e.target.value || undefined })} className={field}>
+              <option value="">Anyone with the role</option>
+              {usersList.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.username || u.employeeId || u.id})</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="block text-xs font-bold text-slate-900">Instructions for the approver:</label>
+            <input type="text" value={lvl.description || ''} onChange={(e) => onChange({ description: e.target.value })} placeholder="e.g. Verify field materials" className="w-full h-10 text-xs border border-slate-300 rounded-xl px-3 bg-white text-slate-900" />
+          </div>
+        </div>
+      </details>
     </div>
   );
 }
@@ -632,7 +653,7 @@ export function StepByStepGateWizard({
                         usersList={usersList}
                         queueMode={Boolean(formData.queueMode)}
                         onChange={(patch) => setLevels((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)))}
-                        onRole={(role) => setLevels((prev) => prev.map((l, i) => (i === index ? { ...l, requiredRole: role, eligibleRoles: [role] } : l)))}
+                        onRole={(role) => setLevels((prev) => prev.map((l, i) => (i === index ? { ...l, requiredRole: role, eligibleRoles: [role], requiredPermission: ROLE_CAPABILITY[role] ?? l.requiredPermission } : l)))}
                         onRemove={() => removeApprovalLevel(index)}
                       />
                     ))}

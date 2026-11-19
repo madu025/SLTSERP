@@ -3,6 +3,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { InvoiceGeneratorService } from '@/services/invoice/invoice.generator.service';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { z } from 'zod';
+import { InvoiceGateService } from '@/services/invoice/invoice-gate.service';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
@@ -26,8 +27,11 @@ export const POST = apiHandler(async (req: Request) => {
 
     const result = await InvoiceGeneratorService.generateContractorMonthlyInvoice(data, userId);
 
+    const approvalWarning = await InvoiceGateService.approvalGap(data.contractorId);
+
     return {
         success: true,
+        approvalWarning,
         message: `Successfully generated Contractor Monthly Invoice ${result.invoice.invoiceNumber}`,
         invoice: {
             id: result.invoice.id,

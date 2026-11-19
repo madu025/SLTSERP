@@ -43,8 +43,8 @@ export type StepHealth = 'ok' | 'warn' | 'info';
  * Is anybody able to act on this step? `holders` is how many active people hold it (null when it cannot be counted, e.g. a named person);
  * `areasWithout` is how many areas that have contractors have nobody holding it (queue gates only).
  */
-export function stepHealth(input: { holders: number | null; areasWithout: number | null; skipIfNoApprover: boolean }): { level: StepHealth; text: string } {
-    const { holders, areasWithout, skipIfNoApprover } = input;
+export function stepHealth(input: { holders: number | null; areasWithout: number | null; skipIfNoApprover: boolean; missingAreas?: readonly string[] }): { level: StepHealth; text: string } {
+    const { holders, areasWithout, skipIfNoApprover, missingAreas } = input;
     if (holders === null) return { level: 'info', text: 'Approver is chosen when the step starts' };
     if (holders === 0) {
         return skipIfNoApprover
@@ -52,7 +52,8 @@ export function stepHealth(input: { holders: number | null; areasWithout: number
             : { level: 'warn', text: 'Nobody holds this role: items will wait here until someone does' };
     }
     if (areasWithout && areasWithout > 0 && !skipIfNoApprover) {
-        return { level: 'warn', text: `${holders} approver${holders === 1 ? '' : 's'}, but ${areasWithout} area${areasWithout === 1 ? ' has' : 's have'} nobody: items there will wait` };
+        const names = missingAreas && missingAreas.length > 0 ? ` (${missingAreas.join(', ')}${areasWithout > missingAreas.length ? ', …' : ''})` : '';
+        return { level: 'warn', text: `${holders} approver${holders === 1 ? '' : 's'}, but ${areasWithout} area${areasWithout === 1 ? ' has' : 's have'} nobody${names}: items there will wait` };
     }
     return { level: 'ok', text: `${holders} approver${holders === 1 ? '' : 's'}` };
 }

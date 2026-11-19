@@ -346,6 +346,7 @@ export const SOD_GUIDE: ModuleGuide = {
             tips: [
                 'An order is blocked unless it has: an assigned contractor, a completion date, revenue and contractor cost figures above zero, all three PAT approvals passed, and a cost on every material line.',
                 'A blocked order lists its reasons (for example PAT_APPROVALS_INCOMPLETE or CONTRACTOR_ASSIGNMENT_MISSING). Fix the cause and try again.',
+                'If nobody holds one of the approval steps in the area of the contractor, the message after generating the invoice carries a "Warning" saying which step will wait. Give someone that role in the area, or check it first with "Test this gate" on the gate screen (Admin → Settings → Process Gates).',
                 'Every verification and invoice is written to the audit log.',
             ],
             anchors: [

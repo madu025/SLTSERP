@@ -17,4 +17,4 @@ export const DELETE = apiHandler(async (req, params) => {
       message: 'Approval Level deleted successfully',
       data: { success: true }
     };
-}, { audit: { action: 'DELETE', entity: 'PROCESS_GATE_LEVEL' } });
+}, { audit: { action: 'DELETE', entity: 'PROCESS_GATE_LEVEL', entityIdParam: 'id', captureOld: async (p: Record<string, string>) => ProcessGateAdminService.stepSnapshot(p.id) } });

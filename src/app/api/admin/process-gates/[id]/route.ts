@@ -32,7 +32,7 @@ export const PUT = apiHandler(async (req, params, body) => {
       message: 'Process Gate Policy updated successfully',
       data: updatedGate
     };
-}, { schema: updateGateSchema, audit: { action: 'UPDATE', entity: 'PROCESS_GATE' } });
+}, { schema: updateGateSchema, audit: { action: 'UPDATE', entity: 'PROCESS_GATE', entityIdParam: 'id' } });
 
 export const DELETE = apiHandler(async (req, params) => {
     const id = params?.id as string;
@@ -45,4 +45,4 @@ export const DELETE = apiHandler(async (req, params) => {
       id,
       data: { id, success: true }
     };
-}, { audit: { action: 'DELETE', entity: 'PROCESS_GATE' } });
+}, { audit: { action: 'DELETE', entity: 'PROCESS_GATE', entityIdParam: 'id' } });

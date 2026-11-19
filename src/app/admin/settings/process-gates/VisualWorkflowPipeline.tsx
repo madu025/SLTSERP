@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { GateSteps, statusLabel, type StepStats } from './GateSteps';
+import { GateTestPanel } from './GateTestPanel';
+import { GateHistoryPanel } from './GateHistoryPanel';
 import { ProcessGatePolicy, ProcessApprovalLevel } from '@prisma/client';
 import { 
   ArrowDown,
@@ -305,6 +307,8 @@ export function VisualWorkflowPipeline({
                     </button>
                   </div>
                   <GateSteps gate={gate} stats={stats[gate.id]} />
+                  <GateTestPanel gateId={gate.id} queueMode={Boolean((gate as { queueMode?: boolean }).queueMode)} />
+                  <GateHistoryPanel gateId={gate.id} />
                 </div>
 
               </div>

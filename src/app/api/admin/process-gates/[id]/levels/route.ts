@@ -52,7 +52,7 @@ export const POST = apiHandler(async (req, params, body) => {
       message: 'Approval Level added successfully',
       data: newLevel
     };
-}, { schema: createLevelSchema, audit: { action: 'CREATE', entity: 'PROCESS_GATE_LEVEL' } });
+}, { schema: createLevelSchema, audit: { action: 'CREATE', entity: 'PROCESS_GATE_LEVEL', entityIdParam: 'id' } });
 
 // Bulk replace ALL levels of a gate (wizard save path) — atomic delete + renumber
 export const PUT = apiHandler(async (req, params, body) => {
@@ -66,7 +66,7 @@ export const PUT = apiHandler(async (req, params, body) => {
       message: 'Approval Levels updated successfully',
       data: result
     };
-}, { schema: replaceLevelsSchema, audit: { action: 'REPLACE_LEVELS', entity: 'PROCESS_GATE_LEVEL' } });
+}, { schema: replaceLevelsSchema, audit: { action: 'REPLACE_LEVELS', entity: 'PROCESS_GATE_LEVEL', entityIdParam: 'id', captureOld: async (p: Record<string, string>) => ProcessGateAdminService.stepSnapshot(p.id) } });
 
 // Reorder the steps of a gate (drag and drop): the body lists every step id in its new order
 const reorderSchema = z.object({ orderedLevelIds: z.array(databaseUuidSchema).min(1).max(10) });
@@ -77,4 +77,4 @@ export const PATCH = apiHandler(async (req, params, body) => {
     const parsed = reorderSchema.parse(body);
     const levels = await ProcessGateAdminService.reorderApprovalLevels(gateId, parsed.orderedLevelIds);
     return { message: 'Approval steps reordered', data: levels };
-}, { schema: reorderSchema, audit: { action: 'REORDER_LEVELS', entity: 'PROCESS_GATE_LEVEL' } });
+}, { schema: reorderSchema, audit: { action: 'REORDER_LEVELS', entity: 'PROCESS_GATE_LEVEL', entityIdParam: 'id', captureOld: async (p: Record<string, string>) => ProcessGateAdminService.stepSnapshot(p.id) } });

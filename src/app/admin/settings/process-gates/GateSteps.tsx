@@ -6,7 +6,7 @@ import type { ProcessApprovalLevel, ProcessGatePolicy } from '@prisma/client';
 import { MODULE_STATUS_REGISTRY } from '@/config/process-gate-statuses';
 import { describeStep, gateSentence, stepHealth } from '@/lib/gate-plain-language';
 
-export interface StepStats { level: number; waiting: number; holders: number | null; areasWithout: number | null }
+export interface StepStats { level: number; waiting: number; holders: number | null; areasWithout: number | null; missingAreas?: string[] }
 type Gate = ProcessGatePolicy & { approvalLevels: ProcessApprovalLevel[] };
 
 /** "CREATED (Invoice Generated)" -> "Invoice Generated"; an unknown status is shown humanised. */
@@ -39,7 +39,7 @@ export function GateSteps({ gate, stats }: { gate: Gate; stats?: StepStats[] }) 
                     const step = lvl as ProcessApprovalLevel & { assignee?: string; skipIfNoApprover?: boolean };
                     const d = describeStep({ requiredRole: lvl.requiredRole, assignee: step.assignee, skipIfNoApprover: step.skipIfNoApprover, specificUserId: lvl.specificUserId }, { queueMode, entityType: gate.entityType });
                     const s = stats?.find((x) => x.level === lvl.level);
-                    const health = s ? stepHealth({ holders: s.holders, areasWithout: s.areasWithout, skipIfNoApprover: Boolean(step.skipIfNoApprover) }) : null;
+                    const health = s ? stepHealth({ holders: s.holders, areasWithout: s.areasWithout, missingAreas: s.missingAreas, skipIfNoApprover: Boolean(step.skipIfNoApprover) }) : null;
                     const tone = health ? TONE[health.level] : null;
                     return (
                         <li key={lvl.id}>

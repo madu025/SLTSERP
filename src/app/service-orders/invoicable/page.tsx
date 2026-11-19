@@ -231,11 +231,11 @@ function InvoicableServiceOrdersContent() {
             const json = await res.json();
             // The invoice is created on the server; the API wraps its answer as { success, data: { invoice } }. Reading only the
             // top level showed "Failed to generate invoice" for an invoice that had in fact been created.
-            const result = (json.data ?? json) as { invoice?: { invoiceNumber: string; totalAmount: number; sodCount: number; publicUrl?: string } };
+            const result = (json.data ?? json) as { invoice?: { invoiceNumber: string; totalAmount: number; sodCount: number; publicUrl?: string }; approvalWarning?: string | null };
             if (res.ok && json.success && result.invoice) {
                 setNotice({
                     type: 'success',
-                    message: `Invoice ${result.invoice.invoiceNumber} generated successfully for LKR ${Number(result.invoice.totalAmount).toLocaleString()} (${result.invoice.sodCount} SODs)!`,
+                    message: `Invoice ${result.invoice.invoiceNumber} generated successfully for LKR ${Number(result.invoice.totalAmount).toLocaleString()} (${result.invoice.sodCount} SODs)!${result.approvalWarning ? ` Warning: ${result.approvalWarning}` : ''}`,
                     link: result.invoice.publicUrl
                 });
                 fetchData();
@@ -264,11 +264,14 @@ function InvoicableServiceOrdersContent() {
         setNotice(null);
         const made: string[] = [];
         const failed: string[] = [];
+        const warnings = new Set<string>();
         for (const [contractorId, sodIds] of byContractor) {
             try {
                 const res = await fetch('/api/invoices/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contractorId, sodIds, month: billingPeriod.month, year: billingPeriod.year }) });
                 const json = await res.json();
                 const invoice = (json.data ?? json)?.invoice as { invoiceNumber: string } | undefined;
+                const warning = (json.data ?? json)?.approvalWarning as string | null | undefined;
+                if (warning) warnings.add(warning);
                 if (res.ok && json.success && invoice) made.push(invoice.invoiceNumber);
                 else failed.push(typeof json.error === 'string' ? json.error : (json.error as { message?: string } | undefined)?.message || 'failed');
             } catch (err: unknown) {
@@ -277,7 +280,7 @@ function InvoicableServiceOrdersContent() {
         }
         setNotice({
             type: failed.length === 0 ? 'success' : 'error',
-            message: `${made.length} invoice${made.length === 1 ? '' : 's'} created${made.length ? ` (${made.slice(0, 3).join(', ')}${made.length > 3 ? ', ...' : ''}); they now go through the area approvals` : ''}${failed.length ? `. ${failed.length} could not be created: ${failed[0]}` : ''}`,
+            message: `${made.length} invoice${made.length === 1 ? '' : 's'} created${made.length ? ` (${made.slice(0, 3).join(', ')}${made.length > 3 ? ', ...' : ''}); they now go through the area approvals` : ''}${failed.length ? `. ${failed.length} could not be created: ${failed[0]}` : ''}${warnings.size ? `. Warning: ${[...warnings].join(' ')}` : ''}`,
         });
         fetchData();
         setGenerating(false);
