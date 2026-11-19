@@ -28,6 +28,13 @@ test('the warning names the areas that have nobody', () => {
     assert.match(stepHealth({ holders: 4, areasWithout: 15, skipIfNoApprover: false, missingAreas: ['A', 'B'] }).text, /\(A, B, …\)/);
 });
 
+test('approvers are counted per area, not as one big number', () => {
+    const t = stepHealth({ holders: 187, areasWithout: 0, skipIfNoApprover: false, perArea: [{ name: 'R-KX', holders: 120 }, { name: 'R-KL', holders: 3 }] }).text;
+    assert.equal(t, 'Every area has approvers: 3 to 120 per area (see the list by area)');
+    assert.match(stepHealth({ holders: 6, areasWithout: 0, skipIfNoApprover: false, perArea: [{ name: 'A', holders: 3 }, { name: 'B', holders: 3 }] }).text, /3 in each/);
+    assert.equal(stepHealth({ holders: 5, areasWithout: 0, skipIfNoApprover: false }).text, '5 approvers');
+});
+
 test('wiring: test button, history, advanced settings and the invoice warning are connected', () => {
     const pipe = read('src/app/admin/settings/process-gates/VisualWorkflowPipeline.tsx');
     assert.ok(pipe.includes('<GateTestPanel') && pipe.includes('<GateHistoryPanel'));

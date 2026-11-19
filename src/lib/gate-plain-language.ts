@@ -43,8 +43,8 @@ export type StepHealth = 'ok' | 'warn' | 'info';
  * Is anybody able to act on this step? `holders` is how many active people hold it (null when it cannot be counted, e.g. a named person);
  * `areasWithout` is how many areas that have contractors have nobody holding it (queue gates only).
  */
-export function stepHealth(input: { holders: number | null; areasWithout: number | null; skipIfNoApprover: boolean; missingAreas?: readonly string[] }): { level: StepHealth; text: string } {
-    const { holders, areasWithout, skipIfNoApprover, missingAreas } = input;
+export function stepHealth(input: { holders: number | null; areasWithout: number | null; skipIfNoApprover: boolean; missingAreas?: readonly string[]; perArea?: ReadonlyArray<{ name: string; holders: number }> }): { level: StepHealth; text: string } {
+    const { holders, areasWithout, skipIfNoApprover, missingAreas, perArea } = input;
     if (holders === null) return { level: 'info', text: 'Approver is chosen when the step starts' };
     if (holders === 0) {
         return skipIfNoApprover
@@ -54,6 +54,11 @@ export function stepHealth(input: { holders: number | null; areasWithout: number
     if (areasWithout && areasWithout > 0 && !skipIfNoApprover) {
         const names = missingAreas && missingAreas.length > 0 ? ` (${missingAreas.join(', ')}${areasWithout > missingAreas.length ? ', …' : ''})` : '';
         return { level: 'warn', text: `${holders} approver${holders === 1 ? '' : 's'}, but ${areasWithout} area${areasWithout === 1 ? ' has' : 's have'} nobody${names}: items there will wait` };
+    }
+    if (perArea && perArea.length > 0) {
+        const counts = perArea.map((a) => a.holders);
+        const fewest = Math.min(...counts), most = Math.max(...counts);
+        return { level: 'ok', text: `Every area has approvers: ${fewest === most ? `${fewest} in each` : `${fewest} to ${most} per area`} (see the list by area)` };
     }
     return { level: 'ok', text: `${holders} approver${holders === 1 ? '' : 's'}` };
 }

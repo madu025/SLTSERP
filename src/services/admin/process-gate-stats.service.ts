@@ -14,6 +14,8 @@ export interface StepStats {
     areasWithout: number | null;
     /** the names of those areas (at most 12) */
     missingAreas: string[];
+    /** for a shared-queue gate: how many approvers have access to each area (every area that has contractors) */
+    perArea: Array<{ name: string; holders: number }>;
 }
 
 export interface SimulatedStep {
@@ -53,12 +55,16 @@ export class ProcessGateStatsService {
         for (const gate of gates) {
             out[gate.id] = gate.approvalLevels.map((level) => {
                 const waitingHere = waiting.find((w) => w.policyId === gate.id && w.level === level.level)?._count._all ?? 0;
-                if (level.assignee === 'ORDER_CONTRACTOR' || level.specificUserId) return { level: level.level, waiting: waitingHere, holders: null, areasWithout: null, missingAreas: [] };
+                if (level.assignee === 'ORDER_CONTRACTOR' || level.specificUserId) return { level: level.level, waiting: waitingHere, holders: null, areasWithout: null, missingAreas: [], perArea: [] };
                 const roles = parseEligibleRoles(level.eligibleRoles);
                 const holders = people.filter(({ u, permissions }) => !!level.requiredPermission && permissions.includes(level.requiredPermission) && !permissions.includes(ADMIN_CAPABILITY) && hasEligibleRole(u, roles));
                 const covered = new Set(holders.flatMap(({ u }) => u.accessibleOpmcs.map((o) => o.id)));
                 const missing = gate.queueMode ? areas.filter((a) => !covered.has(a.id)) : [];
+                const perArea = gate.queueMode
+                    ? areas.map((a) => ({ name: a.name || a.rtom, holders: holders.filter(({ u }) => u.accessibleOpmcs.some((o) => o.id === a.id)).length })).sort((x, y) => x.name.localeCompare(y.name))
+                    : [];
                 return {
+                    perArea,
                     level: level.level, waiting: waitingHere, holders: holders.length,
                     areasWithout: gate.queueMode ? missing.length : null,
                     missingAreas: missing.slice(0, 12).map((a) => a.name || a.rtom),

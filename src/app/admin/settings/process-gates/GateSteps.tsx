@@ -6,7 +6,7 @@ import type { ProcessApprovalLevel, ProcessGatePolicy } from '@prisma/client';
 import { MODULE_STATUS_REGISTRY } from '@/config/process-gate-statuses';
 import { describeStep, gateSentence, stepHealth } from '@/lib/gate-plain-language';
 
-export interface StepStats { level: number; waiting: number; holders: number | null; areasWithout: number | null; missingAreas?: string[] }
+export interface StepStats { level: number; waiting: number; holders: number | null; areasWithout: number | null; missingAreas?: string[]; perArea?: Array<{ name: string; holders: number }> }
 type Gate = ProcessGatePolicy & { approvalLevels: ProcessApprovalLevel[] };
 
 /** "CREATED (Invoice Generated)" -> "Invoice Generated"; an unknown status is shown humanised. */
@@ -39,7 +39,7 @@ export function GateSteps({ gate, stats }: { gate: Gate; stats?: StepStats[] }) 
                     const step = lvl as ProcessApprovalLevel & { assignee?: string; skipIfNoApprover?: boolean };
                     const d = describeStep({ requiredRole: lvl.requiredRole, assignee: step.assignee, skipIfNoApprover: step.skipIfNoApprover, specificUserId: lvl.specificUserId }, { queueMode, entityType: gate.entityType });
                     const s = stats?.find((x) => x.level === lvl.level);
-                    const health = s ? stepHealth({ holders: s.holders, areasWithout: s.areasWithout, missingAreas: s.missingAreas, skipIfNoApprover: Boolean(step.skipIfNoApprover) }) : null;
+                    const health = s ? stepHealth({ holders: s.holders, areasWithout: s.areasWithout, missingAreas: s.missingAreas, perArea: s.perArea, skipIfNoApprover: Boolean(step.skipIfNoApprover) }) : null;
                     const tone = health ? TONE[health.level] : null;
                     return (
                         <li key={lvl.id}>
@@ -51,6 +51,16 @@ export function GateSteps({ gate, stats }: { gate: Gate; stats?: StepStats[] }) 
                                 </div>
                                 <p className="mt-1 flex items-center gap-1 text-xs text-slate-900"><Users className="h-3.5 w-3.5 text-slate-700" />{d.who}</p>
                                 {d.rule && <p className="mt-0.5 text-xs font-semibold text-amber-900">{d.rule}</p>}
+                                {s && s.perArea && s.perArea.length > 0 && (
+                                    <details className="mt-1.5 rounded border border-slate-300 bg-slate-50 px-2 py-1">
+                                        <summary className="cursor-pointer text-[11px] font-bold text-slate-900">Approvers by area (people with access to that area)</summary>
+                                        <ul className="mt-1 grid grid-cols-2 gap-x-3 text-[11px] text-slate-900">
+                                            {s.perArea.map((a) => (
+                                                <li key={a.name} className={`flex justify-between ${a.holders === 0 ? 'font-bold text-red-900' : ''}`}><span>{a.name}</span><span>{a.holders}</span></li>
+                                            ))}
+                                        </ul>
+                                    </details>
+                                )}
                                 {tone && health && (
                                     <p className={`mt-1.5 inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-semibold ${tone.box}`}><tone.Icon className="h-3.5 w-3.5" />{health.text}</p>
                                 )}
