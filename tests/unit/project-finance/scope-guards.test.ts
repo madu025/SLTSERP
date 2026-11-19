@@ -22,8 +22,10 @@ test('scoped finance reader only queries vouchers in assigned OPMCs', async () =
     where = args.where;
     return [];
   });
+  stub(prisma, '$queryRaw', async () => []);
   await PaymentVoucherService.getPaymentVouchers({}, 'reader');
-  assert.deepEqual(where.project, { opmcId: { in: ['opmc-a'] } });
+  // project vouchers by the project's area; contractor invoice vouchers (no project) by the area of the invoice (none here)
+  assert.deepEqual(where.OR, [{ project: { opmcId: { in: ['opmc-a'] } } }]);
 });
 
 test('inventory issue query is limited to accessible stores', async () => {
