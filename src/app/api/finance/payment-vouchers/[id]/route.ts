@@ -27,7 +27,7 @@ const updatePVSchema = z.object({
 export const GET = apiHandler(async (_req, params) => {
     const voucher = await PaymentVoucherService.getPaymentVoucherById(params.id);
     if (!voucher) throw AppError.notFound('Payment voucher not found');
-    await assertVoucherAccess(voucher.projectId, params._userId);
+    await assertVoucherAccess(voucher.projectId, params._userId, voucher.description);
     return voucher;
 }, {
     permissions: [RBAC_PERMISSIONS.FINANCE_READ],
@@ -36,9 +36,9 @@ export const GET = apiHandler(async (_req, params) => {
 
 // PUT /api/finance/payment-vouchers/[id] - Update payment voucher details (DRAFT only)
 export const PUT = apiHandler(async (_req, params, body) => {
-    const voucher = await prisma.paymentVoucher.findUnique({ where: { id: params.id }, select: { projectId: true } });
+    const voucher = await prisma.paymentVoucher.findUnique({ where: { id: params.id }, select: { projectId: true, description: true } });
     if (!voucher) throw AppError.notFound('Payment voucher not found');
-    await assertVoucherAccess(voucher.projectId, params._userId);
+    await assertVoucherAccess(voucher.projectId, params._userId, voucher.description);
     return await PaymentVoucherService.updatePaymentVoucher(params.id, body);
 }, {
     schema: updatePVSchema,
@@ -49,9 +49,9 @@ export const PUT = apiHandler(async (_req, params, body) => {
 
 // DELETE /api/finance/payment-vouchers/[id] - Delete payment voucher (DRAFT only)
 export const DELETE = apiHandler(async (_req, params) => {
-    const voucher = await prisma.paymentVoucher.findUnique({ where: { id: params.id }, select: { projectId: true } });
+    const voucher = await prisma.paymentVoucher.findUnique({ where: { id: params.id }, select: { projectId: true, description: true } });
     if (!voucher) throw AppError.notFound('Payment voucher not found');
-    await assertVoucherAccess(voucher.projectId, params._userId);
+    await assertVoucherAccess(voucher.projectId, params._userId, voucher.description);
     return await PaymentVoucherService.deletePaymentVoucher(params.id);
 }, {
     permissions: [RBAC_PERMISSIONS.FINANCE_APPROVE],

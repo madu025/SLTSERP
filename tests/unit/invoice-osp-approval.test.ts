@@ -77,7 +77,7 @@ test('wiring: new invoices use the chain, the old approval refuses them, and the
     assert.ok(pv.includes('projectId: vendorPayment ? null : (data.projectId ?? null)'));
     const run = read('src/services/finance/ho-run.service.ts');
     assert.ok(!run.includes('LINK_THE_INVOICE_TO_A_PROJECT_FIRST'), 'the run no longer demands a project');
-    assert.ok(run.includes("item.kind === 'SOD') await assertVoucherAccess(null, userId)"), 'a projectless invoice needs company-wide finance access');
+    assert.ok(run.includes("item.kind === 'SOD') await assertContractorAreaAccess("), 'a projectless invoice follows the area of its contractor');
     assert.ok(!read('src/services/finance/ho-monthly.service.ts').includes('LINK_THE_INVOICE_TO_A_PROJECT_FIRST'));
     const caps = read('src/config/page-capabilities.ts');
     assert.ok(caps.includes("prefix: '/invoices/osp-approvals'") && caps.includes("prefix: '/finance/invoice-dispatch'"));

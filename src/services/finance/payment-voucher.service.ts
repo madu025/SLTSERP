@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
 import { Prisma } from '@prisma/client';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { sodVoucherIdsInScope } from '@/lib/payment-voucher-access';
 import { ApprovalLimitService } from '@/services/procurement/approval-limit.service';
 
 export interface CreatePVInput {
@@ -58,7 +59,11 @@ export class PaymentVoucherService {
   }, userId?: string | null) {
     const scope = await resolveOpmcScope(userId);
     const where: Record<string, unknown> = {};
-    if (scope !== undefined) where.project = { opmcId: { in: scope } };
+    if (scope !== undefined) {
+      // project vouchers by the area of their project; contractor invoice vouchers (no project) by the area of the contractor
+      const sodIds = await sodVoucherIdsInScope(scope);
+      where.OR = [{ project: { opmcId: { in: scope } } }, ...(sodIds.length ? [{ id: { in: sodIds } }] : [])];
+    }
 
     if (filters?.status && filters.status !== 'ALL') {
       where.status = filters.status;

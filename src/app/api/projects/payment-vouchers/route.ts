@@ -55,9 +55,9 @@ export const POST = apiHandler(async (_request, params, body: z.infer<typeof vou
 
 export const PATCH = apiHandler(async (_request, params, body: z.infer<typeof voucherStatusSchema>) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
-    const voucher = await prisma.paymentVoucher.findUnique({ where: { id: body.id }, select: { projectId: true, status: true } });
+    const voucher = await prisma.paymentVoucher.findUnique({ where: { id: body.id }, select: { projectId: true, status: true, description: true } });
     if (!voucher) throw AppError.notFound('Payment voucher not found');
-    await assertVoucherAccess(voucher.projectId, params._userId);
+    await assertVoucherAccess(voucher.projectId, params._userId, voucher.description);
     const hoLeg = body.status === 'SUBMITTED_TO_HO' || body.status === 'PAID' || (body.status === 'APPROVED' && voucher.status === 'SUBMITTED_TO_HO');
     if (body.status !== 'PENDING_APPROVAL' && !hoLeg) {
         await requireFinanceApprover(params._userId, body.status.toLowerCase());

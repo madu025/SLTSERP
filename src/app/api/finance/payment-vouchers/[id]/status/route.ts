@@ -23,9 +23,9 @@ export const PATCH = apiHandler(async (req, params, body) => {
     const { status, rejectionReason, cancelledReason, hoReference, hoPaidDate, returnReason } = body;
     const userId = getAuthenticatedUserId();
     if (!userId) throw AppError.unauthorized('Authentication required');
-    const voucher = await prisma.paymentVoucher.findUnique({ where: { id: params.id }, select: { projectId: true, status: true } });
+    const voucher = await prisma.paymentVoucher.findUnique({ where: { id: params.id }, select: { projectId: true, status: true, description: true } });
     if (!voucher) throw AppError.notFound('Payment voucher not found');
-    await assertVoucherAccess(voucher.projectId, userId);
+    await assertVoucherAccess(voucher.projectId, userId, voucher.description);
     // Makers (finance.write) submit for approval or cancel; approving and rejecting are approver actions; the Head Office
     // legs (submit, confirm paid, return) have their own capabilities
     const hoLeg = status === 'SUBMITTED_TO_HO' || status === 'PAID' || (status === 'APPROVED' && voucher.status === 'SUBMITTED_TO_HO');

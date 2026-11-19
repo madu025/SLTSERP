@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Banknote, ShieldCheck, FileCheck2, Clock, Printer, CheckCircle2, AlertTriangle, TrendingUp } from "lucide-react";
 import { cn } from '@/lib/utils';
+import { approvalLine } from '@/lib/contractor-claim-display';
 
 interface ContractorClaim {
     id: string;
@@ -17,6 +18,7 @@ interface ContractorClaim {
     status: string;
     grossLkr?: number;
     retentionLkr?: number;
+    retentionPercent?: number;
     netLkr?: number;
     /** where the invoice is in the area approval: a role code while it waits, CONFIRMED when done */
     confirmStage?: string;
@@ -340,8 +342,8 @@ export default function ContractorFinancePage() {
                                         <CheckCircle2 className={cn("w-3 h-3", isCertified(selectedClaim) ? "text-emerald-400" : "text-slate-600")} />
                                     </div>
                                     <div className="flex-1">
-                                        <p className="text-[10px] font-bold text-slate-200">Audited & Approved</p>
-                                        <p className="text-[9px] text-slate-500">SF Audit certification complete</p>
+                                        <p className="text-[10px] font-bold text-slate-200">{approvalLine(selectedClaim.status, selectedClaim.confirmStage, isCertified(selectedClaim)).title}</p>
+                                        <p className="text-[9px] text-slate-500">{approvalLine(selectedClaim.status, selectedClaim.confirmStage, isCertified(selectedClaim)).detail}</p>
                                     </div>
                                 </div>
                                 <div className="ml-2.5 h-4 border-l border-dashed border-slate-700" />
@@ -350,7 +352,7 @@ export default function ContractorFinancePage() {
                                         <Banknote className={cn("w-3 h-3", selectedClaim.status === 'PAID' ? "text-emerald-400" : "text-slate-600")} />
                                     </div>
                                     <div className="flex-1">
-                                        <p className="text-[10px] font-bold text-slate-200">Claim A — 80% Disbursed</p>
+                                        <p className="text-[10px] font-bold text-slate-200">Claim A — {100 - (selectedClaim.retentionPercent ?? 10)}% Disbursed</p>
                                         <p className="text-[9px] text-slate-500">{selectedClaim.status === 'PAID' ? 'Paid to bank account' : 'Awaiting finance processing'}</p>
                                     </div>
                                 </div>
@@ -360,7 +362,7 @@ export default function ContractorFinancePage() {
                                         <ShieldCheck className="w-3 h-3 text-amber-400" />
                                     </div>
                                     <div className="flex-1">
-                                        <p className="text-[10px] font-bold text-amber-300">Claim B — 20% Retention Held</p>
+                                        <p className="text-[10px] font-bold text-amber-300">Claim B — {selectedClaim.retentionPercent ?? 10}% Retention Held</p>
                                         <p className="text-[9px] text-slate-500">Released after warranty period</p>
                                     </div>
                                 </div>

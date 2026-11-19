@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
+import { claimMonthLabel, retentionPercent } from '@/lib/contractor-claim-display';
 
 export class ContractorFinanceService {
     static async getFinanceDashboard(userId: string | null, contractorId: string | null) {
@@ -70,7 +71,7 @@ export class ContractorFinanceService {
                 pendingVouchersCount += 1;
             }
 
-            const monthName = inv.date ? new Date(inv.date).toLocaleString('default', { month: 'long', year: 'numeric' }) : 'July 2026';
+            const monthName = claimMonthLabel(inv);
 
             return {
                 id: inv.id,
@@ -83,6 +84,7 @@ export class ContractorFinanceService {
                 removedSods: inv.sodRemovals,
                 grossLkr: gross,
                 retentionLkr: retention,
+                retentionPercent: retentionPercent(gross, retention),
                 netLkr: net
             };
         });

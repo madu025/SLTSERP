@@ -371,7 +371,7 @@ export const SOD_GUIDE: ModuleGuide = {
             steps: [
                 'When the invoice reaches the contractor step, the contractor opens the contractor portal, Invoices & Claims. The invoice is marked "Confirm needed" and a banner counts them. Opening it shows "Confirm invoice" and "Dispute", and any service orders that were taken out with the reason.',
                 'If the contractor confirms, the invoice moves on to the Engineer and the Area Manager. If it disputes, a reason is required and the invoice goes back to the first step.',
-                'When the last step is approved the invoice goes to OSP Quality. OSP Quality opens SF Audit Division → Invoices to Verify, checks one (View invoice) and clicks "Verify".',
+                'When the last step is approved the invoice goes to OSP Quality. OSP Quality opens SF Audit Division → Invoices to Verify, checks one (View invoice) and clicks "Verify", or ticks several and clicks "Verify selected".',
             ],
             tips: [
                 'The counters on Invoices to Verify show how many invoices are ready and how many are still in area approval.',
@@ -405,7 +405,7 @@ export const SOD_GUIDE: ModuleGuide = {
                 'The person who sent an invoice cannot approve it; a different OSP manager must.',
                 'An OSP manager only sees and approves invoices of their own area.',
                 'The older single approval on Finance → Invoice Approvals no longer works for these invoices. Invoices created before this change still use it.',
-                'A contractor invoice does not need a project to be paid. Like a vendor payment, its Head Office payment request needs company-wide finance access, and it cannot be paid for more than the invoice total.',
+                'A contractor invoice does not need a project to be paid. It follows the area of its contractor, so Finance staff see and pay the invoices of the areas they are assigned to (a contractor without an area is seen by company-wide finance access only). It cannot be paid for more than the invoice total.',
             ],
             anchors: [
                 { file: DISPATCH, text: 'Send Invoices to OSP Managers' },

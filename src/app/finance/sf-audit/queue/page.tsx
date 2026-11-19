@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import Sidebar from '@/components/Sidebar';
@@ -44,6 +45,27 @@ export default function OspQualityQueuePage() {
 
     const ready = q.data?.ready ?? [];
 
+    // Verify many at once: each invoice goes through the same single-invoice endpoint, one after the other
+    const [picked, setPicked] = useState<string[]>([]);
+    const verifyMany = useMutation({
+        mutationFn: async (ids: string[]) => {
+            const failed: string[] = [];
+            for (const id of ids) {
+                const res = await fetch(`/api/invoices/${id}/sf-audit-approve`, { method: 'POST' });
+                if (!res.ok) { const json = await res.json().catch(() => ({})); failed.push(json?.error?.message || 'could not verify'); }
+            }
+            return { done: ids.length - failed.length, failed };
+        },
+        onSuccess: (r: { done: number; failed: string[] }) => {
+            setPicked([]);
+            if (r.failed.length === 0) toast.success(`${r.done} invoice${r.done === 1 ? '' : 's'} verified`);
+            else toast.warning(`${r.done} verified, ${r.failed.length} not verified: ${r.failed[0]}`);
+            qc.invalidateQueries({ queryKey: ['osp-quality-queue'] });
+        },
+        onError: (e: Error) => toast.error(e.message),
+    });
+    const allPicked = ready.length > 0 && ready.every((i) => picked.includes(i.id));
+
     return (
         <RoleGuard>
             <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -64,18 +86,24 @@ export default function OspQualityQueuePage() {
                         )}
 
                         <div className="rounded-xl border border-slate-200 bg-white p-4">
+                            {ready.length > 1 && (
+                                <div className="mb-3">
+                                    <button type="button" disabled={picked.length === 0 || verifyMany.isPending} onClick={() => verifyMany.mutate(picked)} className="rounded bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{verifyMany.isPending ? 'Verifying...' : `Verify selected (${picked.length})`}</button>
+                                </div>
+                            )}
                             {q.isLoading ? <div className="py-8 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-slate-700" /></div>
                                 : q.isError ? <p className="text-sm text-red-800">{(q.error as Error).message}</p>
                                     : ready.length === 0 ? <p className="text-sm text-slate-900">No invoices are waiting for verification.</p> : (
                                         <div className="overflow-x-auto">
                                             <table className="w-full text-sm">
                                                 <thead><tr className="border-b border-slate-300">
-                                                    <th className={th}>Invoice</th><th className={th}>Contractor</th><th className={th}>Area</th><th className={th}>Period</th>
+                                                    <th className={th}><input type="checkbox" aria-label="Select all" checked={allPicked} onChange={(e) => setPicked(e.target.checked ? ready.map((i) => i.id) : [])} /></th><th className={th}>Invoice</th><th className={th}>Contractor</th><th className={th}>Area</th><th className={th}>Period</th>
                                                     <th className={th}>Orders</th><th className={th}>Total</th><th className={th}>Confirmed by contractor</th><th className={th}></th>
                                                 </tr></thead>
                                                 <tbody>
                                                     {ready.map((i) => (
                                                         <tr key={i.id} className="border-b border-slate-200 text-slate-900">
+                                                            <td className="py-2 pr-3"><input type="checkbox" aria-label={`Select ${i.invoiceNumber}`} checked={picked.includes(i.id)} onChange={(e) => setPicked(e.target.checked ? [...picked, i.id] : picked.filter((x) => x !== i.id))} /></td>
                                                             <td className="py-2 pr-3 font-mono font-semibold">{i.invoiceNumber}</td>
                                                             <td className="py-2 pr-3">{i.contractor?.name ?? '-'}</td>
                                                             <td className="py-2 pr-3">{i.rtomArea ?? '-'}</td>
