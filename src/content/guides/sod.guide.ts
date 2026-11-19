@@ -338,7 +338,7 @@ export const SOD_GUIDE: ModuleGuide = {
             page: '/service-orders/invoicable',
             requires: RBAC_PERMISSIONS.SOD_INVOICE,
             steps: [
-                'Open Service Orders → Invoicable SODs and choose the billing month and year.',
+                'Open Service Orders → Invoicable SODs and choose the billing month and year. Choose a contractor to load all orders of that contractor for the month; without a contractor only the first 200 orders are shown.',
                 'Click "Verify Completed SODs". Every completed order in the list is checked in one go; the ones that pass are marked verified for invoice, and the screen reports how many were blocked.',
                 'Click "Generate Invoices for All Contractors" to create one invoice for each contractor from its verified orders, or choose one contractor and click "Generate Monthly Invoice". The invoice number and total are shown with a "View Official Invoice" link.',
                 'The new invoice starts the area approvals (Invoices → Invoice Approvals (Area)). Orders an approver takes out of an invoice come back here to be verified again and can go on the next invoice.',

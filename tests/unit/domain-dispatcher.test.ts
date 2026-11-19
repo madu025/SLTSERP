@@ -33,7 +33,7 @@ test('final approval executes the domain action in the approval transaction', ()
 test('invoice generation accepts the approval transaction client', () => {
     assert.match(invoiceGenerator, /transaction\?: TransactionClient/);
     assert.match(invoiceGenerator, /const db: InvoiceDbClient = transaction \|\| prisma/);
-    assert.match(invoiceGenerator, /return transaction \? create\(transaction\) : prisma\.\$transaction\(create\)/);
+    assert.match(invoiceGenerator, /return transaction \? create\(transaction\) : prisma\.\$transaction\(create, \{ timeout: 60_000, maxWait: 10_000 \}\)/);
 });
 
 test('process gates use canonical capabilities and DB role assignments', () => {

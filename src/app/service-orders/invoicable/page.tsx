@@ -63,16 +63,20 @@ function InvoicableServiceOrdersContent() {
     const [generating, setGenerating] = useState<boolean>(false);
     const [verifying, setVerifying] = useState<boolean>(false);
     const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string; link?: string } | null>(null);
-    const [billingPeriod] = useState(() => {
+    const [billingPeriod, setBillingPeriod] = useState(() => {
         const now = new Date();
         return { month: now.getMonth() + 1, year: now.getFullYear() };
     });
 
     const fetchData = useCallback(async () => {
         setLoading(true);
+        // A chosen contractor is filtered on the server, so the list is not cut at the first rows of the whole month
+        const contractorFilter = selectedContractorId && selectedContractorId !== 'ALL' && selectedContractorId !== 'c-default'
+            ? `&columnFilters=${encodeURIComponent(JSON.stringify({ contractorId: selectedContractorId }))}`
+            : '';
         try {
             const [sodRes, contractorRes] = await Promise.all([
-                fetch(`/api/service-orders?filter=completed&month=${billingPeriod.month}&year=${billingPeriod.year}&limit=200&_t=${Date.now()}`, {
+                fetch(`/api/service-orders?filter=completed&month=${billingPeriod.month}&year=${billingPeriod.year}&limit=${contractorFilter ? 500 : 200}${contractorFilter}&_t=${Date.now()}`, {
                     cache: 'no-store',
                     headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
                 }),
@@ -85,7 +89,8 @@ function InvoicableServiceOrdersContent() {
             let allContractors: Array<{ id: string; name: string }> = [];
             if (contractorRes.ok) {
                 const cJson = await contractorRes.json();
-                const rawContractors = cJson.contractors || cJson.data || cJson.items || [];
+                // the API wraps its answer as { data: { contractors, meta } }; reading cJson.data alone gave an object, so no contractor name was ever matched
+                const rawContractors = cJson.contractors || cJson.data?.contractors || (Array.isArray(cJson.data) ? cJson.data : null) || cJson.items || [];
                 allContractors = Array.isArray(rawContractors) ? rawContractors : [];
             }
 
@@ -128,12 +133,11 @@ function InvoicableServiceOrdersContent() {
                     }
                 }
 
-                const contractorList = Array.from(contractorMap.values()).map(c => ({
-                    id: c.id,
-                    name: c.name,
-                    invoicableCount: c.count
-                }));
-
+                // The choices are every contractor (not only those in the rows loaded), with the number of loaded SODs where known
+                const known = new Map(Array.from(contractorMap.values()).map((c) => [c.id, c.count]));
+                const contractorList = allContractors
+                    .map((c) => ({ id: c.id, name: c.name, invoicableCount: known.get(c.id) ?? 0 }))
+                    .sort((a, b) => a.name.localeCompare(b.name));
                 setContractors(contractorList);
             }
         } catch (err) {
@@ -142,7 +146,7 @@ function InvoicableServiceOrdersContent() {
         } finally {
             setLoading(false);
         }
-    }, [billingPeriod.month, billingPeriod.year]);
+    }, [billingPeriod.month, billingPeriod.year, selectedContractorId]);
 
     useEffect(() => {
         fetchData();
@@ -347,6 +351,12 @@ function InvoicableServiceOrdersContent() {
                                         </div>
 
                                         <div className="flex flex-wrap items-center gap-3">
+                                            <select aria-label="Billing month" value={billingPeriod.month} onChange={(e) => setBillingPeriod((p) => ({ ...p, month: Number(e.target.value) }))} className="h-9 rounded-md border border-slate-300 bg-white px-2 text-xs font-medium text-slate-900">
+                                                {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                                            </select>
+                                            <select aria-label="Billing year" value={billingPeriod.year} onChange={(e) => setBillingPeriod((p) => ({ ...p, year: Number(e.target.value) }))} className="h-9 rounded-md border border-slate-300 bg-white px-2 text-xs font-medium text-slate-900">
+                                                {[new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1].map((y) => <option key={y} value={y}>{y}</option>)}
+                                            </select>
                                             <Select value={selectedContractorId || 'ALL'} onValueChange={setSelectedContractorId}>
                                                 <SelectTrigger className="w-64 bg-white font-medium text-xs">
                                                     <SelectValue placeholder="Choose Contractor..." />

@@ -719,47 +719,37 @@ export class ServiceOrderService {
             );
         }
 
-        const verifiedIds: string[] = [];
+        const verifiedIds: string[] = eligibleSods.map((sod) => sod.id);
 
+        // Set-based writes: one statement for all orders, not one per order and per material line (hundreds of statements ran out of the
+        // transaction time with a batch of a few dozen orders).
         await prisma.$transaction(async (tx) => {
-            const eligibleLineIds = new Set(eligibleSods.flatMap((sod) => sod.materialUsage.map((m) => m.id)));
-            for (const line of repricing.filter((r) => eligibleLineIds.has(r.id))) {
-                await tx.sODMaterialUsage.update({ where: { id: line.id }, data: { costPrice: line.costPrice, unitPrice: line.unitPrice } });
+            if (repricing.length > 0) {
+                const eligibleLineIds = new Set(eligibleSods.flatMap((sod) => sod.materialUsage.map((m) => m.id)));
+                const lineIds = repricing.filter((r) => eligibleLineIds.has(r.id)).map((r) => r.id);
+                if (lineIds.length > 0) {
+                    await tx.$executeRaw`UPDATE "SODMaterialUsage" u SET "costPrice" = CASE WHEN COALESCE(i."costPrice", 0) > 0 THEN i."costPrice" ELSE i."unitPrice" END, "unitPrice" = CASE WHEN COALESCE(i."unitPrice", 0) > 0 THEN i."unitPrice" ELSE i."costPrice" END FROM "InventoryItem" i WHERE u."itemId" = i.id AND u.id = ANY(${lineIds}::uuid[]) AND COALESCE(u."costPrice", 0) <= 0 AND COALESCE(u."unitPrice", 0) <= 0`;
+                }
             }
-            for (const sod of eligibleSods) {
-                await tx.serviceOrder.update({
-                    where: { id: sod.id },
-                    data: {
-                        // PAT evidence is written by the relevant approval/sync
-                        // paths. Financial verification may only consume that
-                        // evidence; it must never manufacture approvals.
-                        isInvoicable: true
+            // PAT evidence is written by the relevant approval/sync paths. Financial verification may only consume that
+            // evidence; it must never manufacture approvals.
+            await tx.serviceOrder.updateMany({ where: { id: { in: verifiedIds } }, data: { isInvoicable: true } });
+            await tx.auditLog.createMany({
+                data: eligibleSods.map((sod) => ({
+                    action: 'SOD_INVOICABLE_VERIFIED',
+                    entity: 'ServiceOrder',
+                    entityId: sod.id,
+                    userId: userId,
+                    newValue: {
+                        soNum: sod.soNum,
+                        rtom: sod.rtom,
+                        patStatuses: { slts: sod.sltsPatStatus, opmc: sod.opmcPatStatus, ho: sod.hoPatStatus },
+                        verifiedBy: userId,
+                        notes: notes || 'Engineer verification passed'
                     }
-                });
-
-                await tx.auditLog.create({
-                    data: {
-                        action: 'SOD_INVOICABLE_VERIFIED',
-                        entity: 'ServiceOrder',
-                        entityId: sod.id,
-                        userId: userId,
-                        newValue: {
-                            soNum: sod.soNum,
-                            rtom: sod.rtom,
-                            patStatuses: {
-                                slts: sod.sltsPatStatus,
-                                opmc: sod.opmcPatStatus,
-                                ho: sod.hoPatStatus,
-                            },
-                            verifiedBy: userId,
-                            notes: notes || 'Engineer verification passed'
-                        }
-                    }
-                });
-
-                verifiedIds.push(sod.id);
-            }
-        });
+                })),
+            });
+        }, { timeout: 60_000, maxWait: 10_000 });
 
         return {
             count: verifiedIds.length,

@@ -401,7 +401,7 @@ export class InvoiceGeneratorService {
             return invoice;
         };
 
-        return transaction ? create(transaction) : prisma.$transaction(create);
+        return transaction ? create(transaction) : prisma.$transaction(create, { timeout: 60_000, maxWait: 10_000 });
     }
 
     /**
