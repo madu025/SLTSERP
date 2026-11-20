@@ -983,6 +983,14 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                     OFFLINE
                                                 </span>
                                             )}
+                                            {order.isManualEntry && (
+                                                <span
+                                                    className="px-1.5 py-0.5 text-[8px] font-black uppercase rounded-md bg-slate-700 text-white shrink-0 cursor-help"
+                                                    title="Entered by hand, not received from the SLT portal"
+                                                >
+                                                    MANUAL
+                                                </span>
+                                            )}
                                             {order.hasBridgeLog && (
                                                 <span 
                                                     className="p-1 rounded-full bg-indigo-600/10 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 border border-indigo-500/30 shadow-xs shrink-0 inline-flex items-center justify-center cursor-help" 

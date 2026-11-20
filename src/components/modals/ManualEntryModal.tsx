@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -41,7 +42,8 @@ const serviceOrderSchema = z.object({
     dp: z.string().optional(),
     sales: z.string().optional(),
     address: z.string().optional(),
-});
+    contractorId: z.string().optional(),
+}).refine((v) => v.status !== "INSTALL_CLOSED" || !!v.contractorId, { path: ["contractorId"], message: "Choose the contractor who did the work" });
 
 type ServiceOrderFormValues = z.infer<typeof serviceOrderSchema>;
 
@@ -50,9 +52,10 @@ interface ManualEntryModalProps {
     onClose: () => void;
     // Previously we passed formData/setFormData, now purely handled via onSubmit
     onSubmit: (data: ServiceOrderFormValues) => void;
+    contractors?: Array<{ id: string; name: string }>;
 }
 
-export default function ManualEntryModal({ isOpen, onClose, onSubmit }: ManualEntryModalProps) {
+export default function ManualEntryModal({ isOpen, onClose, onSubmit, contractors = [] }: ManualEntryModalProps) {
     const form = useForm<ServiceOrderFormValues>({
         resolver: zodResolver(serviceOrderSchema),
         defaultValues: {
@@ -67,13 +70,15 @@ export default function ManualEntryModal({ isOpen, onClose, onSubmit }: ManualEn
             dp: "",
             sales: "",
             address: "",
+            contractorId: "",
         },
     });
 
     const handleSubmit = (values: ServiceOrderFormValues) => {
-        onSubmit(values); // Pass valid data up
-        form.reset();
+        onSubmit(values); // The form is cleared when the drawer closes after the order was added, so a failed save keeps what was typed
     };
+
+    useEffect(() => { if (!isOpen) form.reset(); }, [isOpen, form]);
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -169,6 +174,27 @@ export default function ManualEntryModal({ isOpen, onClose, onSubmit }: ManualEn
                                             <SelectContent>
                                                 <SelectItem value="INPROGRESS">In Progress</SelectItem>
                                                 <SelectItem value="INSTALL_CLOSED">Install Closed</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="contractorId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Contractor{form.watch("status") === "INSTALL_CLOSED" ? " *" : ""}</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select contractor" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {contractors.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />

@@ -91,6 +91,17 @@ export const POST = apiHandler(
         // Map form status to ServiceOrderStatus enum
         const mappedStatus = body.status === 'INSTALL_CLOSED' ? 'INSTALL_CLOSED' : 'INPROGRESS';
 
+        // Every order has a contractor: a finished one must name who did the work; an order in progress may get its contractor assigned from the list.
+        const contractorId = body.contractorId || null;
+        if (mappedStatus === 'INSTALL_CLOSED' && !contractorId) {
+            throw AppError.badRequest('Choose the contractor who did the work for an Install Closed order');
+        }
+        if (contractorId) {
+            const contractor = await prisma.contractor.findFirst({ where: { id: contractorId, opmcId: opmc.id }, select: { id: true } });
+            if (!contractor) throw AppError.badRequest('The contractor does not belong to this RTOM');
+        }
+        const now = new Date();
+
         const created = await prisma.serviceOrder.create({
             data: {
                 soNum,
@@ -107,8 +118,11 @@ export const POST = apiHandler(
                 address: body.address?.trim() || null,
                 status: mappedStatus,
                 sltsStatus: mappedStatus,
-                statusDate: new Date(),
-                receivedDate: new Date(),
+                statusDate: now,
+                receivedDate: now,
+                // A finished order has a completion date, like a portal one, so it shows on the Completed page of its month
+                completedDate: mappedStatus === 'INSTALL_CLOSED' ? now : null,
+                contractorId,
                 isManualEntry: true,
             },
             include: {

@@ -7,6 +7,9 @@ export const serviceOrderPatchSchema = z.object({
     completedDate: z.string().optional().nullable(),
     contractorId: z.string().optional().nullable(),
     comments: z.string().optional().nullable(),
+    // A manual return: why, and the date it happened (without these the schema dropped them and the Return Reason column stayed empty)
+    returnReason: z.string().optional().nullable(),
+    statusDate: z.string().optional().nullable(),
     wiredOnly: z.boolean().optional(),
     ontSerialNumber: z.string().optional().nullable(),
     iptvSerialNumbers: z.array(z.string()).optional().nullable(),
@@ -71,6 +74,7 @@ export const serviceOrderCreateSchema = z.object({
     dp: z.string().optional().nullable(),
     sales: z.string().optional().nullable(),
     address: z.string().optional().nullable(),
+    contractorId: z.string().min(1).optional().nullable(),
 });
 export const bridgeSyncSchema = z.object({
     soNum: z.string().min(1, "Service Order Number is required"),

@@ -143,4 +143,23 @@ test('Offline is a filter on every order list, not a page of its own, and the me
     assert.ok(read('src/app/service-orders/work-order/page.tsx').includes('Offline only'), 'every list page has the Offline only button');
 });
 
+test('manual and offline orders sit on the same lists as portal orders and differ only by their marks', () => {
+    const q = read('src/services/service-order/sod.query.service.ts');
+    assert.ok(q.includes('isManualEntry: true,') && q.includes('isOfflineWorkOrder: true,') && q.includes('offlineReference: true,'), 'the list returns where an order came from, so the marks can show');
+    const table = read('src/app/service-orders/work-order/components/SODSheetTable.tsx');
+    assert.ok(table.includes('order.isManualEntry &&') && table.includes('MANUAL') && table.includes('OFFLINE'), 'a mark for a manual order and one for an offline order');
+    const create = read('src/app/api/service-orders/route.ts');
+    assert.ok(create.includes("completedDate: mappedStatus === 'INSTALL_CLOSED' ? now : null") && create.includes('Choose the contractor who did the work'), 'a manual Install Closed order has a completion date, so it is on Completed too, and names its contractor');
+    assert.ok(create.includes('opmcId: opmc.id') && create.includes('The contractor does not belong to this RTOM'), 'the contractor must be one of the RTOM');
+    const modal = read('src/components/modals/ManualEntryModal.tsx');
+    assert.ok(modal.includes('name="contractorId"') && modal.includes('if (!isOpen) form.reset()'), 'the form takes a contractor and is cleared when it closes, not when a save fails');
+});
+
+test('a manual return keeps its reason, its date and its comment', () => {
+    const schema = read('src/lib/validations/service-order.schema.ts');
+    const patch = schema.slice(schema.indexOf('export const serviceOrderPatchSchema'), schema.indexOf('export const serviceOrderUpdateSchema'));
+    assert.ok(patch.includes('returnReason:') && patch.includes('statusDate:'), 'the PATCH schema must not strip the return reason and date');
+    assert.ok(read('src/app/service-orders/work-order/page.tsx').includes('comments: [pendingReturnOrder.comments'), 'the comment keeps the earlier lines and adds the manual return line');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });

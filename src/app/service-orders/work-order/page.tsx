@@ -651,7 +651,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                     </div>
                 </div>
 
-                <ManualEntryModal isOpen={showManualModal} onClose={() => setShowManualModal(false)} onSubmit={(data) => addOrderMutation.mutate(data)} />
+                <ManualEntryModal isOpen={showManualModal} onClose={() => setShowManualModal(false)} contractors={contractors} onSubmit={(data) => addOrderMutation.mutate({ ...data, contractorId: data.contractorId || undefined } as never, { onSuccess: () => setShowManualModal(false) })} />
                 <ScheduleModal isOpen={showScheduleModal} onClose={() => setShowScheduleModal(false)} onSubmit={(data) => scheduleMutation.mutate({ orderId: selectedOrder?.id as string, data })} selectedOrder={selectedOrder} />
                 <CommentModal isOpen={showCommentModal} onClose={() => { setShowCommentModal(false); setPendingReturnOrder(null); }} onSubmit={(comment, returnDate) => {
                     if (pendingReturnOrder) {
@@ -659,7 +659,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                             id: pendingReturnOrder.id,
                             sltsStatus: 'RETURN',
                             returnReason: comment,
-                            comment: `${pendingReturnOrder.sltsStatus === 'DISAPPEARED' ? '[MANUAL RETURN from DISAPPEARED]' : '[MANUAL RETURN]'} ${comment}`,
+                            comments: [pendingReturnOrder.comments, `${pendingReturnOrder.sltsStatus === 'DISAPPEARED' ? '[MANUAL RETURN from DISAPPEARED]' : '[MANUAL RETURN]'} ${comment}`].filter(Boolean).join('\n'),
                             // Set statusDate to return date (NOT completedDate - connection did not complete)
                             statusDate: returnDate ? new Date(returnDate).toISOString() : new Date().toISOString(),
                         });

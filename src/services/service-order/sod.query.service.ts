@@ -373,6 +373,10 @@ export class SODQueryService {
                     sales: true,
                     comments: true,
                     completionMode: true,
+                    // Where the order came from: entered by hand, or completed offline (the list shows a mark for each)
+                    isManualEntry: true,
+                    isOfflineWorkOrder: true,
+                    offlineReference: true,
                     directTeam: true,
                     returnReason: true,
                     createdAt: true,

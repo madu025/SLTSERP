@@ -79,6 +79,8 @@ export interface OrderCompletionData {
     statusDate?: string;     // ISO date string for statusDate field (e.g., return date)
     sltsStatus?: string;
     returnReason?: string;
+    /** The order comment text (the whole text, existing lines kept) */
+    comments?: string;
     materialUsage?: Array<{
         itemId: string;
         quantity: number;
