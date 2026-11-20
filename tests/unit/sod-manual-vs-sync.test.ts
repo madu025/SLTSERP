@@ -134,4 +134,13 @@ test('the order screens read the material list through the service order capabil
     assert.ok(!inv.includes('AREA_COORDINATOR'), 'the Area Coordinator has no inventory access; the stock of their contractors is on Contractor Stock');
 });
 
+test('Offline is a filter on every order list, not a page of its own, and the menu lists the order pages in the order the work goes', () => {
+    const menu = read('src/config/sidebar-menu.ts');
+    assert.ok(!menu.includes("title: 'Offline Work Orders'"), 'no separate Offline page in the menu');
+    const at = (t: string) => menu.indexOf(`title: '${t}'`);
+    assert.ok(at('Pending SOD') < at('Install Closed SOD') && at('Install Closed SOD') < at('Completed SOD') && at('Completed SOD') < at('Return SOD') && at('Return SOD') < at('Disappeared SODs'), 'pending, install closed, completed, return, disappeared');
+    assert.ok(read('src/services/service-order/sod.query.service.ts').includes('if (offlineOnly) andFilters.push({ isOfflineWorkOrder: true })') && read('src/app/api/service-orders/route.ts').includes("offlineOnly: searchParams.get('offline') === '1'"), 'the list API filters on the Offline mark');
+    assert.ok(read('src/app/service-orders/work-order/page.tsx').includes('Offline only'), 'every list page has the Offline only button');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });

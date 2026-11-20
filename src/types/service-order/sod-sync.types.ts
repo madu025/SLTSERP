@@ -66,6 +66,8 @@ export interface GetServiceOrdersParams {
     statusFilter?: string;
     patFilter?: string;
     matFilter?: string;
+    /** Only orders marked Offline (completed outside the portal). Works with every list page. */
+    offlineOnly?: boolean;
     columnFilters?: Record<string, string>;
     page?: number;
     limit?: number;

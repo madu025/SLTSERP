@@ -34,6 +34,7 @@ export const GET = apiHandler(async (request, params) => {
         statusFilter: searchParams.get('statusFilter') || undefined,
         patFilter: searchParams.get('patFilter') || undefined,
         matFilter: searchParams.get('matFilter') || undefined,
+        offlineOnly: searchParams.get('offline') === '1',
         columnFilters,
         page: parseInt(searchParams.get('page') || '1'),
         limit: parseInt(searchParams.get('limit') || '50'),

@@ -113,15 +113,27 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
+                title: 'Install Closed SOD',
+                path: '/service-orders/work-order/install-closed',
+                icon: CheckCircle2,
+                permissionId: RBAC_PERMISSIONS.SOD_READ
+            },
+            {
                 title: 'Completed SOD',
                 path: '/service-orders/work-order/completed',
                 icon: FileCheck2,
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
-                title: 'Install Closed SOD',
-                path: '/service-orders/work-order/install-closed',
-                icon: CheckCircle2,
+                title: 'Return SOD',
+                path: '/service-orders/work-order/return',
+                icon: FileText,
+                permissionId: RBAC_PERMISSIONS.SOD_READ
+            },
+            {
+                title: 'Disappeared SODs',
+                path: '/service-orders/work-order/disappeared',
+                icon: EyeOff,
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
@@ -147,24 +159,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/service-orders/material-deviation',
                 icon: Receipt,
                 permissionId: RBAC_PERMISSIONS.SOD_INVOICE
-            },
-            {
-                title: 'Return SOD',
-                path: '/service-orders/work-order/return',
-                icon: FileText,
-                permissionId: RBAC_PERMISSIONS.SOD_READ
-            },
-            {
-                title: 'Disappeared SODs',
-                path: '/service-orders/work-order/disappeared',
-                icon: EyeOff,
-                permissionId: RBAC_PERMISSIONS.SOD_READ
-            },
-            {
-                title: 'Offline Work Orders',
-                path: '/service-orders/work-order/offline-work-orders',
-                icon: Tag,
-                permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
                 // Only the contractors of the person's own RTOMs, view only

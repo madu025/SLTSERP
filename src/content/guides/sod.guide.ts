@@ -65,6 +65,7 @@ export const SOD_GUIDE: ModuleGuide = {
             tips: [
                 'Pending SOD shows orders that are still open. The finished stages, Return and Disappeared pages each have their own list under Service Orders.',
                 'Material Deviation compares the material your team entered with what SLT reported, so check it before billing.',
+                'Orders completed outside the portal carry an Offline mark. There is no separate page for them: press Offline only on any order list to see just those.',
                 'Contractor Stock (Service Orders → Contractor Stock) shows the material the contractors of your own RTOMs hold in hand. It is view only and limited to your areas.',
             ],
             anchors: [

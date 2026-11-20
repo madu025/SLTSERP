@@ -77,6 +77,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     const [statusFilter, setStatusFilter] = useState(filterType === 'completed' || filterType === 'install_closed' ? 'ALL' : 'DEFAULT');
     const [patFilter, setPatFilter] = useState(pageTitle === 'Invoicable Service Orders' ? 'READY' : "ALL");
     const [matFilter, setMatFilter] = useState("ALL");
+    const [offlineOnly, setOfflineOnly] = useState(false);
     const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
     const [sortConfig, setSortConfig] = useState<{ key: keyof ServiceOrder; direction: "asc" | "desc" } | null>({
         key: filterType === 'completed' || filterType === 'install_closed' || filterType === 'return' ? 'completedDate' : (filterType === 'disappeared' ? 'statusDate' : 'createdAt'),
@@ -177,7 +178,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     const columnFiltersKey = React.useMemo(() => JSON.stringify(columnFilters), [columnFilters]);
 
     const { data: qData, isLoading: isLoadingOrders, isError, refetch } = useQuery<{ items: ServiceOrder[], summary: { totalSod: number, contractorAssigned: number, appointments: number, statusBreakdown: Record<string, number>, missingCount?: number }, meta?: { total: number, totalPages: number, page: number } }>({
-        queryKey: ["service-orders", selectedRtomId, filterType, selectedMonth, selectedYear, debouncedSearchTerm, statusFilter, patFilter, matFilter, columnFiltersKey, currentPage, sortConfig],
+        queryKey: ["service-orders", selectedRtomId, filterType, selectedMonth, selectedYear, debouncedSearchTerm, statusFilter, patFilter, matFilter, offlineOnly, columnFiltersKey, currentPage, sortConfig],
         queryFn: async () => {
             if (!selectedRtomId) return { items: [], summary: { totalSod: 0, contractorAssigned: 0, appointments: 0, statusBreakdown: {}, missingCount: 0 } };
             const monthParam = filterType === 'pending' ? '' : `&month=${selectedMonth}`;
@@ -185,7 +186,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
             const searchParam = debouncedSearchTerm ? `&search=${encodeURIComponent(debouncedSearchTerm)}` : '';
             const statusParam = statusFilter ? `&statusFilter=${statusFilter}` : '';
             const patParam = patFilter ? `&patFilter=${patFilter}` : '';
-            const matParam = matFilter ? `&matFilter=${matFilter}` : '';
+            const matParam = (matFilter ? `&matFilter=${matFilter}` : '') + (offlineOnly ? '&offline=1' : '');
             const columnFiltersParam = columnFiltersKey !== '{}' ? `&columnFilters=${encodeURIComponent(columnFiltersKey)}` : '';
 
             const res = await fetch(`/api/service-orders?rtomId=${selectedRtomId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}${columnFiltersParam}&page=${currentPage}&limit=${PAGE_LIMIT}&_t=${Date.now()}`, {
@@ -378,7 +379,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
             const searchParam = debouncedSearchTerm ? `&search=${encodeURIComponent(debouncedSearchTerm)}` : '';
             const statusParam = statusFilter ? `&statusFilter=${statusFilter}` : '';
             const patParam = patFilter ? `&patFilter=${patFilter}` : '';
-            const matParam = matFilter ? `&matFilter=${matFilter}` : '';
+            const matParam = (matFilter ? `&matFilter=${matFilter}` : '') + (offlineOnly ? '&offline=1' : '');
             const res = await fetch(`/api/service-orders?rtomId=${selectedRtomId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}&page=1&limit=10000`, { cache: 'no-store' });
             const json = await res.json();
             const allOrders: ServiceOrder[] = Array.isArray(json?.items) ? json.items : [];
@@ -513,9 +514,14 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                      </SelectContent>
                                  </Select>
 
+                                 {/* Offline orders are a mark on an order (completed outside the portal), so they are a filter on every list, not a page of their own */}
+                                 <Button variant={offlineOnly ? 'default' : 'outline'} size="sm" className="h-7 px-2.5 text-xs font-semibold" aria-pressed={offlineOnly} title="Show only orders marked Offline" onClick={() => { setOfflineOnly(v => !v); setCurrentPage(1); }}>
+                                     Offline only
+                                 </Button>
+
                                  {/* Clear Filters */}
-                                 {(statusFilter !== 'DEFAULT' || patFilter !== 'ALL' || matFilter !== 'ALL' || Object.keys(columnFilters).length > 0) && (
-                                     <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-rose-500" onClick={() => { setStatusFilter(filterType === 'completed' || filterType === 'install_closed' ? 'ALL' : 'DEFAULT'); setPatFilter(pageTitle === 'Invoicable Service Orders' ? 'READY' : 'ALL'); setMatFilter('ALL'); setColumnFilters({}); setCurrentPage(1); }} title="Clear all filters">
+                                 {(statusFilter !== 'DEFAULT' || patFilter !== 'ALL' || matFilter !== 'ALL' || offlineOnly || Object.keys(columnFilters).length > 0) && (
+                                     <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-rose-500" onClick={() => { setStatusFilter(filterType === 'completed' || filterType === 'install_closed' ? 'ALL' : 'DEFAULT'); setPatFilter(pageTitle === 'Invoicable Service Orders' ? 'READY' : 'ALL'); setMatFilter('ALL'); setOfflineOnly(false); setColumnFilters({}); setCurrentPage(1); }} title="Clear all filters">
                                          <X className="w-3.5 h-3.5" />
                                      </Button>
                                  )}

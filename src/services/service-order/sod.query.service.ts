@@ -57,7 +57,7 @@ export class SODQueryService {
      * Get all service orders with filtering and sorting
      */
     static async getServiceOrders(params: GetServiceOrdersParams) {
-        const { rtomId: opmcId, filter, search, statusFilter, patFilter, matFilter, columnFilters, page = 1, limit = 50, cursor, month, year } = params;
+        const { rtomId: opmcId, filter, search, statusFilter, patFilter, matFilter, offlineOnly, columnFilters, page = 1, limit = 50, cursor, month, year } = params;
 
         // Offset-based fallback for backward compatibility
         const skip = cursor ? 1 : (page - 1) * limit;
@@ -223,6 +223,8 @@ export class SODQueryService {
                 ]
             });
         }
+
+        if (offlineOnly) andFilters.push({ isOfflineWorkOrder: true });
 
         if (statusFilter && statusFilter !== 'ALL' && statusFilter !== 'DEFAULT') {
             if (statusFilter === 'OFFLINE') {
