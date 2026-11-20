@@ -9,14 +9,14 @@ export interface PatWaiting { total: number; slts: number; opmc: number; ho: num
 export interface MyWorkSummary { stages: Array<{ key: string; label: string; count: number }>; awaitingPat: PatWaiting }
 
 /** Reads what waits for the signed-in person at the SOD approval steps they hold. */
-export function useMyWorkSummary(enabled: boolean) {
+export function useMyWorkSummary(enabled: boolean, rtom = 'ALL') {
     return useQuery<MyWorkSummary>({
-        queryKey: ['my-work-summary'],
+        queryKey: ['my-work-summary', rtom],
         enabled,
         staleTime: 30_000,
         retry: false,
         queryFn: async () => {
-            const res = await fetch('/api/service-orders/approvals/summary', { cache: 'no-store' });
+            const res = await fetch(`/api/service-orders/approvals/summary${rtom !== 'ALL' ? `?rtom=${encodeURIComponent(rtom)}` : ''}`, { cache: 'no-store' });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error?.message || 'Failed to load your work');
             return (json.data ?? json) as MyWorkSummary;
@@ -26,20 +26,22 @@ export function useMyWorkSummary(enabled: boolean) {
 
 export interface AreaOverviewData {
     areas: Array<{ rtom: string; name: string }>;
-    month: string;
+    month: string; monthNumber: number; year: number; rtom: string;
     totals: { notAssigned: number; inHand: number; completedThisMonth: number; returnedThisMonth: number; finishedNoContractor: number };
     contractors: Array<{ contractorId: string | null; name: string; inHand: number; oldestInHandDays: number | null; completedThisMonth: number; returnedThisMonth: number }>;
 }
 
 /** The person's own RTOMs: orders with contractors and each contractor's progress. */
-export function useAreaOverview(enabled: boolean) {
+export interface WorkFilters { month: number; year: number; rtom: string }
+
+export function useAreaOverview(enabled: boolean, f: WorkFilters) {
     return useQuery<AreaOverviewData>({
-        queryKey: ['area-overview'],
+        queryKey: ['area-overview', f.month, f.year, f.rtom],
         enabled,
         staleTime: 60_000,
         retry: false,
         queryFn: async () => {
-            const res = await fetch('/api/service-orders/area-overview', { cache: 'no-store' });
+            const res = await fetch(`/api/service-orders/area-overview?month=${f.month}&year=${f.year}${f.rtom !== 'ALL' ? `&rtom=${encodeURIComponent(f.rtom)}` : ''}`, { cache: 'no-store' });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error?.message || 'Failed to load your area');
             return (json.data ?? json) as AreaOverviewData;
@@ -49,11 +51,33 @@ export function useAreaOverview(enabled: boolean) {
 
 const th = 'py-2 pr-3 text-left text-xs font-bold uppercase tracking-wide text-slate-900 dark:text-white';
 
-function AreaProgress({ data, isLoading }: { data?: AreaOverviewData; isLoading: boolean }) {
-    if (isLoading) return <Skeleton className="h-64 rounded-2xl" />;
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const selectCls = 'h-9 rounded-md border border-slate-400 bg-white px-2 text-sm font-semibold text-slate-900';
+
+function AreaProgress({ data, isLoading, filters, onFilters }: { data?: AreaOverviewData; isLoading: boolean; filters: WorkFilters; onFilters: (f: WorkFilters) => void }) {
+    const thisYear = new Date().getFullYear();
+    const filterBar = (
+        <div className="flex flex-wrap items-center gap-2 px-1" role="group" aria-label="Show figures for">
+            <span className="text-sm font-bold text-slate-900 dark:text-white">Show:</span>
+            <select aria-label="Month" value={filters.month} onChange={(e) => onFilters({ ...filters, month: Number(e.target.value) })} className={selectCls}>
+                {MONTH_NAMES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+            </select>
+            <select aria-label="Year" value={filters.year} onChange={(e) => onFilters({ ...filters, year: Number(e.target.value) })} className={selectCls}>
+                {[thisYear - 1, thisYear].map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+            {(data?.areas.length ?? 0) > 1 && (
+                <select aria-label="RTOM" value={filters.rtom} onChange={(e) => onFilters({ ...filters, rtom: e.target.value })} className={selectCls}>
+                    <option value="ALL">All my RTOMs</option>
+                    {data!.areas.map((a) => <option key={a.rtom} value={a.rtom}>{a.rtom}</option>)}
+                </select>
+            )}
+        </div>
+    );
+    if (isLoading && !data) return <div className="space-y-4">{filterBar}<Skeleton className="h-64 rounded-2xl" /></div>;
     if (!data) return null;
     return (
         <div className="space-y-4">
+            {filterBar}
             <div className="flex flex-wrap items-center gap-2 px-1 text-sm text-slate-900 dark:text-white">
                 <MapPin className="h-5 w-5 text-indigo-700 dark:text-indigo-300" />
                 <span className="font-bold">Your RTOMs:</span>
@@ -61,17 +85,17 @@ function AreaProgress({ data, isLoading }: { data?: AreaOverviewData; isLoading:
             </div>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
                 {[
-                    { label: 'With contractors now', value: data.totals.inHand, hint: 'Assigned, in progress or waiting to close' },
-                    { label: 'Not given to a contractor', value: data.totals.notAssigned, hint: 'Open orders with no contractor yet' },
-                    { label: 'Finished, no contractor', value: data.totals.finishedNoContractor, hint: 'Completed orders with no contractor recorded: they can not be invoiced until one is assigned' },
-                    { label: `Completed in ${data.month}`, value: data.totals.completedThisMonth, hint: 'Finished by the contractors of your RTOMs this month' },
-                    { label: `Returned in ${data.month}`, value: data.totals.returnedThisMonth, hint: 'Contractor orders cancelled or returned this month' },
+                    { label: 'With contractors now', value: data.totals.inHand, hint: 'Assigned, in progress or waiting to close', href: '/service-orders/work-order' },
+                    { label: 'Not given to a contractor', value: data.totals.notAssigned, hint: 'Open orders with no contractor yet', href: '/service-orders/work-order' },
+                    { label: 'Finished, no contractor', value: data.totals.finishedNoContractor, hint: 'Completed orders with no contractor recorded: they can not be invoiced until one is assigned', href: '/service-orders/work-order/completed' },
+                    { label: `Completed in ${data.month}`, value: data.totals.completedThisMonth, hint: 'Finished by the contractors of your RTOMs in this month', href: '/service-orders/work-order/completed' },
+                    { label: `Returned in ${data.month}`, value: data.totals.returnedThisMonth, hint: 'Contractor orders cancelled or returned in this month', href: '/service-orders/work-order/return' },
                 ].map((c) => (
-                    <div key={c.label} className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                    <Link key={c.label} href={c.href} className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm hover:border-indigo-600 dark:border-slate-700 dark:bg-slate-900">
                         <div className="text-xs font-bold uppercase tracking-wide text-slate-900 dark:text-white">{c.label}</div>
                         <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">{c.value}</div>
                         <p className="mt-1 text-xs text-slate-800 dark:text-slate-200">{c.hint}</p>
-                    </div>
+                    </Link>
                 ))}
             </div>
             <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -80,7 +104,7 @@ function AreaProgress({ data, isLoading }: { data?: AreaOverviewData; isLoading:
                     <div className="mt-2 overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead><tr className="border-b border-slate-300">
-                                <th className={th}>Contractor</th><th className={th}>In hand now</th><th className={th}>Oldest in hand</th><th className={th}>Completed this month</th><th className={th}>Returned this month</th>
+                                <th className={th}>Contractor</th><th className={th}>In hand now</th><th className={th}>Oldest in hand</th><th className={th}>Completed in {data.month}</th><th className={th}>Returned in {data.month}</th>
                             </tr></thead>
                             <tbody>
                                 {data.contractors.map((c) => (
@@ -101,7 +125,7 @@ function AreaProgress({ data, isLoading }: { data?: AreaOverviewData; isLoading:
     );
 }
 
-export default function MyWorkSection({ summary, isLoading, area, areaLoading }: { summary?: MyWorkSummary; isLoading: boolean; area?: AreaOverviewData; areaLoading?: boolean }) {
+export default function MyWorkSection({ summary, isLoading, area, areaLoading, filters, onFilters }: { summary?: MyWorkSummary; isLoading: boolean; area?: AreaOverviewData; areaLoading?: boolean; filters: WorkFilters; onFilters: (f: WorkFilters) => void }) {
     if (isLoading) return <div className="grid grid-cols-1 gap-4 md:grid-cols-3">{Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-32 rounded-2xl" />)}</div>;
     const stages = summary?.stages ?? [];
     const waiting = stages.reduce((a, s) => a + s.count, 0);
@@ -136,7 +160,7 @@ export default function MyWorkSection({ summary, isLoading, area, areaLoading }:
                     <div className="mt-3 text-sm font-bold text-indigo-800 dark:text-indigo-300">Open Pending SOD</div>
                 </Link>
             </div>
-            <AreaProgress data={area} isLoading={!!areaLoading} />
+            <AreaProgress data={area} isLoading={!!areaLoading} filters={filters} onFilters={onFilters} />
             {waiting === 0 && stages.length > 0 && <p className="px-1 text-sm text-slate-800 dark:text-slate-200">You have no orders to pass right now.</p>}
         </div>
     );

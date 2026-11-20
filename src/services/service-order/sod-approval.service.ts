@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { narrowScope } from './area-overview.service';
 import { deriveEffectivePermissions } from '@/lib/effective-permissions';
 import { mayActOnLevel, roleLabel, type GateActor } from '@/lib/gate-eligibility';
 import { ProcessGateEngine } from '@/services/approval/process-gate-engine';
@@ -173,11 +174,12 @@ export class SodApprovalService {
      * What waits for this person, for the dashboard: how many orders are at each step they hold, how many completed orders are waiting for their
      * PAT, and (for the first step) the finished orders that have not been brought into the chain yet. It only reads: nothing is started here.
      */
-    static async summary(userId: string) {
+    static async summary(userId: string, rtom?: string) {
         const none = { total: 0, slts: 0, opmc: 0, ho: 0, rejected: 0 };
         const empty = { stages: [] as Array<{ key: string; label: string; count: number }>, awaitingPat: none };
-        const scope = await resolveOpmcScope(userId);
-        if (scope !== undefined && scope.length === 0) return empty;
+        const allScope = await resolveOpmcScope(userId);
+        if (allScope !== undefined && allScope.length === 0) return empty;
+        const scope = allScope === undefined ? undefined : await narrowScope(allScope, rtom);
         const policy = await loadPolicy();
         if (!policy || !policy.isEnabled) return empty;
         const { actor, permissions } = await loadActor(userId);

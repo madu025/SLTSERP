@@ -65,10 +65,10 @@ test('an order entered by hand is accepted for invoicing by the QC Officer pass 
 
 test('a person who holds an approval step lands on a "My work" dashboard tab with what waits for them', () => {
     const svc = read('src/services/service-order/sod-approval.service.ts');
-    assert.ok(svc.includes('static async summary(userId: string)') && svc.includes('It only reads: nothing is started here'), 'a read-only summary of the steps the person holds');
+    assert.ok(svc.includes('static async summary(userId: string, rtom?: string)') && svc.includes('It only reads: nothing is started here'), 'a read-only summary of the steps the person holds');
     assert.ok(read('src/app/api/service-orders/approvals/summary/route.ts').includes('SodApprovalService.summary'), 'the dashboard reads it from its own route');
     const page = read('src/app/dashboard/page.tsx');
-    assert.ok(page.includes('useMyWorkSummary(!!user && !canFilterGlobally)') && page.includes("setActiveTab('work')") && page.includes('<TabsTrigger value="work"'), 'the tab is first and is the landing tab for a person with a step; managers keep their overview');
+    assert.ok(page.includes('useMyWorkSummary(!!user && !canFilterGlobally, workFilters.rtom)') && page.includes("setActiveTab('work')") && page.includes('<TabsTrigger value="work"'), 'the tab is first and is the landing tab for a person with a step; managers keep their overview');
     const comp = read('src/app/dashboard/components/MyWorkSection.tsx');
     assert.ok(comp.includes('Waiting at the {s.label} step') && comp.includes('Waiting for their PAT') && comp.includes('Open Pending SOD'), 'it shows the orders waiting at the step, those waiting for PAT and a way to the pending orders');
 });
@@ -76,7 +76,7 @@ test('a person who holds an approval step lands on a "My work" dashboard tab wit
 test('the dashboard of a person who works on the orders of their own RTOMs shows only that work, their RTOMs and each contractor\'s progress', () => {
     const svc = read('src/services/service-order/area-overview.service.ts');
     assert.ok(svc.includes('resolveOpmcScope(userId)') && svc.includes('opmcId: { in: scope }'), 'always limited to the person\'s own areas');
-    assert.ok(svc.includes("if (scope === undefined) return null"), 'a company-wide person has no own area and keeps the company dashboards');
+    assert.ok(svc.includes('if (allScope === undefined) return null'), 'a company-wide person has no own area and keeps the company dashboards');
     assert.ok(svc.includes('inHand') && svc.includes('completedThisMonth') && svc.includes('returnedThisMonth') && svc.includes('oldestInHandDays'), 'in hand, completed and returned per contractor');
     assert.ok(read('src/app/api/service-orders/area-overview/route.ts').includes('AreaOverviewService.forUser'), 'its own read-only route');
     const page = read('src/app/dashboard/page.tsx');
@@ -96,6 +96,17 @@ test('one meaning of PAT passed in the approval chain and at invoicing, and the 
     assert.ok(ov.includes('finishedNoContractor'), 'finished orders with no contractor are counted on their own');
     const svc = read('src/services/service-order/sod-approval.service.ts');
     assert.ok(svc.includes("then 'rejected'") && svc.includes("then 'slts'") && svc.includes("then 'opmc'") && svc.includes('s."sodApprovalStage" is null or'), 'the PAT wait is split by the approval waited for and also counts orders not yet in the chain');
+});
+
+test('the My work tab has a month and an RTOM filter that can only narrow what the person sees, and its cards lead to the order lists', () => {
+    const ov = read('src/services/service-order/area-overview.service.ts');
+    assert.ok(ov.includes('export async function narrowScope') && ov.includes('id: { in: scope }') && ov.includes('return one ? [one.id] : scope;'), 'an RTOM that is not the person\'s own is ignored, so a filter never widens the view');
+    assert.ok(ov.includes('opts.month') && ov.includes('opts.year') && ov.includes('const to = new Date(y, m, 1)'), 'the figures are for the chosen month');
+    assert.ok(read('src/services/service-order/sod-approval.service.ts').includes('narrowScope(allScope, rtom)'), 'the waiting counts follow the RTOM filter too');
+    const comp = read('src/app/dashboard/components/MyWorkSection.tsx');
+    assert.ok(comp.includes('aria-label="Month"') && comp.includes('aria-label="RTOM"') && comp.includes('All my RTOMs') && comp.includes('(data?.areas.length ?? 0) > 1'), 'month and year always, the RTOM filter only when the person has several RTOMs');
+    assert.ok(comp.includes("href: '/service-orders/work-order/completed'") && comp.includes("href: '/service-orders/work-order/return'") && comp.includes("href: '/service-orders/work-order'"), 'the figures lead to the lists they count');
+    assert.ok(comp.includes('Completed in {data.month}') && comp.includes('Returned in {data.month}'), 'the table columns name the month shown');
 });
 
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });

@@ -158,10 +158,11 @@ export default function DashboardPage() {
 
     // A person who holds a step of the service order approval (Area Coordinator, QC Officer, ...) lands on what waits for them, not on a
     // store or finance view. Managers with a company-wide view keep their own overview.
-    const workSummary = useMyWorkSummary(!!user && !canFilterGlobally);
+    const [workFilters, setWorkFilters] = useState(() => ({ month: new Date().getMonth() + 1, year: new Date().getFullYear(), rtom: 'ALL' }));
+    const workSummary = useMyWorkSummary(!!user && !canFilterGlobally, workFilters.rtom);
     const hasMyWork = !canFilterGlobally && (workSummary.data?.stages.length ?? 0) > 0;
     // Someone who works on the orders of their own RTOMs sees only that work and those RTOMs: the store, finance, project and company views are not theirs.
-    const areaWork = useAreaOverview(hasMyWork);
+    const areaWork = useAreaOverview(hasMyWork, workFilters);
     // Until it is known whether this person works on the orders of their own RTOMs, no company view is shown: it would flash and then be replaced.
     const resolvingWork = !canFilterGlobally && workSummary.isLoading;
     const [landedOnWork, setLandedOnWork] = useState(false);
@@ -389,7 +390,7 @@ export default function DashboardPage() {
                                 
                                 {hasMyWork && (
                                     <TabsContent value="work" className="space-y-6">
-                                        <MyWorkSection summary={workSummary.data} isLoading={workSummary.isLoading} area={areaWork.data} areaLoading={areaWork.isLoading} />
+                                        <MyWorkSection summary={workSummary.data} isLoading={workSummary.isLoading} area={areaWork.data} areaLoading={areaWork.isLoading} filters={workFilters} onFilters={setWorkFilters} />
                                     </TabsContent>
                                 )}
 
