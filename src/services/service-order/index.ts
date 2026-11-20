@@ -108,6 +108,16 @@ export class ServiceOrderService {
             }
         }
 
+        // 0.5 A person finishing an order must say which contractor did the work: no order is completed without one.
+        // (System writers such as the portal sync have no person behind them and record what the portal says; those orders show a
+        // "No contractor" mark and are fixed from the list.)
+        if (userId && isValidUuid(userId) && (data.sltsStatus === 'COMPLETED' || data.sltsStatus === 'INSTALL_CLOSED') && oldOrder.sltsStatus !== data.sltsStatus) {
+            const contractorAfter = data.contractorId !== undefined ? data.contractorId : oldOrder.contractorId;
+            if (!contractorAfter) {
+                throw AppError.badRequest('Assign the contractor who did the work before completing the order');
+            }
+        }
+
         // 1. UNIQUE CONSTRAINT PROTECTION
         const collisionId = await SODLifecycleService.validateStatusTransition(id, oldOrder.soNum, data.status, oldOrder.status);
         if (collisionId) {

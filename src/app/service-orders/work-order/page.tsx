@@ -334,6 +334,13 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                     throw new Error(payload?.error?.message || payload?.error || payload?.message || "Request failed");
                 }
             };
+            if (action === 'COMPLETE') {
+                const without = ids.filter(id => !serviceOrders.find(o => o.id === id)?.contractorId);
+                if (without.length > 0) {
+                    toast.error(`${without.length} of the selected orders have no contractor. Assign the contractor who did the work first, then complete them.`);
+                    return;
+                }
+            }
             if (action === 'ASSIGN') {
                 // Bulk assign: set sltsStatus to ASSIGNED
                 await Promise.all(ids.map(id => patchOrder(id, { sltsStatus: "INPROGRESS" })));

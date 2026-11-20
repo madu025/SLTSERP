@@ -983,6 +983,14 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                     OFFLINE
                                                 </span>
                                             )}
+                                            {(filterType === 'completed' || filterType === 'install_closed') && !order.contractorId && (
+                                                <span
+                                                    className="px-1.5 py-0.5 text-[8px] font-black uppercase rounded-md bg-amber-500 text-slate-950 shrink-0 cursor-help"
+                                                    title="No contractor is recorded for this finished order. Assign the contractor who did the work."
+                                                >
+                                                    NO CONTRACTOR
+                                                </span>
+                                            )}
                                             {order.isManualEntry && (
                                                 <span
                                                     className="px-1.5 py-0.5 text-[8px] font-black uppercase rounded-md bg-slate-700 text-white shrink-0 cursor-help"

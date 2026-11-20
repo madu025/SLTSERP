@@ -162,4 +162,14 @@ test('a manual return keeps its reason, its date and its comment', () => {
     assert.ok(read('src/app/service-orders/work-order/page.tsx').includes('comments: [pendingReturnOrder.comments'), 'the comment keeps the earlier lines and adds the manual return line');
 });
 
+test('no order is completed by a person without a contractor, and finished orders without one are marked', () => {
+    const svc = read('src/services/service-order/index.ts');
+    assert.ok(svc.includes("(data.sltsStatus === 'COMPLETED' || data.sltsStatus === 'INSTALL_CLOSED') && oldOrder.sltsStatus !== data.sltsStatus") && svc.includes('Assign the contractor who did the work before completing the order'), 'the server refuses a completion without a contractor (a system writer such as the portal sync has no person and is not refused)');
+    assert.ok(svc.includes('data.contractorId !== undefined ? data.contractorId : oldOrder.contractorId'), 'a contractor sent with the completion counts');
+    assert.ok(read('src/components/modals/order-action/useOrderAction.ts').includes('Select the contractor who did the work'), 'the Complete form asks for it');
+    const page = read('src/app/service-orders/work-order/page.tsx');
+    assert.ok(page.includes("if (action === 'COMPLETE')") && page.includes('have no contractor'), 'the bulk Complete stops when a selected order has none');
+    assert.ok(read('src/app/service-orders/work-order/components/SODSheetTable.tsx').includes('NO CONTRACTOR'), 'a finished order with no contractor carries a mark');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });

@@ -534,6 +534,7 @@ export function useOrderAction(
     const confirm = () => {
         // Validation logic
         if (!date) { toast.error("Please select a date"); return; }
+        if (!selectedContractorId) { toast.error("Select the contractor who did the work"); return; }
         
         // Transform MaterialUsageRow[] to deduplicated material usage entries
         const rawUsage = formatMaterialUsage(extendedMaterialRows);
