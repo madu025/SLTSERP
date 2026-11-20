@@ -6,7 +6,7 @@ import { mayActOnLevel, roleLabel, type GateActor } from '@/lib/gate-eligibility
 import { ProcessGateEngine } from '@/services/approval/process-gate-engine';
 import { confirmationsSinceReturn, planApproval, type ApprovalHistoryEntry } from '@/lib/approval-chain-rules';
 import {
-    SOD_CHAIN_ENTRY_STATUSES, SOD_GATE, SOD_PHOTO_CHECK_MESSAGE, SOD_PHOTO_CHECK_NOTE, SOD_PHOTO_CHECK_ROLE, SOD_READY_STAGES, SOD_STAGE_READY, SOD_STAGE_RESTART, SOD_STAGE_STARTING, sodStageLabel,
+    SOD_CHAIN_ENTRY_STATUSES, SOD_GATE, SOD_PHOTO_CHECK_MESSAGE, SOD_PHOTO_CHECK_NOTE, SOD_PAT_PASSED, SOD_PAT_WAITING_MESSAGE, SOD_PHOTO_CHECK_ROLE, SOD_READY_STAGES, SOD_STAGE_READY, SOD_STAGE_RESTART, SOD_STAGE_STARTING, sodStageLabel,
 } from '@/lib/sod-approval-rules';
 
 const MAX_BATCH = 200;
@@ -108,7 +108,7 @@ export class SodApprovalService {
             where: {
                 ...(extra.ids ? { id: { in: extra.ids } } : {}),
                 ...(scope === undefined ? {} : { opmcId: { in: scope } }),
-                invoiced: false, contractorId: { not: null }, status: { in: [...SOD_CHAIN_ENTRY_STATUSES] },
+                invoiced: false, contractorId: { not: null }, status: { in: [...SOD_CHAIN_ENTRY_STATUSES] }, ...SOD_PAT_PASSED,
                 OR: [{ sodApprovalStage: null }, { sodApprovalStage: SOD_STAGE_RESTART }, { sodApprovalStage: SOD_STAGE_STARTING, updatedAt: { lt: stale } }],
             },
             select: { id: true }, take: START_CHUNK,
@@ -130,7 +130,7 @@ export class SodApprovalService {
         const q = filter.q?.trim();
         const limit = Math.min(filter.limit ?? 300, 500);
 
-        const base = {
+        const inMySteps = {
             sodApprovalStage: { in: mine.map((l) => l.requiredRole) },
             ...(scope === undefined ? {} : { opmcId: { in: scope } }),
             ...(filter.rtom ? { rtom: filter.rtom } : {}),
@@ -138,7 +138,10 @@ export class SodApprovalService {
             ...(filter.month && filter.year ? { completedDate: monthRange(filter.month, filter.year) } : {}),
             ...(q ? { OR: [{ soNum: { contains: q, mode: 'insensitive' as const } }, { customerName: { contains: q, mode: 'insensitive' as const } }, { voiceNumber: { contains: q } }] } : {}),
         };
-        const [byStage, orders] = await Promise.all([
+        // Only orders whose PAT approvals have all passed are worked on here: the order could not be invoiced before that, so the people
+        // who pass it would be spending their time on an order that stops at the last step. The others are counted and shown as waiting.
+        const base = { ...inMySteps, ...SOD_PAT_PASSED };
+        const [byStage, orders, awaitingPat] = await Promise.all([
             prisma.serviceOrder.groupBy({ by: ['sodApprovalStage'], where: base, _count: { _all: true } }),
             prisma.serviceOrder.findMany({
                 where: { ...base, sodApprovalStage: { in: wanted.map((l) => l.requiredRole) } },
@@ -148,13 +151,14 @@ export class SodApprovalService {
                     sltsPatStatus: true, opmcPatStatus: true, hoPatStatus: true, qcStatus: true, contractor: { select: { name: true } },
                 },
             }),
+            prisma.serviceOrder.count({ where: { ...inMySteps, NOT: SOD_PAT_PASSED } }),
         ]);
         const counts: Record<string, number> = {};
         for (const g of byStage) if (g.sodApprovalStage) counts[g.sodApprovalStage] = g._count._all;
         const history = await sodHistoryFor(orders.map((o) => o.id), policy.id);
         return {
             stages: mine.map((l) => ({ key: l.requiredRole, label: roleLabel(l.requiredRole) })),
-            counts,
+            counts, awaitingPat,
             total: wanted.reduce((a, l) => a + (counts[l.requiredRole] ?? 0), 0),
             orders: orders.map((o) => ({
                 id: o.id, soNum: o.soNum, rtom: o.rtom, customerName: o.customerName, completedDate: o.completedDate, sodApprovalStage: o.sodApprovalStage, stageLabel: sodStageLabel(o.sodApprovalStage),
@@ -173,7 +177,7 @@ export class SodApprovalService {
         const levels = policy.approvalLevels as Level[];
         const scope = await resolveOpmcScope(userId);
         await this.ensureStarted(scope, { ids });
-        const orders = await prisma.serviceOrder.findMany({ where: { id: { in: ids } }, select: { id: true, soNum: true, opmcId: true, contractorId: true, sodApprovalStage: true } });
+        const orders = await prisma.serviceOrder.findMany({ where: { id: { in: ids } }, select: { id: true, soNum: true, opmcId: true, contractorId: true, sodApprovalStage: true, sltsPatStatus: true, opmcPatStatus: true, hoPatStatus: true } });
         const open = await prisma.universalApprovalInstance.findMany({ where: { entityType: SOD_GATE.entityType, policyId: policy.id, status: 'PENDING', entityId: { in: ids } }, select: { id: true, entityId: true, level: true } });
         const history = await sodHistoryFor(ids, policy.id);
         return { policy, actor, permissions, levels, scope, orders, open, history };
@@ -202,6 +206,7 @@ export class SodApprovalService {
                 history: history.get(o.id) ?? [], noun: 'order',
             });
             if (!plan.ok) { failed.push({ soNum: o.soNum, message: plan.message }); continue; }
+            if ([o.sltsPatStatus, o.opmcPatStatus, o.hoPatStatus].some((p) => p !== SOD_PAT_PASSED.sltsPatStatus)) { failed.push({ soNum: o.soNum, message: SOD_PAT_WAITING_MESSAGE }); continue; }
             // The QC Officer's step is the check that the photos of the order were received: it cannot be passed without saying so, and the
             // statement is kept in the order's approval history with who made it.
             const photoCheck = level?.requiredRole === SOD_PHOTO_CHECK_ROLE;

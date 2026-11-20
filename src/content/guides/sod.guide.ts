@@ -309,6 +309,7 @@ export const SOD_GUIDE: ModuleGuide = {
             requires: RBAC_PERMISSIONS.INVOICE_CONFIRM_COORDINATOR,
             steps: [
                 'Open Service Orders → SOD Approvals. It lists the completed orders of contractors that are waiting at the step you hold, in your own area. The chips at the top show how many wait at each of your steps. Narrow the list with the month the orders were completed in, or the search box.',
+                'Only orders whose three PAT approvals (SLTS, OPMC and HO) have passed are listed: an order cannot be invoiced before that. A note above the list says how many completed orders are still waiting for their PAT; they appear here by themselves once it has passed.',
                 'Check the PAT statuses, the contractor and the payment on each row. Tick one order or many (the box at the top selects all) and click "Approve selected", or use Approve on one row.',
                 'The Area Coordinator passes first, then the QC Officer (an administrator can change the steps on the gate screen). After the last step the order is ready for the Engineer.',
                 'The QC Officer checks that the photos of each order were received before passing it: tick "Photos received and checked" (the Approve buttons of the QC step stay disabled until you do). The statement is written to the order\x27s history with your name, and only then does the order become ready to invoice.',
@@ -316,6 +317,7 @@ export const SOD_GUIDE: ModuleGuide = {
             ],
             tips: [
                 'You can pass orders as often as you like during the month; there is no need to wait for month end.',
+                'The "Photos received and checked" box shows only when orders at the QC Officer step are listed.',
                 'One person cannot pass two steps of the same order; a different person must take each step.',
                 'A person sees and passes only the orders of their own area.',
                 'Every approval and return is written to the order\'s history with who and when.',

@@ -15,7 +15,7 @@ interface Order {
     sltsPatStatus: string | null; opmcPatStatus: string | null; hoPatStatus: string | null; qcStatus: string | null;
     contractor: { name: string } | null; approvals: Hist[];
 }
-interface Queue { stages: Array<{ key: string; label: string }>; counts: Record<string, number>; orders: Order[]; total?: number }
+interface Queue { stages: Array<{ key: string; label: string }>; counts: Record<string, number>; orders: Order[]; total?: number; awaitingPat?: number }
 interface Outcome { soNum: string; stage?: string; message?: string }
 interface Result { approved?: Outcome[]; returned?: Outcome[]; failed: Outcome[] }
 
@@ -100,6 +100,10 @@ export default function SodApprovalsPage() {
                             </div>
                         )}
 
+                        {(q.data?.awaitingPat ?? 0) > 0 && (
+                            <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-slate-900" role="status">{q.data?.awaitingPat} completed order{q.data?.awaitingPat === 1 ? ' is' : 's are'} waiting for the PAT approvals (SLTS, OPMC and HO). They appear here once all three have passed, because an order cannot be invoiced before that.</p>
+                        )}
+
                         <div className="flex flex-wrap items-center gap-2">
                             <select aria-label="Completed in month" value={month} onChange={(e) => { setMonth(Number(e.target.value)); setPicked(new Set()); }} className="h-9 rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-900">
                                 <option value={0}>Any month</option>
@@ -109,10 +113,12 @@ export default function SodApprovalsPage() {
                                 {[new Date().getFullYear() - 1, new Date().getFullYear()].map((y) => <option key={y} value={y}>{y}</option>)}
                             </select>
                             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search SO number, customer or voice number" aria-label="Search orders" className="h-9 w-72 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-600" />
-                            <label className="flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900">
-                                <input type="checkbox" checked={photosChecked} onChange={(e) => setPhotosChecked(e.target.checked)} aria-label="Photos received and checked" />
-                                Photos received and checked
-                            </label>
+                            {orders.some(needsPhotoCheck) && (
+                                <label className="flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900">
+                                    <input type="checkbox" checked={photosChecked} onChange={(e) => setPhotosChecked(e.target.checked)} aria-label="Photos received and checked" />
+                                    Photos received and checked
+                                </label>
+                            )}
                             <button type="button" disabled={ids.length === 0 || blockedByPhotos || act.isPending} title={blockedByPhotos ? photoHint : undefined} onClick={() => act.mutate({ action: 'APPROVE', ids })} className="h-9 rounded-md bg-emerald-700 px-4 text-sm font-bold text-white disabled:opacity-50">{act.isPending ? 'Working...' : `Approve selected (${ids.length})`}</button>
                             <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason to return" aria-label="Reason to return" className="h-9 w-56 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-600" />
                             <button type="button" disabled={ids.length === 0 || reason.trim().length < 3 || act.isPending} onClick={() => act.mutate({ action: 'RETURN', ids })} className="h-9 rounded-md border border-red-700 bg-white px-4 text-sm font-bold text-red-800 disabled:opacity-50">Return selected</button>

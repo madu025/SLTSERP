@@ -39,4 +39,16 @@ test("the QC Officer cannot pass an order without stating that its photos were r
     assert.ok(page.includes("Photos received and checked") && page.includes("needsPhotoCheck"), "the approvals page asks for it at the QC step");
 });
 
+test('only orders whose PAT approvals have all passed enter the approval chain, are listed, can be approved and can be invoiced', () => {
+    const rules = read('src/lib/sod-approval-rules.ts');
+    assert.ok(rules.includes("SOD_PAT_PASSED = { sltsPatStatus: 'PAT_PASSED', opmcPatStatus: 'PAT_PASSED', hoPatStatus: 'PAT_PASSED' }"), 'one definition of "PAT passed"');
+    const svc = read('src/services/service-order/sod-approval.service.ts');
+    assert.ok(/\.\.\.SOD_PAT_PASSED,\s*OR: \[\{ sodApprovalStage: null \}/.test(svc), 'the chain starts only for PAT-passed orders');
+    assert.ok(svc.includes('const base = { ...inMySteps, ...SOD_PAT_PASSED }') && svc.includes('NOT: SOD_PAT_PASSED'), 'the queue lists PAT-passed orders and counts the waiting ones');
+    assert.ok(svc.includes('SOD_PAT_WAITING_MESSAGE'), 'a PAT-pending order cannot be approved');
+    assert.ok(read('src/services/invoice/invoicing.service.ts').includes('...SOD_PAT_PASSED,'), 'the engineer is offered PAT-passed orders only');
+    const page = read('src/app/service-orders/approvals/page.tsx');
+    assert.ok(page.includes('awaitingPat') && page.includes('orders.some(needsPhotoCheck)'), 'the page says how many wait for PAT and shows the photo box only at the QC step');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });

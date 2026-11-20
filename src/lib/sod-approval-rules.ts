@@ -14,6 +14,9 @@ export const SOD_GATE = { entityType: 'SERVICE_ORDER', fromStatus: 'COMPLETED', 
 export const SOD_STAGE_RESTART = 'IN_GATE';
 export const SOD_STAGE_STARTING = 'STARTING';
 export const SOD_STAGE_READY = 'READY';
+/** An order enters the approval chain, and can be invoiced, only when all three PAT approvals (SLTS, OPMC, HO) have passed. */
+export const SOD_PAT_PASSED = { sltsPatStatus: 'PAT_PASSED', opmcPatStatus: 'PAT_PASSED', hoPatStatus: 'PAT_PASSED' } as const;
+export const SOD_PAT_WAITING_MESSAGE = 'The PAT approvals of this order are not all passed yet; it can be approved once they have passed';
 /** The step that checks the order's photos before it can be invoiced, and what it must state to pass. */
 export const SOD_PHOTO_CHECK_ROLE = 'QC_OFFICER';
 export const SOD_PHOTO_CHECK_NOTE = 'Photos received and checked';
