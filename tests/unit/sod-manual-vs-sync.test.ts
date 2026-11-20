@@ -125,4 +125,13 @@ test('an area person sees only the stock of their own contractors, and the contr
     assert.ok(menu.includes("path: '/service-orders/contractor-stock'") && menu.includes('permissionId: RBAC_PERMISSIONS.CONTRACTOR_WRITE, // the field portal'), 'the stock page is in the menu and the field portal needs the contractor capability');
 });
 
+test('the order screens read the material list through the service order capability, so an area person does not need the inventory module', () => {
+    const route = read('src/app/api/service-orders/material-items/route.ts');
+    assert.ok(route.includes('RBAC_PERMISSIONS.SOD_READ') && route.includes('unitPrice: _u') && route.includes('costPrice: _c'), 'read with the order capability, without the store prices');
+    assert.ok(read('src/app/service-orders/work-order/page.tsx').includes('/api/service-orders/material-items') && !read('src/app/service-orders/work-order/page.tsx').includes('/api/inventory/items'), 'the Pending SOD page no longer reads the inventory module');
+    const boot = read('src/config/rbac-bootstrap.ts');
+    const inv = boot.slice(boot.indexOf('[RBAC_PERMISSIONS.INVENTORY_READ]'), boot.indexOf('[RBAC_PERMISSIONS.INVENTORY_COST_READ]'));
+    assert.ok(!inv.includes('AREA_COORDINATOR'), 'the Area Coordinator has no inventory access; the stock of their contractors is on Contractor Stock');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });

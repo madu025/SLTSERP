@@ -222,7 +222,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     const { data: inventoryItems = [] } = useQuery<InventoryItem[]>({
         queryKey: ["inventory-items"],
         queryFn: async () => {
-             const res = await fetch("/api/inventory/items");
+             const res = await fetch("/api/service-orders/material-items");
              const data = await res.json();
              if (Array.isArray(data)) return data as InventoryItem[];
              if (Array.isArray(data?.items)) return data.items as InventoryItem[];
