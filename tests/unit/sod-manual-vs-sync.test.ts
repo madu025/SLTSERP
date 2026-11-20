@@ -28,4 +28,15 @@ test('service orders have no preset approval gates: only the approval before inv
     assert.ok(!seed.includes("label: '1. Contractor Work Assignment'") && !seed.includes("label: '2. Field Survey & Civil Execution'") && !seed.includes("label: '3. Provisional Acceptance Testing (PAT)'"), 'the preset no longer creates assign, start or complete gates');
 });
 
+test("the QC Officer cannot pass an order without stating that its photos were received and checked", () => {
+    const svc = read("src/services/service-order/sod-approval.service.ts");
+    assert.ok(svc.includes("level?.requiredRole === SOD_PHOTO_CHECK_ROLE") && svc.includes("photosChecked !== true"), "the QC step refuses a pass without the statement");
+    assert.ok(svc.includes("SOD_PHOTO_CHECK_NOTE") && svc.includes("remarks"), "the statement is kept in the approval history");
+    const rules = read("src/lib/sod-approval-rules.ts");
+    assert.ok(rules.includes("SOD_PHOTO_CHECK_ROLE = 'QC_OFFICER'"), "it is the QC Officer step");
+    assert.ok(read("src/app/api/service-orders/approvals/route.ts").includes("photosChecked"), "the route carries the statement");
+    const page = read("src/app/service-orders/approvals/page.tsx");
+    assert.ok(page.includes("Photos received and checked") && page.includes("needsPhotoCheck"), "the approvals page asks for it at the QC step");
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });

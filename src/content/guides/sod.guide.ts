@@ -311,6 +311,7 @@ export const SOD_GUIDE: ModuleGuide = {
                 'Open Service Orders → SOD Approvals. It lists the completed orders of contractors that are waiting at the step you hold, in your own area. The chips at the top show how many wait at each of your steps. Narrow the list with the month the orders were completed in, or the search box.',
                 'Check the PAT statuses, the contractor and the payment on each row. Tick one order or many (the box at the top selects all) and click "Approve selected", or use Approve on one row.',
                 'The Area Coordinator passes first, then the QC Officer (an administrator can change the steps on the gate screen). After the last step the order is ready for the Engineer.',
+                'The QC Officer checks that the photos of each order were received before passing it: tick "Photos received and checked" (the Approve buttons of the QC step stay disabled until you do). The statement is written to the order\x27s history with your name, and only then does the order become ready to invoice.',
                 'To send orders back, tick them, type a reason in "Reason to return" and click "Return selected". They start again at the first step.',
             ],
             tips: [
@@ -322,6 +323,7 @@ export const SOD_GUIDE: ModuleGuide = {
             anchors: [
                 { file: SOD_APPROVALS, text: 'SOD Approvals' },
                 { file: SOD_APPROVALS, text: 'Approve selected' },
+                { file: SOD_APPROVALS, text: 'Photos received and checked' },
                 { file: SOD_APPROVALS, text: 'Return selected' },
                 { file: SOD_APPROVALS, text: 'Reason to return' },
                 { file: SOD_APPROVALS, text: 'Not changed' },

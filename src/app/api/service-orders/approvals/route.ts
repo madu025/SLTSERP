@@ -15,6 +15,8 @@ const bodySchema = z.object({
     action: z.enum(['APPROVE', 'RETURN']),
     sodIds: z.array(databaseUuidSchema).min(1).max(200),
     note: z.string().max(500).optional(),
+    /** The QC Officer states that the photos of the orders were received and checked. */
+    photosChecked: z.boolean().optional(),
 });
 
 // GET /api/service-orders/approvals?stage=&rtom=&q=&month=&year=&contractorId= - orders waiting at a stage the caller may approve (own area only)
@@ -33,5 +35,5 @@ export const POST = apiHandler(async (_req, params, body: z.infer<typeof bodySch
     const userId = params._userId;
     if (!userId) throw AppError.unauthorized('Authentication required');
     if (body.action === 'RETURN') return SodApprovalService.returnOrders(userId, body.sodIds, body.note ?? '');
-    return SodApprovalService.approve(userId, body.sodIds, body.note);
+    return SodApprovalService.approve(userId, body.sodIds, body.note, body.photosChecked);
 }, { schema: bodySchema, permissions: STAGE_PERMISSIONS, audit: { action: 'SOD_APPROVAL_CHAIN', entity: 'ServiceOrder' } });

@@ -14,6 +14,10 @@ export const SOD_GATE = { entityType: 'SERVICE_ORDER', fromStatus: 'COMPLETED', 
 export const SOD_STAGE_RESTART = 'IN_GATE';
 export const SOD_STAGE_STARTING = 'STARTING';
 export const SOD_STAGE_READY = 'READY';
+/** The step that checks the order's photos before it can be invoiced, and what it must state to pass. */
+export const SOD_PHOTO_CHECK_ROLE = 'QC_OFFICER';
+export const SOD_PHOTO_CHECK_NOTE = 'Photos received and checked';
+export const SOD_PHOTO_CHECK_MESSAGE = 'Confirm that the photos of this order were received and checked before passing it';
 /** An order is ready for the engineer in either of these stages. */
 export const SOD_READY_STAGES: readonly string[] = [SOD_STAGE_READY, 'CONFIRMED'];
 

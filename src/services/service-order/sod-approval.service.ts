@@ -6,7 +6,7 @@ import { mayActOnLevel, roleLabel, type GateActor } from '@/lib/gate-eligibility
 import { ProcessGateEngine } from '@/services/approval/process-gate-engine';
 import { confirmationsSinceReturn, planApproval, type ApprovalHistoryEntry } from '@/lib/approval-chain-rules';
 import {
-    SOD_CHAIN_ENTRY_STATUSES, SOD_GATE, SOD_READY_STAGES, SOD_STAGE_READY, SOD_STAGE_RESTART, SOD_STAGE_STARTING, sodStageLabel,
+    SOD_CHAIN_ENTRY_STATUSES, SOD_GATE, SOD_PHOTO_CHECK_MESSAGE, SOD_PHOTO_CHECK_NOTE, SOD_PHOTO_CHECK_ROLE, SOD_READY_STAGES, SOD_STAGE_READY, SOD_STAGE_RESTART, SOD_STAGE_STARTING, sodStageLabel,
 } from '@/lib/sod-approval-rules';
 
 const MAX_BATCH = 200;
@@ -183,7 +183,7 @@ export class SodApprovalService {
      * Approve the step each order is waiting at (one or many). Every order is judged on its own: the answer lists the ones that moved on
      * and the ones that could not, with the reason. The last step makes the order ready for the engineer.
      */
-    static async approve(userId: string, sodIds: string[], note?: string) {
+    static async approve(userId: string, sodIds: string[], note?: string, photosChecked?: boolean) {
         const ids = [...new Set(sodIds)];
         if (ids.length === 0) throw AppError.badRequest('Select at least one order');
         if (ids.length > MAX_BATCH) throw AppError.badRequest(`Approve at most ${MAX_BATCH} orders at a time`);
@@ -202,8 +202,13 @@ export class SodApprovalService {
                 history: history.get(o.id) ?? [], noun: 'order',
             });
             if (!plan.ok) { failed.push({ soNum: o.soNum, message: plan.message }); continue; }
+            // The QC Officer's step is the check that the photos of the order were received: it cannot be passed without saying so, and the
+            // statement is kept in the order's approval history with who made it.
+            const photoCheck = level?.requiredRole === SOD_PHOTO_CHECK_ROLE;
+            if (photoCheck && photosChecked !== true) { failed.push({ soNum: o.soNum, message: SOD_PHOTO_CHECK_MESSAGE }); continue; }
+            const remarks = [photoCheck ? SOD_PHOTO_CHECK_NOTE : '', note?.trim() ?? ''].filter(Boolean).join(' - ') || undefined;
             try {
-                const res = await ProcessGateEngine.advanceGate({ instanceId: inst!.id, action: 'APPROVED', userId, remarks: note?.trim() || undefined });
+                const res = await ProcessGateEngine.advanceGate({ instanceId: inst!.id, action: 'APPROVED', userId, remarks });
                 if (res.status === 'GATE_ADVANCED' && 'nextLevel' in res) {
                     const next = levels.find((l) => l.level === res.nextLevel);
                     if (next) await prisma.serviceOrder.update({ where: { id: o.id }, data: { sodApprovalStage: next.requiredRole } });

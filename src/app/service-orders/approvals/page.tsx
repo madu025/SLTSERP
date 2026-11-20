@@ -35,6 +35,7 @@ export default function SodApprovalsPage() {
     const [picked, setPicked] = useState<Set<string>>(new Set());
     const [reason, setReason] = useState('');
     const [result, setResult] = useState<Result | null>(null);
+    const [photosChecked, setPhotosChecked] = useState(false);
 
     const q = useQuery<Queue>({
         queryKey: ['sod-approvals', stage, search, month, year],
@@ -55,7 +56,7 @@ export default function SodApprovalsPage() {
 
     const act = useMutation({
         mutationFn: async (v: { action: 'APPROVE' | 'RETURN'; ids: string[] }) => {
-            const res = await fetch('/api/service-orders/approvals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: v.action, sodIds: v.ids, note: v.action === 'RETURN' ? reason : undefined }) });
+            const res = await fetch('/api/service-orders/approvals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: v.action, sodIds: v.ids, note: v.action === 'RETURN' ? reason : undefined, photosChecked: v.action === 'APPROVE' ? photosChecked : undefined }) });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error?.message || 'Action failed');
             return { action: v.action, data: (json.data ?? json) as Result };
@@ -64,7 +65,7 @@ export default function SodApprovalsPage() {
             const done = (action === 'APPROVE' ? data.approved : data.returned) ?? [];
             if (done.length > 0) toast.success(action === 'APPROVE' ? `${done.length} order${done.length === 1 ? '' : 's'} approved` : `${done.length} order${done.length === 1 ? '' : 's'} returned to the start of the chain`);
             if (data.failed.length > 0) toast.error(`${data.failed.length} could not be ${action === 'APPROVE' ? 'approved' : 'returned'}`);
-            setResult(data); setPicked(new Set()); if (action === 'RETURN') setReason('');
+            setResult(data); setPicked(new Set()); setPhotosChecked(false); if (action === 'RETURN') setReason('');
             qc.invalidateQueries({ queryKey: ['sod-approvals'] });
         },
         onError: (e: Error) => toast.error(e.message),
@@ -73,6 +74,10 @@ export default function SodApprovalsPage() {
     const toggle = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
     const toggleAll = () => setPicked(allPicked ? new Set() : new Set(orders.map((o) => o.id)));
     const ids = [...picked];
+    // At the QC Officer's step the photos of the order must have been received and checked before it can be passed.
+    const needsPhotoCheck = (o: Order) => o.sodApprovalStage === 'QC_OFFICER';
+    const blockedByPhotos = !photosChecked && orders.some((o) => picked.has(o.id) && needsPhotoCheck(o));
+    const photoHint = 'Tick "Photos received and checked" first: the QC Officer must check the photos before passing an order';
 
     return (
         <RoleGuard>
@@ -104,7 +109,11 @@ export default function SodApprovalsPage() {
                                 {[new Date().getFullYear() - 1, new Date().getFullYear()].map((y) => <option key={y} value={y}>{y}</option>)}
                             </select>
                             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search SO number, customer or voice number" aria-label="Search orders" className="h-9 w-72 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-600" />
-                            <button type="button" disabled={ids.length === 0 || act.isPending} onClick={() => act.mutate({ action: 'APPROVE', ids })} className="h-9 rounded-md bg-emerald-700 px-4 text-sm font-bold text-white disabled:opacity-50">{act.isPending ? 'Working...' : `Approve selected (${ids.length})`}</button>
+                            <label className="flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900">
+                                <input type="checkbox" checked={photosChecked} onChange={(e) => setPhotosChecked(e.target.checked)} aria-label="Photos received and checked" />
+                                Photos received and checked
+                            </label>
+                            <button type="button" disabled={ids.length === 0 || blockedByPhotos || act.isPending} title={blockedByPhotos ? photoHint : undefined} onClick={() => act.mutate({ action: 'APPROVE', ids })} className="h-9 rounded-md bg-emerald-700 px-4 text-sm font-bold text-white disabled:opacity-50">{act.isPending ? 'Working...' : `Approve selected (${ids.length})`}</button>
                             <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason to return" aria-label="Reason to return" className="h-9 w-56 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-600" />
                             <button type="button" disabled={ids.length === 0 || reason.trim().length < 3 || act.isPending} onClick={() => act.mutate({ action: 'RETURN', ids })} className="h-9 rounded-md border border-red-700 bg-white px-4 text-sm font-bold text-red-800 disabled:opacity-50">Return selected</button>
                         </div>
@@ -141,7 +150,7 @@ export default function SodApprovalsPage() {
                                                             <td className="py-2 pr-3 text-xs">{o.qcStatus ? o.qcStatus.replace('QC_', '').replace('_', ' ').toLowerCase() : '-'}</td>
                                                             <td className="py-2 pr-3 font-semibold">{o.stageLabel ?? LABEL[o.sodApprovalStage] ?? o.sodApprovalStage}</td>
                                                             <td className="py-2 pr-3 text-xs text-slate-800">{o.approvals.length === 0 ? '-' : o.approvals.slice(-3).map((h, n) => <div key={n}>{LABEL[h.stage] ?? h.stage}: {h.action === 'RETURNED' ? 'returned' : h.action === 'RESTARTED' ? 'restarted' : 'approved'}{h.action === 'RESTARTED' ? '' : ` by ${h.user.name ?? 'user'}`}{h.note ? ` (${h.note})` : ''}</div>)}</td>
-                                                            <td className="py-2 whitespace-nowrap"><button type="button" disabled={act.isPending} onClick={() => act.mutate({ action: 'APPROVE', ids: [o.id] })} className="rounded bg-emerald-700 px-3 py-1 text-xs font-bold text-white disabled:opacity-50">Approve</button></td>
+                                                            <td className="py-2 whitespace-nowrap"><button type="button" disabled={act.isPending || (needsPhotoCheck(o) && !photosChecked)} title={needsPhotoCheck(o) && !photosChecked ? photoHint : undefined} onClick={() => act.mutate({ action: 'APPROVE', ids: [o.id] })} className="rounded bg-emerald-700 px-3 py-1 text-xs font-bold text-white disabled:opacity-50">Approve</button></td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
