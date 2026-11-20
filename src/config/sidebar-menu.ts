@@ -69,7 +69,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Contractor Field Portal',
         path: '/contractor/dashboard',
         icon: Truck,
-        permissionId: 'contractor-portal',
+        permissionId: RBAC_PERMISSIONS.CONTRACTOR_WRITE, // the field portal is for the contractors' own people, not for the staff who oversee them
         submenu: [
             {
                 title: 'Overview',
@@ -164,6 +164,13 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'PAT Status Monitor',
                 path: '/service-orders/work-order/pat',
                 icon: ClipboardCheck,
+                permissionId: RBAC_PERMISSIONS.SOD_READ
+            },
+            {
+                // Only the contractors of the person's own RTOMs, view only
+                title: 'Contractor Stock',
+                path: '/service-orders/contractor-stock',
+                icon: Package,
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {

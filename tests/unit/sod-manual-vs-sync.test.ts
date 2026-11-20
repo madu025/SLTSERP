@@ -117,4 +117,12 @@ test('the area dashboard shows why orders were returned and each contractor\'s S
     assert.ok(comp.includes('Why orders were returned in {data.month}') && comp.includes('Open Return SOD') && comp.includes('Main return reason') && comp.includes('Return rate'), 'the reasons and the contractor columns are on the tab, with a way to the Return SOD list');
 });
 
+test('an area person sees only the stock of their own contractors, and the contractor field portal is for the contractors own people', () => {
+    const svc = read('src/services/service-order/area-contractor-stock.service.ts');
+    assert.ok(svc.includes('resolveOpmcScope(userId)') && svc.includes('contractor: { opmcId: { in: scope } }') && svc.includes('narrowScope('), 'stock is limited to the contractors of their own RTOMs');
+    assert.ok(read('src/app/api/service-orders/contractor-stock/route.ts').includes('RBAC_PERMISSIONS.SOD_READ'), 'read with the service order capability');
+    const menu = read('src/config/sidebar-menu.ts');
+    assert.ok(menu.includes("path: '/service-orders/contractor-stock'") && menu.includes('permissionId: RBAC_PERMISSIONS.CONTRACTOR_WRITE, // the field portal'), 'the stock page is in the menu and the field portal needs the contractor capability');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });
