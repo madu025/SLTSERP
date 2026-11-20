@@ -1721,6 +1721,23 @@ export class SODSyncService {
                 const isReturning = (initialSltsStatus === 'RETURN' && existing.sltsStatus !== 'RETURN');
                 const isRestoring = (existing.sltsStatus === 'RETURN' && initialSltsStatus !== 'RETURN');
 
+                // A return made in the ERP (by a person) stays until the portal itself changes the order afterwards. The portal keeps listing an
+                // order it has not been told is returned, and its status date is the last time somebody touched it there: if that is not later than
+                // the moment the ERP returned the order, the listing says nothing new and must not undo the return. The comparison uses the real time
+                // of the return (the status history), never the return date the user typed, which can be days back.
+                if (isRestoring) {
+                    const portalTouchedAt = updatePayload.statusDate ? new Date(updatePayload.statusDate as string | Date) : null;
+                    if (portalTouchedAt) {
+                        const returnedRow = await prisma.serviceOrderStatusHistory.findFirst({ where: { serviceOrderId: existing.id, status: 'RETURN' }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } });
+                        if (returnedRow && portalTouchedAt.getTime() <= returnedRow.createdAt.getTime()) {
+                            skippedNoChange++;
+                            return;
+                        }
+                    }
+                }
+                // Side effects of a restore are written only when the restore itself is applied, never when the status writer refuses it.
+                const restoreExtras: Prisma.ServiceOrderUncheckedUpdateInput = {};
+
                 // Portal can reactivate a returned SOD (RETURN → INPROGRESS). Allow it.
                 // But block RETURN → terminal status (COMPLETED/INSTALL_CLOSED) — those go through completed-sod-sync.
                 if (isRestoring && ['COMPLETED', 'INSTALL_CLOSED'].includes(initialSltsStatus)) {
@@ -1734,7 +1751,7 @@ export class SODSyncService {
                     updatePayload.returnReason = null;
                     updatePayload.completedDate = null; // Return date no longer applies once reactivated
                     // Use portal's CON_STATUS_DATE (actual reactivation date), not sync run time
-                    updatePayload.receivedDate = updatePayload.statusDate || new Date();
+                    restoreExtras.receivedDate = (updatePayload.statusDate as Date | string | undefined) || new Date();
                     const restoreDate = updatePayload.statusDate ? new Date(updatePayload.statusDate as string).toLocaleDateString() : 'N/A';
                     const currentCommentRow = await prisma.serviceOrder.findUnique({ where: { id: existing.id }, select: { comments: true } });
                     const existingComments = currentCommentRow?.comments || '';
@@ -1742,7 +1759,7 @@ export class SODSyncService {
                     // Deduplication check: ONLY append if not already marked for this restoration
                     if (!existingComments.includes('[SYNC-RESTORED]') || !existingComments.includes(restoreDate)) {
                         const restoreComment = `[SYNC-RESTORED] Prev Return: ${prevReturnReason} | Reactivated: ${restoreDate}`;
-                        updatePayload.comments = existingComments ? `${existingComments}\n${restoreComment}` : restoreComment;
+                        restoreExtras.comments = existingComments ? `${existingComments}\n${restoreComment}` : restoreComment;
                     }
                     console.log(`[SYNC] Restoring RETURNED SOD ${existing.soNum} to INPROGRESS (prev: ${prevReturnReason}, reactivated: ${restoreDate})`);
                 }
@@ -1813,10 +1830,11 @@ export class SODSyncService {
                         authorityProtected.push(existing.soNum ?? existing.id);
                     }
 
-                    if (Object.keys(fieldPayload).length > 0) {
+                    const fieldData = write.changed ? { ...fieldPayload, ...restoreExtras } : fieldPayload;
+                    if (Object.keys(fieldData).length > 0) {
                         await tx.serviceOrder.update({
                             where: { id: existing.id },
-                            data: fieldPayload,
+                            data: fieldData,
                             select: { id: true }
                         });
                     }

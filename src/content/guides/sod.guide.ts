@@ -246,7 +246,11 @@ export const SOD_GUIDE: ModuleGuide = {
                 'To return an order, choose RETURN in its Status dropdown on Pending SOD (any status, including DISAPPEARED). A window asks for the reason and the return date; nothing changes until you confirm it. The order then appears on Return SOD with its return reason.',
                 'To restore a RETURN or DISAPPEARED order, set its status back to IN PROGRESS or ASSIGNED. The received date is reset and a "[RESTORED / RE-ASSIGNED]" note with the earlier reason is added to the comments.',
             ],
-            tips: ['The reason you give appears in the Return Reason column, so write something a colleague can act on.'],
+            tips: [
+                'The reason you give appears in the Return Reason column, so write something a colleague can act on.',
+                'A return made here stays until the SLT portal itself changes the order afterwards. If the portal still lists the order as open with a date that is not later than your return, the next sync leaves the return in place.',
+                'Assigning, starting and completing an order need no approval. The only approval of an order is the one before invoicing (Area Coordinator, then QC Officer).',
+            ],
             anchors: [
                 { file: LIFECYCLE, text: '[RESTORED / RE-ASSIGNED]' },
                 { file: LIST_PAGE, text: '[MANUAL RETURN from DISAPPEARED]' },

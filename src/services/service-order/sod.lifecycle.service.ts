@@ -71,6 +71,12 @@ export class SODLifecycleService {
                 }
                 updateData.returnReason = null;
             }
+
+            // A manual return carries the reason the person gave; without it the Return Reason column stays empty.
+            if (sltsStatus === 'RETURN') {
+                const reason = typeof data.returnReason === 'string' ? data.returnReason.trim() : '';
+                if (reason) updateData.returnReason = reason;
+            }
         }
 
         if (completedDate) updateData.completedDate = new Date(completedDate);

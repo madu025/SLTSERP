@@ -565,44 +565,8 @@ export class ProcessGateAdminService {
         await ensureGate(g);
       }
 
-      // 2. SERVICE_ORDER 3-Step Workflow
-      const sodGates: SeedGate[] = [
-        {
-          entityType: 'SERVICE_ORDER',
-          fromStatus: 'PENDING',
-          toStatus: 'ASSIGNED',
-          label: '1. Contractor Work Assignment',
-          isEnabled: true,
-          approvalLevels: [{ level: 1, requiredRole: 'ENGINEER', description: 'Engineer assigns contractor team' }]
-        },
-        {
-          entityType: 'SERVICE_ORDER',
-          fromStatus: 'ASSIGNED',
-          toStatus: 'INPROGRESS',
-          label: '2. Field Survey & Civil Execution',
-          isEnabled: true,
-          reqGpsLocation: true,
-          reqPhotoProof: true,
-          approvalLevels: [{ level: 1, requiredRole: 'CONTRACTOR', description: 'Contractor starts execution with GPS & photos' }]
-        },
-        {
-          entityType: 'SERVICE_ORDER',
-          fromStatus: 'INPROGRESS',
-          toStatus: 'COMPLETED',
-          label: '3. Provisional Acceptance Testing (PAT)',
-          isEnabled: true,
-          reqSltsPat: true,
-          writeAuditLedger: true,
-          approvalLevels: [
-            { level: 1, requiredRole: 'ENGINEER', description: 'Engineer verifies PAT document' },
-            { level: 2, requiredRole: 'OSP_MANAGER', description: 'OSP Manager final signoff' }
-          ]
-        }
-      ];
-
-      for (const g of sodGates) {
-        await ensureGate(g);
-      }
+      // Service orders have no preset gates: only the approval before invoicing (Area Coordinator, then QC Officer) applies,
+      // and that policy is created by its migration. Assigning, starting and completing an order need no approval.
 
       return true;
     });
