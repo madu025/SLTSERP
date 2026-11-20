@@ -28,7 +28,9 @@ export interface AreaOverviewData {
     areas: Array<{ rtom: string; name: string }>;
     month: string; monthNumber: number; year: number; rtom: string;
     totals: { inHand: number; completedThisMonth: number; returnedThisMonth: number };
-    contractors: Array<{ contractorId: string; name: string; inHand: number; oldestInHandDays: number | null; completedThisMonth: number; returnedThisMonth: number }>;
+    returnReasons: Array<{ category: string; label: string; count: number; pct: number }>;
+    slaDays: number;
+    contractors: Array<{ contractorId: string; name: string; inHand: number; oldestInHandDays: number | null; completedThisMonth: number; returnedThisMonth: number; slaPct: number | null; returnRatePct: number | null; topReturnReason: string | null }>;
 }
 
 /** The person's own RTOMs: orders with contractors and each contractor's progress. */
@@ -97,12 +99,28 @@ function AreaProgress({ data, isLoading, filters, onFilters }: { data?: AreaOver
                 ))}
             </div>
             <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h3 className="text-sm font-black text-slate-900 dark:text-white">Why orders were returned in {data.month}</h3>
+                    <Link href="/service-orders/work-order/return" className="text-sm font-bold text-indigo-800 dark:text-indigo-300">Open Return SOD</Link>
+                </div>
+                {data.returnReasons.length === 0 ? <p className="mt-2 text-sm text-slate-900 dark:text-white">No orders were returned in this month.</p> : (
+                    <ul className="mt-3 space-y-2">
+                        {data.returnReasons.map((r) => (
+                            <li key={r.category} className="text-sm text-slate-900 dark:text-white">
+                                <div className="flex justify-between font-semibold"><span>{r.label}</span><span>{r.count} ({r.pct}%)</span></div>
+                                <div className="mt-1 h-2 rounded bg-slate-200"><div className="h-2 rounded bg-rose-700" style={{ width: `${Math.max(3, r.pct)}%` }} /></div>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+            <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <h3 className="text-sm font-black text-slate-900 dark:text-white">Contractor progress in your RTOMs</h3>
                 {data.contractors.length === 0 ? <p className="mt-2 text-sm text-slate-900 dark:text-white">No service orders with contractors in your RTOMs.</p> : (
                     <div className="mt-2 overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead><tr className="border-b border-slate-300">
-                                <th className={th}>Contractor</th><th className={th}>In hand now</th><th className={th}>Oldest in hand</th><th className={th}>Completed in {data.month}</th><th className={th}>Returned in {data.month}</th>
+                                <th className={th}>Contractor</th><th className={th}>In hand now</th><th className={th}>Oldest in hand</th><th className={th}>Completed in {data.month}</th><th className={th}>Within {data.slaDays} days</th><th className={th}>Returned in {data.month}</th><th className={th}>Return rate</th><th className={th}>Main return reason</th>
                             </tr></thead>
                             <tbody>
                                 {data.contractors.map((c) => (
@@ -111,7 +129,10 @@ function AreaProgress({ data, isLoading, filters, onFilters }: { data?: AreaOver
                                         <td className="py-2 pr-3">{c.inHand}</td>
                                         <td className="py-2 pr-3 whitespace-nowrap">{c.oldestInHandDays === null ? '-' : `${c.oldestInHandDays} day${c.oldestInHandDays === 1 ? '' : 's'}`}</td>
                                         <td className="py-2 pr-3">{c.completedThisMonth}</td>
+                                        <td className="py-2 pr-3 whitespace-nowrap">{c.slaPct === null ? '-' : `${c.slaPct}%`}</td>
                                         <td className="py-2 pr-3">{c.returnedThisMonth}</td>
+                                        <td className={`py-2 pr-3 whitespace-nowrap ${c.returnRatePct !== null && c.returnRatePct >= 10 ? 'font-bold text-red-800' : ''}`}>{c.returnRatePct === null ? '-' : `${c.returnRatePct}%`}</td>
+                                        <td className="py-2 pr-3">{c.topReturnReason ?? '-'}</td>
                                     </tr>
                                 ))}
                             </tbody>

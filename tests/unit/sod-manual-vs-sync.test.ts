@@ -108,4 +108,13 @@ test('the My work tab has a month and an RTOM filter that can only narrow what t
     assert.ok(comp.includes('Completed in {data.month}') && comp.includes('Returned in {data.month}'), 'the table columns name the month shown');
 });
 
+test('the area dashboard shows why orders were returned and each contractor\'s SLA and return rate, from the same data as the Return SOD page', () => {
+    const ov = read('src/services/service-order/area-overview.service.ts');
+    assert.ok(ov.includes('SODReturnClassifierService.classify(text)') && ov.includes("by: ['contractorId', 'returnReason']"), 'the free-text return reasons are grouped by the same classifier the performance report uses, per contractor');
+    assert.ok(ov.includes('SOD_TURNAROUND_SLA_DAYS') && ov.includes('make_interval(days =>'), 'the SLA is the same target of days as the performance report');
+    assert.ok(ov.includes('c.returnRatePct = all > 0') && ov.includes('c.slaPct ='), 'return rate is returned over completed plus returned');
+    const comp = read('src/app/dashboard/components/MyWorkSection.tsx');
+    assert.ok(comp.includes('Why orders were returned in {data.month}') && comp.includes('Open Return SOD') && comp.includes('Main return reason') && comp.includes('Return rate'), 'the reasons and the contractor columns are on the tab, with a way to the Return SOD list');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });
