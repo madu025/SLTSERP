@@ -27,8 +27,8 @@ export function useMyWorkSummary(enabled: boolean, rtom = 'ALL') {
 export interface AreaOverviewData {
     areas: Array<{ rtom: string; name: string }>;
     month: string; monthNumber: number; year: number; rtom: string;
-    totals: { notAssigned: number; inHand: number; completedThisMonth: number; returnedThisMonth: number; finishedNoContractor: number };
-    contractors: Array<{ contractorId: string | null; name: string; inHand: number; oldestInHandDays: number | null; completedThisMonth: number; returnedThisMonth: number }>;
+    totals: { inHand: number; completedThisMonth: number; returnedThisMonth: number };
+    contractors: Array<{ contractorId: string; name: string; inHand: number; oldestInHandDays: number | null; completedThisMonth: number; returnedThisMonth: number }>;
 }
 
 /** The person's own RTOMs: orders with contractors and each contractor's progress. */
@@ -83,11 +83,9 @@ function AreaProgress({ data, isLoading, filters, onFilters }: { data?: AreaOver
                 <span className="font-bold">Your RTOMs:</span>
                 {data.areas.length === 0 ? <span>none assigned to you</span> : data.areas.map((a) => <span key={a.rtom} className="rounded-full border border-slate-400 bg-white px-3 py-0.5 text-xs font-bold text-slate-900">{a.rtom}</span>)}
             </div>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 {[
                     { label: 'With contractors now', value: data.totals.inHand, hint: 'Assigned, in progress or waiting to close', href: '/service-orders/work-order' },
-                    { label: 'Not given to a contractor', value: data.totals.notAssigned, hint: 'Open orders with no contractor yet', href: '/service-orders/work-order' },
-                    { label: 'Finished, no contractor', value: data.totals.finishedNoContractor, hint: 'Completed orders with no contractor recorded: they can not be invoiced until one is assigned', href: '/service-orders/work-order/completed' },
                     { label: `Completed in ${data.month}`, value: data.totals.completedThisMonth, hint: 'Finished by the contractors of your RTOMs in this month', href: '/service-orders/work-order/completed' },
                     { label: `Returned in ${data.month}`, value: data.totals.returnedThisMonth, hint: 'Contractor orders cancelled or returned in this month', href: '/service-orders/work-order/return' },
                 ].map((c) => (
@@ -108,7 +106,7 @@ function AreaProgress({ data, isLoading, filters, onFilters }: { data?: AreaOver
                             </tr></thead>
                             <tbody>
                                 {data.contractors.map((c) => (
-                                    <tr key={c.contractorId ?? 'none'} className="border-b border-slate-200 text-slate-900 dark:text-white">
+                                    <tr key={c.contractorId} className="border-b border-slate-200 text-slate-900 dark:text-white">
                                         <td className="py-2 pr-3 font-semibold">{c.name}</td>
                                         <td className="py-2 pr-3">{c.inHand}</td>
                                         <td className="py-2 pr-3 whitespace-nowrap">{c.oldestInHandDays === null ? '-' : `${c.oldestInHandDays} day${c.oldestInHandDays === 1 ? '' : 's'}`}</td>

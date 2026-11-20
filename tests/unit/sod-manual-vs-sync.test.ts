@@ -92,8 +92,7 @@ test('one meaning of PAT passed in the approval chain and at invoicing, and the 
     assert.equal(isPatPassed('PENDING'), false);
     assert.equal(isPatPassed(null), false);
     const ov = read('src/services/service-order/area-overview.service.ts');
-    assert.ok(ov.includes('contractors.filter((c) => c.contractorId !== null)'), '"with contractors" does not count orders that have no contractor');
-    assert.ok(ov.includes('finishedNoContractor'), 'finished orders with no contractor are counted on their own');
+    assert.ok(ov.includes('contractorId: { not: null }') && !ov.includes('finishedNoContractor') && !ov.includes('notAssigned'), 'every figure is the contractors\x27 own: orders with no contractor are not part of the dashboard');
     const svc = read('src/services/service-order/sod-approval.service.ts');
     assert.ok(svc.includes("then 'rejected'") && svc.includes("then 'slts'") && svc.includes("then 'opmc'") && svc.includes('s."sodApprovalStage" is null or'), 'the PAT wait is split by the approval waited for and also counts orders not yet in the chain');
 });

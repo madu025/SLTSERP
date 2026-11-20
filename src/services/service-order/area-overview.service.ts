@@ -16,8 +16,8 @@ export interface AreaOverview {
     areas: Array<{ rtom: string; name: string }>;
     /** What the figures are for: the month, the RTOM chosen ('ALL' = every RTOM of the person). */
     month: string; monthNumber: number; year: number; rtom: string;
-    totals: { notAssigned: number; inHand: number; completedThisMonth: number; returnedThisMonth: number; finishedNoContractor: number };
-    contractors: Array<{ contractorId: string | null; name: string; inHand: number; oldestInHandDays: number | null; completedThisMonth: number; returnedThisMonth: number }>;
+    totals: { inHand: number; completedThisMonth: number; returnedThisMonth: number };
+    contractors: Array<{ contractorId: string; name: string; inHand: number; oldestInHandDays: number | null; completedThisMonth: number; returnedThisMonth: number }>;
 }
 
 /**
@@ -37,22 +37,21 @@ export class AreaOverviewService {
         const month = from.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
         const scope = await narrowScope(allScope, opts.rtom);
         const which = { monthNumber: m, year: y, rtom: scope.length === 1 && allScope.length > 1 ? (opts.rtom ?? 'ALL') : 'ALL' };
-        if (scope.length === 0) return { areas: [], month, ...which, totals: { notAssigned: 0, inHand: 0, completedThisMonth: 0, returnedThisMonth: 0, finishedNoContractor: 0 }, contractors: [] };
-        const area = { opmcId: { in: scope } };
-        const [areas, open, done, returned, finishedNoContractor] = await Promise.all([
+        if (scope.length === 0) return { areas: [], month, ...which, totals: { inHand: 0, completedThisMonth: 0, returnedThisMonth: 0 }, contractors: [] };
+        // Every service order has a contractor, so the figures are the contractors' own: an order with none is a data gap, not something to work from here.
+        const area = { opmcId: { in: scope }, contractorId: { not: null } };
+        const [areas, open, done, returned] = await Promise.all([
             prisma.oPMC.findMany({ where: { id: { in: allScope } }, select: { rtom: true, name: true }, orderBy: { rtom: 'asc' } }),
             prisma.serviceOrder.groupBy({ by: ['contractorId'], where: { ...area, sltsStatus: { in: [...IN_HAND] }, status: { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'RETURN', 'DISAPPEARED'] } }, _count: { _all: true }, _min: { receivedDate: true } }),
             prisma.serviceOrder.groupBy({ by: ['contractorId'], where: { ...area, sltsStatus: { in: [...FINISHED] }, completedDate: { gte: from, lt: to } }, _count: { _all: true } }),
             prisma.serviceOrder.groupBy({ by: ['contractorId'], where: { ...area, sltsStatus: 'RETURN', completedDate: { gte: from, lt: to } }, _count: { _all: true } }),
-            // Finished orders nobody has billed and no contractor is recorded on: they can not be invoiced until a contractor is assigned.
-            prisma.serviceOrder.count({ where: { ...area, invoiced: false, contractorId: null, status: { in: ['COMPLETED', 'INSTALL_CLOSED', 'PAT_OPMC_PASSED', 'PAT_CORRECTED'] } } }),
         ]);
         const ids = [...new Set([...open, ...done, ...returned].map((r) => r.contractorId).filter((c): c is string => !!c))];
         const names = new Map((await prisma.contractor.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } })).map((c) => [c.id, c.name]));
         const rows = new Map<string, AreaOverview['contractors'][number]>();
         const row = (id: string | null) => {
-            const key = id ?? '-';
-            if (!rows.has(key)) rows.set(key, { contractorId: id, name: id ? (names.get(id) ?? 'Contractor') : 'No contractor recorded', inHand: 0, oldestInHandDays: null, completedThisMonth: 0, returnedThisMonth: 0 });
+            const key = id as string;
+            if (!rows.has(key)) rows.set(key, { contractorId: key, name: names.get(key) ?? 'Contractor', inHand: 0, oldestInHandDays: null, completedThisMonth: 0, returnedThisMonth: 0 });
             return rows.get(key)!;
         };
         for (const r of open) {
@@ -62,14 +61,11 @@ export class AreaOverviewService {
         }
         for (const r of done) row(r.contractorId).completedThisMonth = r._count._all;
         for (const r of returned) row(r.contractorId).returnedThisMonth = r._count._all;
-        // Orders with no contractor come last: they are not a contractor's progress, and they can not be invoiced until one is assigned.
-        const contractors = [...rows.values()].sort((a, b) => Number(a.contractorId === null) - Number(b.contractorId === null) || b.inHand - a.inHand || b.completedThisMonth - a.completedThisMonth || a.name.localeCompare(b.name));
-        // "With contractors" counts only orders a contractor really holds; the orders with no contractor are counted on their own.
-        const sum = (f: (c: AreaOverview['contractors'][number]) => number) => contractors.filter((c) => c.contractorId !== null).reduce((a, c) => a + f(c), 0);
+        const contractors = [...rows.values()].sort((a, b) => b.inHand - a.inHand || b.completedThisMonth - a.completedThisMonth || a.name.localeCompare(b.name));
+        const sum = (f: (c: AreaOverview['contractors'][number]) => number) => contractors.reduce((a, c) => a + f(c), 0);
         return {
             areas, month, ...which, contractors,
             totals: {
-                notAssigned: rows.get('-')?.inHand ?? 0, finishedNoContractor,
                 inHand: sum((c) => c.inHand),
                 completedThisMonth: sum((c) => c.completedThisMonth),
                 returnedThisMonth: sum((c) => c.returnedThisMonth),
