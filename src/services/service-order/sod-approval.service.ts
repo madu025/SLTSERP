@@ -168,6 +168,38 @@ export class SodApprovalService {
         };
     }
 
+    /**
+     * What waits for this person, for the dashboard: how many orders are at each step they hold, how many completed orders are waiting for their
+     * PAT, and (for the first step) the finished orders that have not been brought into the chain yet. It only reads: nothing is started here.
+     */
+    static async summary(userId: string) {
+        const empty = { stages: [] as Array<{ key: string; label: string; count: number }>, awaitingPat: 0 };
+        const scope = await resolveOpmcScope(userId);
+        if (scope !== undefined && scope.length === 0) return empty;
+        const policy = await loadPolicy();
+        if (!policy || !policy.isEnabled) return empty;
+        const { actor, permissions } = await loadActor(userId);
+        const levels = policy.approvalLevels as Level[];
+        const mine = levels.filter((l) => mayActOnLevel(actor, permissions, l));
+        if (mine.length === 0) return empty;
+        const area = scope === undefined ? {} : { opmcId: { in: scope } };
+        const roles = mine.map((l) => l.requiredRole);
+        const firstLevel = levels[0].level;
+        const holdsFirst = mine.some((l) => l.level === firstLevel);
+        const [byStage, awaitingPat, notStarted] = await Promise.all([
+            prisma.serviceOrder.groupBy({ by: ['sodApprovalStage'], where: { ...area, sodApprovalStage: { in: roles }, AND: [SOD_PAT_OK] }, _count: { _all: true } }),
+            prisma.serviceOrder.count({ where: { ...area, sodApprovalStage: { in: roles }, NOT: SOD_PAT_OK } }),
+            holdsFirst
+                ? prisma.serviceOrder.count({ where: { ...area, invoiced: false, contractorId: { not: null }, status: { in: [...SOD_CHAIN_ENTRY_STATUSES] }, AND: [SOD_PAT_OK, { OR: [{ sodApprovalStage: null }, { sodApprovalStage: SOD_STAGE_RESTART }] }] } })
+                : Promise.resolve(0),
+        ]);
+        const counts = new Map(byStage.map((g) => [g.sodApprovalStage, g._count._all]));
+        return {
+            stages: mine.map((l) => ({ key: l.requiredRole, label: roleLabel(l.requiredRole), count: (counts.get(l.requiredRole) ?? 0) + (l.level === firstLevel ? notStarted : 0) })),
+            awaitingPat,
+        };
+    }
+
     /** What happens to each selected order for one person: the open step, whether they hold it, and the plan. */
     private static async judge(userId: string, ids: string[]) {
         const policy = await loadPolicy();

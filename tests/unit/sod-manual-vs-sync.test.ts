@@ -63,4 +63,14 @@ test('an order entered by hand is accepted for invoicing by the QC Officer pass 
     assert.equal(patSatisfied({ sltsPatStatus: 'PAT_PASSED', opmcPatStatus: 'PAT_PASSED', hoPatStatus: 'PENDING' }), false);
 });
 
+test('a person who holds an approval step lands on a "My work" dashboard tab with what waits for them', () => {
+    const svc = read('src/services/service-order/sod-approval.service.ts');
+    assert.ok(svc.includes('static async summary(userId: string)') && svc.includes('It only reads: nothing is started here'), 'a read-only summary of the steps the person holds');
+    assert.ok(read('src/app/api/service-orders/approvals/summary/route.ts').includes('SodApprovalService.summary'), 'the dashboard reads it from its own route');
+    const page = read('src/app/dashboard/page.tsx');
+    assert.ok(page.includes('useMyWorkSummary(!!user && !canFilterGlobally)') && page.includes("setActiveTab('work')") && page.includes('<TabsTrigger value="work"'), 'the tab is first and is the landing tab for a person with a step; managers keep their overview');
+    const comp = read('src/app/dashboard/components/MyWorkSection.tsx');
+    assert.ok(comp.includes('Waiting at the {s.label} step') && comp.includes('Waiting for their PAT') && comp.includes('Open Pending SOD'), 'it shows the orders waiting at the step, those waiting for PAT and a way to the pending orders');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });

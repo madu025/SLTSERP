@@ -17,6 +17,7 @@ import { isContractorRole } from '@/config/roles';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import ExecutiveControlTower from './components/ExecutiveControlTower';
 import CompanyHealthSection from './components/CompanyHealthSection';
+import MyWorkSection, { useMyWorkSummary } from './components/MyWorkSection';
 import OperationsScoreboard from './components/OperationsScoreboard';
 
 const DASHBOARD_STATS_REQUEST_TIMEOUT_MS = 12_000;
@@ -155,9 +156,18 @@ export default function DashboardPage() {
 
     const [activeTab, setActiveTab] = useState(() => effectiveDefaultTab);
 
+    // A person who holds a step of the service order approval (Area Coordinator, QC Officer, ...) lands on what waits for them, not on a
+    // store or finance view. Managers with a company-wide view keep their own overview.
+    const workSummary = useMyWorkSummary(!!user && !canFilterGlobally);
+    const hasMyWork = !canFilterGlobally && (workSummary.data?.stages.length ?? 0) > 0;
+    const [landedOnWork, setLandedOnWork] = useState(false);
     useEffect(() => {
-        setActiveTab(effectiveDefaultTab);
-    }, [effectiveDefaultTab]);
+        if (hasMyWork && !landedOnWork) { setActiveTab('work'); setLandedOnWork(true); }
+    }, [hasMyWork, landedOnWork]);
+
+    useEffect(() => {
+        if (!landedOnWork) setActiveTab(effectiveDefaultTab);
+    }, [effectiveDefaultTab, landedOnWork]);
 
     // The Management overview also shows service-order SLA and PAT figures, so it needs the same operations stats.
     const isOperationsStats = activeTab === 'operations' || activeTab === 'overview';
@@ -362,6 +372,7 @@ export default function DashboardPage() {
                             
                             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                                 <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1 rounded-2xl border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-950">
+                                    {hasMyWork && <TabsTrigger value="work" className="min-w-[7.5rem]">My work</TabsTrigger>}
                                     {canFilterGlobally && <TabsTrigger value="health" className="min-w-[7.5rem]">Company health</TabsTrigger>}
                                     {canViewOperations && <TabsTrigger value="overview" className="min-w-[7.5rem]">Management overview</TabsTrigger>}
                                     {canViewOperations && <TabsTrigger value="operations">Operations</TabsTrigger>}
@@ -371,6 +382,12 @@ export default function DashboardPage() {
                                     {canViewInventory && <TabsTrigger value="inventory">Inventory</TabsTrigger>}
                                 </TabsList>
                                 
+                                {hasMyWork && (
+                                    <TabsContent value="work" className="space-y-6">
+                                        <MyWorkSection summary={workSummary.data} isLoading={workSummary.isLoading} />
+                                    </TabsContent>
+                                )}
+
                                 {canFilterGlobally && (
                                     <TabsContent value="health" className="space-y-6">
                                         <CompanyHealthSection userId={user.id} enabled={activeTab === 'health'} />
