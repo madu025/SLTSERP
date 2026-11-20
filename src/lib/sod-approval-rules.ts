@@ -18,11 +18,14 @@ export const SOD_STAGE_READY = 'READY';
  * An order enters the approval chain, and can be invoiced, only when all three PAT approvals (SLTS, OPMC, HO) have passed. The exception is an
  * order entered by hand: it is not on the SLT portal, so no PAT will ever come for it, and the QC Officer's pass (with the photos checked) is its acceptance.
  */
-export const SOD_PAT_PASSED = { sltsPatStatus: 'PAT_PASSED', opmcPatStatus: 'PAT_PASSED', hoPatStatus: 'PAT_PASSED' } as const;
+/** Only PAT_PASSED counts, here and at invoicing (a few older rows hold PASSED: those are data to correct, they are not accepted as passed). */
+export const PAT_PASSED_VALUES = ['PAT_PASSED'] as const;
+export const isPatPassed = (v: string | null | undefined) => !!v && (PAT_PASSED_VALUES as readonly string[]).includes(v);
+export const SOD_PAT_PASSED = { sltsPatStatus: { in: [...PAT_PASSED_VALUES] }, opmcPatStatus: { in: [...PAT_PASSED_VALUES] }, hoPatStatus: { in: [...PAT_PASSED_VALUES] } };
 export const SOD_PAT_OK = { OR: [{ ...SOD_PAT_PASSED }, { isManualEntry: true }] };
 export const SOD_PAT_WAITING_MESSAGE = 'The PAT approvals of this order are not all passed yet; it can be approved once they have passed';
 export function patSatisfied(o: { sltsPatStatus?: string | null; opmcPatStatus?: string | null; hoPatStatus?: string | null; isManualEntry?: boolean | null }): boolean {
-    return o.isManualEntry === true || [o.sltsPatStatus, o.opmcPatStatus, o.hoPatStatus].every((p) => p === SOD_PAT_PASSED.sltsPatStatus);
+    return o.isManualEntry === true || [o.sltsPatStatus, o.opmcPatStatus, o.hoPatStatus].every(isPatPassed);
 }
 /** The step that checks the order's photos before it can be invoiced, and what it must state to pass. */
 export const SOD_PHOTO_CHECK_ROLE = 'QC_OFFICER';

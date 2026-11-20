@@ -6,7 +6,7 @@
  * material costs must be present before an engineer can verify it for billing.
  */
 
-import { SOD_READY_STAGES } from '@/lib/sod-approval-rules';
+import { SOD_READY_STAGES, isPatPassed } from '@/lib/sod-approval-rules';
 
 export interface SodFinancialValidationInput {
     soNum: string;
@@ -51,7 +51,7 @@ export function validateSodForInvoicing(input: SodFinancialValidationInput): Sod
 
     const patStatuses = [input.sltsPatStatus, input.opmcPatStatus, input.hoPatStatus];
     const passedByQc = input.isManualEntry === true && !!input.sodApprovalStage && SOD_READY_STAGES.includes(input.sodApprovalStage);
-    if (!passedByQc && patStatuses.some((status) => status !== 'PAT_PASSED')) {
+    if (!passedByQc && patStatuses.some((status) => !isPatPassed(status))) {
         reasons.push('PAT_APPROVALS_INCOMPLETE');
     }
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { validateSodForInvoicing } from '../../src/services/service-order/sod-financial-validation';
-import { patSatisfied } from '../../src/lib/sod-approval-rules';
+import { patSatisfied, isPatPassed } from '../../src/lib/sod-approval-rules';
 
 const read = (p: string) => fs.readFileSync(path.resolve(__dirname, '../..', p), 'utf8');
 
@@ -43,7 +43,7 @@ test("the QC Officer cannot pass an order without stating that its photos were r
 
 test('only PAT-passed orders, or orders entered by hand, enter the approval chain, are listed, can be approved and can be invoiced', () => {
     const rules = read('src/lib/sod-approval-rules.ts');
-    assert.ok(rules.includes("SOD_PAT_PASSED = { sltsPatStatus: 'PAT_PASSED', opmcPatStatus: 'PAT_PASSED', hoPatStatus: 'PAT_PASSED' }") && rules.includes('{ isManualEntry: true }'), 'one definition: PAT passed, or entered by hand');
+    assert.ok(rules.includes("PAT_PASSED_VALUES = ['PAT_PASSED']") && rules.includes('SOD_PAT_PASSED = {') && rules.includes('{ isManualEntry: true }'), 'one definition: PAT passed, or entered by hand');
     const svc = read('src/services/service-order/sod-approval.service.ts');
     assert.ok(svc.includes('AND: [SOD_PAT_OK, { OR: [{ sodApprovalStage: null }'), 'the chain starts only for PAT-satisfied orders');
     assert.ok(svc.includes('AND: [SOD_PAT_OK,') && svc.includes('NOT: SOD_PAT_OK'), 'the queue lists them and counts the waiting ones');
@@ -84,6 +84,18 @@ test('the dashboard of a person who works on the orders of their own RTOMs shows
     assert.ok(page.includes('const resolvingWork = !canFilterGlobally && workSummary.isLoading'), 'no company view flashes before it is known');
     const comp = read('src/app/dashboard/components/MyWorkSection.tsx');
     assert.ok(comp.includes('Your RTOMs:') && comp.includes('Contractor progress in your RTOMs'), 'the RTOMs and the contractor progress table');
+});
+
+test('one meaning of PAT passed in the approval chain and at invoicing, and the dashboard numbers count what they say', () => {
+    assert.equal(isPatPassed('PAT_PASSED'), true);
+    assert.equal(isPatPassed('PASSED'), false, 'the older value is not accepted anywhere, so no order can pass the chain and then fail at invoicing');
+    assert.equal(isPatPassed('PENDING'), false);
+    assert.equal(isPatPassed(null), false);
+    const ov = read('src/services/service-order/area-overview.service.ts');
+    assert.ok(ov.includes('contractors.filter((c) => c.contractorId !== null)'), '"with contractors" does not count orders that have no contractor');
+    assert.ok(ov.includes('finishedNoContractor'), 'finished orders with no contractor are counted on their own');
+    const svc = read('src/services/service-order/sod-approval.service.ts');
+    assert.ok(svc.includes("then 'rejected'") && svc.includes("then 'slts'") && svc.includes("then 'opmc'") && svc.includes('s."sodApprovalStage" is null or'), 'the PAT wait is split by the approval waited for and also counts orders not yet in the chain');
 });
 
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });

@@ -5,7 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 import { ClipboardCheck, Hourglass, ListChecks, MapPin } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
-export interface MyWorkSummary { stages: Array<{ key: string; label: string; count: number }>; awaitingPat: number }
+export interface PatWaiting { total: number; slts: number; opmc: number; ho: number; rejected: number }
+export interface MyWorkSummary { stages: Array<{ key: string; label: string; count: number }>; awaitingPat: PatWaiting }
 
 /** Reads what waits for the signed-in person at the SOD approval steps they hold. */
 export function useMyWorkSummary(enabled: boolean) {
@@ -26,7 +27,7 @@ export function useMyWorkSummary(enabled: boolean) {
 export interface AreaOverviewData {
     areas: Array<{ rtom: string; name: string }>;
     month: string;
-    totals: { notAssigned: number; inHand: number; completedThisMonth: number; returnedThisMonth: number };
+    totals: { notAssigned: number; inHand: number; completedThisMonth: number; returnedThisMonth: number; finishedNoContractor: number };
     contractors: Array<{ contractorId: string | null; name: string; inHand: number; oldestInHandDays: number | null; completedThisMonth: number; returnedThisMonth: number }>;
 }
 
@@ -58,12 +59,13 @@ function AreaProgress({ data, isLoading }: { data?: AreaOverviewData; isLoading:
                 <span className="font-bold">Your RTOMs:</span>
                 {data.areas.length === 0 ? <span>none assigned to you</span> : data.areas.map((a) => <span key={a.rtom} className="rounded-full border border-slate-400 bg-white px-3 py-0.5 text-xs font-bold text-slate-900">{a.rtom}</span>)}
             </div>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
                 {[
                     { label: 'With contractors now', value: data.totals.inHand, hint: 'Assigned, in progress or waiting to close' },
                     { label: 'Not given to a contractor', value: data.totals.notAssigned, hint: 'Open orders with no contractor yet' },
-                    { label: `Completed in ${data.month}`, value: data.totals.completedThisMonth, hint: 'Finished by contractors this month' },
-                    { label: `Returned in ${data.month}`, value: data.totals.returnedThisMonth, hint: 'Cancelled or returned this month' },
+                    { label: 'Finished, no contractor', value: data.totals.finishedNoContractor, hint: 'Completed orders with no contractor recorded: they can not be invoiced until one is assigned' },
+                    { label: `Completed in ${data.month}`, value: data.totals.completedThisMonth, hint: 'Finished by the contractors of your RTOMs this month' },
+                    { label: `Returned in ${data.month}`, value: data.totals.returnedThisMonth, hint: 'Contractor orders cancelled or returned this month' },
                 ].map((c) => (
                     <div key={c.label} className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                         <div className="text-xs font-bold uppercase tracking-wide text-slate-900 dark:text-white">{c.label}</div>
@@ -119,8 +121,14 @@ export default function MyWorkSection({ summary, isLoading, area, areaLoading }:
                 ))}
                 <Link href="/service-orders/approvals" className="rounded-2xl border border-amber-400 bg-amber-50 p-5 shadow-sm hover:border-amber-600">
                     <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Hourglass className="h-5 w-5 text-amber-800" />Waiting for their PAT</div>
-                    <div className="mt-3 text-4xl font-black text-slate-900">{summary?.awaitingPat ?? 0}</div>
-                    <p className="mt-1 text-sm text-slate-900">Completed orders that join your list once their SLTS, OPMC and HO PAT approvals have passed.</p>
+                    <div className="mt-3 text-4xl font-black text-slate-900">{summary?.awaitingPat.total ?? 0}</div>
+                    <p className="mt-1 text-sm text-slate-900">Completed orders{area && area.areas.length > 0 ? ` of ${area.areas.map((a) => a.rtom).join(', ')}` : ''} that join your list once their SLTS, OPMC and HO PAT approvals have passed.</p>
+                    <ul className="mt-2 space-y-0.5 text-sm font-semibold text-slate-900">
+                        <li>Waiting for the SLTS PAT: {summary?.awaitingPat.slts ?? 0}</li>
+                        <li>Waiting for the OPMC PAT: {summary?.awaitingPat.opmc ?? 0}</li>
+                        <li>Waiting for the HO PAT: {summary?.awaitingPat.ho ?? 0}</li>
+                        <li>PAT rejected: {summary?.awaitingPat.rejected ?? 0}</li>
+                    </ul>
                 </Link>
                 <Link href="/service-orders/work-order" className="rounded-2xl border border-slate-300 bg-white p-5 shadow-sm hover:border-indigo-600 dark:border-slate-700 dark:bg-slate-900">
                     <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white"><ListChecks className="h-5 w-5 text-indigo-700 dark:text-indigo-300" />Pending service orders</div>

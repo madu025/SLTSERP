@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
@@ -6,7 +7,7 @@ import { mayActOnLevel, roleLabel, type GateActor } from '@/lib/gate-eligibility
 import { ProcessGateEngine } from '@/services/approval/process-gate-engine';
 import { confirmationsSinceReturn, planApproval, type ApprovalHistoryEntry } from '@/lib/approval-chain-rules';
 import {
-    SOD_CHAIN_ENTRY_STATUSES, SOD_GATE, SOD_PHOTO_CHECK_MESSAGE, SOD_PHOTO_CHECK_NOTE, SOD_PAT_OK, SOD_PAT_WAITING_MESSAGE, patSatisfied, SOD_PHOTO_CHECK_ROLE, SOD_READY_STAGES, SOD_STAGE_READY, SOD_STAGE_RESTART, SOD_STAGE_STARTING, sodStageLabel,
+    SOD_CHAIN_ENTRY_STATUSES, SOD_GATE, SOD_PHOTO_CHECK_MESSAGE, SOD_PHOTO_CHECK_NOTE, SOD_PAT_OK, SOD_PAT_WAITING_MESSAGE, PAT_PASSED_VALUES, patSatisfied, SOD_PHOTO_CHECK_ROLE, SOD_READY_STAGES, SOD_STAGE_READY, SOD_STAGE_RESTART, SOD_STAGE_STARTING, sodStageLabel,
 } from '@/lib/sod-approval-rules';
 
 const MAX_BATCH = 200;
@@ -173,7 +174,8 @@ export class SodApprovalService {
      * PAT, and (for the first step) the finished orders that have not been brought into the chain yet. It only reads: nothing is started here.
      */
     static async summary(userId: string) {
-        const empty = { stages: [] as Array<{ key: string; label: string; count: number }>, awaitingPat: 0 };
+        const none = { total: 0, slts: 0, opmc: 0, ho: 0, rejected: 0 };
+        const empty = { stages: [] as Array<{ key: string; label: string; count: number }>, awaitingPat: none };
         const scope = await resolveOpmcScope(userId);
         if (scope !== undefined && scope.length === 0) return empty;
         const policy = await loadPolicy();
@@ -186,17 +188,33 @@ export class SodApprovalService {
         const roles = mine.map((l) => l.requiredRole);
         const firstLevel = levels[0].level;
         const holdsFirst = mine.some((l) => l.level === firstLevel);
-        const [byStage, awaitingPat, notStarted] = await Promise.all([
+        const [byStage, patRows, notStarted] = await Promise.all([
             prisma.serviceOrder.groupBy({ by: ['sodApprovalStage'], where: { ...area, sodApprovalStage: { in: roles }, AND: [SOD_PAT_OK] }, _count: { _all: true } }),
-            prisma.serviceOrder.count({ where: { ...area, sodApprovalStage: { in: roles }, NOT: SOD_PAT_OK } }),
+            // Finished orders of the area that wait for a PAT approval, by the approval they wait for (SLTS, then OPMC, then HO; a rejection comes first).
+            // Orders that are not in the approval chain yet are counted too: they join it when the PAT has passed.
+            prisma.$queryRaw<Array<{ what: string; n: number }>>(Prisma.sql`
+                select case
+                    when s."sltsPatStatus"::text ilike '%REJECT%' or s."opmcPatStatus"::text ilike '%REJECT%' or s."hoPatStatus"::text ilike '%REJECT%' then 'rejected'
+                    when s."sltsPatStatus"::text <> all(${[...PAT_PASSED_VALUES]}::text[]) then 'slts'
+                    when s."opmcPatStatus"::text <> all(${[...PAT_PASSED_VALUES]}::text[]) then 'opmc'
+                    else 'ho' end as what, count(*)::int as n
+                from "ServiceOrder" s
+                where s.invoiced = false and s."contractorId" is not null and s."isManualEntry" = false
+                  and s.status::text = any(${[...SOD_CHAIN_ENTRY_STATUSES]}::text[])
+                  and (s."sodApprovalStage" is null or s."sodApprovalStage" <> all(${[...SOD_READY_STAGES]}::text[]))
+                  and not (s."sltsPatStatus"::text = any(${[...PAT_PASSED_VALUES]}::text[]) and s."opmcPatStatus"::text = any(${[...PAT_PASSED_VALUES]}::text[]) and s."hoPatStatus"::text = any(${[...PAT_PASSED_VALUES]}::text[]))
+                  ${scope === undefined ? Prisma.empty : Prisma.sql`and s."opmcId" = any(${scope}::uuid[])`}
+                group by 1`),
             holdsFirst
                 ? prisma.serviceOrder.count({ where: { ...area, invoiced: false, contractorId: { not: null }, status: { in: [...SOD_CHAIN_ENTRY_STATUSES] }, AND: [SOD_PAT_OK, { OR: [{ sodApprovalStage: null }, { sodApprovalStage: SOD_STAGE_RESTART }] }] } })
                 : Promise.resolve(0),
         ]);
         const counts = new Map(byStage.map((g) => [g.sodApprovalStage, g._count._all]));
+        const pat = { ...{ total: 0, slts: 0, opmc: 0, ho: 0, rejected: 0 } };
+        for (const r of patRows) { const n = Number(r.n); pat.total += n; if (r.what === 'slts') pat.slts = n; else if (r.what === 'opmc') pat.opmc = n; else if (r.what === 'ho') pat.ho = n; else pat.rejected = n; }
         return {
             stages: mine.map((l) => ({ key: l.requiredRole, label: roleLabel(l.requiredRole), count: (counts.get(l.requiredRole) ?? 0) + (l.level === firstLevel ? notStarted : 0) })),
-            awaitingPat,
+            awaitingPat: pat,
         };
     }
 

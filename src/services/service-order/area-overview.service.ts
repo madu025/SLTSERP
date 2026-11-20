@@ -8,7 +8,7 @@ const FINISHED = ['COMPLETED', 'INSTALL_CLOSED'] as const;
 export interface AreaOverview {
     areas: Array<{ rtom: string; name: string }>;
     month: string;
-    totals: { notAssigned: number; inHand: number; completedThisMonth: number; returnedThisMonth: number };
+    totals: { notAssigned: number; inHand: number; completedThisMonth: number; returnedThisMonth: number; finishedNoContractor: number };
     contractors: Array<{ contractorId: string | null; name: string; inHand: number; oldestInHandDays: number | null; completedThisMonth: number; returnedThisMonth: number }>;
 }
 
@@ -25,13 +25,15 @@ export class AreaOverviewService {
         const from = new Date(now.getFullYear(), now.getMonth(), 1);
         const to = new Date(now.getFullYear(), now.getMonth() + 1, 1);
         const month = from.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-        if (scope.length === 0) return { areas: [], month, totals: { notAssigned: 0, inHand: 0, completedThisMonth: 0, returnedThisMonth: 0 }, contractors: [] };
+        if (scope.length === 0) return { areas: [], month, totals: { notAssigned: 0, inHand: 0, completedThisMonth: 0, returnedThisMonth: 0, finishedNoContractor: 0 }, contractors: [] };
         const area = { opmcId: { in: scope } };
-        const [areas, open, done, returned] = await Promise.all([
+        const [areas, open, done, returned, finishedNoContractor] = await Promise.all([
             prisma.oPMC.findMany({ where: { id: { in: scope } }, select: { rtom: true, name: true }, orderBy: { rtom: 'asc' } }),
             prisma.serviceOrder.groupBy({ by: ['contractorId'], where: { ...area, sltsStatus: { in: [...IN_HAND] }, status: { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'RETURN', 'DISAPPEARED'] } }, _count: { _all: true }, _min: { receivedDate: true } }),
             prisma.serviceOrder.groupBy({ by: ['contractorId'], where: { ...area, sltsStatus: { in: [...FINISHED] }, completedDate: { gte: from, lt: to } }, _count: { _all: true } }),
             prisma.serviceOrder.groupBy({ by: ['contractorId'], where: { ...area, sltsStatus: 'RETURN', completedDate: { gte: from, lt: to } }, _count: { _all: true } }),
+            // Finished orders nobody has billed and no contractor is recorded on: they can not be invoiced until a contractor is assigned.
+            prisma.serviceOrder.count({ where: { ...area, invoiced: false, contractorId: null, status: { in: ['COMPLETED', 'INSTALL_CLOSED', 'PAT_OPMC_PASSED', 'PAT_CORRECTED'] } } }),
         ]);
         const ids = [...new Set([...open, ...done, ...returned].map((r) => r.contractorId).filter((c): c is string => !!c))];
         const names = new Map((await prisma.contractor.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } })).map((c) => [c.id, c.name]));
@@ -50,11 +52,12 @@ export class AreaOverviewService {
         for (const r of returned) row(r.contractorId).returnedThisMonth = r._count._all;
         // Orders with no contractor come last: they are not a contractor's progress, and they can not be invoiced until one is assigned.
         const contractors = [...rows.values()].sort((a, b) => Number(a.contractorId === null) - Number(b.contractorId === null) || b.inHand - a.inHand || b.completedThisMonth - a.completedThisMonth || a.name.localeCompare(b.name));
-        const sum = (f: (c: AreaOverview['contractors'][number]) => number) => contractors.reduce((a, c) => a + f(c), 0);
+        // "With contractors" counts only orders a contractor really holds; the orders with no contractor are counted on their own.
+        const sum = (f: (c: AreaOverview['contractors'][number]) => number) => contractors.filter((c) => c.contractorId !== null).reduce((a, c) => a + f(c), 0);
         return {
             areas, month, contractors,
             totals: {
-                notAssigned: rows.get('-')?.inHand ?? 0,
+                notAssigned: rows.get('-')?.inHand ?? 0, finishedNoContractor,
                 inHand: sum((c) => c.inHand),
                 completedThisMonth: sum((c) => c.completedThisMonth),
                 returnedThisMonth: sum((c) => c.returnedThisMonth),
