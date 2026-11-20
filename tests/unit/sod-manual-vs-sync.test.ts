@@ -2,6 +2,8 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { validateSodForInvoicing } from '../../src/services/service-order/sod-financial-validation';
+import { patSatisfied } from '../../src/lib/sod-approval-rules';
 
 const read = (p: string) => fs.readFileSync(path.resolve(__dirname, '../..', p), 'utf8');
 
@@ -39,16 +41,26 @@ test("the QC Officer cannot pass an order without stating that its photos were r
     assert.ok(page.includes("Photos received and checked") && page.includes("needsPhotoCheck"), "the approvals page asks for it at the QC step");
 });
 
-test('only orders whose PAT approvals have all passed enter the approval chain, are listed, can be approved and can be invoiced', () => {
+test('only PAT-passed orders, or orders entered by hand, enter the approval chain, are listed, can be approved and can be invoiced', () => {
     const rules = read('src/lib/sod-approval-rules.ts');
-    assert.ok(rules.includes("SOD_PAT_PASSED = { sltsPatStatus: 'PAT_PASSED', opmcPatStatus: 'PAT_PASSED', hoPatStatus: 'PAT_PASSED' }"), 'one definition of "PAT passed"');
+    assert.ok(rules.includes("SOD_PAT_PASSED = { sltsPatStatus: 'PAT_PASSED', opmcPatStatus: 'PAT_PASSED', hoPatStatus: 'PAT_PASSED' }") && rules.includes('{ isManualEntry: true }'), 'one definition: PAT passed, or entered by hand');
     const svc = read('src/services/service-order/sod-approval.service.ts');
-    assert.ok(/\.\.\.SOD_PAT_PASSED,\s*OR: \[\{ sodApprovalStage: null \}/.test(svc), 'the chain starts only for PAT-passed orders');
-    assert.ok(svc.includes('const base = { ...inMySteps, ...SOD_PAT_PASSED }') && svc.includes('NOT: SOD_PAT_PASSED'), 'the queue lists PAT-passed orders and counts the waiting ones');
-    assert.ok(svc.includes('SOD_PAT_WAITING_MESSAGE'), 'a PAT-pending order cannot be approved');
-    assert.ok(read('src/services/invoice/invoicing.service.ts').includes('...SOD_PAT_PASSED,'), 'the engineer is offered PAT-passed orders only');
+    assert.ok(svc.includes('AND: [SOD_PAT_OK, { OR: [{ sodApprovalStage: null }'), 'the chain starts only for PAT-satisfied orders');
+    assert.ok(svc.includes('AND: [SOD_PAT_OK,') && svc.includes('NOT: SOD_PAT_OK'), 'the queue lists them and counts the waiting ones');
+    assert.ok(svc.includes('!patSatisfied(o)') && svc.includes('SOD_PAT_WAITING_MESSAGE'), 'a PAT-pending order cannot be approved');
+    assert.ok(read('src/services/invoice/invoicing.service.ts').includes('AND: [SOD_PAT_OK]'), 'the engineer is offered them only');
     const page = read('src/app/service-orders/approvals/page.tsx');
     assert.ok(page.includes('awaitingPat') && page.includes('orders.some(needsPhotoCheck)'), 'the page says how many wait for PAT and shows the photo box only at the QC step');
+});
+
+test('an order entered by hand is accepted for invoicing by the QC Officer pass instead of PAT; a portal order still needs PAT', () => {
+    const base = { soNum: 'X', contractorId: 'c', completedDate: new Date(), revenueAmount: 100, contractorAmount: 60, sltsPatStatus: 'PENDING', opmcPatStatus: 'PENDING', hoPatStatus: 'PENDING', materialUsage: [] as never[] };
+    assert.ok(validateSodForInvoicing({ ...base, isManualEntry: true, sodApprovalStage: 'READY' }).eligible, 'manual order passed by the QC Officer');
+    assert.ok(!validateSodForInvoicing({ ...base, isManualEntry: true, sodApprovalStage: 'QC_OFFICER' }).eligible, 'not yet passed by the QC Officer');
+    assert.ok(!validateSodForInvoicing({ ...base, isManualEntry: false, sodApprovalStage: 'READY' }).eligible, 'a portal order needs its PAT');
+    assert.ok(validateSodForInvoicing({ ...base, sltsPatStatus: 'PAT_PASSED', opmcPatStatus: 'PAT_PASSED', hoPatStatus: 'PAT_PASSED' }).eligible, 'a portal order with PAT passed');
+    assert.equal(patSatisfied({ isManualEntry: true }), true);
+    assert.equal(patSatisfied({ sltsPatStatus: 'PAT_PASSED', opmcPatStatus: 'PAT_PASSED', hoPatStatus: 'PENDING' }), false);
 });
 
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });

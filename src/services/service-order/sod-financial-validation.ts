@@ -6,6 +6,8 @@
  * material costs must be present before an engineer can verify it for billing.
  */
 
+import { SOD_READY_STAGES } from '@/lib/sod-approval-rules';
+
 export interface SodFinancialValidationInput {
     soNum: string;
     contractorId?: string | null;
@@ -15,6 +17,9 @@ export interface SodFinancialValidationInput {
     sltsPatStatus?: string | null;
     opmcPatStatus?: string | null;
     hoPatStatus?: string | null;
+    /** An order entered by hand is not on the SLT portal, so no PAT comes for it: once the QC Officer has passed it, that pass stands in for the PAT. */
+    isManualEntry?: boolean | null;
+    sodApprovalStage?: string | null;
     materialUsage?: Array<{
         quantity?: unknown;
         unitPrice?: unknown;
@@ -45,7 +50,8 @@ export function validateSodForInvoicing(input: SodFinancialValidationInput): Sod
     }
 
     const patStatuses = [input.sltsPatStatus, input.opmcPatStatus, input.hoPatStatus];
-    if (patStatuses.some((status) => status !== 'PAT_PASSED')) {
+    const passedByQc = input.isManualEntry === true && !!input.sodApprovalStage && SOD_READY_STAGES.includes(input.sodApprovalStage);
+    if (!passedByQc && patStatuses.some((status) => status !== 'PAT_PASSED')) {
         reasons.push('PAT_APPROVALS_INCOMPLETE');
     }
 

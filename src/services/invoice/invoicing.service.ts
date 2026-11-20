@@ -5,7 +5,7 @@ import { ServiceOrderService } from '@/services/service-order';
 import { InvoiceGeneratorService } from '@/services/invoice/invoice.generator.service';
 import { InvoiceGateService } from '@/services/invoice/invoice-gate.service';
 import { SodApprovalService, monthRange } from '@/services/service-order/sod-approval.service';
-import { SOD_PAT_PASSED, SOD_READY_STAGES, isLateSod, completedMonthLabel } from '@/lib/sod-approval-rules';
+import { SOD_PAT_OK, SOD_READY_STAGES, isLateSod, completedMonthLabel } from '@/lib/sod-approval-rules';
 
 const MAX_ORDERS = 2000;
 
@@ -35,7 +35,7 @@ export class InvoicingService {
         const end = monthRange(filter.month, filter.year).lt;
         const orders = await prisma.serviceOrder.findMany({
             where: {
-                sodApprovalStage: { in: [...SOD_READY_STAGES] }, invoiced: false, contractorId: { not: null }, completedDate: { lt: end }, ...SOD_PAT_PASSED,
+                sodApprovalStage: { in: [...SOD_READY_STAGES] }, invoiced: false, contractorId: { not: null }, completedDate: { lt: end }, AND: [SOD_PAT_OK],
                 ...(scope === undefined ? {} : { opmcId: { in: scope } }),
                 ...(filter.rtom ? { rtom: filter.rtom } : {}), ...(filter.contractorId ? { contractorId: filter.contractorId } : {}),
             },

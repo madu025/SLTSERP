@@ -679,6 +679,8 @@ export class ServiceOrderService {
                 sltsPatStatus: true,
                 opmcPatStatus: true,
                 hoPatStatus: true,
+                isManualEntry: true,
+                sodApprovalStage: true,
                 materialUsage: {
                     select: { id: true, quantity: true, unitPrice: true, costPrice: true, item: { select: { costPrice: true, unitPrice: true } } }
                 }
