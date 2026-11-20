@@ -172,4 +172,12 @@ test('no order is completed by a person without a contractor, and finished order
     assert.ok(read('src/app/service-orders/work-order/components/SODSheetTable.tsx').includes('NO CONTRACTOR'), 'a finished order with no contractor carries a mark');
 });
 
+test('the Area Coordinator and the QC Officer hold both order approval steps, so either covers the other', () => {
+    const boot = read('src/config/rbac-bootstrap.ts');
+    const grant = (code: string) => boot.slice(boot.indexOf(`[RBAC_PERMISSIONS.${code}]`), boot.indexOf('],', boot.indexOf(`[RBAC_PERMISSIONS.${code}]`)) + 2);
+    for (const code of ['INVOICE_CONFIRM_COORDINATOR', 'INVOICE_CONFIRM_QC']) {
+        assert.ok(grant(code).includes('AREA_COORDINATOR') && grant(code).includes('QC_OFFICER'), `both roles hold ${code}`);
+    }
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });
