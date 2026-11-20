@@ -17,7 +17,7 @@ import { isContractorRole } from '@/config/roles';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import ExecutiveControlTower from './components/ExecutiveControlTower';
 import CompanyHealthSection from './components/CompanyHealthSection';
-import MyWorkSection, { useMyWorkSummary } from './components/MyWorkSection';
+import MyWorkSection, { useAreaOverview, useMyWorkSummary } from './components/MyWorkSection';
 import OperationsScoreboard from './components/OperationsScoreboard';
 
 const DASHBOARD_STATS_REQUEST_TIMEOUT_MS = 12_000;
@@ -160,6 +160,10 @@ export default function DashboardPage() {
     // store or finance view. Managers with a company-wide view keep their own overview.
     const workSummary = useMyWorkSummary(!!user && !canFilterGlobally);
     const hasMyWork = !canFilterGlobally && (workSummary.data?.stages.length ?? 0) > 0;
+    // Someone who works on the orders of their own RTOMs sees only that work and those RTOMs: the store, finance, project and company views are not theirs.
+    const areaWork = useAreaOverview(hasMyWork);
+    // Until it is known whether this person works on the orders of their own RTOMs, no company view is shown: it would flash and then be replaced.
+    const resolvingWork = !canFilterGlobally && workSummary.isLoading;
     const [landedOnWork, setLandedOnWork] = useState(false);
     useEffect(() => {
         if (hasMyWork && !landedOnWork) { setActiveTab('work'); setLandedOnWork(true); }
@@ -354,7 +358,8 @@ export default function DashboardPage() {
                     <Header />
                     <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8">
                         <div className="max-w-7xl mx-auto w-full space-y-6">
-                            <DashboardFilters
+                            {resolvingWork && <div className="space-y-4"><Skeleton className="h-28 rounded-2xl" /><Skeleton className="h-72 rounded-2xl" /></div>}
+                            {!hasMyWork && !resolvingWork && <DashboardFilters
                                 user={user}
                                 selectedRegion={selectedRegion}
                                 selectedRtom={selectedRtom}
@@ -368,23 +373,23 @@ export default function DashboardPage() {
                                 isLoading={isLoading}
                                 isRefreshing={isDashboardRefreshing}
                                 onRefresh={refreshDashboard}
-                            />
+                            />}
                             
-                            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                            {!resolvingWork && <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                                 <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1 rounded-2xl border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-950">
                                     {hasMyWork && <TabsTrigger value="work" className="min-w-[7.5rem]">My work</TabsTrigger>}
                                     {canFilterGlobally && <TabsTrigger value="health" className="min-w-[7.5rem]">Company health</TabsTrigger>}
-                                    {canViewOperations && <TabsTrigger value="overview" className="min-w-[7.5rem]">Management overview</TabsTrigger>}
-                                    {canViewOperations && <TabsTrigger value="operations">Operations</TabsTrigger>}
-                                    {canViewProjects && <TabsTrigger value="projects">Projects</TabsTrigger>}
-                                    {canViewProcurement && <TabsTrigger value="procurement">Procurement</TabsTrigger>}
-                                    {canViewFinance && <TabsTrigger value="finance">Finance</TabsTrigger>}
-                                    {canViewInventory && <TabsTrigger value="inventory">Inventory</TabsTrigger>}
+                                    {!hasMyWork && canViewOperations && <TabsTrigger value="overview" className="min-w-[7.5rem]">Management overview</TabsTrigger>}
+                                    {!hasMyWork && canViewOperations && <TabsTrigger value="operations">Operations</TabsTrigger>}
+                                    {!hasMyWork && canViewProjects && <TabsTrigger value="projects">Projects</TabsTrigger>}
+                                    {!hasMyWork && canViewProcurement && <TabsTrigger value="procurement">Procurement</TabsTrigger>}
+                                    {!hasMyWork && canViewFinance && <TabsTrigger value="finance">Finance</TabsTrigger>}
+                                    {!hasMyWork && canViewInventory && <TabsTrigger value="inventory">Inventory</TabsTrigger>}
                                 </TabsList>
                                 
                                 {hasMyWork && (
                                     <TabsContent value="work" className="space-y-6">
-                                        <MyWorkSection summary={workSummary.data} isLoading={workSummary.isLoading} />
+                                        <MyWorkSection summary={workSummary.data} isLoading={workSummary.isLoading} area={areaWork.data} areaLoading={areaWork.isLoading} />
                                     </TabsContent>
                                 )}
 
@@ -485,7 +490,7 @@ export default function DashboardPage() {
                                         <InventorySection rtom={selectedRtom} enabled={activeTab === 'inventory'} />
                                     </TabsContent>
                                 )}
-                            </Tabs>
+                            </Tabs>}
                         </div>
                     </div>
                 </main>

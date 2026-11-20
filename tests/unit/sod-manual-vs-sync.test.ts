@@ -73,4 +73,17 @@ test('a person who holds an approval step lands on a "My work" dashboard tab wit
     assert.ok(comp.includes('Waiting at the {s.label} step') && comp.includes('Waiting for their PAT') && comp.includes('Open Pending SOD'), 'it shows the orders waiting at the step, those waiting for PAT and a way to the pending orders');
 });
 
+test('the dashboard of a person who works on the orders of their own RTOMs shows only that work, their RTOMs and each contractor\'s progress', () => {
+    const svc = read('src/services/service-order/area-overview.service.ts');
+    assert.ok(svc.includes('resolveOpmcScope(userId)') && svc.includes('opmcId: { in: scope }'), 'always limited to the person\'s own areas');
+    assert.ok(svc.includes("if (scope === undefined) return null"), 'a company-wide person has no own area and keeps the company dashboards');
+    assert.ok(svc.includes('inHand') && svc.includes('completedThisMonth') && svc.includes('returnedThisMonth') && svc.includes('oldestInHandDays'), 'in hand, completed and returned per contractor');
+    assert.ok(read('src/app/api/service-orders/area-overview/route.ts').includes('AreaOverviewService.forUser'), 'its own read-only route');
+    const page = read('src/app/dashboard/page.tsx');
+    assert.ok(page.includes('{!hasMyWork && canViewInventory &&') && page.includes('{!hasMyWork && canViewFinance &&') && page.includes('{!hasMyWork && !resolvingWork && <DashboardFilters'), 'the store, finance, project and company views and the company filters are not shown to them');
+    assert.ok(page.includes('const resolvingWork = !canFilterGlobally && workSummary.isLoading'), 'no company view flashes before it is known');
+    const comp = read('src/app/dashboard/components/MyWorkSection.tsx');
+    assert.ok(comp.includes('Your RTOMs:') && comp.includes('Contractor progress in your RTOMs'), 'the RTOMs and the contractor progress table');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });
