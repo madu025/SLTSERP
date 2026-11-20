@@ -8,7 +8,7 @@ import { mayActOnLevel, roleLabel, type GateActor } from '@/lib/gate-eligibility
 import { ProcessGateEngine } from '@/services/approval/process-gate-engine';
 import { confirmationsSinceReturn, planApproval, type ApprovalHistoryEntry } from '@/lib/approval-chain-rules';
 import {
-    SOD_CHAIN_ENTRY_STATUSES, SOD_GATE, SOD_PHOTO_CHECK_MESSAGE, SOD_PHOTO_CHECK_NOTE, SOD_PAT_OK, SOD_PAT_WAITING_MESSAGE, PAT_PASSED_VALUES, patSatisfied, SOD_PHOTO_CHECK_ROLE, SOD_READY_STAGES, SOD_STAGE_READY, SOD_STAGE_RESTART, SOD_STAGE_STARTING, sodStageLabel,
+    SOD_CHAIN_ENTRY_STATUSES, SOD_GATE, SOD_PHOTO_CHECK_MESSAGE, SOD_MATERIAL_CHECK_MESSAGE, SOD_PHOTO_CHECK_NOTE, SOD_PAT_OK, SOD_PAT_WAITING_MESSAGE, PAT_PASSED_VALUES, patSatisfied, SOD_PHOTO_CHECK_ROLE, SOD_READY_STAGES, SOD_STAGE_READY, SOD_STAGE_RESTART, SOD_STAGE_STARTING, sodStageLabel,
 } from '@/lib/sod-approval-rules';
 
 const MAX_BATCH = 200;
@@ -150,6 +150,7 @@ export class SodApprovalService {
                 select: {
                     id: true, soNum: true, rtom: true, opmcId: true, contractorId: true, customerName: true, completedDate: true, sodApprovalStage: true, revenueAmount: true, contractorAmount: true,
                     sltsPatStatus: true, opmcPatStatus: true, hoPatStatus: true, qcStatus: true, contractor: { select: { name: true } },
+                    _count: { select: { materialUsage: true } },
                 },
             }),
             prisma.serviceOrder.count({ where: { ...inMySteps, NOT: SOD_PAT_OK } }),
@@ -164,7 +165,7 @@ export class SodApprovalService {
             orders: orders.map((o) => ({
                 id: o.id, soNum: o.soNum, rtom: o.rtom, customerName: o.customerName, completedDate: o.completedDate, sodApprovalStage: o.sodApprovalStage, stageLabel: sodStageLabel(o.sodApprovalStage),
                 contractorAmount: o.contractorAmount === null ? null : Number(o.contractorAmount),
-                sltsPatStatus: o.sltsPatStatus, opmcPatStatus: o.opmcPatStatus, hoPatStatus: o.hoPatStatus, qcStatus: o.qcStatus, contractor: o.contractor,
+                sltsPatStatus: o.sltsPatStatus, opmcPatStatus: o.opmcPatStatus, hoPatStatus: o.hoPatStatus, qcStatus: o.qcStatus, contractor: o.contractor, materialLines: o._count.materialUsage,
                 approvals: (history.get(o.id) ?? []).map((h) => ({ stage: h.stage, action: h.action, note: h.note, createdAt: h.createdAt, user: { name: h.userName } })),
             })),
         };
@@ -244,6 +245,7 @@ export class SodApprovalService {
         if (ids.length > MAX_BATCH) throw AppError.badRequest(`Approve at most ${MAX_BATCH} orders at a time`);
         const { actor, permissions, levels, scope, orders, open, history } = await this.judge(userId, ids);
 
+        const materialLines = new Map((await prisma.serviceOrder.findMany({ where: { id: { in: ids } }, select: { id: true, _count: { select: { materialUsage: true } } } })).map((m) => [m.id, m._count.materialUsage]));
         const approved: SodApprovalOutcome[] = [];
         const failed: SodApprovalOutcome[] = [];
         for (const id of ids) if (!orders.some((o) => o.id === id)) failed.push({ soNum: id, message: 'Order not found' });
@@ -261,6 +263,7 @@ export class SodApprovalService {
             // The QC Officer's step is the check that the photos of the order were received: it cannot be passed without saying so, and the
             // statement is kept in the order's approval history with who made it.
             const photoCheck = level?.requiredRole === SOD_PHOTO_CHECK_ROLE;
+            if (photoCheck && (materialLines.get(o.id) ?? 0) === 0) { failed.push({ soNum: o.soNum, message: SOD_MATERIAL_CHECK_MESSAGE }); continue; }
             if (photoCheck && photosChecked !== true) { failed.push({ soNum: o.soNum, message: SOD_PHOTO_CHECK_MESSAGE }); continue; }
             const remarks = [photoCheck ? SOD_PHOTO_CHECK_NOTE : '', note?.trim() ?? ''].filter(Boolean).join(' - ') || undefined;
             try {

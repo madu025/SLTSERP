@@ -30,6 +30,8 @@ export function patSatisfied(o: { sltsPatStatus?: string | null; opmcPatStatus?:
 /** The step that checks the order's photos before it can be invoiced, and what it must state to pass. */
 export const SOD_PHOTO_CHECK_ROLE = 'QC_OFFICER';
 export const SOD_PHOTO_CHECK_NOTE = 'Photos received and checked';
+/** The same step checks that the material used was entered: a finished order with no material lines is not passed. */
+export const SOD_MATERIAL_CHECK_MESSAGE = 'Enter the material used on this order (Completed SOD, Confirm Completion) before passing it';
 export const SOD_PHOTO_CHECK_MESSAGE = 'Confirm that the photos of this order were received and checked before passing it';
 /** An order is ready for the engineer in either of these stages. */
 export const SOD_READY_STAGES: readonly string[] = [SOD_STAGE_READY, 'CONFIRMED'];

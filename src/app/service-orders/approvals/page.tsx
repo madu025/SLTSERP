@@ -12,7 +12,7 @@ interface Hist { stage: string; action: string; note: string | null; createdAt: 
 interface Order {
     contractorAmount: number | null;
     id: string; soNum: string; rtom: string; customerName: string | null; completedDate: string | null; sodApprovalStage: string; stageLabel: string;
-    sltsPatStatus: string | null; opmcPatStatus: string | null; hoPatStatus: string | null; qcStatus: string | null;
+    sltsPatStatus: string | null; opmcPatStatus: string | null; hoPatStatus: string | null; qcStatus: string | null; materialLines: number;
     contractor: { name: string } | null; approvals: Hist[];
 }
 interface Queue { stages: Array<{ key: string; label: string }>; counts: Record<string, number>; orders: Order[]; total?: number; awaitingPat?: number }
@@ -88,7 +88,7 @@ export default function SodApprovalsPage() {
                     <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2"><ClipboardCheck className="w-7 h-7 text-indigo-700" />SOD Approvals</h1>
-                            <p className="mt-1 text-sm text-slate-800">Completed service orders are passed by the Area Coordinator and then the QC Officer of their own area (an administrator can change the steps on the gate screen). You see the orders waiting at your step, in your area. Tick one or many and approve, as often as you like during the month. Passed orders go to the Engineer, who creates the invoices at month end.</p>
+                            <p className="mt-1 text-sm text-slate-800">Completed service orders are passed by the QC Officer or the Area Coordinator of their own area, who do the same job and cover for each other: check that the material used is entered and the photos were received, then pass the order so it is ready for the Engineer to invoice. You see the orders waiting at your step, in your area. Tick one or many and approve, as often as you like during the month. Passed orders go to the Engineer, who creates the invoices at month end.</p>
                         </div>
 
                         {q.data && q.data.stages.length > 0 && (
@@ -140,7 +140,7 @@ export default function SodApprovalsPage() {
                                                 <thead><tr className="border-b border-slate-300">
                                                     <th className={th}><input type="checkbox" checked={allPicked} onChange={toggleAll} aria-label="Select all" /></th>
                                                     <th className={th}>SO number</th><th className={th}>Customer</th><th className={th}>RTOM</th><th className={th}>Contractor</th><th className={th}>Completed</th><th className={th}>Payment</th>
-                                                    <th className={th}>PAT (SLTS / OPMC / HO)</th><th className={th}>QC</th><th className={th}>Waiting at</th><th className={th}>History</th><th className={th}></th>
+                                                    <th className={th}>PAT (SLTS / OPMC / HO)</th><th className={th}>Material</th><th className={th}>QC</th><th className={th}>Waiting at</th><th className={th}>History</th><th className={th}></th>
                                                 </tr></thead>
                                                 <tbody>
                                                     {orders.map((o) => (
@@ -153,6 +153,7 @@ export default function SodApprovalsPage() {
                                                             <td className="py-2 pr-3 whitespace-nowrap">{day(o.completedDate)}</td>
                                                             <td className="py-2 pr-3 whitespace-nowrap">{money(o.contractorAmount)}</td>
                                                             <td className="py-2 pr-3 whitespace-nowrap">{[o.sltsPatStatus, o.opmcPatStatus, o.hoPatStatus].map((s, i) => { const p = pat(s); return <span key={i} className={`mr-1 inline-block rounded border px-1.5 py-0.5 text-[11px] font-semibold ${p.c}`}>{p.t}</span>; })}</td>
+                                                            <td className="py-2 pr-3 text-xs whitespace-nowrap">{o.materialLines > 0 ? <span className="font-semibold text-emerald-900">{o.materialLines} item{o.materialLines === 1 ? '' : 's'}</span> : <a className="font-bold text-red-800 underline" href={`/service-orders/work-order/completed?rtom=${encodeURIComponent(o.rtom)}&search=${encodeURIComponent(o.soNum)}`}>None: enter</a>}</td>
                                                             <td className="py-2 pr-3 text-xs">{o.qcStatus ? o.qcStatus.replace('QC_', '').replace('_', ' ').toLowerCase() : '-'}</td>
                                                             <td className="py-2 pr-3 font-semibold">{o.stageLabel ?? LABEL[o.sodApprovalStage] ?? o.sodApprovalStage}</td>
                                                             <td className="py-2 pr-3 text-xs text-slate-800">{o.approvals.length === 0 ? '-' : o.approvals.slice(-3).map((h, n) => <div key={n}>{LABEL[h.stage] ?? h.stage}: {h.action === 'RETURNED' ? 'returned' : h.action === 'RESTARTED' ? 'restarted' : 'approved'}{h.action === 'RESTARTED' ? '' : ` by ${h.user.name ?? 'user'}`}{h.note ? ` (${h.note})` : ''}</div>)}</td>

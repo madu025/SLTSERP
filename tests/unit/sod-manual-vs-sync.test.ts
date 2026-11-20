@@ -180,4 +180,13 @@ test('the Area Coordinator and the QC Officer hold both order approval steps, so
     }
 });
 
+test('the QC step is one step for the QC Officer or the Area Coordinator and it needs the material entered and the photos checked', () => {
+    const svc = read('src/services/service-order/sod-approval.service.ts');
+    assert.ok(svc.includes('SOD_MATERIAL_CHECK_MESSAGE') && svc.includes('photoCheck && (materialLines.get(o.id) ?? 0) === 0'), 'an order with no material lines is not passed at the QC step');
+    assert.ok(svc.includes('materialLines: o._count.materialUsage'), 'the queue tells how many material lines each order has');
+    const page = read('src/app/service-orders/approvals/page.tsx');
+    assert.ok(page.includes('None: enter') && page.includes('/service-orders/work-order/completed?rtom='), 'a link from an order with no material to the Completed SOD page to enter it');
+    assert.ok(read('src/lib/sod-approval-rules.ts').includes('SOD_MATERIAL_CHECK_MESSAGE'), 'the message is in the shared rules');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });
