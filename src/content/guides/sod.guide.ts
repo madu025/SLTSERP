@@ -243,8 +243,7 @@ export const SOD_GUIDE: ModuleGuide = {
             page: '/service-orders/work-order',
             requires: RBAC_PERMISSIONS.SOD_WRITE,
             steps: [
-                'To return an order, choose RETURN in its Status dropdown on Pending SOD. It then appears on Return SOD with its return reason.',
-                'To turn a DISAPPEARED order into a return, choose RETURN in its Status dropdown. A window asks for the reason and the return date.',
+                'To return an order, choose RETURN in its Status dropdown on Pending SOD (any status, including DISAPPEARED). A window asks for the reason and the return date; nothing changes until you confirm it. The order then appears on Return SOD with its return reason.',
                 'To restore a RETURN or DISAPPEARED order, set its status back to IN PROGRESS or ASSIGNED. The received date is reset and a "[RESTORED / RE-ASSIGNED]" note with the earlier reason is added to the comments.',
             ],
             tips: ['The reason you give appears in the Return Reason column, so write something a colleague can act on.'],

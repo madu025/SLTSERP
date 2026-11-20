@@ -653,7 +653,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                             id: pendingReturnOrder.id,
                             sltsStatus: 'RETURN',
                             returnReason: comment,
-                            comment: `[MANUAL RETURN from DISAPPEARED] ${comment}`,
+                            comment: `${pendingReturnOrder.sltsStatus === 'DISAPPEARED' ? '[MANUAL RETURN from DISAPPEARED]' : '[MANUAL RETURN]'} ${comment}`,
                             // Set statusDate to return date (NOT completedDate - connection did not complete)
                             statusDate: returnDate ? new Date(returnDate).toISOString() : new Date().toISOString(),
                         });

@@ -102,7 +102,7 @@ export default function CommentModal({ isOpen, onClose, onSubmit, selectedOrder,
                     </div>
                     <DialogTitle className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                         {mode === 'return' ? (
-                            <><Calendar className="w-5 h-5 text-rose-600" />Manual Return - DISAPPEARED SOD</>
+                            <><Calendar className="w-5 h-5 text-rose-600" />Manual Return - {selectedOrder.sltsStatus === 'DISAPPEARED' ? 'DISAPPEARED SOD' : 'SOD'}</>
                         ) : (
                             <><MessageSquare className="w-5 h-5 text-rose-600" />Add Internal Note</>
                         )}

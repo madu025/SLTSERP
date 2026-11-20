@@ -1262,7 +1262,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                         onOpenModal(order, "action");
                                                         return;
                                                     }
-                                                    if (order.sltsStatus === "DISAPPEARED" && val === "RETURN") {
+                                                    if (val === "RETURN" && order.sltsStatus !== "RETURN") {
                                                         e.target.value = order.sltsStatus;
                                                         onPendingReturn?.(order);
                                                         return;
