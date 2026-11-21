@@ -39,6 +39,9 @@ model ServiceOrder {
   isInvoicable        Boolean                   @default(false)
   /// Area approval chain before invoicing: AREA_COORDINATOR | QC_OFFICER | AREA_ENGINEER | AREA_MANAGER | CONFIRMED. NULL = not in the chain (completed before it existed).
   sodApprovalStage    String?
+  /// "Photos received and checked" on a finished order, by whom and when (the check that makes an order ready for invoicing, with the material and the connection).
+  photosCheckedAt     DateTime?
+  photosCheckedById   String?                   @db.Uuid
   /// The engineer held the order back from invoicing (a problem); it is billed in the month it is made invoiceable.
   invoicingHeldAt     DateTime?
   invoicingHoldReason String?

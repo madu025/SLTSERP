@@ -156,13 +156,13 @@ export default function MyWorkSection({ summary, isLoading, area, areaLoading, f
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 {stages.map((s) => (
-                    <Link key={s.key} href="/service-orders/approvals" className="rounded-2xl border border-slate-300 bg-white p-5 shadow-sm hover:border-indigo-600 dark:border-slate-700 dark:bg-slate-900">
+                    <Link key={s.key} href="/service-orders/work-order/completed?check=waiting" className="rounded-2xl border border-slate-300 bg-white p-5 shadow-sm hover:border-indigo-600 dark:border-slate-700 dark:bg-slate-900">
                         <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white"><ClipboardCheck className="h-5 w-5 text-indigo-700 dark:text-indigo-300" />Waiting at the {s.label} step</div>
                         <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">{s.count}</div>
-                        <p className="mt-1 text-sm text-slate-800 dark:text-slate-200">{s.count === 0 ? 'Nothing is waiting for you.' : 'Completed orders of your area, ready for you to pass. Open SOD Approvals.'}</p>
+                        <p className="mt-1 text-sm text-slate-800 dark:text-slate-200">{s.count === 0 ? 'Nothing is waiting for you.' : 'Completed orders of your area to check: connection, material and photos. Open Completed SOD.'}</p>
                     </Link>
                 ))}
-                <Link href="/service-orders/approvals" className="rounded-2xl border border-amber-400 bg-amber-50 p-5 shadow-sm hover:border-amber-600">
+                <Link href="/service-orders/work-order/pat" className="rounded-2xl border border-amber-400 bg-amber-50 p-5 shadow-sm hover:border-amber-600">
                     <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Hourglass className="h-5 w-5 text-amber-800" />Waiting for their PAT</div>
                     <div className="mt-3 text-4xl font-black text-slate-900">{summary?.awaitingPat.total ?? 0}</div>
                     <p className="mt-1 text-sm text-slate-900">Completed orders{area && area.areas.length > 0 ? ` of ${area.areas.map((a) => a.rtom).join(', ')}` : ''} that join your list once their SLTS, OPMC and HO PAT approvals have passed.</p>

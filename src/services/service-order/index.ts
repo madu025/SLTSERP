@@ -404,6 +404,17 @@ export class ServiceOrderService {
             }
         }
 
+        // Material was entered on an order whose photos are already checked: it may now have everything it needs to be passed.
+        if (userId && isValidUuid(userId) && data.materialUsage && Array.isArray(data.materialUsage)) {
+            try {
+                const { SodApprovalService } = await import('./sod-approval.service');
+                const fresh = await prisma.serviceOrder.findUnique({ where: { id }, select: { photosCheckedAt: true } });
+                if (fresh?.photosCheckedAt) await SodApprovalService.approve(userId, [id], undefined, undefined);
+            } catch (e) {
+                console.error('Passing the order after the material was entered failed:', e);
+            }
+        }
+
         return finalOrder;
     }
 

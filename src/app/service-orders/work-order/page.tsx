@@ -40,6 +40,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     const searchParams = useSearchParams();
     const urlSearch = searchParams.get('search');
     const urlRtom = searchParams.get('rtom');
+    const urlCheck = searchParams.get('check');
 
     const hasSetDefault = React.useRef(false);
     const hasAppliedUrlRtom = React.useRef(false);
@@ -78,6 +79,8 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     const [patFilter, setPatFilter] = useState(pageTitle === 'Invoicable Service Orders' ? 'READY' : "ALL");
     const [matFilter, setMatFilter] = useState("ALL");
     const [offlineOnly, setOfflineOnly] = useState(false);
+    // The check on finished orders: '' = all, 'waiting', 'nocontractor', 'ready'
+    const [checkFilter, setCheckFilter] = useState(['waiting', 'nocontractor', 'ready'].includes(urlCheck ?? '') ? (urlCheck as string) : '');
     const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
     const [sortConfig, setSortConfig] = useState<{ key: keyof ServiceOrder; direction: "asc" | "desc" } | null>({
         key: filterType === 'completed' || filterType === 'install_closed' || filterType === 'return' ? 'completedDate' : (filterType === 'disappeared' ? 'statusDate' : 'createdAt'),
@@ -178,7 +181,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     const columnFiltersKey = React.useMemo(() => JSON.stringify(columnFilters), [columnFilters]);
 
     const { data: qData, isLoading: isLoadingOrders, isError, refetch } = useQuery<{ items: ServiceOrder[], summary: { totalSod: number, contractorAssigned: number, appointments: number, statusBreakdown: Record<string, number>, missingCount?: number }, meta?: { total: number, totalPages: number, page: number } }>({
-        queryKey: ["service-orders", selectedRtomId, filterType, selectedMonth, selectedYear, debouncedSearchTerm, statusFilter, patFilter, matFilter, offlineOnly, columnFiltersKey, currentPage, sortConfig],
+        queryKey: ["service-orders", selectedRtomId, filterType, selectedMonth, selectedYear, debouncedSearchTerm, statusFilter, patFilter, matFilter, offlineOnly, checkFilter, columnFiltersKey, currentPage, sortConfig],
         queryFn: async () => {
             if (!selectedRtomId) return { items: [], summary: { totalSod: 0, contractorAssigned: 0, appointments: 0, statusBreakdown: {}, missingCount: 0 } };
             const monthParam = filterType === 'pending' ? '' : `&month=${selectedMonth}`;
@@ -186,7 +189,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
             const searchParam = debouncedSearchTerm ? `&search=${encodeURIComponent(debouncedSearchTerm)}` : '';
             const statusParam = statusFilter ? `&statusFilter=${statusFilter}` : '';
             const patParam = patFilter ? `&patFilter=${patFilter}` : '';
-            const matParam = (matFilter ? `&matFilter=${matFilter}` : '') + (offlineOnly ? '&offline=1' : '');
+            const matParam = (matFilter ? `&matFilter=${matFilter}` : '') + (offlineOnly ? '&offline=1' : '') + (checkFilter ? `&check=${checkFilter}` : '');
             const columnFiltersParam = columnFiltersKey !== '{}' ? `&columnFilters=${encodeURIComponent(columnFiltersKey)}` : '';
 
             const res = await fetch(`/api/service-orders?rtomId=${selectedRtomId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}${columnFiltersParam}&page=${currentPage}&limit=${PAGE_LIMIT}&_t=${Date.now()}`, {
@@ -317,6 +320,36 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
         window.addEventListener('SLT_BRIDGE_SYNC_SUCCESS', handleSync);
         return () => window.removeEventListener('SLT_BRIDGE_SYNC_SUCCESS', handleSync);
     }, [refetch]);
+
+    // Whether the person holds the step that checks finished orders (the gate decides per order; this only decides whether to offer the tick)
+    const { data: canCheck = false } = useQuery<boolean>({
+        queryKey: ['sod-can-check'],
+        queryFn: async () => {
+            const res = await fetch('/api/service-orders/approvals/summary');
+            if (!res.ok) return false;
+            const json = await res.json();
+            return ((json.data ?? json).stages ?? []).length > 0;
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    // "Photos received and checked": kept on the order; an order that then has its connection, material and photos in order is passed to ready.
+    const tickPhotos = async (ids: string[], checked: boolean) => {
+        try {
+            const res = await fetch('/api/service-orders/approvals/photos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sodIds: ids, checked }) });
+            const json = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(json?.error?.message || 'Could not save');
+            const r = (json?.data ?? json) as { marked: number; passed: Array<{ soNum: string }>; failed: Array<{ soNum: string; message?: string }> };
+            if (r.passed.length > 0) toast.success(`${r.passed.length} order${r.passed.length === 1 ? '' : 's'} ready for invoice`);
+            else if (checked && r.marked > 0) toast.info('Photos noted. The order becomes ready once its connection and material are in order.');
+            // An order that lacks something is not an error of the tick: say what it lacks
+            const problems = r.failed.filter((f) => f.message);
+            if (problems.length > 0) toast.error(`${problems[0].soNum}: ${problems[0].message}${problems.length > 1 ? ` (and ${problems.length - 1} more)` : ''}`);
+            queryClient.invalidateQueries({ queryKey: ['service-orders'] });
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Could not save');
+        }
+    };
 
     const handleBulkAction = async (action: string) => {
         if (selectedIds.size === 0) return;
@@ -526,9 +559,22 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                      Offline only
                                  </Button>
 
+                                 {/* The check that makes a finished order ready for invoicing is done here, on the finished-order lists */}
+                                 {(filterType === 'completed' || filterType === 'install_closed') && (
+                                     <Select value={checkFilter || 'ALL'} onValueChange={(v) => { setCheckFilter(v === 'ALL' ? '' : v); setCurrentPage(1); }}>
+                                         <SelectTrigger className="h-7 w-[150px] border-border/40 bg-card text-xs font-semibold" aria-label="Check for invoicing"><SelectValue /></SelectTrigger>
+                                         <SelectContent>
+                                             <SelectItem value="ALL" className="text-xs">All orders</SelectItem>
+                                             <SelectItem value="waiting" className="text-xs">Waiting for the check</SelectItem>
+                                             <SelectItem value="nocontractor" className="text-xs">No contractor</SelectItem>
+                                             <SelectItem value="ready" className="text-xs">Ready for invoice</SelectItem>
+                                         </SelectContent>
+                                     </Select>
+                                 )}
+
                                  {/* Clear Filters */}
-                                 {(statusFilter !== 'DEFAULT' || patFilter !== 'ALL' || matFilter !== 'ALL' || offlineOnly || Object.keys(columnFilters).length > 0) && (
-                                     <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-rose-500" onClick={() => { setStatusFilter(filterType === 'completed' || filterType === 'install_closed' ? 'ALL' : 'DEFAULT'); setPatFilter(pageTitle === 'Invoicable Service Orders' ? 'READY' : 'ALL'); setMatFilter('ALL'); setOfflineOnly(false); setColumnFilters({}); setCurrentPage(1); }} title="Clear all filters">
+                                 {(statusFilter !== 'DEFAULT' || patFilter !== 'ALL' || matFilter !== 'ALL' || offlineOnly || checkFilter !== '' || Object.keys(columnFilters).length > 0) && (
+                                     <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-rose-500" onClick={() => { setStatusFilter(filterType === 'completed' || filterType === 'install_closed' ? 'ALL' : 'DEFAULT'); setPatFilter(pageTitle === 'Invoicable Service Orders' ? 'READY' : 'ALL'); setMatFilter('ALL'); setOfflineOnly(false); setCheckFilter(''); setColumnFilters({}); setCurrentPage(1); }} title="Clear all filters">
                                          <X className="w-3.5 h-3.5" />
                                      </Button>
                                  )}
@@ -559,6 +605,9 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                     <Button variant="ghost" size="sm" className="h-8 px-3 text-xs font-bold uppercase hover:bg-slate-700/60 text-white rounded-full" onClick={() => handleBulkAction('ASSIGN')}>Assign Team</Button>
                                     <Button variant="ghost" size="sm" className="h-8 px-3 text-xs font-bold uppercase hover:bg-slate-700/60 text-emerald-400 rounded-full" onClick={() => handleBulkAction('COMPLETE')}>Complete</Button>
                                     <Button variant="ghost" size="sm" className="h-8 px-3 text-xs font-bold uppercase hover:bg-slate-700/60 text-blue-400 rounded-full" onClick={handleBulkCopy}>Copy</Button>
+                                    {canCheck && (filterType === 'completed' || filterType === 'install_closed') && (
+                                        <Button variant="ghost" size="sm" className="h-8 px-3 text-xs font-bold uppercase hover:bg-slate-700/60 text-teal-300 rounded-full" title="The photos of every selected order were received and checked" onClick={() => { if (window.confirm(`I confirm that the photos of the ${selectedIds.size} selected order${selectedIds.size === 1 ? '' : 's'} were received and checked.`)) { tickPhotos(Array.from(selectedIds), true); setSelectedIds(new Set()); } }}>Photos checked</Button>
+                                    )}
                                     {Array.from(selectedIds).every(id => serviceOrders.find(o => o.id === id)?.isManualEntry) && (
                                         <Button variant="ghost" size="sm" className="h-8 px-3 text-xs font-bold uppercase hover:bg-slate-700/60 text-rose-400 rounded-full" onClick={() => handleBulkAction('DELETE')}>Remove</Button>
                                     )}
@@ -621,6 +670,8 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                     onSort={requestSort}
                                     sortConfig={sortConfig}
                                     visibleColumns={visibleColumns}
+                                    canCheck={canCheck}
+                                    onTickPhotos={(order, checked) => tickPhotos([order.id], checked)}
                                     onUpdateField={async (id, data) => {
                                         return updateStatusMutation.mutateAsync({ id, ...data });
                                     }}

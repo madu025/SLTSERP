@@ -47,6 +47,9 @@ interface SODSheetTableProps {
     columnFilters?: Record<string, string>;
     onColumnFiltersChange?: (filters: Record<string, string>) => void;
     visibleColumns?: string[]; // Column keys from admin settings
+    /** The person may tick "photos received and checked" (holds the check step); the server decides per order. */
+    canCheck?: boolean;
+    onTickPhotos?: (order: ServiceOrder, checked: boolean) => void;
 }
 
 function getSlaAgingBadge(receivedDate?: Date | string | null) {
@@ -104,6 +107,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
     const {
         orders,
         filterType,
+        canCheck,
+        onTickPhotos,
         contractors,
         selectedIds,
         toggleSelect,
@@ -335,6 +340,32 @@ export function SODSheetTable(props: SODSheetTableProps) {
             return 'bg-amber-50 text-amber-700 border-amber-200/50 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20';
         }
         return 'bg-blue-50 text-blue-700 border-blue-200/50 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20';
+    };
+
+    /** What a finished order still needs before it is ready for invoicing: the connection (completed, with its contractor and PAT), the material entered, the photos checked. */
+    const renderCheckCell = (order: ServiceOrder) => {
+        const patOk = order.isManualEntry === true || [order.sltsPatStatus, order.opmcPatStatus, order.hoPatStatus].every((s) => s === 'PAT_PASSED');
+        const connection = !!order.contractorId && patOk;
+        const material = order.materialLines ?? 0;
+        const photos = !!order.photosCheckedAt;
+        const ready = order.invoiced === true || order.sodApprovalStage === 'READY' || order.sodApprovalStage === 'CONFIRMED';
+        const tick = (ok: boolean) => <span className={ok ? 'font-black text-emerald-600' : 'font-black text-red-700'}>{ok ? '✓' : '✗'}</span>;
+        return (
+            <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground align-middle">
+                {ready ? (
+                    <span className="inline-block rounded-md bg-emerald-600 px-1.5 py-0.5 text-[9px] font-black uppercase text-white" title="Passed: ready for the Engineer to invoice">{order.invoiced ? 'INVOICED' : 'READY FOR INVOICE'}</span>
+                ) : (
+                    <div className="flex flex-col gap-0.5">
+                        <span title={!order.contractorId ? 'No contractor is recorded' : !patOk ? 'Waiting for the PAT approvals' : 'Connection completed with its contractor and PAT'}>{tick(connection)} Connection{!order.contractorId ? ' (no contractor)' : !patOk ? ' (PAT)' : ''}</span>
+                        <span title="Material used entered for this order">{tick(material > 0)} Material{material > 0 ? ` (${material})` : ''}</span>
+                        <label className="flex items-center gap-1" title={photos ? 'Photos were received and checked' : 'Tick when the photos of this order were received and checked'}>
+                            <input type="checkbox" className="h-3 w-3" checked={photos} disabled={!canCheck || !onTickPhotos} onChange={(e) => onTickPhotos?.(order, e.target.checked)} aria-label={`Photos received and checked for ${order.soNum}`} />
+                            Photos
+                        </label>
+                    </div>
+                )}
+            </td>
+        );
     };
 
     const renderContractorTeamDropdown = (order: ServiceOrder, index: number) => {
@@ -660,6 +691,12 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                     </div>
                                 </th>
                                 )}
+                                <th className="w-[150px] px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <span>Check for invoicing</span>
+                                        <span className="text-[7px] text-muted-foreground font-normal normal-case">Connection, material, photos</span>
+                                    </div>
+                                </th>
                             </>
                         ) : filterType === "return" ? (
                             <>
@@ -1135,6 +1172,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             {renderCellStatus(order.id, "comments")}
                                         </td>
                                         )}
+                                        {renderCheckCell(order)}
                                         {isColumnVisible('revenue') && (
                                         <td className="px-2 border-r border-border/15 text-[10px]">
                                             <div className="flex flex-col gap-0.5">

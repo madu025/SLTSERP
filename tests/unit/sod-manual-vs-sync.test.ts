@@ -37,8 +37,9 @@ test("the QC Officer cannot pass an order without stating that its photos were r
     const rules = read("src/lib/sod-approval-rules.ts");
     assert.ok(rules.includes("SOD_PHOTO_CHECK_ROLE = 'QC_OFFICER'"), "it is the QC Officer step");
     assert.ok(read("src/app/api/service-orders/approvals/route.ts").includes("photosChecked"), "the route carries the statement");
-    const page = read("src/app/service-orders/approvals/page.tsx");
-    assert.ok(page.includes("Photos received and checked") && page.includes("needsPhotoCheck"), "the approvals page asks for it at the QC step");
+    const table = read("src/app/service-orders/work-order/components/SODSheetTable.tsx");
+    assert.ok(table.includes("Photos received and checked") && table.includes("onTickPhotos"), "the Completed SOD list asks for it on each order");
+    assert.ok(read("src/app/api/service-orders/approvals/photos/route.ts").includes("setPhotos"), "the tick goes through the check step");
 });
 
 test('only PAT-passed orders, or orders entered by hand, enter the approval chain, are listed, can be approved and can be invoiced', () => {
@@ -49,8 +50,7 @@ test('only PAT-passed orders, or orders entered by hand, enter the approval chai
     assert.ok(svc.includes('AND: [SOD_PAT_OK,') && svc.includes('NOT: SOD_PAT_OK'), 'the queue lists them and counts the waiting ones');
     assert.ok(svc.includes('!patSatisfied(o)') && svc.includes('SOD_PAT_WAITING_MESSAGE'), 'a PAT-pending order cannot be approved');
     assert.ok(read('src/services/invoice/invoicing.service.ts').includes('AND: [SOD_PAT_OK]'), 'the engineer is offered them only');
-    const page = read('src/app/service-orders/approvals/page.tsx');
-    assert.ok(page.includes('awaitingPat') && page.includes('orders.some(needsPhotoCheck)'), 'the page says how many wait for PAT and shows the photo box only at the QC step');
+    assert.ok(read('src/app/dashboard/components/MyWorkSection.tsx').includes('awaitingPat'), 'the dashboard says how many wait for PAT');
 });
 
 test('an order entered by hand is accepted for invoicing by the QC Officer pass instead of PAT; a portal order still needs PAT', () => {
@@ -180,12 +180,25 @@ test('the Area Coordinator and the QC Officer hold both order approval steps, so
     }
 });
 
+test('the check is done on the Completed SOD page: connection, material and photos make an order ready, and the separate approvals page is gone', () => {
+    const menu = read('src/config/sidebar-menu.ts');
+    assert.ok(!menu.includes("title: 'SOD Approvals'"), 'no SOD Approvals entry in the menu');
+    assert.ok(read('src/app/service-orders/approvals/page.tsx').includes("redirect('/service-orders/work-order/completed?check=waiting')"), 'the old address leads to the list');
+    const svc = read('src/services/service-order/sod-approval.service.ts');
+    assert.ok(svc.includes('static async setPhotos') && svc.includes('photosCheckedAt: checked ? new Date() : null') && svc.includes('this.approve(userId, marked, undefined, true)'), 'ticking the photos records who and when, then passes the order if it has everything');
+    assert.ok(svc.includes('!o.photosCheckedAt'), 'the recorded tick stands for the statement when the order is passed later');
+    assert.ok(read('src/services/service-order/index.ts').includes('if (fresh?.photosCheckedAt) await SodApprovalService.approve'), 'entering the material on an order whose photos are checked passes it');
+    const q = read('src/services/service-order/sod.query.service.ts');
+    assert.ok(q.includes("check === 'waiting'") && q.includes("check === 'nocontractor'") && q.includes("check === 'ready'"), 'the list filters on the check');
+    assert.ok(read('prisma/migrations/20261211000000_sod_photos_checked/migration.sql').includes('"photosCheckedAt"'), 'the migration adds the columns');
+});
+
 test('the QC step is one step for the QC Officer or the Area Coordinator and it needs the material entered and the photos checked', () => {
     const svc = read('src/services/service-order/sod-approval.service.ts');
     assert.ok(svc.includes('SOD_MATERIAL_CHECK_MESSAGE') && svc.includes('photoCheck && (materialLines.get(o.id) ?? 0) === 0'), 'an order with no material lines is not passed at the QC step');
     assert.ok(svc.includes('materialLines: o._count.materialUsage'), 'the queue tells how many material lines each order has');
-    const page = read('src/app/service-orders/approvals/page.tsx');
-    assert.ok(page.includes('None: enter') && page.includes('/service-orders/work-order/completed?rtom='), 'a link from an order with no material to the Completed SOD page to enter it');
+    const table = read('src/app/service-orders/work-order/components/SODSheetTable.tsx');
+    assert.ok(table.includes('renderCheckCell') && table.includes('Material{material > 0'), 'the Completed SOD list shows whether the material is entered');
     assert.ok(read('src/lib/sod-approval-rules.ts').includes('SOD_MATERIAL_CHECK_MESSAGE'), 'the message is in the shared rules');
 });
 

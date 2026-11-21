@@ -56,6 +56,10 @@ export interface ServiceOrder {
     isOfflineWorkOrder?: boolean;
     offlineReference?: string | null;
     isManualEntry?: boolean;
+    sodApprovalStage?: string | null;
+    photosCheckedAt?: string | null;
+    materialLines?: number;
+    invoiced?: boolean;
     isLegacyImport?: boolean;
     hasBridgeLog?: boolean;
     materialSource?: string | null;

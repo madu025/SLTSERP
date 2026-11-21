@@ -143,12 +143,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
-                // Visible to everyone; the page and its API only show what the person's step in the order gate allows
-                title: 'SOD Approvals',
-                path: '/service-orders/approvals',
-                icon: ClipboardCheck,
-            },
-            {
                 title: 'Invoicing',
                 path: '/service-orders/invoicing',
                 icon: Receipt,

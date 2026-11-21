@@ -4,7 +4,6 @@ import type { ModuleGuide } from './types';
 const LIST_PAGE = 'src/app/service-orders/work-order/page.tsx';
 const TABLE = 'src/app/service-orders/work-order/components/SODSheetTable.tsx';
 const INVOICING = 'src/app/service-orders/invoicing/page.tsx';
-const SOD_APPROVALS = 'src/app/service-orders/approvals/page.tsx';
 const CONTRACTOR_FINANCE = 'src/app/contractor/finance/page.tsx';
 const DISPATCH = 'src/app/finance/invoice-dispatch/page.tsx';
 const OSP_APPROVALS = 'src/app/invoices/osp-approvals/page.tsx';
@@ -59,7 +58,7 @@ export const SOD_GUIDE: ModuleGuide = {
                 'An office user assigns a contractor team to the order and, if needed, sets an appointment date.',
                 'When the work is done, the order is completed with Confirm Completion: date, team, DP, device serial numbers and the material used.',
                 'Finished orders move to Install Closed SOD or Completed SOD. The three PAT approvals (SLTS, OPMC, HO) are tracked on PAT Status Monitor.',
-                'Finished orders are passed by the Area Coordinator and the QC Officer of their area (Service Orders → SOD Approvals). They do the same job and cover for each other, for the RTOMs they are assigned to, so work does not stop when one of them is away. There is one step: check that the material used is entered (open it from the None: enter link, which leads to Completed SOD → Confirm Completion) and that the photos were received, then pass the order so it is ready for the Engineer to invoice. At month end the Engineer creates the invoices (Service Orders → Invoicing): one for each contractor, area and month. The contractor then accepts the invoice and the Area Manager approves it (Invoices → Invoice Approvals (Area)).',
+                'Finished orders are checked on Completed SOD by the QC Officer or the Area Coordinator of their area, who do the same job and cover for each other: the connection is completed, the material used is entered, the photos were received and checked. Then the order is ready for the Engineer to invoice (Service Orders → Invoicing). At month end the Engineer creates the invoices: one for each contractor, area and month. The contractor then accepts the invoice and the Area Manager approves it (Invoices → Invoice Approvals (Area)).',
                 'An order the customer or SLT cancels is a Return (Return SOD). An order that disappears from the portal is shown on Disappeared SODs.',
             ],
             tips: [
@@ -306,33 +305,30 @@ export const SOD_GUIDE: ModuleGuide = {
         },
         {
             id: 'pass-orders',
-            title: 'SOD approvals: the Area Coordinator and the QC Officer pass the completed orders',
-            summary: 'Completed orders of a contractor are passed by the Area Coordinator and then the QC Officer of their own area, in bulk, as often as needed during the month. Passed orders go to the Engineer, who creates the invoices at month end.',
-            keywords: ['sod approvals', 'pass orders', 'area coordinator', 'qc officer', 'coordinator', 'qc', 'approve orders', 'bulk', 'return', 'approval chain', 'gate'],
-            page: '/service-orders/approvals',
-            requires: RBAC_PERMISSIONS.INVOICE_CONFIRM_COORDINATOR,
+            title: 'Check the finished orders: the QC Officer or the Area Coordinator make them ready for invoicing',
+            summary: 'On Completed SOD, the QC Officer or the Area Coordinator of the area check each finished order: the connection is completed (with its contractor and PAT), the material used is entered, and the photos were received and checked. When all three are in order the order is ready for the Engineer to invoice.',
+            keywords: ['sod approvals', 'pass orders', 'area coordinator', 'qc officer', 'coordinator', 'qc', 'check orders', 'photos', 'material', 'ready for invoice', 'completed sod', 'bulk', 'gate'],
+            page: '/service-orders/work-order/completed',
+            requires: RBAC_PERMISSIONS.INVOICE_CONFIRM_QC,
             steps: [
-                'Open Service Orders → SOD Approvals. It lists the completed orders of contractors that are waiting at the step you hold, in your own area. The chips at the top show how many wait at each of your steps. Narrow the list with the month the orders were completed in, or the search box.',
-                'Only orders whose three PAT approvals (SLTS, OPMC and HO) have passed are listed: an order cannot be invoiced before that. The My work tab of your dashboard and a note above the list say how many completed orders of your RTOMs are still waiting for their PAT, and for which approval (SLTS, OPMC or HO); they appear here by themselves once it has passed. An order entered by hand (Manual Entry) is not on the SLT portal, so no PAT comes for it: it is listed at once, and the QC Officer pass is its acceptance.',
-                'Check the PAT statuses, the contractor and the payment on each row. Tick one order or many (the box at the top selects all) and click "Approve selected", or use Approve on one row.',
-                'The Area Coordinator passes first, then the QC Officer (an administrator can change the steps on the gate screen). After the last step the order is ready for the Engineer.',
-                'The QC Officer checks that the photos of each order were received before passing it: tick "Photos received and checked" (the Approve buttons of the QC step stay disabled until you do). The statement is written to the order\x27s history with your name, and only then does the order become ready to invoice.',
-                'To send orders back, tick them, type a reason in "Reason to return" and click "Return selected". They start again at the first step.',
+                'Open Service Orders → Completed SOD. Each finished order has a "Check for invoicing" column: Connection, Material and Photos. Use the filter "Waiting for the check" to see only the orders that still need it, "No contractor" for finished orders with no contractor, and "Ready for invoice" for the ones that passed.',
+                'Connection is a tick when the order is completed, has its contractor and its three PAT approvals (SLTS, OPMC, HO) have passed. An order with no contractor shows "(no contractor)": assign the contractor from the list. An order entered by hand (Manual Entry) has no PAT, so its connection is a tick once it has a contractor.',
+                'Material is a tick when the material used is entered. If it is not, open the order with Confirm Completion and enter it.',
+                'Photos: tick the box on the row when the photos of the order were received and checked, or select many orders and use "Photos checked" in the bar at the bottom. The tick is kept on the order with your name and the time.',
+                'When connection, material and photos are all in order the order becomes ready for invoicing at once and shows READY FOR INVOICE. If something is missing, a message says what, and the order passes as soon as it is in order (for example when you enter the material after ticking the photos).',
             ],
             tips: [
-                'You can pass orders as often as you like during the month; there is no need to wait for month end.',
-                'The "Photos received and checked" box shows only when orders at the QC Officer step are listed.',
-                'One person cannot pass two steps of the same order; a different person must take each step.',
-                'A person sees and passes only the orders of their own area.',
-                'Every approval and return is written to the order\'s history with who and when.',
+                'The QC Officer and the Area Coordinator do the same job and cover for each other, for the RTOMs they are assigned to.',
+                'A person checks only the orders of their own area; the tick box is offered only to people who hold this step.',
+                'The old SOD Approvals address opens this list with the filter "Waiting for the check".',
+                'An order that has already been passed cannot be unticked.',
             ],
             anchors: [
-                { file: SOD_APPROVALS, text: 'SOD Approvals' },
-                { file: SOD_APPROVALS, text: 'Approve selected' },
-                { file: SOD_APPROVALS, text: 'Photos received and checked' },
-                { file: SOD_APPROVALS, text: 'Return selected' },
-                { file: SOD_APPROVALS, text: 'Reason to return' },
-                { file: SOD_APPROVALS, text: 'Not changed' },
+                { file: TABLE, text: 'Check for invoicing' },
+                { file: TABLE, text: 'READY FOR INVOICE' },
+                { file: LIST_PAGE, text: 'Waiting for the check' },
+                { file: LIST_PAGE, text: 'No contractor' },
+                { file: LIST_PAGE, text: 'Photos checked' },
             ],
         },
         {

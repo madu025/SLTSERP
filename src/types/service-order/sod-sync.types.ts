@@ -68,6 +68,8 @@ export interface GetServiceOrdersParams {
     matFilter?: string;
     /** Only orders marked Offline (completed outside the portal). Works with every list page. */
     offlineOnly?: boolean;
+    /** Finished orders: 'waiting' (still to be checked), 'nocontractor', 'ready' (passed for invoicing). */
+    check?: string;
     columnFilters?: Record<string, string>;
     page?: number;
     limit?: number;

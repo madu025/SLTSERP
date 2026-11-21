@@ -229,7 +229,7 @@ export class SodApprovalService {
         const levels = policy.approvalLevels as Level[];
         const scope = await resolveOpmcScope(userId);
         await this.ensureStarted(scope, { ids });
-        const orders = await prisma.serviceOrder.findMany({ where: { id: { in: ids } }, select: { id: true, soNum: true, opmcId: true, contractorId: true, sodApprovalStage: true, sltsPatStatus: true, opmcPatStatus: true, hoPatStatus: true, isManualEntry: true } });
+        const orders = await prisma.serviceOrder.findMany({ where: { id: { in: ids } }, select: { id: true, soNum: true, opmcId: true, photosCheckedAt: true, invoiced: true, contractorId: true, sodApprovalStage: true, sltsPatStatus: true, opmcPatStatus: true, hoPatStatus: true, isManualEntry: true } });
         const open = await prisma.universalApprovalInstance.findMany({ where: { entityType: SOD_GATE.entityType, policyId: policy.id, status: 'PENDING', entityId: { in: ids } }, select: { id: true, entityId: true, level: true } });
         const history = await sodHistoryFor(ids, policy.id);
         return { policy, actor, permissions, levels, scope, orders, open, history };
@@ -264,7 +264,7 @@ export class SodApprovalService {
             // statement is kept in the order's approval history with who made it.
             const photoCheck = level?.requiredRole === SOD_PHOTO_CHECK_ROLE;
             if (photoCheck && (materialLines.get(o.id) ?? 0) === 0) { failed.push({ soNum: o.soNum, message: SOD_MATERIAL_CHECK_MESSAGE }); continue; }
-            if (photoCheck && photosChecked !== true) { failed.push({ soNum: o.soNum, message: SOD_PHOTO_CHECK_MESSAGE }); continue; }
+            if (photoCheck && photosChecked !== true && !o.photosCheckedAt) { failed.push({ soNum: o.soNum, message: SOD_PHOTO_CHECK_MESSAGE }); continue; }
             const remarks = [photoCheck ? SOD_PHOTO_CHECK_NOTE : '', note?.trim() ?? ''].filter(Boolean).join(' - ') || undefined;
             try {
                 const res = await ProcessGateEngine.advanceGate({ instanceId: inst!.id, action: 'APPROVED', userId, remarks });
@@ -280,6 +280,36 @@ export class SodApprovalService {
             }
         }
         return { approved, failed };
+    }
+
+    /**
+     * "Photos received and checked", ticked on the Completed SOD page by someone who holds the check step, for finished orders of their own area.
+     * It is kept on the order (who, when). An order that then has everything it needs (connection completed with its PAT, material entered, photos
+     * checked) is passed to ready for invoicing at once; one that lacks something stays as it is and says what.
+     */
+    static async setPhotos(userId: string, sodIds: string[], checked: boolean) {
+        const ids = [...new Set(sodIds)];
+        if (ids.length === 0) throw AppError.badRequest('Select at least one order');
+        if (ids.length > MAX_BATCH) throw AppError.badRequest(`Change at most ${MAX_BATCH} orders at a time`);
+        const { actor, permissions, levels, scope, orders } = await this.judge(userId, ids);
+        const level = levels.find((l) => l.requiredRole === SOD_PHOTO_CHECK_ROLE);
+        const marked: string[] = [];
+        const failed: SodApprovalOutcome[] = [];
+        for (const id of ids) if (!orders.some((o) => o.id === id)) failed.push({ soNum: id, message: 'Order not found' });
+        for (const o of orders) {
+            if (!level || !mayActOnLevel(actor, permissions, level, { opmcId: o.opmcId })) { failed.push({ soNum: o.soNum, message: 'You do not hold the check step for this order' }); continue; }
+            if (!(scope === undefined || (!!o.opmcId && scope.includes(o.opmcId)))) { failed.push({ soNum: o.soNum, message: 'This order is outside your area' }); continue; }
+            if (o.invoiced || (o.sodApprovalStage && SOD_READY_STAGES.includes(o.sodApprovalStage))) { failed.push({ soNum: o.soNum, message: 'This order has already been passed' }); continue; }
+            await prisma.serviceOrder.update({ where: { id: o.id }, data: { photosCheckedAt: checked ? new Date() : null, photosCheckedById: checked ? userId : null } });
+            marked.push(o.id);
+        }
+        let passed: SodApprovalOutcome[] = [];
+        if (checked && marked.length > 0) {
+            const res = await this.approve(userId, marked, undefined, true);
+            passed = res.approved;
+            failed.push(...res.failed);
+        }
+        return { marked: marked.length, passed, failed };
     }
 
     /** Send orders back to the start of the chain with a reason (a person who holds the step they are waiting at may do this). */

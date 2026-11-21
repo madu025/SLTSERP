@@ -4,6 +4,7 @@ import { GetServiceOrdersParams } from '@/types/service-order/sod-sync.types';
 import { SOD_QUERY_COMPLETION_STATUSES, SOD_EXCLUDED_FROM_PENDING, SOD_PENDING_DEFAULT_STATUSES } from '@/lib/constants/sod-constants';
 import { isValidUuid } from '@/lib/uuid';
 import { UUID } from '@/types/common';
+import { SOD_PAT_OK, SOD_READY_STAGES } from '@/lib/sod-approval-rules';
 
 interface ServiceOrderItemWithIptv {
     id: UUID;
@@ -47,7 +48,7 @@ interface ServiceOrderItemWithIptv {
     comments: string | null;
     returnReason: string | null;
     createdAt: Date;
-    _count: { commentsHistory: number };
+    _count: { commentsHistory: number; materialUsage?: number };
     materialUsage: { quantity: number; unitPrice: Prisma.Decimal; usageType: string; serialNumber: string | null; comment: string | null; item: { name: string; code: string; unit: string } }[];
     forensicAudit: { auditData: string | null; voiceTestStatus: string | null } | null;
 }
@@ -57,7 +58,7 @@ export class SODQueryService {
      * Get all service orders with filtering and sorting
      */
     static async getServiceOrders(params: GetServiceOrdersParams) {
-        const { rtomId: opmcId, filter, search, statusFilter, patFilter, matFilter, offlineOnly, columnFilters, page = 1, limit = 50, cursor, month, year } = params;
+        const { rtomId: opmcId, filter, search, statusFilter, patFilter, matFilter, offlineOnly, check, columnFilters, page = 1, limit = 50, cursor, month, year } = params;
 
         // Offset-based fallback for backward compatibility
         const skip = cursor ? 1 : (page - 1) * limit;
@@ -226,6 +227,15 @@ export class SODQueryService {
 
         if (offlineOnly) andFilters.push({ isOfflineWorkOrder: true });
 
+        // The check on finished orders: what still waits for it, what has no contractor, what is ready
+        if (check === 'waiting') {
+            andFilters.push({ contractorId: { not: null }, invoiced: false, OR: [{ sodApprovalStage: null }, { sodApprovalStage: { notIn: [...SOD_READY_STAGES] } }], AND: [SOD_PAT_OK] });
+        } else if (check === 'nocontractor') {
+            andFilters.push({ contractorId: null });
+        } else if (check === 'ready') {
+            andFilters.push({ sodApprovalStage: { in: [...SOD_READY_STAGES] } });
+        }
+
         if (statusFilter && statusFilter !== 'ALL' && statusFilter !== 'DEFAULT') {
             if (statusFilter === 'OFFLINE') {
                 andFilters.push({ isOfflineWorkOrder: true });
@@ -375,13 +385,15 @@ export class SODQueryService {
                     completionMode: true,
                     // Where the order came from: entered by hand, or completed offline (the list shows a mark for each)
                     isManualEntry: true,
+                    sodApprovalStage: true,
+                    photosCheckedAt: true,
                     isOfflineWorkOrder: true,
                     offlineReference: true,
                     directTeam: true,
                     returnReason: true,
                     createdAt: true,
                     _count: {
-                        select: { commentsHistory: true }
+                        select: { commentsHistory: true, materialUsage: true }
                     },
                     materialUsage: {
                         select: {
@@ -468,7 +480,8 @@ export class SODQueryService {
 
         const itemsWithLogs = items.map(item => ({
             ...item,
-            hasBridgeLog: item.soNum ? bridgeLogSet.has(item.soNum) : false
+            hasBridgeLog: item.soNum ? bridgeLogSet.has(item.soNum) : false,
+            materialLines: item._count?.materialUsage ?? 0
         }));
 
         return {
