@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import Sidebar from '@/components/Sidebar';
@@ -11,7 +12,7 @@ import { Loader2, Receipt } from 'lucide-react';
 
 interface Order { id: string; soNum: string; completedDate: string | null; completedMonth: string; late: boolean; contractorAmount: number; revenueAmount: number; held: boolean; holdReason: string | null }
 interface Group { key: string; contractorId: string; contractorName: string; opmcId: string; area: string; orders: Order[]; total: number; lateCount: number }
-interface Candidates { groups: Group[]; held: Group[]; total: number }
+interface Candidates { groups: Group[]; held: Group[]; total: number; waitingCheck: number }
 interface Created { contractor: string; area: string; invoiceNumber?: string; orders: number; total?: number; error?: string }
 interface CreateResult { created: Created[]; blocked: Array<{ soNum: string; reasons: string[] }>; notEligible: number }
 
@@ -73,7 +74,7 @@ export default function InvoicingPage() {
                 if (r.created.some((c) => c.error) || r.blocked.length) toast.warning('Some orders or invoices need attention');
             } else if (action === 'HOLD') toast.success(`${data.held} order${data.held === 1 ? '' : 's'} held back`);
             else if (action === 'RELEASE') toast.success(`${data.released} order${data.released === 1 ? '' : 's'} released`);
-            else toast.success(`${data.returned} order${data.returned === 1 ? '' : 's'} returned to the Area Coordinator`);
+            else toast.success(`${data.returned} order${data.returned === 1 ? '' : 's'} sent back to the check`);
             setPicked(new Set()); setReason('');
             qc.invalidateQueries({ queryKey: ['invoicing'] });
         },
@@ -96,7 +97,7 @@ export default function InvoicingPage() {
                     <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2"><Receipt className="w-7 h-7 text-indigo-700" />Invoicing</h1>
-                            <p className="mt-1 text-sm text-slate-800">These orders were passed by the Area Coordinator and the QC Officer of your area. Choose the billing month, tick the orders and press <span className="font-bold">Create invoices</span>: one invoice is made for each contractor and area. Orders completed in an earlier month than the billing month are late SODs; they go on this month&apos;s invoice and are shown as late. Then the contractor reviews each invoice and the Area Manager approves it.</p>
+                            <p className="mt-1 text-sm text-slate-800">These orders passed the check on Completed SOD (connection, material and photos) by the Area Coordinator or the QC Officer of your area. Choose the billing month, tick the orders and press <span className="font-bold">Create invoices</span>: one invoice is made for each contractor and area. Orders completed in an earlier month than the billing month are late SODs; they go on this month&apos;s invoice and are shown as late. Then the contractor reviews each invoice and the Area Manager approves it.</p>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
@@ -110,12 +111,18 @@ export default function InvoicingPage() {
                             <button type="button" onClick={() => toggle(allOrders.map((o) => o.id), picks.length !== allOrders.length)} className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 hover:bg-slate-100">{picks.length === allOrders.length && allOrders.length > 0 ? 'Clear selection' : 'Select all'}</button>
                         </div>
 
+                        {(q.data?.waitingCheck ?? 0) > 0 && (
+                            <p className="rounded-xl border border-amber-400 bg-amber-50 p-3 text-sm text-amber-950">
+                                <span className="font-bold">{q.data?.waitingCheck}</span> finished order{q.data?.waitingCheck === 1 ? ' is' : 's are'} still waiting for the check in your area. <Link href="/service-orders/work-order/completed?check=waiting" className="font-bold underline">Open Completed SOD</Link>
+                            </p>
+                        )}
+
                         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-300 bg-white p-3">
                             <span className="text-sm font-bold text-slate-900">{picks.length} order{picks.length === 1 ? '' : 's'} selected{picks.length ? ` · ${money(pickTotal)}` : ''}</span>
                             <button type="button" disabled={picks.length === 0 || act.isPending} onClick={createInvoices} className="h-9 rounded-md bg-emerald-700 px-4 text-sm font-bold text-white disabled:opacity-50">{act.isPending ? 'Working...' : 'Create invoices'}</button>
                             <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (to hold or return)" aria-label="Reason" className="h-9 w-64 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-600" />
                             <button type="button" disabled={picks.length === 0 || reason.trim().length < 3 || act.isPending} onClick={() => act.mutate({ action: 'HOLD', sodIds: picks.map((o) => o.id), reason })} className="h-9 rounded-md border border-slate-700 bg-white px-3 text-sm font-bold text-slate-900 disabled:opacity-50">Hold back</button>
-                            <button type="button" disabled={picks.length === 0 || reason.trim().length < 3 || act.isPending} onClick={() => act.mutate({ action: 'RETURN', sodIds: picks.map((o) => o.id), reason })} className="h-9 rounded-md border border-red-700 bg-white px-3 text-sm font-bold text-red-800 disabled:opacity-50">Return to Area Coordinator</button>
+                            <button type="button" disabled={picks.length === 0 || reason.trim().length < 3 || act.isPending} onClick={() => act.mutate({ action: 'RETURN', sodIds: picks.map((o) => o.id), reason })} className="h-9 rounded-md border border-red-700 bg-white px-3 text-sm font-bold text-red-800 disabled:opacity-50">Return to the check</button>
                         </div>
 
                         {result && (
@@ -130,13 +137,14 @@ export default function InvoicingPage() {
                                         <ul className="mt-1 list-disc pl-5">{result.blocked.slice(0, 30).map((b) => <li key={b.soNum}><span className="font-semibold">{b.soNum}</span>: {b.reasons.map((r) => REASON[r] ?? r).join('; ')}</li>)}</ul>
                                     </div>
                                 )}
+                                {result.created.some((c) => c.invoiceNumber) && <p className="text-xs text-slate-800">Each new invoice now waits for the contractor to accept it, then for the Area Manager to approve it.</p>}
                                 {result.notEligible > 0 && <p className="text-xs text-slate-800">{result.notEligible} selected order(s) were not eligible (not passed, held back, in another area, or completed after the billing month).</p>}
                             </div>
                         )}
 
                         {q.isLoading ? <div className="py-8 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-slate-700" /></div>
                             : q.isError ? <p className="text-sm text-red-800">{(q.error as Error).message}</p>
-                                : groups.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-900">No orders are waiting to be invoiced for {MONTHS[month - 1]} {year} in your area. They appear here after the Area Coordinator and the QC Officer pass them.</p>
+                                : groups.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-900">No orders are waiting to be invoiced for {MONTHS[month - 1]} {year} in your area. They appear here after the Area Coordinator or the QC Officer passes them on Completed SOD.</p>
                                     : groups.map((g) => {
                                         const ids = g.orders.map((o) => o.id);
                                         const all = ids.every((id) => picked.has(id));

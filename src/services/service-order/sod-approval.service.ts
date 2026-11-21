@@ -351,7 +351,7 @@ export class SodApprovalService {
         const orders = await prisma.serviceOrder.findMany({ where: { id: { in: ids }, invoiced: false, sodApprovalStage: { in: [...SOD_READY_STAGES] }, ...(scope === undefined ? {} : { opmcId: { in: scope } }) }, select: { id: true, soNum: true } });
         if (orders.length === 0) throw AppError.badRequest('None of these orders is ready for invoicing in your area');
         await prisma.$transaction(async (tx) => {
-            await tx.serviceOrder.updateMany({ where: { id: { in: orders.map((o) => o.id) } }, data: { sodApprovalStage: SOD_STAGE_RESTART, invoicingHeldAt: null, invoicingHoldReason: null } });
+            await tx.serviceOrder.updateMany({ where: { id: { in: orders.map((o) => o.id) } }, data: { sodApprovalStage: SOD_STAGE_RESTART, invoicingHeldAt: null, invoicingHoldReason: null, photosCheckedAt: null, photosCheckedById: null } });
             if (policy) {
                 await tx.universalApprovalInstance.createMany({
                     data: orders.map((o) => ({ entityType: SOD_GATE.entityType, entityId: o.id, policyId: policy.id, levelIndex: 0, level: 0, requiredRole: 'RETURNED', policyVariant: 'DEFAULT', status: 'REJECTED', actionedById: userId, actionedAt: new Date(), comments: `${RESTART_PREFIX} Returned by the engineer: ${why}` })),

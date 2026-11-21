@@ -31,7 +31,7 @@ export class InvoicingService {
     static async candidates(userId: string, filter: { month: number; year: number; rtom?: string; contractorId?: string }) {
         if (!filter.month || !filter.year) throw AppError.badRequest('Choose the billing month and year');
         const scope = await resolveOpmcScope(userId);
-        if (scope !== undefined && scope.length === 0) return { groups: [] as InvoicingGroup[], held: [] as InvoicingGroup[], total: 0 };
+        if (scope !== undefined && scope.length === 0) return { groups: [] as InvoicingGroup[], held: [] as InvoicingGroup[], total: 0, waitingCheck: 0 };
         const end = monthRange(filter.month, filter.year).lt;
         const orders = await prisma.serviceOrder.findMany({
             where: {
@@ -60,7 +60,15 @@ export class InvoicingService {
             map.set(key, g);
         }
         const sorted = (m: Map<string, InvoicingGroup>) => [...m.values()].sort((a, b) => a.area.localeCompare(b.area) || a.contractorName.localeCompare(b.contractorName));
-        return { groups: sorted(byKey), held: sorted(heldByKey), total: orders.length };
+        // finished orders of the area that still wait for the Completed SOD check (the engineer sees how many are on the way)
+        const waitingCheck = await prisma.serviceOrder.count({
+            where: {
+                status: { in: ['COMPLETED', 'INSTALL_CLOSED'] }, invoiced: false, contractorId: { not: null },
+                OR: [{ sodApprovalStage: null }, { sodApprovalStage: { notIn: [...SOD_READY_STAGES] } }], AND: [SOD_PAT_OK],
+                ...(scope === undefined ? {} : { opmcId: { in: scope } }), ...(filter.rtom ? { rtom: filter.rtom } : {}),
+            },
+        });
+        return { groups: sorted(byKey), held: sorted(heldByKey), total: orders.length, waitingCheck };
     }
 
     /**

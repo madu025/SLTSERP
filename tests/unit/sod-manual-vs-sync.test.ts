@@ -208,4 +208,13 @@ test('the finished-order check shows each PAT approval, and says a manual order 
     assert.ok(table.includes('No PAT (manual)'), 'a manual order is marked as having no PAT');
 });
 
+test('the engineer Invoicing page: one check by Coordinator or QC, a count of orders still waiting, and a return clears the photo tick', () => {
+    const page = read('src/app/service-orders/invoicing/page.tsx');
+    assert.ok(page.includes('Return to the check') && !page.includes('Return to Area Coordinator'), 'the return button names the Completed SOD check, not only the coordinator');
+    assert.ok(page.includes('waitingCheck') && page.includes('/service-orders/work-order/completed?check=waiting'), 'the page tells how many orders still wait for the check, with a link');
+    const svc = read('src/services/invoice/invoicing.service.ts');
+    assert.ok(svc.includes('waitingCheck') && svc.includes('SOD_PAT_OK'), 'the count uses the same PAT rule as the check');
+    assert.ok(read('src/services/service-order/sod-approval.service.ts').includes('photosCheckedAt: null, photosCheckedById: null'), 'an order the engineer returns must have its photos checked again');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });
