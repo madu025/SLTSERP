@@ -13,6 +13,7 @@ import { Loader2, Receipt } from 'lucide-react';
 interface Order { id: string; soNum: string; completedDate: string | null; completedMonth: string; late: boolean; contractorAmount: number; revenueAmount: number; held: boolean; holdReason: string | null }
 interface Group { key: string; contractorId: string; contractorName: string; opmcId: string; area: string; orders: Order[]; total: number; lateCount: number }
 interface Candidates { groups: Group[]; held: Group[]; total: number; waitingCheck: number }
+interface RecentInvoice { id: string; invoiceNumber: string; month: number | null; year: number | null; total: number; stage: string; status: string; createdAt: string; contractor: string; area: string; orders: number }
 interface Created { contractor: string; area: string; invoiceNumber?: string; orders: number; total?: number; error?: string }
 interface CreateResult { created: Created[]; blocked: Array<{ soNum: string; reasons: string[] }>; notEligible: number }
 
@@ -47,6 +48,12 @@ export default function InvoicingPage() {
             if (!res.ok) throw new Error(json.error?.message || 'Failed to load the orders');
             return json.data ?? json;
         },
+        staleTime: 10_000, retry: false,
+    });
+
+    const recent = useQuery<RecentInvoice[]>({
+        queryKey: ['invoicing', 'recent'],
+        queryFn: async () => { const res = await fetch('/api/invoicing?view=invoices', { cache: 'no-store' }); const json = await res.json(); if (!res.ok) throw new Error(json.error?.message || 'Failed to load the invoices'); return json.data ?? json; },
         staleTime: 10_000, retry: false,
     });
 
@@ -175,6 +182,31 @@ export default function InvoicingPage() {
                                             </section>
                                         );
                                     })}
+
+                        <section className="rounded-xl border border-slate-300 bg-white p-4">
+                            <h2 className="text-base font-bold text-slate-900">Invoices of your area</h2>
+                            <p className="text-xs text-slate-800">The latest invoices and where each one waits. You have no further step on them: the contractor accepts, then the Area Manager approves.</p>
+                            {recent.isLoading ? <p className="mt-2 text-sm text-slate-900">Loading...</p> : (recent.data ?? []).length === 0 ? <p className="mt-2 text-sm text-slate-900">No invoices yet.</p> : (
+                                <div className="mt-2 overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead><tr className="border-b border-slate-300"><th className={th}>Invoice</th><th className={th}>Contractor</th><th className={th}>Area</th><th className={th}>Month</th><th className={th}>Orders</th><th className={th}>Total</th><th className={th}>Waiting for</th></tr></thead>
+                                        <tbody>
+                                            {(recent.data ?? []).map((i) => (
+                                                <tr key={i.id} className="border-b border-slate-200 text-slate-900">
+                                                    <td className="py-1.5 pr-3 font-semibold whitespace-nowrap">{i.invoiceNumber}</td>
+                                                    <td className="py-1.5 pr-3">{i.contractor}</td>
+                                                    <td className="py-1.5 pr-3">{i.area}</td>
+                                                    <td className="py-1.5 pr-3 whitespace-nowrap">{i.month ? MONTHS[i.month - 1] : '-'} {i.year ?? ''}</td>
+                                                    <td className="py-1.5 pr-3">{i.orders}</td>
+                                                    <td className="py-1.5 pr-3 whitespace-nowrap">{money(i.total)}</td>
+                                                    <td className="py-1.5 font-semibold">{i.stage}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </section>
 
                         {held.length > 0 && (
                             <section className="rounded-xl border border-amber-400 bg-amber-50 p-4">

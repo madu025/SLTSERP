@@ -343,7 +343,7 @@ export const SOD_GUIDE: ModuleGuide = {
                 'Each box is one contractor in one RTOM, with its orders, the payment of each order and the total. An order completed in an earlier month than the billing month is a late SOD: it is marked "Late SOD (completed ...)", is billed on this month\'s invoice and stays marked on it.',
                 'Tick the orders (or "Select all") and click "Create invoices". The orders are checked first (PAT, amounts, a cost on every material line); the ones that fail are listed with the reason and stay for the next time. The invoice number and total of every invoice created are shown.',
                 'If an order has a problem, tick it, type a reason and click "Hold back" (it is listed apart and billed in the month it is released and invoiced), or "Return to the check" to send it back to the Completed SOD check; the photo tick is cleared, so the Area Coordinator or QC Officer must check it again.',
-                'Each new invoice goes to the contractor to review, then to the Area Manager. The engineer has no further step on it.',
+                'Each new invoice goes to the contractor to review, then to the Area Manager. The engineer has no further step on it, but the list "Invoices of your area" at the bottom of the page shows each invoice and who it waits for.',
                 'A yellow note at the top counts the finished orders of your area that still wait for the check, with a link to Completed SOD ("Waiting for the check").',
             ],
             tips: [
@@ -355,6 +355,7 @@ export const SOD_GUIDE: ModuleGuide = {
             anchors: [
                 { file: INVOICING, text: 'Create invoices' },
                 { file: INVOICING, text: 'Hold back' },
+                { file: INVOICING, text: 'Invoices of your area' },
                 { file: INVOICING, text: 'Return to the check' },
                 { file: INVOICING, text: 'Late SOD (completed' },
                 { file: INVOICING, text: 'Not invoiced yet' },

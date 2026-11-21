@@ -17,6 +17,7 @@ const bodySchema = z.discriminatedUnion('action', [
 // GET /api/invoicing?month=&year=&rtom=&contractorId= - the orders passed by the Area Coordinator and QC Officer, grouped by contractor and area
 export const GET = apiHandler(async (req, params) => {
     const sp = new URL(req.url).searchParams;
+    if (sp.get('view') === 'invoices') return InvoicingService.recentInvoices(params._userId ?? '');
     return InvoicingService.candidates(params._userId ?? '', {
         month: Number(sp.get('month')), year: Number(sp.get('year')), rtom: sp.get('rtom') ?? undefined, contractorId: sp.get('contractorId') ?? undefined,
     });

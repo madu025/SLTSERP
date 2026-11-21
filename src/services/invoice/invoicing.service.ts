@@ -5,6 +5,7 @@ import { ServiceOrderService } from '@/services/service-order';
 import { InvoiceGeneratorService } from '@/services/invoice/invoice.generator.service';
 import { InvoiceGateService } from '@/services/invoice/invoice-gate.service';
 import { SodApprovalService, monthRange } from '@/services/service-order/sod-approval.service';
+import { stageLabel } from '@/lib/approval-chain-rules';
 import { SOD_PAT_OK, SOD_READY_STAGES, isLateSod, completedMonthLabel } from '@/lib/sod-approval-rules';
 
 const MAX_ORDERS = 2000;
@@ -119,6 +120,18 @@ export class InvoicingService {
             }
         }
         return { created, blocked, notEligible };
+    }
+
+    /** The latest invoices of the engineer's area and where each one waits (the engineer has no step on them, but follows them). */
+    static async recentInvoices(userId: string, limit = 30) {
+        const scope = await resolveOpmcScope(userId);
+        if (scope !== undefined && scope.length === 0) return [];
+        const rows = await prisma.invoice.findMany({
+            where: { sods: { some: {} }, ...(scope === undefined ? {} : { opmcId: { in: scope } }) },
+            orderBy: { createdAt: 'desc' }, take: limit,
+            select: { id: true, invoiceNumber: true, month: true, year: true, totalAmount: true, status: true, confirmStage: true, createdAt: true, contractor: { select: { name: true } }, opmc: { select: { rtom: true } }, _count: { select: { sods: true } } },
+        });
+        return rows.map((r) => ({ id: r.id, invoiceNumber: r.invoiceNumber, month: r.month, year: r.year, total: num(r.totalAmount), status: r.status, stage: stageLabel(r.confirmStage), createdAt: r.createdAt, contractor: r.contractor?.name ?? '-', area: r.opmc?.rtom ?? '-', orders: r._count.sods }));
     }
 
     /** Hold orders back from invoicing (a problem). They stay ready, are listed apart, and are billed when released. */

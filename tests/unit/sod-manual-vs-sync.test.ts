@@ -217,4 +217,9 @@ test('the engineer Invoicing page: one check by Coordinator or QC, a count of or
     assert.ok(read('src/services/service-order/sod-approval.service.ts').includes('photosCheckedAt: null, photosCheckedById: null'), 'an order the engineer returns must have its photos checked again');
 });
 
+test('the engineer follows the invoices of the area on the Invoicing page', () => {
+    assert.ok(read('src/app/service-orders/invoicing/page.tsx').includes('Invoices of your area') && read('src/app/api/invoicing/route.ts').includes("view') === 'invoices'"), 'the page lists the invoices through the invoicing API');
+    assert.ok(read('src/services/invoice/invoicing.service.ts').includes('recentInvoices') && read('src/services/invoice/invoicing.service.ts').includes('opmcId: { in: scope }'), 'the list is limited to the engineer area');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });
