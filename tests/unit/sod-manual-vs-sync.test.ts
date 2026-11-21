@@ -202,4 +202,10 @@ test('the QC step is one step for the QC Officer or the Area Coordinator and it 
     assert.ok(read('src/lib/sod-approval-rules.ts').includes('SOD_MATERIAL_CHECK_MESSAGE'), 'the message is in the shared rules');
 });
 
+test('the finished-order check shows each PAT approval, and says a manual order has no PAT', () => {
+    const table = read('src/app/service-orders/work-order/components/SODSheetTable.tsx');
+    assert.ok(table.includes("['SLTS', order.sltsPatStatus], ['OPMC', order.opmcPatStatus], ['HO', order.hoPatStatus]") && table.includes("st === 'PAT_PASSED'"), 'SLTS, OPMC and HO, passed only when PAT_PASSED (the one value that counts for invoicing)');
+    assert.ok(table.includes('No PAT (manual)'), 'a manual order is marked as having no PAT');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });

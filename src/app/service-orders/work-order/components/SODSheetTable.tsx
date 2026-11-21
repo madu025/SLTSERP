@@ -356,7 +356,18 @@ export function SODSheetTable(props: SODSheetTableProps) {
                     <span className="inline-block rounded-md bg-emerald-600 px-1.5 py-0.5 text-[9px] font-black uppercase text-white" title="Passed: ready for the Engineer to invoice">{order.invoiced ? 'INVOICED' : 'READY FOR INVOICE'}</span>
                 ) : (
                     <div className="flex flex-col gap-0.5">
-                        <span title={!order.contractorId ? 'No contractor is recorded' : !patOk ? 'Waiting for the PAT approvals' : 'Connection completed with its contractor and PAT'}>{tick(connection)} Connection{!order.contractorId ? ' (no contractor)' : !patOk ? ' (PAT)' : ''}</span>
+                        <span title={!order.contractorId ? 'No contractor is recorded' : !patOk ? 'Waiting for the PAT approvals' : 'Connection completed with its contractor and PAT'}>{tick(connection)} Connection{!order.contractorId ? ' (no contractor)' : ''}</span>
+                        {order.isManualEntry ? (
+                            <span className="text-[9px] font-semibold text-slate-700" title="Entered by hand: it is not on the SLT portal, so no PAT comes for it. The check below accepts it.">No PAT (manual)</span>
+                        ) : (
+                            <span className="flex flex-wrap gap-0.5" aria-label="PAT approvals">
+                                {([['SLTS', order.sltsPatStatus], ['OPMC', order.opmcPatStatus], ['HO', order.hoPatStatus]] as Array<[string, string | null | undefined]>).map(([label, st]) => {
+                                    const passed = st === 'PAT_PASSED';
+                                    const rejected = !!st && st.includes('REJECT');
+                                    return <span key={label} title={`${label} PAT: ${st ?? 'PENDING'}${passed ? '' : st === 'PASSED' || st === 'APPROVED' ? ' (an old value: only PAT_PASSED counts for invoicing)' : ''}`} className={`rounded px-1 text-[8px] font-black ${passed ? 'bg-emerald-100 text-emerald-900' : rejected ? 'bg-red-100 text-red-900' : 'bg-amber-100 text-amber-900'}`}>{label} {passed ? '✓' : rejected ? '✗' : '…'}</span>;
+                                })}
+                            </span>
+                        )}
                         <span title="Material used entered for this order">{tick(material > 0)} Material{material > 0 ? ` (${material})` : ''}</span>
                         <label className="flex items-center gap-1" title={photos ? 'Photos were received and checked' : 'Tick when the photos of this order were received and checked'}>
                             <input type="checkbox" className="h-3 w-3" checked={photos} disabled={!canCheck || !onTickPhotos} onChange={(e) => onTickPhotos?.(order, e.target.checked)} aria-label={`Photos received and checked for ${order.soNum}`} />
