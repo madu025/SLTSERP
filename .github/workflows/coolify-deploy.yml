@@ -144,7 +144,9 @@ jobs:
           TUNNEL_KEY: ${{ secrets.RELEASE_TUNNEL_KEY }}
           TUNNEL_HOST: ${{ secrets.RELEASE_TUNNEL_HOST }}
           TUNNEL_KNOWN_HOSTS: ${{ secrets.RELEASE_TUNNEL_KNOWN_HOSTS }}
-          TUNNEL_TARGET: 10.0.1.9:5432
+          # The database is reached through a small proxy container on the VPS (db-tunnel-proxy, bound to 127.0.0.1:15433) that finds Postgres by its
+          # container name, so the address no longer changes when the Postgres container is restarted.
+          TUNNEL_TARGET: 127.0.0.1:15433
         run: |
           set -euo pipefail
           install -d -m 700 ~/.ssh
