@@ -676,24 +676,12 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                     </div>
                                 </th>
                                 )}
-                                {isColumnVisible('comments') && (
-                                <th className="w-[165px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[150px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
-                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("comments")}>
-                                            <span>Comments/Notes</span>
-                                            {sortConfig?.key === "comments" && (sortConfig.direction === "asc" ? "▲" : "▼")}
-                                        </div>
-                                        <input
-                                            type="text"
-                                            placeholder="Filter comments..."
-                                            value={columnFilters.comments || ""}
-                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, comments: e.target.value }))}
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-sans font-normal text-foreground"
-                                        />
+                                        <span>Check for invoicing</span>
+                                        <span className="text-[7px] text-muted-foreground font-normal normal-case">Connection, material, photos</span>
                                     </div>
                                 </th>
-                                )}
                                 {isColumnVisible('revenue') && (
                                 <th className="w-[100px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
@@ -702,12 +690,6 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                     </div>
                                 </th>
                                 )}
-                                <th className="w-[150px] px-2 py-1.5 border-r border-border/20">
-                                    <div className="flex flex-col gap-1">
-                                        <span>Check for invoicing</span>
-                                        <span className="text-[7px] text-muted-foreground font-normal normal-case">Connection, material, photos</span>
-                                    </div>
-                                </th>
                             </>
                         ) : filterType === "return" ? (
                             <>
@@ -1156,31 +1138,6 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             <span className={`px-2 py-0.5 rounded-full font-black text-[10px] uppercase border ${getStatusColorClass(getComputedSodStatus(order))}`} title={`Portal: ${order.sltsStatus || "-"} / Workflow: ${order.status || "-"}`}>
                                                 {getComputedSodStatus(order)}
                                             </span>
-                                        </td>
-                                        )}
-                                        {isColumnVisible('comments') && (
-                                        <td className="relative border-r border-border/15 p-0 group">
-                                            <input
-                                                type="text"
-                                                defaultValue={order.comments || ""}
-                                                onBlur={(e) => handleSaveField(order.id, "comments", e.target.value)}
-                                                onKeyDown={(e) => handleKeyDown(e, index, "comments")}
-                                                data-row-index={index}
-                                                data-field="comments"
-                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1.5 pr-6 py-1 text-[10px] font-sans text-foreground rounded transition-all placeholder:opacity-35"
-                                                placeholder="No comments"
-                                            />
-                                            {order.comments && order.comments.length > 20 && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => onOpenModal(order, "comment")}
-                                                    className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-0.5 bg-background/80 rounded"
-                                                    title="View Full Comments"
-                                                >
-                                                    <Info className="w-3.5 h-3.5 text-blue-400 hover:text-blue-500" />
-                                                </button>
-                                            )}
-                                            {renderCellStatus(order.id, "comments")}
                                         </td>
                                         )}
                                         {renderCheckCell(order)}
