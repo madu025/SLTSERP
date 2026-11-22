@@ -242,6 +242,21 @@ export class PaymentVoucherService {
     // count and one failed on the unique constraint.
     return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('payment-voucher-number', 0))`;
+    // The over-payment checks above read before this lock: two requests for the same invoice at the same moment both passed them
+    // and made two vouchers. Now that creations are serialised, check again against what is committed.
+    const liveSum = async (where: Record<string, unknown>) => (await tx.paymentVoucher.findMany({ where: { ...where, status: { notIn: ['CANCELLED', 'REJECTED'] } }, select: { amount: true } })).reduce((sum, pv) => sum.plus(pv.amount), new Prisma.Decimal(0));
+    if (data.contractorInvoiceId && !data.projectId && !vendorPayment) {
+      const inv = await tx.invoice.findUnique({ where: { id: data.contractorInvoiceId }, select: { amount: true } });
+      if (inv && (await liveSum({ description: { startsWith: `BOM_INVOICING_REF:${data.contractorInvoiceId}` } })).plus(data.amount).gt(inv.amount)) throw AppError.badRequest('INVOICE_PAYMENT_EXCEEDS_TOTAL');
+    }
+    if (data.supplierInvoiceId) {
+      const si = await tx.supplierInvoice.findUnique({ where: { id: data.supplierInvoiceId }, select: { totalAmount: true } });
+      if (si && (await liveSum({ supplierInvoiceId: data.supplierInvoiceId })).plus(data.amount).gt(si.totalAmount)) throw AppError.badRequest('SUPPLIER_INVOICE_PAYMENT_EXCEEDS_TOTAL');
+    }
+    if (data.invoiceId) {
+      const pi = await tx.projectInvoice.findUnique({ where: { id: data.invoiceId }, select: { totalAmount: true } });
+      if (pi && (await liveSum({ invoiceId: data.invoiceId })).plus(data.amount).gt(pi.totalAmount)) throw AppError.badRequest('INVOICE_PAYMENT_EXCEEDS_TOTAL');
+    }
     const last = await tx.paymentVoucher.findFirst({
       where: { pvNumber: { startsWith: `PV-${year}-` } },
       orderBy: { pvNumber: 'desc' },

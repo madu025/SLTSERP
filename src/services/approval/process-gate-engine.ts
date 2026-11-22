@@ -395,6 +395,9 @@ export class ProcessGateEngine {
         let notifyNext: Parameters<typeof notifyApprover>[0] | undefined;
 
         const result = await prisma.$transaction(async (tx) => {
+            // Lock the step first: two people (or one person pressing twice) acting on it at the same moment both read it as PENDING and both
+            // opened the next step, leaving a second, orphan request behind. The second one now waits, then finds it already actioned.
+            await tx.$queryRaw`SELECT "id" FROM "UniversalApprovalInstance" WHERE "id" = ${instanceId}::uuid FOR UPDATE`;
             const instance = await tx.universalApprovalInstance.findUnique({
                 where: { id: instanceId }
             });

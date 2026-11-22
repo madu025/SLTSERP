@@ -327,3 +327,10 @@ test('Invoice Status filters for hundreds of contractors, and the contractor is 
 });
 
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });
+
+test('two people pressing the same approval, or two requests for the same invoice, at the same moment do not duplicate anything', () => {
+    const engine = read('src/services/approval/process-gate-engine.ts');
+    assert.ok(/FOR UPDATE[\s\S]{0,200}findUnique/.test(engine.slice(engine.indexOf('static async advanceGate'))), 'the approval step is locked before it is read, so the next step is opened once');
+    const pv = read('src/services/finance/payment-voucher.service.ts');
+    assert.ok(pv.indexOf("pg_advisory_xact_lock(hashtextextended('payment-voucher-number'") < pv.indexOf('const liveSum'), 'the over-payment check is repeated after the voucher lock');
+});
