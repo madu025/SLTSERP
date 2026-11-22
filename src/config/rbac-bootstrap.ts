@@ -199,6 +199,26 @@ export const CANONICAL_BOOTSTRAP_ROLE_GRANTS = {
     [RBAC_PERMISSIONS.ADMIN_SUPER]: ['SUPER_ADMIN'],
 } as const satisfies Partial<Record<RbacPermission, readonly Role[]>>;
 
+/**
+ * Grants of a module designation, by its own role code. A person has a base role (ENGINEER: service-order work) and, per module, a
+ * designation through a section assignment (PROJECTS_ENGINEER: project work). A designation takes the grants of its base role (the
+ * seed matches it by its suffix) and, in addition, the grants listed here for its own code. The SOD Engineer therefore has no project
+ * capability, and the Project Engineer has it.
+ */
+export const MODULE_DESIGNATION_GRANTS: Readonly<Record<string, readonly string[]>> = {
+    [RBAC_PERMISSIONS.PROJECT_READ]: ['PROJECTS_ENGINEER', 'PROJECTS_ASSISTANT_ENGINEER'],
+    [RBAC_PERMISSIONS.PROJECT_WRITE]: ['PROJECTS_ENGINEER', 'PROJECTS_ASSISTANT_ENGINEER'],
+    [RBAC_PERMISSIONS.PROJECT_APPROVE]: ['PROJECTS_ENGINEER'],
+    [RBAC_PERMISSIONS.PROJECT_PLAN_READ]: ['PROJECTS_ENGINEER', 'PROJECTS_ASSISTANT_ENGINEER'],
+    [RBAC_PERMISSIONS.PROJECT_PLAN_WRITE]: ['PROJECTS_ENGINEER', 'PROJECTS_ASSISTANT_ENGINEER'],
+    [RBAC_PERMISSIONS.PROJECT_PLAN_APPROVE]: ['PROJECTS_ENGINEER'],
+    [RBAC_PERMISSIONS.PROJECT_FINANCE_READ]: ['PROJECTS_ENGINEER', 'PROJECTS_ASSISTANT_ENGINEER'],
+    [RBAC_PERMISSIONS.PROJECT_FINANCE_ASSIGN]: ['PROJECTS_ENGINEER', 'PROJECTS_ASSISTANT_ENGINEER'],
+    // the project engineers draw project material and see its balances
+    [RBAC_PERMISSIONS.INVENTORY_READ]: ['PROJECTS_ENGINEER', 'PROJECTS_ASSISTANT_ENGINEER'],
+    [RBAC_PERMISSIONS.NOTIFICATION_PROJECT_MANAGERS]: ['PROJECTS_ENGINEER', 'PROJECTS_ASSISTANT_ENGINEER'],
+};
+
 /** Validate the bootstrap catalog before it can write any grants. */
 export function getCanonicalBootstrapRoles(permission: RbacPermission): readonly Role[] {
     return CANONICAL_BOOTSTRAP_ROLE_GRANTS[permission] ?? [];

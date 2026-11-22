@@ -1,6 +1,6 @@
 import { PrismaClient, PermissionScope, Role } from '@prisma/client';
 import { RBAC_PERMISSION_DEFINITIONS } from '../src/config/rbac-permissions';
-import { CANONICAL_BOOTSTRAP_ROLE_GRANTS } from '../src/config/rbac-bootstrap';
+import { CANONICAL_BOOTSTRAP_ROLE_GRANTS, MODULE_DESIGNATION_GRANTS } from '../src/config/rbac-bootstrap';
 
 const prisma = new PrismaClient();
 
@@ -134,7 +134,8 @@ async function main() {
 
         return systemRoles.flatMap((systemRole) => {
             const roleCode = roleCodeFromSystemRole(systemRole.code);
-            if (!roleCode || !allowedRoles.has(roleCode)) return [];
+            // A module designation (PROJECTS_ENGINEER, ...) takes the grants of its base role, plus any grant the catalog lists for it by its own code
+            if (!roleCode || !(allowedRoles.has(roleCode) || (MODULE_DESIGNATION_GRANTS[definition.code] ?? []).includes(systemRole.code))) return [];
 
             return [{
                 roleId: systemRole.id,
