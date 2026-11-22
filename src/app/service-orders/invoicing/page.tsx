@@ -12,7 +12,7 @@ import { Loader2, Receipt } from 'lucide-react';
 
 interface Order { id: string; soNum: string; completedDate: string | null; completedMonth: string; late: boolean; contractorAmount: number; revenueAmount: number; held: boolean; holdReason: string | null }
 interface Group { key: string; contractorId: string; contractorName: string; opmcId: string; area: string; orders: Order[]; total: number; lateCount: number }
-interface Candidates { groups: Group[]; held: Group[]; total: number; waitingCheck: number }
+interface Candidates { groups: Group[]; held: Group[]; total: number; waitingCheck: number; waitingContractor: number }
 interface RecentInvoice { id: string; invoiceNumber: string; month: number | null; year: number | null; total: number; stage: string; status: string; createdAt: string; contractor: string; area: string; orders: number }
 interface Created { contractor: string; area: string; invoiceNumber?: string; orders: number; total?: number; error?: string }
 interface CreateResult { created: Created[]; blocked: Array<{ soNum: string; reasons: string[] }>; notEligible: number }
@@ -104,7 +104,7 @@ export default function InvoicingPage() {
                     <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2"><Receipt className="w-7 h-7 text-indigo-700" />Invoicing</h1>
-                            <p className="mt-1 text-sm text-slate-800">These orders passed the check on Completed SOD (connection, material and photos) by the Area Coordinator or the QC Officer of your area. Choose the billing month, tick the orders and press <span className="font-bold">Create invoices</span>: one invoice is made for each contractor and area. Orders completed in an earlier month than the billing month are late SODs; they go on this month&apos;s invoice and are shown as late. Then the contractor reviews each invoice and the Area Manager approves it.</p>
+                            <p className="mt-1 text-sm text-slate-800">These orders passed the check on Completed SOD (connection, material and photos) by the Area Coordinator or the QC Officer of your area, and were then verified by the contractor. Choose the billing month, tick the orders and press <span className="font-bold">Create invoices</span>: one invoice is made for each contractor and area. Orders completed in an earlier month than the billing month are late SODs; they go on this month&apos;s invoice and are shown as late. Then the contractor reviews each invoice and the Area Manager approves it.</p>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
@@ -121,6 +121,12 @@ export default function InvoicingPage() {
                         {(q.data?.waitingCheck ?? 0) > 0 && (
                             <p className="rounded-xl border border-amber-400 bg-amber-50 p-3 text-sm text-amber-950">
                                 <span className="font-bold">{q.data?.waitingCheck}</span> finished order{q.data?.waitingCheck === 1 ? ' is' : 's are'} still waiting for the check in your area. <Link href="/service-orders/work-order/completed?check=waiting" className="font-bold underline">Open Completed SOD</Link>
+                            </p>
+                        )}
+
+                        {(q.data?.waitingContractor ?? 0) > 0 && (
+                            <p className="rounded-xl border border-sky-500 bg-sky-50 p-3 text-sm text-slate-900">
+                                <span className="font-bold">{q.data?.waitingContractor}</span> checked order{q.data?.waitingContractor === 1 ? ' is' : 's are'} waiting for the contractor to verify {q.data?.waitingContractor === 1 ? 'it' : 'them'}; they appear here once verified.
                             </p>
                         )}
 
@@ -151,7 +157,7 @@ export default function InvoicingPage() {
 
                         {q.isLoading ? <div className="py-8 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-slate-700" /></div>
                             : q.isError ? <p className="text-sm text-red-800">{(q.error as Error).message}</p>
-                                : groups.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-900">No orders are waiting to be invoiced for {MONTHS[month - 1]} {year} in your area. They appear here after the Area Coordinator or the QC Officer passes them on Completed SOD.</p>
+                                : groups.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-900">No orders are waiting to be invoiced for {MONTHS[month - 1]} {year} in your area. They appear here after the Area Coordinator or the QC Officer passes them on Completed SOD and the contractor verifies them.</p>
                                     : groups.map((g) => {
                                         const ids = g.orders.map((o) => o.id);
                                         const all = ids.every((id) => picked.has(id));

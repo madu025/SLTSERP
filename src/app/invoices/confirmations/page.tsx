@@ -147,7 +147,7 @@ export default function InvoiceApprovalsPage() {
                     <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2"><ClipboardCheck className="w-7 h-7 text-indigo-700" />Invoice Approvals</h1>
-                            <p className="mt-1 text-sm text-slate-800">The Engineer creates the invoice from orders that the Area Coordinator and the QC Officer passed. The contractor then reviews and accepts it, and the Area Manager approves or rejects it (an administrator can change the steps on the gate screen). You see the invoices waiting at your step, in your area. Open an invoice to see its service orders, with the late SODs marked; if one has a quality problem, take it out and it goes back to the Engineer.</p>
+                            <p className="mt-1 text-sm text-slate-800">The Engineer creates the invoice from orders that the Area Coordinator or the QC Officer passed and the contractor verified. The Area Manager then approves or rejects it (an administrator can change the steps on the gate screen). You see the invoices waiting at your step, in your area. Open an invoice to see its service orders, with the late SODs marked; if one has a quality problem, take it out and it goes back to the Area Coordinator / QC Officer check.</p>
                         </div>
 
                         {q.data && q.data.stages.length > 0 && (

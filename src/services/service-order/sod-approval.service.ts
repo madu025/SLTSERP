@@ -343,7 +343,7 @@ export class SodApprovalService {
     }
 
     /** The engineer sends orders that are ready back to the start of the chain (a quality problem), with a reason. */
-    static async returnReady(orderIds: string[], userId: string, reason: string, scope: string[] | undefined) {
+    static async returnReady(orderIds: string[], userId: string, reason: string, scope: string[] | undefined, by: 'engineer' | 'contractor' | 'approver' = 'engineer') {
         const ids = [...new Set(orderIds)];
         const why = reason.trim();
         if (why.length < 3) throw AppError.badRequest('A reason is required');
@@ -351,13 +351,13 @@ export class SodApprovalService {
         const orders = await prisma.serviceOrder.findMany({ where: { id: { in: ids }, invoiced: false, sodApprovalStage: { in: [...SOD_READY_STAGES] }, ...(scope === undefined ? {} : { opmcId: { in: scope } }) }, select: { id: true, soNum: true } });
         if (orders.length === 0) throw AppError.badRequest('None of these orders is ready for invoicing in your area');
         await prisma.$transaction(async (tx) => {
-            await tx.serviceOrder.updateMany({ where: { id: { in: orders.map((o) => o.id) } }, data: { sodApprovalStage: SOD_STAGE_RESTART, invoicingHeldAt: null, invoicingHoldReason: null, photosCheckedAt: null, photosCheckedById: null } });
+            await tx.serviceOrder.updateMany({ where: { id: { in: orders.map((o) => o.id) } }, data: { sodApprovalStage: SOD_STAGE_RESTART, invoicingHeldAt: null, invoicingHoldReason: null, photosCheckedAt: null, photosCheckedById: null, contractorVerifiedAt: null, contractorVerifiedById: null, sodReturnNote: `Returned by the ${by}: ${why}` } });
             if (policy) {
                 await tx.universalApprovalInstance.createMany({
-                    data: orders.map((o) => ({ entityType: SOD_GATE.entityType, entityId: o.id, policyId: policy.id, levelIndex: 0, level: 0, requiredRole: 'RETURNED', policyVariant: 'DEFAULT', status: 'REJECTED', actionedById: userId, actionedAt: new Date(), comments: `${RESTART_PREFIX} Returned by the engineer: ${why}` })),
+                    data: orders.map((o) => ({ entityType: SOD_GATE.entityType, entityId: o.id, policyId: policy.id, levelIndex: 0, level: 0, requiredRole: 'RETURNED', policyVariant: 'DEFAULT', status: 'REJECTED', actionedById: userId, actionedAt: new Date(), comments: `${RESTART_PREFIX} Returned by the ${by}: ${why}` })),
                 });
             }
-            await tx.auditLog.createMany({ data: orders.map((o) => ({ action: 'SOD_RETURNED_BY_ENGINEER', entity: 'ServiceOrder', entityId: o.id, userId, newValue: { soNum: o.soNum, reason: why } })) });
+            await tx.auditLog.createMany({ data: orders.map((o) => ({ action: by === 'engineer' ? 'SOD_RETURNED_BY_ENGINEER' : `SOD_RETURNED_BY_${by.toUpperCase()}`, entity: 'ServiceOrder', entityId: o.id, userId, newValue: { soNum: o.soNum, reason: why } })) });
         }, { timeout: 60_000, maxWait: 10_000 });
         await this.startMany(orders.map((o) => o.id));
         return { returned: orders.length };

@@ -353,9 +353,15 @@ export function SODSheetTable(props: SODSheetTableProps) {
         return (
             <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground align-middle">
                 {ready ? (
-                    <span className="inline-block rounded-md bg-emerald-600 px-1.5 py-0.5 text-[9px] font-black uppercase text-white" title="Passed: ready for the Engineer to invoice">{order.invoiced ? 'INVOICED' : 'READY FOR INVOICE'}</span>
+                    <>
+                        <span className="inline-block rounded-md bg-emerald-600 px-1.5 py-0.5 text-[9px] font-black uppercase text-white" title="Passed the check">{order.invoiced ? 'INVOICED' : 'READY FOR INVOICE'}</span>
+                        {!order.invoiced && (
+                            <span className={order.contractorVerifiedAt ? 'ml-1 inline-block rounded-md border border-emerald-700 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-black uppercase text-emerald-900' : 'ml-1 inline-block rounded-md border border-amber-600 bg-amber-50 px-1.5 py-0.5 text-[9px] font-black uppercase text-amber-950'} title="The contractor verifies each checked order before the Engineer invoices it">{order.contractorVerifiedAt ? 'Contractor verified' : 'Waiting for the contractor'}</span>
+                        )}
+                    </>
                 ) : (
                     <div className="flex flex-col gap-0.5">
+                        {order.sodReturnNote && <span className="rounded border border-red-400 bg-red-50 px-1 text-[9px] font-bold text-red-900" title="Why the order came back to the check">{order.sodReturnNote}</span>}
                         <span title={!order.contractorId ? 'No contractor is recorded' : !patOk ? 'Waiting for the PAT approvals' : 'Connection completed with its contractor and PAT'}>{tick(connection)} Connection{!order.contractorId ? ' (no contractor)' : ''}</span>
                         {order.isManualEntry ? (
                             <span className="text-[9px] font-semibold text-slate-700" title="Entered by hand: it is not on the SLT portal, so no PAT comes for it. The check below accepts it.">No PAT (manual)</span>

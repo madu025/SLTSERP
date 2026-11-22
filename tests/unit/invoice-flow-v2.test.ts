@@ -60,7 +60,7 @@ test('the approval messages name what is approved, and one person cannot pass tw
 test('wiring: a rejection or a dispute sends the invoice back to the Engineer, and a re-issue has its own key', () => {
     const gate = read('src/services/invoice/invoice-gate.service.ts');
     assert.ok(gate.includes('this.takeOut(userId, inv.id, null,') && gate.includes("'RETURNED_TO_ENGINEER'"), 'returning an invoice takes every order out');
-    assert.ok(gate.includes('invoicingHeldAt: new Date(), invoicingHoldReason'), 'taken-out orders are held back with the reason, ready for the Engineer');
+    assert.ok(gate.includes('SodApprovalService.returnReady(result.orderIds'), 'taken-out orders go back to the Area Coordinator / QC Officer check with the reason');
     const gen = read('src/services/invoice/invoice.generator.service.ts');
     assert.ok(gen.includes('reissueKey') && gen.includes('startsWith: baseKey'), 'the same orders can be invoiced again after a cancelled invoice');
 });

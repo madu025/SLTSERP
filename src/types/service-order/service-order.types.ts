@@ -57,6 +57,8 @@ export interface ServiceOrder {
     offlineReference?: string | null;
     isManualEntry?: boolean;
     sodApprovalStage?: string | null;
+    contractorVerifiedAt?: string | Date | null;
+    sodReturnNote?: string | null;
     photosCheckedAt?: string | null;
     materialLines?: number;
     invoiced?: boolean;

@@ -387,6 +387,8 @@ export class SODQueryService {
                     isManualEntry: true,
                     sodApprovalStage: true,
                     photosCheckedAt: true,
+                    contractorVerifiedAt: true,
+                    sodReturnNote: true,
                     isOfflineWorkOrder: true,
                     offlineReference: true,
                     directTeam: true,

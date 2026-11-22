@@ -87,6 +87,11 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: ClipboardList,
             },
             {
+                title: 'Verify Orders',
+                path: '/contractor/verify-sods',
+                icon: CheckCircle2,
+            },
+            {
                 title: 'Claims & Payments',
                 path: '/contractor/finance',
                 icon: Banknote,

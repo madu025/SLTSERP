@@ -6,6 +6,7 @@ import { deriveEffectivePermissions } from '@/lib/effective-permissions';
 import { mayActOnLevel, roleLabel, type GateActor } from '@/lib/gate-eligibility';
 import { ProcessGateEngine } from '@/services/approval/process-gate-engine';
 import { LedgerService } from '@/services/finance/ledger.service';
+import { SodApprovalService } from '@/services/service-order/sod-approval.service';
 import { InvoiceCalculatorService } from '@/services/invoice/invoice.calculator.service';
 import {
     INVOICE_GATE, STAGE_DONE, STAGE_RESTART, STAGE_STARTING, figuresAfterRemoval, planApproval, stageLabel,
@@ -112,7 +113,9 @@ export class InvoiceGateService {
             });
             const res = await ProcessGateEngine.startGate({ entityType: INVOICE_GATE.entityType, entityId: invoiceId, currentStatus: INVOICE_GATE.fromStatus, toStatus: INVOICE_GATE.toStatus });
             if (res.status !== 'GATE_STARTED' || !('requiredRole' in res)) throw new Error('The gate did not start');
-            await prisma.invoice.update({ where: { id: invoiceId }, data: { confirmStage: res.requiredRole, contractorConfirmStatus: 'AWAITING' } });
+            // when the gate has no contractor step (the contractor verified the orders before invoicing) there is nothing to await
+            const firstIsContractor = policy.approvalLevels[0]?.assignee === 'ORDER_CONTRACTOR';
+            await prisma.invoice.update({ where: { id: invoiceId }, data: { confirmStage: res.requiredRole, contractorConfirmStatus: firstIsContractor ? 'AWAITING' : 'CONFIRMED' } });
             return { started: true, stage: res.requiredRole };
         } catch (e) {
             await prisma.invoice.updateMany({ where: { id: invoiceId, confirmStage: STAGE_STARTING }, data: { confirmStage: STAGE_RESTART } });
@@ -260,7 +263,7 @@ export class InvoiceGateService {
             try {
                 await ProcessGateEngine.advanceGate({ instanceId: inst.id, action: 'REJECTED', userId, remarks: reason });
                 await prisma.invoice.update({ where: { id: inv.id }, data: { contractorNote: reason } });
-                // the invoice is cancelled and every order goes back to the Engineer (held back, with the reason), who corrects and invoices again
+                // the invoice is cancelled and every order goes back to the Area Coordinator / QC Officer check with the reason; the chain then starts again
                 await this.takeOut(userId, inv.id, null, `Returned by the ${roleLabel(level.requiredRole)}: ${reason}`, policy.id);
                 returned.push({ invoiceNumber: inv.invoiceNumber, stage: 'RETURNED_TO_ENGINEER' });
             } catch (e) {
@@ -339,7 +342,7 @@ export class InvoiceGateService {
             const removedAmount = removing.reduce((a, s) => a + Number(s.contractorAmount ?? 0), 0);
             const newTotal = staying.reduce((a, s) => a + Number(s.contractorAmount ?? 0), 0);
 
-            await tx.serviceOrder.updateMany({ where: { id: { in: wanted }, invoiceId }, data: { invoiced: false, invoiceId: null, isInvoicable: false, invoicingHeldAt: new Date(), invoicingHoldReason: `Taken out of invoice ${inv.invoiceNumber}: ${why}` } });
+            await tx.serviceOrder.updateMany({ where: { id: { in: wanted }, invoiceId }, data: { invoiced: false, invoiceId: null, isInvoicable: false } });
             await tx.invoiceSodRemoval.createMany({ data: removing.map((s) => ({ invoiceId, serviceOrderId: s.id, soNum: s.soNum, amount: Number(s.contractorAmount ?? 0), reason: why, userId })) });
             await tx.penalty.updateMany({ where: { invoiceId, serviceOrderId: { in: wanted }, status: { not: 'REJECTED' } }, data: { status: 'REJECTED' } });
 
@@ -365,8 +368,11 @@ export class InvoiceGateService {
                     newValue: { invoiceNumber: inv.invoiceNumber, soNums: removing.map((s) => s.soNum), removedAmount, remaining: staying.length, reason: why },
                 },
             });
-            return { invoiceNumber: inv.invoiceNumber, removed: removing.map((s) => s.soNum), remaining: staying.length, cancelled: staying.length === 0, removedAmount };
+            return { invoiceNumber: inv.invoiceNumber, removed: removing.map((s) => s.soNum), remaining: staying.length, cancelled: staying.length === 0, removedAmount, orderIds: wanted };
         }, { timeout: 60_000, maxWait: 15_000 });
-        return result;
+        // the orders go back to the Area Coordinator / QC Officer check; the whole chain starts again (check, contractor, engineer)
+        await SodApprovalService.returnReady(result.orderIds, userId, `Taken out of invoice ${result.invoiceNumber}: ${why}`, undefined, 'approver');
+        const { orderIds: _orderIds, ...outcome } = result;
+        return outcome;
     }
 }

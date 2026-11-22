@@ -42,6 +42,11 @@ model ServiceOrder {
   /// "Photos received and checked" on a finished order, by whom and when (the check that makes an order ready for invoicing, with the material and the connection).
   photosCheckedAt     DateTime?
   photosCheckedById   String?                   @db.Uuid
+  /// The contractor verified the order (after the check, before the engineer invoices it). Cleared when the order goes back to the check.
+  contractorVerifiedAt   DateTime?
+  contractorVerifiedById String?                   @db.Uuid
+  /// Why the order was sent back to the check (by the contractor, the engineer or an invoice approver); shown to the Area Coordinator / QC Officer.
+  sodReturnNote       String?
   /// The engineer held the order back from invoicing (a problem); it is billed in the month it is made invoiceable.
   invoicingHeldAt     DateTime?
   invoicingHoldReason String?

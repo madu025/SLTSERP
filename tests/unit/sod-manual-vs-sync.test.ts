@@ -222,4 +222,19 @@ test('the engineer follows the invoices of the area on the Invoicing page', () =
     assert.ok(read('src/services/invoice/invoicing.service.ts').includes('recentInvoices') && read('src/services/invoice/invoicing.service.ts').includes('opmcId: { in: scope }'), 'the list is limited to the engineer area');
 });
 
+test('the contractor verifies the checked orders before the engineer invoices; problems go back to the check', () => {
+    const svc = read('src/services/service-order/contractor-verification.service.ts');
+    assert.ok(svc.includes('contractorVerifiedAt: new Date()') && svc.includes('contractorId,') && svc.includes("'contractor'"), 'verify and report are limited to the contractor own orders, and a report returns them to the check');
+    assert.ok(read('src/app/api/contractor/verify-sods/route.ts').includes('RBAC_PERMISSIONS.CONTRACTOR_WRITE'), 'the contractor API needs the contractor capability');
+    const inv = read('src/services/invoice/invoicing.service.ts');
+    assert.equal((inv.match(/contractorVerifiedAt: \{ not: null \}/g) ?? []).length, 2, 'the engineer list and the invoice creation both need the contractor verification');
+    assert.ok(inv.includes('waitingContractor'), 'the engineer is told how many orders wait for the contractor');
+    const approval = read('src/services/service-order/sod-approval.service.ts');
+    assert.ok(approval.includes('contractorVerifiedAt: null, contractorVerifiedById: null, sodReturnNote'), 'a returned order loses its photo tick and its contractor verification and keeps the reason');
+    const gate = read('src/services/invoice/invoice-gate.service.ts');
+    assert.ok(gate.includes("SodApprovalService.returnReady(result.orderIds, userId") && !gate.includes('invoicingHoldReason: `Taken out of invoice'), 'orders taken out of an invoice go back to the check, not to the engineer hold list');
+    assert.ok(read('prisma/migrations/20261212000000_sod_contractor_verification/migration.sql').includes('IF NOT EXISTS "contractorVerifiedAt"'), 'the migration adds the columns safely');
+    assert.ok(read('src/config/sidebar-menu.ts').includes('/contractor/verify-sods'), 'the contractor portal has the page in its menu');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });

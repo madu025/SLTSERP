@@ -8,7 +8,8 @@ import RoleGuard from '@/components/RoleGuard';
 import { 
     LayoutDashboard, 
     Package, 
-    ClipboardList, 
+    ClipboardList,
+    ClipboardCheck,
     Banknote, 
     LogOut,
     Truck,
@@ -127,6 +128,11 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
             title: 'Field SODs',
             path: '/contractor/sods',
             icon: ClipboardList,
+        },
+        {
+            title: 'Verify Orders',
+            path: '/contractor/verify-sods',
+            icon: ClipboardCheck,
         },
         {
             title: 'Invoices & Claims',

@@ -332,9 +332,30 @@ export const SOD_GUIDE: ModuleGuide = {
             ],
         },
         {
+            id: 'contractor-verify-orders',
+            title: 'Contractor: verify the checked orders before invoicing',
+            summary: 'After the Area Coordinator or the QC Officer passes an order on Completed SOD, the contractor of that order verifies it. Only verified orders reach the Engineer. A problem sends the order back to the check with a note, and the whole chain starts again.',
+            keywords: ['contractor verify', 'verify orders', 'verify sod', 'contractor verification', 'report a problem', 'contractor check', 'orders to verify'],
+            page: '/contractor/verify-sods',
+            requires: RBAC_PERMISSIONS.CONTRACTOR_WRITE,
+            steps: [
+                'Open the contractor portal → Verify Orders. It lists the checked orders of your team with the area, customer, completion date, the material entered and the payment.',
+                'Tick the correct orders and click "Verify". They go to the Engineer for invoicing.',
+                'If something is wrong (material, customer), tick the order, write what is wrong and click "Report a problem". The order goes back to the Area Coordinator / QC Officer, who see your note on Completed SOD, correct it and pass it again; then it comes back here.',
+            ],
+            tips: [
+                'On Completed SOD an order shows "Waiting for the contractor" until you verify it, then "Contractor verified".',
+                'The Engineer only sees orders you verified, and a count of the checked orders still waiting for you.',
+            ],
+            anchors: [
+                { file: 'src/app/contractor/verify-sods/page.tsx', text: 'Report a problem' },
+                { file: TABLE, text: 'Waiting for the contractor' },
+            ],
+        },
+        {
             id: 'engineer-invoicing',
             title: 'Engineer: create the invoices at month end',
-            summary: 'The Engineer of the area sees the orders that the Area Coordinator or the QC Officer passed on Completed SOD, with the payment of each, grouped by contractor and RTOM, and creates the invoices with one button: one invoice for each contractor, area and billing month.',
+            summary: 'The Engineer of the area sees the orders that the Area Coordinator or the QC Officer passed on Completed SOD and the contractor verified, with the payment of each, grouped by contractor and RTOM, and creates the invoices with one button: one invoice for each contractor, area and billing month.',
             keywords: ['invoice', 'invoicing', 'invoiceable', 'invoicable', 'create invoices', 'engineer', 'billing', 'month end', 'monthly invoice', 'payment', 'late sod', 'hold back', 'rtom', 'contractor invoice', 'generate invoice', 'generate contractor invoice', 'verify and invoice', 'verify', 'completed service orders', 'all contractors', 'invoice eka hadanne', 'invoice hadanna', 'invoice eka hadanna', 'gevima'],
             page: '/service-orders/invoicing',
             requires: RBAC_PERMISSIONS.SOD_INVOICE,
@@ -348,7 +369,7 @@ export const SOD_GUIDE: ModuleGuide = {
             ],
             tips: [
                 'An order is blocked unless it has: an assigned contractor, a completion date, revenue and contractor cost figures above zero, all three PAT approvals passed, and a cost on every material line (a line without a cost is priced from the item).',
-                'Only orders that passed the Completed SOD check (by the Area Coordinator or the QC Officer), in your own area and completed on or before the billing month, can be invoiced.',
+                'Only orders that passed the Completed SOD check (by the Area Coordinator or the QC Officer) and were verified by the contractor, in your own area and completed on or before the billing month, can be invoiced.',
                 'If nobody holds one of the approval steps in the area of an invoice, the gate screen (Admin → Settings → Process Gates, "Test this gate") shows it before the invoice waits for nobody.',
                 'Every invoice and every order put on it is written to the audit log.',
             ],
@@ -374,11 +395,11 @@ export const SOD_GUIDE: ModuleGuide = {
             page: '/invoices/confirmations',
             requires: RBAC_PERMISSIONS.INVOICE_CONFIRM_MANAGER,
             steps: [
-                'The contractor opens the contractor portal, Invoices & Claims. The invoice is marked "Confirm needed". Opening it shows the invoice with "Confirm invoice" and "Dispute", and any service orders that were taken out with the reason. A dispute needs a reason and sends the invoice back to the Engineer.',
+                'The contractor opens the contractor portal, Invoices & Claims. The invoice is marked "Confirm needed". Opening it shows the invoice with "Confirm invoice" and "Dispute", and any service orders that were taken out with the reason. A dispute needs a reason and sends the orders back to the Area Coordinator / QC Officer check.',
                 'The Area Manager opens Invoices → Invoice Approvals (Area). It lists the invoices waiting at the step you hold, in your own area, with the contractor, the RTOM, the number of orders and the total.',
                 'To check what is in an invoice click "View service orders" (late SODs are marked). Tick one invoice or many and click "Approve selected", or use Approve on a row. An approved invoice goes to OSP Quality.',
-                'If an order has a quality problem, tick it, give the reason and click "Take out of invoice". It goes back to the Engineer, the invoice total is recalculated, and the contractor sees which orders were taken out and why. An invoice left with no orders is cancelled.',
-                'To reject invoices, tick them, type a reason in "Reason to return" and click "Return selected". They go back to the Engineer.',
+                'If an order has a quality problem, tick it, give the reason and click "Take out of invoice". It goes back to the Area Coordinator / QC Officer check, the invoice total is recalculated, and the contractor sees which orders were taken out and why. An invoice left with no orders is cancelled.',
+                'To reject invoices, tick them, type a reason in "Reason to return" and click "Return selected". Their orders go back to the Area Coordinator / QC Officer check.',
                 'To change the flow, an administrator opens Admin → Settings → Process Gates, opens the Contractor Invoices gate, where each step is listed in plain words with how many invoices wait at it and how many people can act on it, and clicks "Change the steps" to drag them into the new order (Step 3); Step 4 shows what will happen before saving.',
             ],
             tips: [
