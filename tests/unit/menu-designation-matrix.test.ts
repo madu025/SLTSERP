@@ -141,3 +141,10 @@ test('Fleet: the office staff run the payments, the managers see vehicles, drive
     }
     for (const d of ['ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER']) assert.deepEqual(section('Vehicle & Fleet Management', d), [], d + ' has no fleet menu');
 });
+
+test('Fleet Payments is closed to the managers by the page too, not only by the menu', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const pages = fs.readFileSync(path.resolve(__dirname, '../../src/config/page-capabilities.ts'), 'utf8');
+    assert.ok(pages.includes("prefix: '/fleet/payments', permission: RBAC_PERMISSIONS.FLEET_WRITE"));
+});

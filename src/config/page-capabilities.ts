@@ -31,6 +31,8 @@ const PAGE_RULES: ReadonlyArray<{ prefix: string; permission: RbacPermission }> 
     { prefix: '/procurement', permission: RBAC_PERMISSIONS.PROCUREMENT_READ },
     { prefix: '/helpdesk/tickets/new', permission: RBAC_PERMISSIONS.HELPDESK_TICKET_CREATE },
     { prefix: '/helpdesk/assets/audits', permission: RBAC_PERMISSIONS.HELPDESK_APPROVE },
+    // fleet payments are the office staff's: the managers see vehicles, drivers and trips, not the payments
+    { prefix: '/fleet/payments', permission: RBAC_PERMISSIONS.FLEET_WRITE },
     { prefix: '/fleet/vehicles/new', permission: RBAC_PERMISSIONS.FLEET_WRITE },
     { prefix: '/fleet/trips/new', permission: RBAC_PERMISSIONS.FLEET_WRITE },
     { prefix: '/fleet', permission: RBAC_PERMISSIONS.FLEET_READ },
