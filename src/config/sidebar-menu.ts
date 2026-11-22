@@ -160,6 +160,13 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
+                // Any service order person can tell a contractor where an invoice is on its way to payment
+                level: 'view',
+                title: 'Invoice Status',
+                path: '/service-orders/invoice-status',
+                icon: Receipt,
+            },
+            {
                 // The Area Manager's main decision: the invoices of the area waiting for approval
                 title: 'Invoice Approvals',
                 level: 'approve',

@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/prisma';
+import { SOD_INVOICE_REF } from '@/lib/payment-voucher-access';
+import { trackInvoice } from '@/lib/invoice-tracker';
 import { AppError } from '@/lib/error';
 import { claimMonthLabel, retentionPercent } from '@/lib/contractor-claim-display';
 
@@ -49,6 +51,17 @@ export class ContractorFinanceService {
             orderBy: { date: 'desc' }
         });
 
+        // where each invoice is on its way to payment (the payment vouchers of the invoices tell the last steps)
+        const vouchers = invoices.length ? await prisma.paymentVoucher.findMany({
+            where: { OR: invoices.map((i) => ({ description: { startsWith: `${SOD_INVOICE_REF}${i.id}` } })), status: { not: 'CANCELLED' } },
+            select: { description: true, status: true, createdAt: true, submittedToHoAt: true, hoPaidDate: true },
+        }) : [];
+        const voucherOf = (id: string) => {
+            const mine = vouchers.filter((v) => (v.description ?? '').startsWith(`${SOD_INVOICE_REF}${id}`));
+            if (mine.length === 0) return { exists: false };
+            return { exists: true, createdAt: mine.map((v) => v.createdAt).sort()[0], submittedToHoAt: mine.map((v) => v.submittedToHoAt).filter(Boolean).sort()[0] ?? null, paid: mine.every((v) => v.status === 'PAID'), hoPaidDate: mine.map((v) => v.hoPaidDate).filter(Boolean).sort().slice(-1)[0] ?? null };
+        };
+
         let totalClaimedLkr = 0;
         let totalPaidLkr = 0;
         let retentionHeldLkr = 0;
@@ -81,6 +94,7 @@ export class ContractorFinanceService {
                 amountLkr: gross,
                 status: inv.status || 'PENDING',
                 confirmStage: inv.confirmStage,
+                tracker: trackInvoice(inv, voucherOf(inv.id)),
                 removedSods: inv.sodRemovals,
                 grossLkr: gross,
                 retentionLkr: retention,

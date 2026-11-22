@@ -108,3 +108,14 @@ Level order: view < operate < approve < admin. Project Engineer, Project Area/OS
 * **Fleet** (view < operate < admin): the office staff and the CEO run the fleet and its payments; the Area Manager, OSP Manager, Manager and Regional General Manager see vehicles, drivers, trips and the fleet report but not **Fleet Payments** (4 Area Managers, 3 OSP Managers, 1 Regional General Manager lost that one item).
 
 Measured on the 294 active users: Reports and ITMS menus did not change for anyone; the only change in this step is the Fleet Payments item for those eight managers. Decision for you: should the Area Manager keep Fleet Payments?
+
+## 9. Invoice status for the service order people (22 Nov 2026)
+
+Question: a contractor asks "where is my invoice, is my payment near?". Who can answer?
+
+Gaps found:
+1. The Area Coordinator and QC Officer have no invoice capability at all, so they could not see an invoice. The Engineer saw only the first three steps ("Starting approval", "Contractor", "Area Manager") and then "Area approved": nothing about OSP Quality, Finance, the OSP managers or Head Office.
+2. The contractor portal timeline said "Waiting for audit" and "Awaiting finance processing" for everything after the area approval.
+3. No way to ask by service order number which invoice holds an order and what state it is in.
+
+Built: a pure tracker (\`src/lib/invoice-tracker.ts\`, 8 steps: created, contractor confirms, Area Manager, OSP Quality (SF Audit), Finance sends to OSP managers, OSP Manager approves, Finance prepares the payment, Head Office pays; older invoices 4 steps), the page **Service Orders → Invoice Status** (level \`view\`, so every service order designation has it: search by invoice, contractor or SO number, filter by the step an invoice waits at, click for every step with dates, returned invoices show the reason), limited to the person's own RTOMs, and the same steps in the contractor portal ("Where your invoice is"). The payment steps come from the payment voucher of the invoice (\`BOM_INVOICING_REF:<invoice id>\`).

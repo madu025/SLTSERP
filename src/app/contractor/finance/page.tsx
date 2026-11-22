@@ -22,6 +22,7 @@ interface ContractorClaim {
     netLkr?: number;
     /** where the invoice is in the area approval: a role code while it waits, CONFIRMED when done */
     confirmStage?: string;
+    tracker?: { headline: string; stepNumber: number; totalSteps: number; finished: boolean; cancelled: boolean; retentionHeld: boolean; steps: Array<{ key: string; label: string; state: 'done' | 'current' | 'waiting' | 'cancelled'; at: string | null; note?: string | null }> };
     removedSods?: Array<{ soNum: string; reason: string }>;
 }
 
@@ -334,39 +335,34 @@ export default function ContractorFinancePage() {
                                 </div>
                             </div>
 
-                            {/* Payment Status Timeline */}
-                            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Payment Timeline</p>
-                                <div className="flex items-center gap-2">
-                                    <div className={cn("w-5 h-5 rounded-full flex items-center justify-center shrink-0", isCertified(selectedClaim) ? "bg-emerald-500/20 border border-emerald-500/40" : "bg-slate-800 border border-slate-700")}>
-                                        <CheckCircle2 className={cn("w-3 h-3", isCertified(selectedClaim) ? "text-emerald-400" : "text-slate-600")} />
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="text-[10px] font-bold text-slate-200">{approvalLine(selectedClaim.status, selectedClaim.confirmStage, isCertified(selectedClaim)).title}</p>
-                                        <p className="text-[9px] text-slate-500">{approvalLine(selectedClaim.status, selectedClaim.confirmStage, isCertified(selectedClaim)).detail}</p>
-                                    </div>
+                            {/* Where the invoice is on its way to payment */}
+                            {selectedClaim.tracker ? (
+                                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+                                    <p className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Where your invoice is</p>
+                                    <p className="text-xs font-bold text-white">{selectedClaim.tracker.headline}</p>
+                                    <ol className="space-y-1.5 pt-1">
+                                        {selectedClaim.tracker.steps.map((st, i) => (
+                                            <li key={st.key} className="flex items-start gap-2">
+                                                <span className={cn("mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] font-black",
+                                                    st.state === 'done' ? "border-emerald-400 bg-emerald-500 text-slate-950" : st.state === 'current' ? "border-amber-300 bg-amber-400 text-slate-950" : st.state === 'cancelled' ? "border-red-400 bg-red-400 text-slate-950" : "border-slate-500 bg-slate-800 text-slate-200")}>{i + 1}</span>
+                                                <div className="flex-1">
+                                                    <p className={cn("text-[11px]", st.state === 'current' ? "font-bold text-amber-200" : st.state === 'done' ? "font-semibold text-emerald-200" : "text-slate-300")}>{st.label}{st.state === 'current' ? ' (now)' : ''}</p>
+                                                    {st.note && <p className="text-[10px] font-semibold text-red-300">{st.note}</p>}
+                                                    {st.state === 'done' && st.at && <p className="text-[10px] text-slate-400">{new Date(st.at).toLocaleDateString('en-GB')}</p>}
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ol>
+                                    {selectedClaim.tracker.retentionHeld && !selectedClaim.tracker.cancelled && (
+                                        <p className="text-[10px] text-amber-300">{selectedClaim.retentionPercent ?? 10}% retention is held back and released after the warranty period.</p>
+                                    )}
                                 </div>
-                                <div className="ml-2.5 h-4 border-l border-dashed border-slate-700" />
-                                <div className="flex items-center gap-2">
-                                    <div className={cn("w-5 h-5 rounded-full flex items-center justify-center shrink-0", selectedClaim.status === 'PAID' ? "bg-emerald-500/20 border border-emerald-500/40" : "bg-slate-800 border border-slate-700")}>
-                                        <Banknote className={cn("w-3 h-3", selectedClaim.status === 'PAID' ? "text-emerald-400" : "text-slate-600")} />
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="text-[10px] font-bold text-slate-200">Claim A — {100 - (selectedClaim.retentionPercent ?? 10)}% Disbursed</p>
-                                        <p className="text-[9px] text-slate-500">{selectedClaim.status === 'PAID' ? 'Paid to bank account' : 'Awaiting finance processing'}</p>
-                                    </div>
+                            ) : (
+                                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                                    <p className="text-xs font-bold text-white">{approvalLine(selectedClaim.status, selectedClaim.confirmStage, isCertified(selectedClaim)).title}</p>
+                                    <p className="text-[11px] text-slate-300">{approvalLine(selectedClaim.status, selectedClaim.confirmStage, isCertified(selectedClaim)).detail}</p>
                                 </div>
-                                <div className="ml-2.5 h-4 border-l border-dashed border-slate-700" />
-                                <div className="flex items-center gap-2">
-                                    <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 bg-amber-500/10 border border-amber-500/30">
-                                        <ShieldCheck className="w-3 h-3 text-amber-400" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="text-[10px] font-bold text-amber-300">Claim B — {selectedClaim.retentionPercent ?? 10}% Retention Held</p>
-                                        <p className="text-[9px] text-slate-500">Released after warranty period</p>
-                                    </div>
-                                </div>
-                            </div>
+                            )}
 
                             {selectedClaim.confirmStage === 'CONTRACTOR' && (
                                 <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/40 space-y-2">

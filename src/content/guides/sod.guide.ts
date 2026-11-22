@@ -332,6 +332,31 @@ export const SOD_GUIDE: ModuleGuide = {
             ],
         },
         {
+            id: 'invoice-status',
+            title: 'Invoice Status: where an invoice is on its way to payment',
+            summary: 'Every service order person (Area Coordinator, QC Officer, Engineer, Area Manager) can see the contractor invoices of their own RTOMs and the step each one is at, so they can tell a contractor how close the payment is.',
+            keywords: ['invoice status', 'where is my invoice', 'payment status', 'contractor asks invoice', 'payment when', 'invoice tracking', 'invoice step', 'head office payment', 'retention'],
+            page: '/service-orders/invoice-status',
+            requires: RBAC_PERMISSIONS.SOD_READ,
+            steps: [
+                'Open Service Orders → Invoice Status. Choose the RTOM if you have several, and search by invoice number, contractor name or a service order number (the invoice that holds the order is shown).',
+                'Each row says in one line where the invoice is now, for example "Waiting for the Area Manager to approve it (step 3 of 8)", with eight dots: green done, amber now, empty later.',
+                'Click a row to see every step with its date: created, contractor confirms, Area Manager approves, OSP Quality (SF Audit) verifies, Finance sends it to the OSP managers, an OSP Manager approves, Finance prepares the payment, Head Office pays. A returned invoice shows the reason.',
+                'Use "Show" to list only the invoices that wait at one step, or only the unpaid or paid ones. The days column tells how long an unpaid invoice has been open.',
+                'The contractor sees the same steps in the contractor portal, Invoices & Claims, under "Where your invoice is".',
+            ],
+            tips: [
+                'A paid invoice still has its retention held back; it is released after the warranty period.',
+                'Older invoices ran a shorter chain (created, area approval, finance approval, paid); they show four steps.',
+                'Only the invoices of your own RTOMs are listed.',
+            ],
+            anchors: [
+                { file: 'src/app/service-orders/invoice-status/page.tsx', text: 'Where it is now' },
+                { file: 'src/app/service-orders/invoice-status/page.tsx', text: 'Invoice Status' },
+                { file: 'src/lib/invoice-tracker.ts', text: 'Head Office pays' },
+            ],
+        },
+        {
             id: 'area-manager-desk',
             title: 'Area Manager: the dashboard desk and the approvals',
             summary: 'The Area Manager dashboard starts with a desk: the invoices and the contractor registrations waiting for the Area Manager, the invoices stuck in the areas, and the money of the billing month, then the month-end pipeline and the team of each RTOM.',

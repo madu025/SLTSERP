@@ -28,7 +28,7 @@ const sodItems = (designation: string): string[] => sectionItems('Service Orders
 const inventoryItems = (...designations: string[]): string[] => sectionItems('Inventory / Stores', designations);
 const projectItems = (...designations: string[]): string[] => sectionItems('Projects', designations);
 
-const VIEW = ['Pending SOD', 'Install Closed SOD', 'Completed SOD', 'Return SOD', 'Disappeared SODs', 'PAT Status Monitor', 'Contractors & Stock', 'SOD Performance & SLA'];
+const VIEW = ['Pending SOD', 'Install Closed SOD', 'Completed SOD', 'Return SOD', 'Disappeared SODs', 'PAT Status Monitor', 'Contractors & Stock', 'SOD Performance & SLA', 'Invoice Status'];
 const INVOICE = ['Invoicing', 'Material Deviation'];
 const APPROVE = ['Invoice Approvals', 'Contractor Approvals'];
 
