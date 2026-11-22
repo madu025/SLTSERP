@@ -8,13 +8,15 @@
  * The levels, and their order, belong to the module (a higher level sees everything a lower one sees):
  *   Service orders: view < operate < invoice < approve < admin
  *   Inventory:      view < approve < operate < admin   (the store keeper operates and also approves; the Area Manager approves only)
+ *   Projects:       view < operate < approve < admin
  */
 export type AccessLevel = 'view' | 'operate' | 'invoice' | 'approve' | 'admin';
-export type MenuModule = 'SOD' | 'INVENTORY';
+export type MenuModule = 'SOD' | 'INVENTORY' | 'PROJECTS';
 
 export const MODULE_LEVEL_ORDER: Readonly<Record<MenuModule, readonly AccessLevel[]>> = {
     SOD: ['view', 'operate', 'invoice', 'approve', 'admin'],
     INVENTORY: ['view', 'approve', 'operate', 'admin'],
+    PROJECTS: ['view', 'operate', 'approve', 'admin'],
 };
 
 const rank = (module: MenuModule, l: AccessLevel) => MODULE_LEVEL_ORDER[module].indexOf(l);
@@ -41,6 +43,16 @@ export const MODULE_DESIGNATION_LEVELS: Readonly<Record<MenuModule, Readonly<Rec
         AREA_MANAGER: 'approve', OSP_MANAGER: 'approve', HEAD_OF_OSP: 'approve', HEAD_OF_SECTION: 'approve',
         MANAGER: 'view', REGIONAL_GENERAL_MANAGER: 'view',
         PROJECTS_ENGINEER: 'view', PROJECTS_ASSISTANT_ENGINEER: 'view',
+    },
+    // Projects. The project engineers and the managers run and approve projects; the finance, stores, audit and service assurance people read them.
+    PROJECTS: {
+        SUPER_ADMIN: 'admin', ADMIN: 'admin',
+        CEO: 'approve', HEAD_OF_OSP: 'approve', MANAGER: 'approve', OSP_MANAGER: 'approve', AREA_MANAGER: 'approve',
+        PROJECTS_ENGINEER: 'approve', PROJECTS_AREA_MANAGER: 'approve', PROJECTS_OSP_MANAGER: 'approve', OSP_ENGINEER: 'approve', CIVIL_SUPERVISOR: 'approve',
+        PROJECTS_ASSISTANT_ENGINEER: 'operate', PROJECTS_AREA_COORDINATOR: 'operate', PROJECTS_QC_OFFICER: 'operate', CABLE_SPLICER: 'operate',
+        FINANCE_MANAGER: 'view', FINANCE_ASSISTANT: 'view', CASHIER: 'view', INVOICE_MANAGER: 'view', INVOICE_ASSISTANT: 'view', AR_OFFICER: 'view',
+        SF_AUDIT_MANAGER: 'view', SF_AUDIT_OFFICER: 'view', RATE_AUDITOR: 'view', STORES_MANAGER: 'view', STORES_ASSISTANT: 'view', PROCUREMENT_OFFICER: 'view',
+        SA_MANAGER: 'view', SA_ASSISTANT: 'view', FAULT_COORDINATOR: 'view', REPAIR_TECHNICIAN: 'view', REGIONAL_GENERAL_MANAGER: 'view', HEAD_OF_SECTION: 'view',
     },
 };
 

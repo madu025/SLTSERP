@@ -26,6 +26,7 @@ const sectionItems = (title: string, designations: string[], base = designations
 };
 const sodItems = (designation: string): string[] => sectionItems('Service Orders', [designation]);
 const inventoryItems = (...designations: string[]): string[] => sectionItems('Inventory / Stores', designations);
+const projectItems = (...designations: string[]): string[] => sectionItems('Projects', designations);
 
 const VIEW = ['Pending SOD', 'Install Closed SOD', 'Completed SOD', 'Return SOD', 'Disappeared SODs', 'PAT Status Monitor', 'Contractors & Stock', 'SOD Performance & SLA'];
 const INVOICE = ['Invoicing', 'Material Deviation'];
@@ -94,4 +95,25 @@ test('Inventory level order: the Area Manager approves but does not operate the 
     assert.equal(levelAllowsItem('INVENTORY', 'operate', ['AREA_MANAGER']), false);
     assert.equal(levelAllowsItem('INVENTORY', 'operate', ['STORES_MANAGER']), true);
     assert.equal(levelAllowsItem('INVENTORY', 'invoice' as never, ['STORES_MANAGER']), false, 'a level the module does not have hides the item');
+});
+
+const PRJ_VIEW = ['All Projects', 'PM Dashboard', 'QA/QC Dashboard', 'Logistics Dashboard', 'National GIS Map'];
+
+test('Projects: the Project Engineer and the managers run and approve, the Assistant Engineer operates, the readers see the dashboards only', () => {
+    assert.deepEqual(projectItems('ENGINEER', 'PROJECTS_ENGINEER').sort(), [...PRJ_VIEW, 'IR Material Audit', 'My Tasks', 'GIS File Import'].sort(), 'a Project Engineer');
+    assert.ok(projectItems('ASSISTANT_ENGINEER', 'PROJECTS_ASSISTANT_ENGINEER').includes('My Tasks'), 'an Assistant Project Engineer has My Tasks');
+    assert.ok(projectItems('FINANCE_ASSISTANT').every((t) => [...PRJ_VIEW, 'Finance Dashboard'].includes(t)), 'a reader sees dashboards and the map only');
+    for (const d of ['FINANCE_MANAGER', 'STORES_ASSISTANT', 'CASHIER']) assert.ok(!projectItems(d).includes('My Tasks') && !projectItems(d).includes('GIS File Import'), d + ' has no tasks and no import');
+});
+
+test('Projects: the SOD Engineer role alone has no Projects menu; the same person with the Project Engineer designation has it', () => {
+    assert.deepEqual(projectItems('ENGINEER'), [], 'base Engineer: no project capability');
+    assert.ok(projectItems('ENGINEER', 'PROJECTS_ENGINEER').length >= 6);
+    assert.deepEqual(projectItems('AREA_COORDINATOR'), []);
+    assert.deepEqual(projectItems('QC_OFFICER'), []);
+});
+
+test('three modules for one person: Engineer + Project Engineer = Service Orders (invoice), Projects (approve), Inventory (view)', () => {
+    const d = ['ENGINEER', 'PROJECTS_ENGINEER'];
+    assert.deepEqual([designationLevel('SOD', d), designationLevel('PROJECTS', d), designationLevel('INVENTORY', d)], ['invoice', 'approve', 'view']);
 });

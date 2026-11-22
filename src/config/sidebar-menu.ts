@@ -235,57 +235,67 @@ export const SIDEBAR_MENU: MenuItem[] = [
         icon: FolderKanban,
         // QA audit: removed SOD_PROJECT (ASSISTANT_ENGINEER, AREA_COORDINATOR, QC_OFFICER have no submenu access)
         permissionId: RBAC_PERMISSIONS.PROJECT_READ,
+        module: 'PROJECTS',
         submenu: [
             {
                 title: 'All Projects',
+                level: 'view',
                 path: '/projects',
                 icon: List,
                 permissionId: RBAC_PERMISSIONS.PROJECT_READ
             },
             {
                 title: 'My Tasks',
+                level: 'operate',
                 path: '/projects/my-tasks',
                 icon: ClipboardList,
                 permissionId: RBAC_PERMISSIONS.PROJECT_READ
             },
             {
                 title: 'PM Dashboard',
+                level: 'view',
                 path: '/projects/dashboards/pm',
                 icon: BarChart2,
                 permissionId: RBAC_PERMISSIONS.PROJECT_READ
             },
             {
                 title: 'Finance Dashboard',
+                level: 'view',
                 path: '/projects/dashboards/financials',
                 icon: LineChart,
                 permissionId: RBAC_PERMISSIONS.FINANCE_READ
             },
             {
                 title: 'QA/QC Dashboard',
+                level: 'view',
                 path: '/projects/dashboards/qaqc',
                 icon: ClipboardList,
                 permissionId: RBAC_PERMISSIONS.PROJECT_READ
             },
             {
                 title: 'Logistics Dashboard',
+                level: 'view',
                 path: '/projects/dashboards/logistics',
                 icon: Truck,
                 permissionId: RBAC_PERMISSIONS.PROJECT_READ
             },
             {
                 title: 'IR Material Audit',
+                level: 'view',
                 path: '/projects/dashboards/ir-audit',
                 icon: FileText,
                 permissionId: RBAC_PERMISSIONS.INVENTORY_READ
             },
             {
                 title: 'National GIS Map',
+                level: 'view',
                 path: '/gis/map',
                 icon: Route,
                 permissionId: RBAC_PERMISSIONS.PROJECT_READ
             },
             {
                 title: 'GIS File Import',
+                level: 'operate',
                 path: '/gis/upload',
                 icon: Upload,
                 permissionId: RBAC_PERMISSIONS.PROJECT_WRITE

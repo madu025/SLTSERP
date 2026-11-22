@@ -96,3 +96,7 @@ Next modules to move onto the matrix (one at a time, each with its matrix test):
 ### Inventory on the matrix (22 Nov 2026)
 
 Level order for Inventory: view < approve < operate < admin. The store staff and administrators operate (19 items); the Area Manager, OSP Manager, Head of OSP and Head of Section approve (9 view items: balances, requisitions, material reports); Project Engineer designations view (the same 9); the base Engineer, Area Coordinator and QC Officer have no inventory capability and no menu. Measured on the 294 active users: 55 see 19 items, 168 see 9, no one's menu changed because of the levels (the matrix describes today's reality; from now on a change needs the table and the matrix test to change together).
+
+### Projects on the matrix (22 Nov 2026)
+
+Level order: view < operate < approve < admin. Project Engineer, Project Area/OSP Manager, OSP Engineer, Civil Supervisor and the managers approve; the Assistant Project Engineer, Project Area Coordinator, Project QC and the Cable Splicer operate; finance, invoice, stores, SF audit, procurement and service assurance designations view. "My Tasks" and "GIS File Import" need `operate`; the dashboards, the project list and the map need `view`. Measured on 294 users: 26 view-only people (stores, finance, cashier, invoice, service assurance) lose exactly one item, "My Tasks"; nobody else's menu changed. The three modules together for one person (Engineer + Project Engineer): Service Orders invoice, Projects approve, Inventory view.
