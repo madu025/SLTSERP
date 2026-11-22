@@ -5,22 +5,23 @@
  * PROJECTS_ENGINEER). What the person does in a module decides which items of that module the menu shows: the access LEVEL of their
  * designation in the module. Security does not depend on this file: every page and API still needs its capability; the menu only hides.
  *
- * Levels, lowest to highest:
- *   view     see the work and the reports of the module
- *   operate  do the day-to-day work
- *   invoice  prepare the money steps (invoicing, deviations)
- *   approve  decide (approvals)
- *   admin    administer
+ * The levels, and their order, belong to the module (a higher level sees everything a lower one sees):
+ *   Service orders: view < operate < invoice < approve < admin
+ *   Inventory:      view < approve < operate < admin   (the store keeper operates and also approves; the Area Manager approves only)
  */
-export const ACCESS_LEVELS = ['view', 'operate', 'invoice', 'approve', 'admin'] as const;
-export type AccessLevel = (typeof ACCESS_LEVELS)[number];
+export type AccessLevel = 'view' | 'operate' | 'invoice' | 'approve' | 'admin';
+export type MenuModule = 'SOD' | 'INVENTORY';
 
-export type MenuModule = 'SOD';
+export const MODULE_LEVEL_ORDER: Readonly<Record<MenuModule, readonly AccessLevel[]>> = {
+    SOD: ['view', 'operate', 'invoice', 'approve', 'admin'],
+    INVENTORY: ['view', 'approve', 'operate', 'admin'],
+};
 
-const rank = (l: AccessLevel) => ACCESS_LEVELS.indexOf(l);
+const rank = (module: MenuModule, l: AccessLevel) => MODULE_LEVEL_ORDER[module].indexOf(l);
 
 /**
- * The level of each designation in a module. A module with no entry here is decided by capabilities alone.
+ * The level of each designation in a module. A module with no entry here is decided by capabilities alone, and so is a person
+ * none of whose designations is listed for the module.
  * Keys are base role codes (a post) and module designation codes.
  */
 export const MODULE_DESIGNATION_LEVELS: Readonly<Record<MenuModule, Readonly<Record<string, AccessLevel>>>> = {
@@ -33,6 +34,14 @@ export const MODULE_DESIGNATION_LEVELS: Readonly<Record<MenuModule, Readonly<Rec
         OSP_ENGINEER: 'operate', CIVIL_SUPERVISOR: 'operate', CABLE_SPLICER: 'operate',
         SA_MANAGER: 'operate', SA_ASSISTANT: 'operate', FAULT_COORDINATOR: 'operate', REPAIR_TECHNICIAN: 'operate',
     },
+    // Inventory. The stores run the store; the managers approve requests and read balances; the project engineers draw project material.
+    INVENTORY: {
+        SUPER_ADMIN: 'admin', ADMIN: 'admin',
+        CEO: 'operate', STORES_MANAGER: 'operate', STORES_ASSISTANT: 'operate',
+        AREA_MANAGER: 'approve', OSP_MANAGER: 'approve', HEAD_OF_OSP: 'approve', HEAD_OF_SECTION: 'approve',
+        MANAGER: 'view', REGIONAL_GENERAL_MANAGER: 'view',
+        PROJECTS_ENGINEER: 'view', PROJECTS_ASSISTANT_ENGINEER: 'view',
+    },
 };
 
 /** The level a person's designations give in a module: the highest of them, or null when none of them is listed for the module. */
@@ -41,7 +50,7 @@ export function designationLevel(module: MenuModule, designations: readonly stri
     let best: AccessLevel | null = null;
     for (const code of designations ?? []) {
         const level = table[code];
-        if (level && (best === null || rank(level) > rank(best))) best = level;
+        if (level && (best === null || rank(module, level) > rank(module, best))) best = level;
     }
     return best;
 }
@@ -54,5 +63,6 @@ export function levelAllowsItem(module: MenuModule | undefined, level: AccessLev
     if (!module || !level) return true;
     const have = designationLevel(module, designations);
     if (have === null) return true;
-    return rank(have) >= rank(level);
+    const need = rank(module, level);
+    return need >= 0 && rank(module, have) >= need;
 }

@@ -92,3 +92,7 @@ Built and live in the code:
 * `MODULE_DESIGNATION_GRANTS` (bootstrap) gives a module designation grants of its own on top of its base role (used for the project engineers).
 
 Next modules to move onto the matrix (one at a time, each with its matrix test): Projects (PROJECTS_* designations), Inventory (view / operate / approve), Reports, ITMS and Fleet, then Finance, Procurement, SF Audit. Then the unused-role clean-up (section 7, question 4) once the decisions above are made.
+
+### Inventory on the matrix (22 Nov 2026)
+
+Level order for Inventory: view < approve < operate < admin. The store staff and administrators operate (19 items); the Area Manager, OSP Manager, Head of OSP and Head of Section approve (9 view items: balances, requisitions, material reports); Project Engineer designations view (the same 9); the base Engineer, Area Coordinator and QC Officer have no inventory capability and no menu. Measured on the 294 active users: 55 see 19 items, 168 see 9, no one's menu changed because of the levels (the matrix describes today's reality; from now on a change needs the table and the matrix test to change together).

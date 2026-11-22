@@ -13,16 +13,19 @@ const grantsOf = (code: string): string[] => Object.entries({ ...CANONICAL_BOOTS
     .map(([perm]) => perm)
     .concat(Object.entries(MODULE_DESIGNATION_GRANTS).filter(([, roles]) => roles.includes(code)).map(([perm]) => perm));
 
-const sodItems = (designation: string): string[] => {
-    const perms = grantsOf(designation);
-    const sod = SIDEBAR_MENU.find((m) => m.title === 'Service Orders')!;
+const sectionItems = (title: string, designations: string[], base = designations[0]): string[] => {
+    const perms = [...new Set(designations.flatMap(grantsOf))];
+    const sod = SIDEBAR_MENU.find((m) => m.title === title)!;
     const ok = (m: typeof sod, parent?: typeof sod) => canAccessMenuItem({
         itemTitle: m.title, permissionId: m.permissionId || parent?.permissionId, userPermissions: perms, pathname: m.path,
-        designations: [designation], module: m.module ?? parent?.module, level: m.level,
+        designations, module: m.module ?? parent?.module, level: m.level,
     });
     if (!ok(sod)) return [];
+    void base;
     return (sod.submenu ?? []).filter((s) => ok(s, sod)).map((s) => s.title);
 };
+const sodItems = (designation: string): string[] => sectionItems('Service Orders', [designation]);
+const inventoryItems = (...designations: string[]): string[] => sectionItems('Inventory / Stores', designations);
 
 const VIEW = ['Pending SOD', 'Install Closed SOD', 'Completed SOD', 'Return SOD', 'Disappeared SODs', 'PAT Status Monitor', 'Contractors & Stock', 'SOD Performance & SLA'];
 const INVOICE = ['Invoicing', 'Material Deviation'];
@@ -62,4 +65,33 @@ test('login and refresh carry the designations the menu needs', async () => {
     assert.ok(read('src/services/hr/user.service.ts').includes('designations: [...new Set([user.systemRole?.code'), 'login returns the designations');
     assert.ok(read('src/app/api/auth/refresh/route.ts').includes('designations:'), 'refresh returns them too');
     for (const f of ['src/components/sidebar/SidebarMenu.tsx', 'src/components/MobileNav.tsx']) assert.ok(read(f).includes('designations: user?.designations'), `${f} passes the designations to the menu check`);
+});
+
+const INV_VIEW = ['Dashboard Overview', 'Inventory Health', 'Material Requisitions', 'Project Material Control', 'Inventory Balance', 'Contractor Balance Sheet', 'Physical Stock Take & Recon', 'Stock Ledger (Cardex)', 'Material Consumption Report'];
+const INV_OPERATE = ['Item Master Data', 'Goods Receipt (GRN)', 'Goods Issue (MIN)', 'Inventory Adjustments (Wastage)', 'Contractor Material Issue', 'Contractor Returns', 'Initial Stock Setup', 'Virtual Material Swap', 'Material Returns (MRN)', 'Pre-ERP Legacy Recon'];
+
+test('Inventory: the store staff and administrators have the whole menu, the Area Manager and other approvers the balances and requisitions', () => {
+    for (const d of ['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN']) assert.deepEqual(inventoryItems(d).sort(), [...INV_VIEW, ...INV_OPERATE].sort(), d);
+    for (const d of ['AREA_MANAGER', 'OSP_MANAGER', 'HEAD_OF_OSP']) assert.deepEqual(inventoryItems(d).sort(), [...INV_VIEW].sort(), d);
+});
+
+test('Inventory: a Project Engineer (designation) sees the project material pages, the SOD Engineer has no inventory menu at all', () => {
+    assert.deepEqual(inventoryItems('ENGINEER', 'PROJECTS_ENGINEER').sort(), [...INV_VIEW].sort());
+    assert.deepEqual(inventoryItems('ENGINEER'), [], 'the base Engineer role has no inventory capability');
+    assert.deepEqual(inventoryItems('AREA_COORDINATOR'), []);
+    assert.deepEqual(inventoryItems('QC_OFFICER'), []);
+});
+
+test('one person, two modules: an Engineer who is also a Project Engineer gets the invoice level in service orders and view in inventory', () => {
+    const d = ['ENGINEER', 'PROJECTS_ENGINEER'];
+    assert.equal(designationLevel('SOD', d), 'invoice');
+    assert.equal(designationLevel('INVENTORY', d), 'view');
+    assert.deepEqual(sectionItems('Service Orders', d).sort(), [...VIEW, ...INVOICE].sort());
+});
+
+test('Inventory level order: the Area Manager approves but does not operate the store', () => {
+    assert.equal(levelAllowsItem('INVENTORY', 'view', ['AREA_MANAGER']), true);
+    assert.equal(levelAllowsItem('INVENTORY', 'operate', ['AREA_MANAGER']), false);
+    assert.equal(levelAllowsItem('INVENTORY', 'operate', ['STORES_MANAGER']), true);
+    assert.equal(levelAllowsItem('INVENTORY', 'invoice' as never, ['STORES_MANAGER']), false, 'a level the module does not have hides the item');
 });

@@ -333,14 +333,17 @@ export const SIDEBAR_MENU: MenuItem[] = [
         icon: Warehouse,
         // Visibility is resolved from the canonical inventory capability.
         permissionId: 'inventory',
+        module: 'INVENTORY',
         submenu: [
             {
                 title: 'Dashboard Overview',
+                level: 'view',
                 path: '/inventory',
                 icon: LayoutDashboard,
             },
             {
                 title: 'Inventory Health',
+                level: 'view',
                 path: '/inventory/health',
                 icon: TrendingUp,
                 permissionId: RBAC_PERMISSIONS.INVENTORY_READ
@@ -348,6 +351,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
             // 1. Setup & Master Data
             {
                 title: 'Item Master Data', // Merged Material Registration + Bulk Import
+                level: 'operate',
                 path: '/inventory/items',
                 icon: FileText,
                 permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
@@ -355,6 +359,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
             // 2. Stock Inflow
             {
                 title: 'Goods Receipt (GRN)',
+                level: 'operate',
                 path: '/inventory/grn',
                 icon: Receipt,
                 permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
@@ -362,11 +367,13 @@ export const SIDEBAR_MENU: MenuItem[] = [
             {
                 // Single Unified Hub: Stock Requests + Material Requests + Approvals
                 title: 'Material Requisitions',
+                level: 'view',
                 path: '/inventory/requests',
                 icon: ClipboardList,
             },
             {
                 title: 'Project Material Control',
+                level: 'view',
                 path: '/inventory/project-materials',
                 icon: Package,
                 permissionId: RBAC_PERMISSIONS.INVENTORY_READ
@@ -374,17 +381,20 @@ export const SIDEBAR_MENU: MenuItem[] = [
             // 3. Stock Outflow
             {
                 title: 'Inventory Balance',
+                level: 'view',
                 path: '/inventory/stock',
                 icon: BarChart3,
             },
             {
                 title: 'Goods Issue (MIN)',
+                level: 'operate',
                 path: '/inventory/issues',
                 icon: PackageMinus,
                 permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
             },
             {
                 title: 'Inventory Adjustments (Wastage)',
+                level: 'operate',
                 path: '/inventory/admin/wastage',
                 icon: ClipboardCheck,
                 permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
@@ -392,29 +402,34 @@ export const SIDEBAR_MENU: MenuItem[] = [
             // Contractor custody and store set-up pages that previously had no navigation entry
             {
                 title: 'Contractor Material Issue',
+                level: 'operate',
                 path: '/inventory/admin/issue',
                 icon: PackageMinus,
                 permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
             },
             {
                 title: 'Contractor Returns',
+                level: 'operate',
                 path: '/inventory/admin/returns',
                 icon: RefreshCw,
                 permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
             },
             {
                 title: 'Contractor Balance Sheet',
+                level: 'view',
                 path: '/inventory/admin/balance-sheet',
                 icon: ClipboardCheck,
             },
             {
                 title: 'Initial Stock Setup',
+                level: 'operate',
                 path: '/inventory/admin/initial',
                 icon: BarChart3,
                 permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
             },
             {
                 title: 'Virtual Material Swap',
+                level: 'operate',
                 path: '/inventory/admin/virtual-swap',
                 icon: RefreshCw,
                 permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
@@ -422,17 +437,20 @@ export const SIDEBAR_MENU: MenuItem[] = [
             // 4. Returns & Reconciliation
             {
                 title: 'Material Returns (MRN)',
+                level: 'operate',
                 path: '/inventory/admin/mrns',
                 icon: RefreshCw,
                 permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
             },
             {
                 title: 'Physical Stock Take & Recon', // Merged Material Reconciliation, Contractor Balance Sheet, Material Audit, Inventory Audit
+                level: 'view',
                 path: '/inventory/audit',
                 icon: ShieldCheck,
             },
             {
                 title: 'Pre-ERP Legacy Recon',
+                level: 'operate',
                 path: '/inventory/admin/pre-erp-reconciliation',
                 icon: HistoryIcon,
                 permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
@@ -440,11 +458,13 @@ export const SIDEBAR_MENU: MenuItem[] = [
             // 5. Analytics & History
             {
                 title: 'Stock Ledger (Cardex)',
+                level: 'view',
                 path: '/inventory/reports/cardex',
                 icon: HistoryIcon,
             },
             {
                 title: 'Material Consumption Report',
+                level: 'view',
                 path: '/inventory/reports/material-summary',
                 icon: BarChart3,
             }
