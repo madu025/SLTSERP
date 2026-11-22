@@ -929,30 +929,36 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Reports & Analytics',
         path: '/reports',
         icon: FileText,
+        module: 'REPORTS',
         submenu: [
             {
                 // every report the person may open, with a search and a builder for their own reports
                 title: 'Report Center',
+                level: 'area',
                 path: '/reports',
                 icon: FileText,
             },
             {
                 title: 'Contractor Scorecard',
+                level: 'area',
                 path: '/contractors/scorecard',
                 icon: TrendingUp,
             },
             {
                 title: 'Executive Overview',
+                level: 'company',
                 path: '/reports/manager',
                 icon: LayoutDashboard,
             },
             {
                 title: 'Area Performance',
+                level: 'area',
                 path: '/reports/arm',
                 icon: Building2,
             },
             {
                 title: 'Daily Operational',
+                level: 'area',
                 path: '/reports/daily-operational',
                 icon: FileText,
             }
@@ -963,29 +969,35 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Vehicle & Fleet Management',
         path: '/fleet/vehicles',
         icon: Car,
+        module: 'FLEET',
         submenu: [
             {
                 title: 'All Vehicles',
+                level: 'view',
                 path: '/fleet/vehicles',
                 icon: Car,
             },
             {
                 title: 'Drivers Directory',
+                level: 'view',
                 path: '/fleet/drivers',
                 icon: Users,
             },
             {
                 title: 'Fleet Payments',
+                level: 'operate',
                 path: '/fleet/payments',
                 icon: Banknote,
             },
             {
                 title: 'Trip Management',
+                level: 'view',
                 path: '/fleet/trips',
                 icon: Truck,
             },
             {
                 title: 'Fleet Reports',
+                level: 'view',
                 path: '/reports/fleet',
                 icon: BarChart3,
             }
@@ -1087,59 +1099,71 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'ITMS & IT Help Desk',
         path: '/helpdesk',
         icon: LifeBuoy,
+        module: 'ITMS',
         submenu: [
             {
                 title: 'User Portal',
+                level: 'view',
                 path: '/helpdesk',
                 icon: LifeBuoy,
             },
             {
                 title: 'New Support Ticket',
+                level: 'view',
                 path: '/helpdesk/tickets/new',
                 icon: FileText,
             },
             {
                 title: 'IT Admin Queue',
+                level: 'operate',
                 path: '/helpdesk/admin',
                 icon: ClipboardList,
             },
             {
                 title: 'IT Asset Management',
+                level: 'operate',
                 path: '/helpdesk/assets',
                 icon: Laptop,
             },
             {
                 title: 'Asset Disposals (Maker-Checker)',
+                level: 'operate',
                 path: '/helpdesk/disposals',
                 icon: Trash2,
             },
             {
                 title: 'Asset Depreciation & GL',
+                level: 'operate',
                 path: '/helpdesk/depreciation',
                 icon: Calculator,
             },
             {
                 title: 'Live Device Telemetry',
+                level: 'operate',
                 path: '/helpdesk/telemetry',
                 icon: Activity,
             },
             {
                 title: 'SLA Breach Monitor',
+                level: 'operate',
                 path: '/helpdesk/sla-monitor',
                 icon: Clock,
             },
             {
                 title: 'Physical Asset Audits',
+                level: 'approve',
                 path: '/helpdesk/assets/audits',
                 icon: ClipboardCheck,
             },
             {
                 title: 'Software Licenses (SAM)',
+                level: 'operate',
                 path: '/helpdesk/software-licenses',
                 icon: Tag,
             },
             {
                 title: 'ITSM Reports & Analytics',
+                level: 'operate',
                 path: '/helpdesk/reports',
                 icon: BarChart3,
             }

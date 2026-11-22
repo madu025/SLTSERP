@@ -117,3 +117,27 @@ test('three modules for one person: Engineer + Project Engineer = Service Orders
     const d = ['ENGINEER', 'PROJECTS_ENGINEER'];
     assert.deepEqual([designationLevel('SOD', d), designationLevel('PROJECTS', d), designationLevel('INVENTORY', d)], ['invoice', 'approve', 'view']);
 });
+
+const section = (title: string, ...d: string[]) => sectionItems(title, d);
+
+test('Reports: the Area Manager has the area reports and the scorecard, the company managers add the executive overview', () => {
+    assert.deepEqual(section('Reports & Analytics', 'AREA_MANAGER').sort(), ['Area Performance', 'Contractor Scorecard', 'Daily Operational', 'Report Center']);
+    assert.deepEqual(section('Reports & Analytics', 'OSP_MANAGER').sort(), ['Area Performance', 'Contractor Scorecard', 'Daily Operational', 'Executive Overview', 'Report Center']);
+    for (const d of ['ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER']) assert.deepEqual(section('Reports & Analytics', d), [], d + ' has no reports menu');
+});
+
+test('ITMS: every area role raises tickets and sees two items; the IT staff see the queue and assets; asset audits need the approver', () => {
+    for (const d of ['ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 'AREA_MANAGER']) assert.deepEqual(section('ITMS & IT Help Desk', d).sort(), ['New Support Ticket', 'User Portal'], d);
+    assert.ok(section('ITMS & IT Help Desk', 'SITE_OFFICE_STAFF').includes('IT Admin Queue'));
+    assert.ok(!section('ITMS & IT Help Desk', 'SITE_OFFICE_STAFF').includes('Physical Asset Audits'), 'the audits are for approvers');
+    assert.ok(section('ITMS & IT Help Desk', 'OFFICE_ADMIN').includes('Physical Asset Audits'));
+});
+
+test('Fleet: the office staff run the payments, the managers see vehicles, drivers and trips', () => {
+    assert.ok(section('Vehicle & Fleet Management', 'OFFICE_ADMIN').includes('Fleet Payments'));
+    for (const d of ['AREA_MANAGER', 'OSP_MANAGER']) {
+        const items = section('Vehicle & Fleet Management', d);
+        assert.ok(items.includes('All Vehicles') && items.includes('Trip Management') && !items.includes('Fleet Payments'), d);
+    }
+    for (const d of ['ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER']) assert.deepEqual(section('Vehicle & Fleet Management', d), [], d + ' has no fleet menu');
+});

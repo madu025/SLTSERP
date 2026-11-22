@@ -100,3 +100,11 @@ Level order for Inventory: view < approve < operate < admin. The store staff and
 ### Projects on the matrix (22 Nov 2026)
 
 Level order: view < operate < approve < admin. Project Engineer, Project Area/OSP Manager, OSP Engineer, Civil Supervisor and the managers approve; the Assistant Project Engineer, Project Area Coordinator, Project QC and the Cable Splicer operate; finance, invoice, stores, SF audit, procurement and service assurance designations view. "My Tasks" and "GIS File Import" need `operate`; the dashboards, the project list and the map need `view`. Measured on 294 users: 26 view-only people (stores, finance, cashier, invoice, service assurance) lose exactly one item, "My Tasks"; nobody else's menu changed. The three modules together for one person (Engineer + Project Engineer): Service Orders invoice, Projects approve, Inventory view.
+
+### Reports, ITMS and Fleet on the matrix (22 Nov 2026)
+
+* **Reports** (area < company < admin): Area Manager = Report Center, Contractor Scorecard, Area Performance, Daily Operational (own areas); OSP Manager, Manager, Head of Section, CEO, Regional General Manager add the Executive Overview.
+* **ITMS** (view < operate < approve < admin): the area roles (Engineer, Assistant, Coordinator, QC, Area Manager, managers) raise tickets (User Portal, New Support Ticket); the office staff are IT staff (queue, assets, telemetry, SLA, licences, ITSM reports); the Physical Asset Audits need the approver (Office Admin, CEO).
+* **Fleet** (view < operate < admin): the office staff and the CEO run the fleet and its payments; the Area Manager, OSP Manager, Manager and Regional General Manager see vehicles, drivers, trips and the fleet report but not **Fleet Payments** (4 Area Managers, 3 OSP Managers, 1 Regional General Manager lost that one item).
+
+Measured on the 294 active users: Reports and ITMS menus did not change for anyone; the only change in this step is the Fleet Payments item for those eight managers. Decision for you: should the Area Manager keep Fleet Payments?

@@ -9,14 +9,20 @@
  *   Service orders: view < operate < invoice < approve < admin
  *   Inventory:      view < approve < operate < admin   (the store keeper operates and also approves; the Area Manager approves only)
  *   Projects:       view < operate < approve < admin
+ *   Reports:        area < company < admin             (the reports of the person's own areas, then of the whole company)
+ *   ITMS:           view < operate < approve < admin   (raise tickets, IT staff, asset approvers)
+ *   Fleet:          view < operate < admin             (see vehicles and trips, run payments)
  */
-export type AccessLevel = 'view' | 'operate' | 'invoice' | 'approve' | 'admin';
-export type MenuModule = 'SOD' | 'INVENTORY' | 'PROJECTS';
+export type AccessLevel = 'view' | 'operate' | 'invoice' | 'approve' | 'admin' | 'area' | 'company';
+export type MenuModule = 'SOD' | 'INVENTORY' | 'PROJECTS' | 'REPORTS' | 'ITMS' | 'FLEET';
 
 export const MODULE_LEVEL_ORDER: Readonly<Record<MenuModule, readonly AccessLevel[]>> = {
     SOD: ['view', 'operate', 'invoice', 'approve', 'admin'],
     INVENTORY: ['view', 'approve', 'operate', 'admin'],
     PROJECTS: ['view', 'operate', 'approve', 'admin'],
+    REPORTS: ['area', 'company', 'admin'],
+    ITMS: ['view', 'operate', 'approve', 'admin'],
+    FLEET: ['view', 'operate', 'admin'],
 };
 
 const rank = (module: MenuModule, l: AccessLevel) => MODULE_LEVEL_ORDER[module].indexOf(l);
@@ -53,6 +59,25 @@ export const MODULE_DESIGNATION_LEVELS: Readonly<Record<MenuModule, Readonly<Rec
         FINANCE_MANAGER: 'view', FINANCE_ASSISTANT: 'view', CASHIER: 'view', INVOICE_MANAGER: 'view', INVOICE_ASSISTANT: 'view', AR_OFFICER: 'view',
         SF_AUDIT_MANAGER: 'view', SF_AUDIT_OFFICER: 'view', RATE_AUDITOR: 'view', STORES_MANAGER: 'view', STORES_ASSISTANT: 'view', PROCUREMENT_OFFICER: 'view',
         SA_MANAGER: 'view', SA_ASSISTANT: 'view', FAULT_COORDINATOR: 'view', REPAIR_TECHNICIAN: 'view', REGIONAL_GENERAL_MANAGER: 'view', HEAD_OF_SECTION: 'view',
+    },
+    // Reports. The Area Manager reads the reports of the own areas; the company managers read the company reports too.
+    REPORTS: {
+        SUPER_ADMIN: 'admin', ADMIN: 'admin',
+        CEO: 'company', OSP_MANAGER: 'company', MANAGER: 'company', HEAD_OF_SECTION: 'company', REGIONAL_GENERAL_MANAGER: 'company',
+        AREA_MANAGER: 'area',
+    },
+    // IT help desk. Everyone who works in the field or an area raises tickets; the office staff are the IT staff; the asset audits need an approver.
+    ITMS: {
+        SUPER_ADMIN: 'admin', ADMIN: 'admin',
+        CEO: 'approve', OFFICE_ADMIN: 'approve',
+        OFFICE_ADMIN_ASSISTANT: 'operate', SITE_OFFICE_STAFF: 'operate',
+        MANAGER: 'view', OSP_MANAGER: 'view', AREA_MANAGER: 'view', ENGINEER: 'view', ASSISTANT_ENGINEER: 'view', AREA_COORDINATOR: 'view', QC_OFFICER: 'view',
+    },
+    // Vehicles and fleet. The office staff run the fleet and its payments; the managers see vehicles, drivers, trips and the fleet report.
+    FLEET: {
+        SUPER_ADMIN: 'admin', ADMIN: 'admin',
+        CEO: 'operate', OFFICE_ADMIN: 'operate', OFFICE_ADMIN_ASSISTANT: 'operate', SITE_OFFICE_STAFF: 'operate',
+        MANAGER: 'view', OSP_MANAGER: 'view', AREA_MANAGER: 'view', REGIONAL_GENERAL_MANAGER: 'view',
     },
 };
 
