@@ -365,6 +365,7 @@ export const SOD_GUIDE: ModuleGuide = {
                 'Tick the orders (or "Select all") and click "Create invoices". The orders are checked first (PAT, amounts, a cost on every material line); the ones that fail are listed with the reason and stay for the next time. The invoice number and total of every invoice created are shown.',
                 'If an order has a problem, tick it, type a reason and click "Hold back" (it is listed apart and billed in the month it is released and invoiced), or "Return to the check" to send it back to the Completed SOD check; the photo tick is cleared, so the Area Coordinator or QC Officer must check it again.',
                 'Each new invoice goes to the contractor to review, then to the Area Manager. The engineer has no further step on it, but the list "Invoices of your area" at the bottom of the page shows each invoice and who it waits for.',
+                'The Engineer / Assistant Engineer dashboard (My work tab) shows the month-end pipeline of your RTOMs: finished orders waiting for PAT, for the check, for the contractor, ready to invoice and invoiced, with the team of each RTOM (Area Coordinators and QC Officers) and what each has checked this month.',
                 'A yellow note at the top counts the finished orders of your area that still wait for the check, with a link to Completed SOD ("Waiting for the check").',
             ],
             tips: [
@@ -376,6 +377,7 @@ export const SOD_GUIDE: ModuleGuide = {
             anchors: [
                 { file: INVOICING, text: 'Create invoices' },
                 { file: INVOICING, text: 'Hold back' },
+                { file: 'src/app/dashboard/components/EngineerPipelineSection.tsx', text: 'Month-end pipeline of your RTOMs' },
                 { file: INVOICING, text: 'Invoices of your area' },
                 { file: INVOICING, text: 'Return to the check' },
                 { file: INVOICING, text: 'Late SOD (completed' },

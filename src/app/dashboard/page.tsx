@@ -18,6 +18,7 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import ExecutiveControlTower from './components/ExecutiveControlTower';
 import CompanyHealthSection from './components/CompanyHealthSection';
 import MyWorkSection, { useAreaOverview, useMyWorkSummary } from './components/MyWorkSection';
+import EngineerPipelineSection, { useAreaPipeline } from './components/EngineerPipelineSection';
 import OperationsScoreboard from './components/OperationsScoreboard';
 
 const DASHBOARD_STATS_REQUEST_TIMEOUT_MS = 12_000;
@@ -160,7 +161,10 @@ export default function DashboardPage() {
     // store or finance view. Managers with a company-wide view keep their own overview.
     const [workFilters, setWorkFilters] = useState(() => ({ month: new Date().getMonth() + 1, year: new Date().getFullYear(), rtom: 'ALL' }));
     const workSummary = useMyWorkSummary(!!user && !canFilterGlobally, workFilters.rtom);
-    const hasMyWork = !canFilterGlobally && (workSummary.data?.stages.length ?? 0) > 0;
+    // The Engineer / Assistant Engineer of an area holds no approval step, but oversees the whole month-end pipeline of their RTOMs.
+    const isEngineerView = !canFilterGlobally && hasPermission(RBAC_PERMISSIONS.SOD_INVOICE);
+    const hasMyWork = !canFilterGlobally && ((workSummary.data?.stages.length ?? 0) > 0 || isEngineerView);
+    const pipeline = useAreaPipeline(isEngineerView, workFilters);
     // Someone who works on the orders of their own RTOMs sees only that work and those RTOMs: the store, finance, project and company views are not theirs.
     const areaWork = useAreaOverview(hasMyWork, workFilters);
     // Until it is known whether this person works on the orders of their own RTOMs, no company view is shown: it would flash and then be replaced.
@@ -171,8 +175,9 @@ export default function DashboardPage() {
     }, [hasMyWork, landedOnWork]);
 
     useEffect(() => {
-        if (!landedOnWork) setActiveTab(effectiveDefaultTab);
-    }, [effectiveDefaultTab, landedOnWork]);
+        // not while the person is being taken to their work tab (both effects run in the same render)
+        if (!landedOnWork && !hasMyWork) setActiveTab(effectiveDefaultTab);
+    }, [effectiveDefaultTab, landedOnWork, hasMyWork]);
 
     // The Management overview also shows service-order SLA and PAT figures, so it needs the same operations stats.
     const isOperationsStats = activeTab === 'operations' || activeTab === 'overview';
@@ -390,6 +395,7 @@ export default function DashboardPage() {
                                 
                                 {hasMyWork && (
                                     <TabsContent value="work" className="space-y-6">
+                                        {isEngineerView && <EngineerPipelineSection data={pipeline.data} isLoading={pipeline.isLoading} />}
                                         <MyWorkSection summary={workSummary.data} isLoading={workSummary.isLoading} area={areaWork.data} areaLoading={areaWork.isLoading} filters={workFilters} onFilters={setWorkFilters} />
                                     </TabsContent>
                                 )}

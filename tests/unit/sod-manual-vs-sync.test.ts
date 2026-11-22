@@ -237,4 +237,13 @@ test('the contractor verifies the checked orders before the engineer invoices; p
     assert.ok(read('src/config/sidebar-menu.ts').includes('/contractor/verify-sods'), 'the contractor portal has the page in its menu');
 });
 
+test('the engineer dashboard shows the month-end pipeline by RTOM and the team of each RTOM', () => {
+    const svc = read('src/services/service-order/area-pipeline.service.ts');
+    assert.ok(svc.includes('resolveOpmcScope') && svc.includes('SOD_PAT_OK') && svc.includes('contractorVerifiedAt') && svc.includes("action: 'CONFIRMED'"), 'the pipeline is limited to the area and reads the check, the contractor verification and who checked');
+    assert.ok(svc.includes('AREA_COORDINATOR') && svc.includes('QC_OFFICER') && svc.includes('accessibleOpmcs'), 'the team of an RTOM is the Area Coordinators and QC Officers given that RTOM');
+    assert.ok(read('src/app/api/service-orders/area-pipeline/route.ts').includes('RBAC_PERMISSIONS.SOD_INVOICE'), 'the pipeline API needs the invoicing capability');
+    const page = read('src/app/dashboard/page.tsx');
+    assert.ok(page.includes('isEngineerView') && page.includes('EngineerPipelineSection') && page.includes('!landedOnWork && !hasMyWork'), 'the engineer lands on the work tab with the pipeline');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });
