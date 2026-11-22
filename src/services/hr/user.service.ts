@@ -136,7 +136,9 @@ export class UserService {
                 contractorId: user.contractorId,
                 accessibleOpmcs: user.accessibleOpmcs,
                 mustChangePassword: (user as unknown as { mustChangePassword: boolean }).mustChangePassword,
-                permissions
+                permissions,
+                // the base role and the module designations: the menu shows each module by what the person does in it
+                designations: [...new Set([user.systemRole?.code, ...user.sectionAssignments.map((a) => a.role?.code)].filter((c): c is string => !!c))]
             }
         };
     }

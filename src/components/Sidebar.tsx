@@ -22,6 +22,8 @@ interface User {
     role: string;
     username: string;
     permissions?: string[];
+    /** The base role and the module designations of the person (see config/menu-access.ts). */
+    designations?: string[];
 }
 
 const ROLE_LABELS: Record<string, string> = {

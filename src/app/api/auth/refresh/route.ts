@@ -121,6 +121,7 @@ export async function POST(request: NextRequest) {
                 role: user.role,
                 contractorId: user.contractorId,
                 permissions,
+                designations: [...new Set([user.systemRole?.code, ...user.sectionAssignments.map((a) => a.role?.code)].filter((c): c is string => !!c))],
             },
         });
 

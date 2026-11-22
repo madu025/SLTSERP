@@ -6,7 +6,7 @@ import { SIDEBAR_MENU, canAccessMenuItem } from '@/config/sidebar-menu';
 
 interface SidebarMenuProps {
     userRole: string;
-    user: { permissions?: string[] } | null;
+    user: { permissions?: string[]; designations?: string[] } | null;
     isCollapsed: boolean;
     mounted: boolean;
     menuCounts: Record<string, number>;
@@ -107,6 +107,9 @@ export function SidebarMenu({ user, isCollapsed, mounted, menuCounts }: SidebarM
                 itemTitle: item.title,
                 permissionId: item.permissionId,
                 userPermissions: user?.permissions,
+                designations: user?.designations,
+                module: item.module,
+                level: item.level,
                 pathname: item.path,
             })).map((item) => {
                 const Icon = item.icon;
@@ -253,6 +256,9 @@ export function SidebarMenu({ user, isCollapsed, mounted, menuCounts }: SidebarM
                                     itemTitle: sub.title,
                                     permissionId: sub.permissionId || item.permissionId,
                                     userPermissions: user?.permissions,
+                                    designations: user?.designations,
+                                    module: sub.module ?? item.module,
+                                    level: sub.level,
                                     pathname: sub.path,
                                 })).map(sub => {
                                     const hasSubSubmenu = sub.submenu && sub.submenu.length > 0;

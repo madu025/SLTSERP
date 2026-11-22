@@ -53,6 +53,7 @@ import {
 } from 'lucide-react';
 
 
+import { levelAllowsItem, type AccessLevel, type MenuModule } from './menu-access';
 import { RBAC_PERMISSIONS, isCanonicalPermission } from "@/config/rbac-permissions";
 import { resolveLegacyMenuPermission, resolvePageCapability } from "@/config/page-capabilities";
 
@@ -61,6 +62,10 @@ export interface MenuItem {
     path: string;
     icon: React.ComponentType<{ className?: string }>;
     permissionId?: string; // Dynamic permission ID
+    /** The module the item belongs to (a submenu item takes its parent's); with `level` it decides who sees the item by designation. */
+    module?: MenuModule;
+    /** The access level of the person's designation in the module that this item needs (see menu-access.ts). */
+    level?: AccessLevel;
     submenu?: MenuItem[];
 }
 
@@ -110,39 +115,46 @@ export const SIDEBAR_MENU: MenuItem[] = [
         icon: FileText,
         // Service Orders are main work for New Connection & Ops
         permissionId: RBAC_PERMISSIONS.SOD_READ,
+        module: 'SOD',
         submenu: [
             {
                 title: 'Pending SOD',
+                level: 'view',
                 path: '/service-orders/work-order',
                 icon: FileText,
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
                 title: 'Install Closed SOD',
+                level: 'view',
                 path: '/service-orders/work-order/install-closed',
                 icon: CheckCircle2,
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
                 title: 'Completed SOD',
+                level: 'view',
                 path: '/service-orders/work-order/completed',
                 icon: FileCheck2,
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
                 title: 'Return SOD',
+                level: 'view',
                 path: '/service-orders/work-order/return',
                 icon: FileText,
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
                 title: 'Disappeared SODs',
+                level: 'view',
                 path: '/service-orders/work-order/disappeared',
                 icon: EyeOff,
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
                 title: 'PAT Status Monitor',
+                level: 'view',
                 path: '/service-orders/work-order/pat',
                 icon: ClipboardCheck,
                 permissionId: RBAC_PERMISSIONS.SOD_READ
@@ -150,6 +162,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
             {
                 // The Area Manager's main decision: the invoices of the area waiting for approval
                 title: 'Invoice Approvals',
+                level: 'approve',
                 path: '/invoices/confirmations',
                 icon: Receipt,
                 permissionId: RBAC_PERMISSIONS.INVOICE_CONFIRM_MANAGER
@@ -157,18 +170,21 @@ export const SIDEBAR_MENU: MenuItem[] = [
             {
                 // Contractor registrations waiting for the Area Manager (the Area Manager step of the registration approval); the Contractors menu is not the Area Manager's
                 title: 'Contractor Approvals',
+                level: 'approve',
                 path: '/contractors/management/approvals',
                 icon: FileSignature,
                 permissionId: RBAC_PERMISSIONS.INVOICE_CONFIRM_MANAGER
             },
             {
                 title: 'Invoicing',
+                level: 'invoice',
                 path: '/service-orders/invoicing',
                 icon: Receipt,
                 permissionId: RBAC_PERMISSIONS.SOD_INVOICE
             },
             {
                 title: 'Material Deviation',
+                level: 'invoice',
                 path: '/service-orders/material-deviation',
                 icon: Receipt,
                 permissionId: RBAC_PERMISSIONS.SOD_INVOICE
@@ -176,12 +192,14 @@ export const SIDEBAR_MENU: MenuItem[] = [
             {
                 // Only the contractors of the person's own RTOMs, view only
                 title: 'Contractors & Stock',
+                level: 'view',
                 path: '/service-orders/contractor-stock',
                 icon: Package,
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
                 title: 'SOD Performance & SLA',
+                level: 'view',
                 path: '/service-orders/performance',
                 icon: TrendingUp,
                 permissionId: RBAC_PERMISSIONS.SOD_READ
@@ -1100,6 +1118,10 @@ export const SIDEBAR_MENU: MenuItem[] = [
 ];
 
 export interface MenuAccessOptions {
+    /** The person's designations (base role and module designations); with module and level they decide the item by what the person does in the module. */
+    designations?: string[];
+    module?: MenuModule;
+    level?: AccessLevel;
     isLoggedIn?: boolean;
     itemTitle?: string;
     permissionId?: string;
@@ -1112,12 +1134,16 @@ export interface MenuAccessOptions {
  * Role labels and menu metadata are deliberately not part of this decision.
  */
 export const canAccessMenuItem = ({
+    designations,
+    module,
+    level,
     isLoggedIn = true,
     itemTitle,
     permissionId,
     userPermissions,
     pathname,
 }: MenuAccessOptions) => {
+    if (isLoggedIn && !levelAllowsItem(module, level, designations)) return false;
     if (!isLoggedIn) {
         // Only allow public Guest items in sidebar/navigation
         return !!itemTitle && ['IT Help Desk', 'ITMS & IT Help Desk', 'User Dashboard', 'Create Ticket'].includes(itemTitle);

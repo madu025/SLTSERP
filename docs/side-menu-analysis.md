@@ -80,3 +80,15 @@ Three layers are mixed: **identity** (who you are: designation), **responsibilit
 4. Should the 58 unused roles be deleted (after a check that nobody uses them), and the module role names simplified (`STORES_STORES_MANAGER` -> `STORES_MANAGER`)?
 5. Reports: all area roles see only their areas (done for the Area Manager); should every report follow the same rule, enforced in one place?
 6. Who may change designations (administrators only, or also the Area Manager for their area)?
+
+## 8. Status of option B (22 Nov 2026)
+
+Built and live in the code:
+
+* `src/config/menu-access.ts`: the levels (view, operate, invoice, approve, admin), the module type and the designation matrix `MODULE_DESIGNATION_LEVELS`. **Service Orders is the first module on the matrix.**
+* Every Service Orders menu item now carries a `level`; the section carries `module: 'SOD'`. The menu shows an item when the **capability allows it and the person's designation level in the module is high enough**. A person whose designations are not listed for the module (or an old session) is decided by the capability alone, so nothing disappears by accident.
+* Login and refresh return `designations` (the base role and every module designation), the sidebar and the mobile menu pass them to the check.
+* `tests/unit/menu-designation-matrix.test.ts` prints the matrix as assertions: Coordinator and QC 8 items, Engineer and Assistant 10, Area Manager 12, OSP Manager 10, administrators 12.
+* `MODULE_DESIGNATION_GRANTS` (bootstrap) gives a module designation grants of its own on top of its base role (used for the project engineers).
+
+Next modules to move onto the matrix (one at a time, each with its matrix test): Projects (PROJECTS_* designations), Inventory (view / operate / approve), Reports, ITMS and Fleet, then Finance, Procurement, SF Audit. Then the unused-role clean-up (section 7, question 4) once the decisions above are made.

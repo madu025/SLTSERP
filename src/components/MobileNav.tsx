@@ -12,6 +12,7 @@ interface User {
     role: string;
     username: string;
     permissions?: string[];
+    designations?: string[];
 }
 
 export default function MobileNav() {
@@ -132,6 +133,9 @@ export default function MobileNav() {
                         itemTitle: item.title,
                         permissionId: item.permissionId,
                         userPermissions: user?.permissions,
+                        designations: user?.designations,
+                        module: item.module,
+                        level: item.level,
                         pathname: item.path,
                     })).map((item) => {
                         const Icon = item.icon;
@@ -166,6 +170,9 @@ export default function MobileNav() {
                                                 itemTitle: sub.title,
                                                 permissionId: sub.permissionId || item.permissionId,
                                                 userPermissions: user?.permissions,
+                                                designations: user?.designations,
+                                                module: sub.module ?? item.module,
+                                                level: sub.level,
                                                 pathname: sub.path,
                                             })).map((sub) => {
                                                 const isSubActive = pathname === sub.path;
