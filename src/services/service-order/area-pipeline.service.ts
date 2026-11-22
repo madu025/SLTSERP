@@ -4,7 +4,7 @@ import { SOD_PAT_OK, SOD_READY_STAGES } from '@/lib/sod-approval-rules';
 import { narrowScope } from '@/services/service-order/area-overview.service';
 
 const FINISHED = ['COMPLETED', 'INSTALL_CLOSED'] as const;
-const TEAM_ROLES = ['AREA_COORDINATOR', 'QC_OFFICER'] as const;
+const TEAM_ROLES = ['AREA_COORDINATOR', 'QC_OFFICER', 'ENGINEER', 'ASSISTANT_ENGINEER'] as const;
 const DAY = 86_400_000;
 
 export interface PipelineCounts {
@@ -17,7 +17,7 @@ export interface PipelineArea extends PipelineCounts {
     /** Share of the orders that are past the check and the contractor (ready to invoice or held) among all finished orders still to be invoiced. */
     progressPct: number | null;
 }
-export interface PipelinePerson { id: string; name: string; role: string; rtoms: string[]; checkedThisMonth: number; waitingNow: number; returnedNow: number }
+export interface PipelinePerson { id: string; name: string; role: string; rtoms: string[]; checkedThisMonth: number; invoicedThisMonth: number; waitingNow: number; returnedNow: number }
 export interface AreaPipeline {
     month: string; monthNumber: number; year: number; rtom: string;
     areas: PipelineArea[]; people: PipelinePerson[]; totals: PipelineCounts;
@@ -86,10 +86,13 @@ export class AreaPipelineService {
         const rtomIdByName = new Map(areas.map((a) => [a.rtom, a.id]));
         const done = await prisma.sodApproval.groupBy({ by: ['userId'], where: { userId: { in: team.map((t) => t.id) }, action: 'CONFIRMED', createdAt: { gte: from, lt: to } }, _count: { _all: true } });
         const doneBy = new Map(done.map((d) => [d.userId, d._count._all]));
+        // orders each Engineer put on an invoice this month (the invoicing step writes one audit row per order)
+        const invoicedRows = await prisma.auditLog.groupBy({ by: ['userId'], where: { userId: { in: team.map((t) => t.id) }, action: 'SOD_INVOICED', createdAt: { gte: from, lt: to } }, _count: { _all: true } });
+        const invoicedBy = new Map(invoicedRows.map((d) => [d.userId ?? '', d._count._all]));
         const people: PipelinePerson[] = team.map((t) => {
             const ids = t.accessibleOpmcs.map((o) => o.id);
             const sum = (mp: Map<string, number>) => ids.reduce((x, id) => x + (mp.get(id) ?? 0), 0);
-            return { id: t.id, name: t.name ?? '-', role: String(t.role), rtoms: t.accessibleOpmcs.map((o) => o.rtom).sort(), checkedThisMonth: doneBy.get(t.id) ?? 0, waitingNow: sum(cChk), returnedNow: sum(cRet) };
+            return { id: t.id, name: t.name ?? '-', role: String(t.role), rtoms: t.accessibleOpmcs.map((o) => o.rtom).sort(), checkedThisMonth: doneBy.get(t.id) ?? 0, invoicedThisMonth: invoicedBy.get(t.id) ?? 0, waitingNow: sum(cChk), returnedNow: sum(cRet) };
         });
         void rtomIdByName;
 

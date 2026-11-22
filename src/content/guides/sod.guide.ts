@@ -332,6 +332,29 @@ export const SOD_GUIDE: ModuleGuide = {
             ],
         },
         {
+            id: 'area-manager-desk',
+            title: 'Area Manager: the dashboard desk and the approvals',
+            summary: 'The Area Manager dashboard starts with a desk: the invoices and the contractor registrations waiting for the Area Manager, the invoices stuck in the areas, and the money of the billing month, then the month-end pipeline and the team of each RTOM.',
+            keywords: ['area manager', 'arm', 'dashboard', 'desk', 'invoice approvals', 'contractor approvals', 'registration approvals', 'stuck invoices', 'billing month', 'margin'],
+            page: '/dashboard',
+            requires: RBAC_PERMISSIONS.INVOICE_CONFIRM_MANAGER,
+            steps: [
+                'Open the Dashboard (My work tab). "Your desk" shows how many invoices wait for your approval (with the total and how long the oldest has waited), how many contractor registrations wait for you, and how many invoices of your RTOMs have waited more than 3 days at any step.',
+                'Click "Invoices to approve" or the menu Service Orders → Invoice Approvals to approve or return them. Click "Contractors to approve" or Service Orders → Contractor Approvals to approve or reject a contractor registration.',
+                'The Billing month box shows the invoices of the month, how many you approved, what the contractors are paid, the revenue of the orders and the margin.',
+                'Below it are the month-end pipeline of your RTOMs and the team of each RTOM (Area Coordinators, QC Officers, Engineers) with what each did this month; an RTOM nobody works in shows "Nobody assigned".',
+            ],
+            tips: [
+                'Everything is limited to the RTOMs you manage.',
+                'The Registration Approvals queue now reads from a list the Area Manager may open (it used to be the administrator list, so the queue looked empty).',
+            ],
+            anchors: [
+                { file: 'src/app/dashboard/components/AreaManagerDeskSection.tsx', text: 'Invoices to approve' },
+                { file: 'src/app/dashboard/components/AreaManagerDeskSection.tsx', text: 'Contractors to approve' },
+                { file: 'src/config/sidebar-menu.ts', text: 'Contractor Approvals' },
+            ],
+        },
+        {
             id: 'contractor-verify-orders',
             title: 'Contractor: verify the checked orders before invoicing',
             summary: 'After the Area Coordinator or the QC Officer passes an order on Completed SOD, the contractor of that order verifies it. Only verified orders reach the Engineer. A problem sends the order back to the check with a note, and the whole chain starts again.',

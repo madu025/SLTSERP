@@ -254,4 +254,17 @@ test('the engineer and assistant engineer cover the coordinator: they may pass t
     assert.ok(page.includes("selectedRtomId === 'ALL'") && page.includes('choose one RTOM first'), 'portal update and manual entry need one RTOM');
 });
 
+test('the Area Manager desk: invoices and contractors waiting, stuck invoices, month money, and the approvals reachable from the menu', () => {
+    const svc = read('src/services/service-order/area-manager-desk.service.ts');
+    assert.ok(svc.includes('resolveOpmcScope') && svc.includes("confirmStage: 'AREA_MANAGER'") && svc.includes("status: 'ARM_PENDING'") && svc.includes('STUCK_DAYS'), 'the desk reads the Area Manager step, the ARM registrations and the stuck invoices of the person own areas');
+    assert.ok(read('src/app/api/service-orders/area-manager-desk/route.ts').includes('INVOICE_CONFIRM_MANAGER'), 'the desk API needs the Area Manager capability');
+    const menu = read('src/config/sidebar-menu.ts');
+    assert.ok(menu.includes("title: 'Invoice Approvals'") && menu.includes("title: 'Contractor Approvals'"), 'the Area Manager can open both approvals from the menu');
+    const q = read('src/app/api/contractors/approval-queue/route.ts');
+    assert.ok(q.includes('ARM_PENDING') && q.includes('OSP_PENDING') && !q.includes('permissions: [RBAC_PERMISSIONS.ADMIN_RBAC]'), 'the approval queue is readable by the approvers, not only by administrators');
+    assert.ok(read('src/app/contractors/management/approvals/page.tsx').includes('/api/contractors/approval-queue'), 'the page reads that queue');
+    assert.ok(read('src/app/dashboard/page.tsx').includes('isManagerView') && read('src/app/dashboard/page.tsx').includes('AreaManagerDeskSection'), 'the dashboard shows the desk to the Area Manager');
+    assert.ok(read('src/services/service-order/area-pipeline.service.ts').includes("'ENGINEER'") && read('src/services/service-order/area-pipeline.service.ts').includes("action: 'SOD_INVOICED'"), 'the team includes engineers with the orders they invoiced');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });

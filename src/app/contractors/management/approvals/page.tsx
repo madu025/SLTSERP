@@ -84,7 +84,7 @@ function ContractorApprovals() {
     const { data: contractors = [], isLoading } = useQuery({
         queryKey: ['contractor-approvals'],
         queryFn: async () => {
-            const res = await fetch('/api/admin/contractors?page=1&limit=1000');
+            const res = await fetch('/api/contractors/approval-queue');
             if (!res.ok) throw new Error('Failed to fetch contractors');
             const data = await res.json();
             const actualData = data.success && data.data ? data.data : data;

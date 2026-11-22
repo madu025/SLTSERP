@@ -148,6 +148,20 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
+                // The Area Manager's main decision: the invoices of the area waiting for approval
+                title: 'Invoice Approvals',
+                path: '/invoices/confirmations',
+                icon: Receipt,
+                permissionId: RBAC_PERMISSIONS.INVOICE_CONFIRM_MANAGER
+            },
+            {
+                // Contractor registrations waiting for the Area Manager (the Area Manager step of the registration approval); the Contractors menu is not the Area Manager's
+                title: 'Contractor Approvals',
+                path: '/contractors/management/approvals',
+                icon: FileSignature,
+                permissionId: RBAC_PERMISSIONS.INVOICE_CONFIRM_MANAGER
+            },
+            {
                 title: 'Invoicing',
                 path: '/service-orders/invoicing',
                 icon: Receipt,

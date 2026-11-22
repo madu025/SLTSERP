@@ -19,6 +19,7 @@ import ExecutiveControlTower from './components/ExecutiveControlTower';
 import CompanyHealthSection from './components/CompanyHealthSection';
 import MyWorkSection, { useAreaOverview, useMyWorkSummary } from './components/MyWorkSection';
 import EngineerPipelineSection, { useAreaPipeline } from './components/EngineerPipelineSection';
+import AreaManagerDeskSection, { useAreaManagerDesk } from './components/AreaManagerDeskSection';
 import OperationsScoreboard from './components/OperationsScoreboard';
 
 const DASHBOARD_STATS_REQUEST_TIMEOUT_MS = 12_000;
@@ -165,6 +166,9 @@ export default function DashboardPage() {
     const isEngineerView = !canFilterGlobally && hasPermission(RBAC_PERMISSIONS.SOD_INVOICE);
     const hasMyWork = !canFilterGlobally && ((workSummary.data?.stages.length ?? 0) > 0 || isEngineerView);
     const pipeline = useAreaPipeline(isEngineerView, workFilters);
+    // The Area Manager decides on the invoices and contractors of their areas: their desk comes first.
+    const isManagerView = !canFilterGlobally && hasPermission(RBAC_PERMISSIONS.INVOICE_CONFIRM_MANAGER);
+    const desk = useAreaManagerDesk(isManagerView, workFilters);
     // Someone who works on the orders of their own RTOMs sees only that work and those RTOMs: the store, finance, project and company views are not theirs.
     const areaWork = useAreaOverview(hasMyWork, workFilters);
     // Until it is known whether this person works on the orders of their own RTOMs, no company view is shown: it would flash and then be replaced.
@@ -395,6 +399,7 @@ export default function DashboardPage() {
                                 
                                 {hasMyWork && (
                                     <TabsContent value="work" className="space-y-6">
+                                        {isManagerView && <AreaManagerDeskSection data={desk.data} isLoading={desk.isLoading} />}
                                         {isEngineerView && <EngineerPipelineSection data={pipeline.data} isLoading={pipeline.isLoading} />}
                                         <MyWorkSection summary={workSummary.data} isLoading={workSummary.isLoading} area={areaWork.data} areaLoading={areaWork.isLoading} filters={workFilters} onFilters={setWorkFilters} />
                                     </TabsContent>

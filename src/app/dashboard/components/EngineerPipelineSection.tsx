@@ -8,7 +8,7 @@ import type { WorkFilters } from './MyWorkSection';
 
 interface Counts { waitingPat: number; noContractor: number; waitingCheck: number; waitingContractor: number; readyToInvoice: number; held: number; invoicedThisMonth: number; invoicesInApproval: number; returnedToCheck: number; oldestWaitingCheckDays: number | null }
 interface Area extends Counts { rtom: string; name: string; team: Array<{ id: string; name: string; role: string }>; progressPct: number | null }
-interface Person { id: string; name: string; role: string; rtoms: string[]; checkedThisMonth: number; waitingNow: number; returnedNow: number }
+interface Person { id: string; name: string; role: string; rtoms: string[]; checkedThisMonth: number; invoicedThisMonth: number; waitingNow: number; returnedNow: number }
 export interface PipelineData { month: string; monthNumber: number; year: number; rtom: string; areas: Area[]; people: Person[]; totals: Counts }
 
 export function useAreaPipeline(enabled: boolean, f: WorkFilters) {
@@ -27,7 +27,7 @@ export function useAreaPipeline(enabled: boolean, f: WorkFilters) {
 }
 
 const th = 'py-2 pr-3 text-left text-xs font-bold uppercase tracking-wide text-slate-900';
-const ROLE: Record<string, string> = { AREA_COORDINATOR: 'Area Coordinator', QC_OFFICER: 'QC Officer' };
+const ROLE: Record<string, string> = { AREA_COORDINATOR: 'Area Coordinator', QC_OFFICER: 'QC Officer', ENGINEER: 'Engineer', ASSISTANT_ENGINEER: 'Assistant Engineer' };
 const card = 'rounded-2xl border border-slate-300 bg-white p-4 shadow-sm';
 
 /** The engineer's month-end pipeline: where the finished orders of each RTOM stand, who works in it, and what each of them has done this month. */
@@ -94,11 +94,11 @@ export default function EngineerPipelineSection({ data, isLoading }: { data?: Pi
                 </div>
             </div>
             <div className={card}>
-                <h3 className="flex items-center gap-2 text-sm font-black text-slate-900"><Users className="h-4 w-4 text-indigo-700" />Area Coordinators and QC Officers</h3>
-                {data.people.length === 0 ? <p className="mt-2 text-sm text-slate-900">Nobody holds these roles in your RTOMs.</p> : (
+                <h3 className="flex items-center gap-2 text-sm font-black text-slate-900"><Users className="h-4 w-4 text-indigo-700" />Team of your RTOMs</h3>
+                {data.people.length === 0 ? <p className="mt-2 text-sm text-slate-900">Nobody works in your RTOMs.</p> : (
                     <div className="mt-2 overflow-x-auto">
                         <table className="w-full text-sm">
-                            <thead><tr className="border-b border-slate-300"><th className={th}>Name</th><th className={th}>Role</th><th className={th}>RTOMs</th><th className={th}>Checked in {data.month}</th><th className={th}>Waiting now</th><th className={th}>Sent back</th></tr></thead>
+                            <thead><tr className="border-b border-slate-300"><th className={th}>Name</th><th className={th}>Role</th><th className={th}>RTOMs</th><th className={th}>Checked in {data.month}</th><th className={th}>Orders invoiced in {data.month}</th><th className={th}>Waiting now</th><th className={th}>Sent back</th></tr></thead>
                             <tbody>
                                 {data.people.map((p) => (
                                     <tr key={p.id} className="border-b border-slate-200 text-slate-900">
@@ -106,6 +106,7 @@ export default function EngineerPipelineSection({ data, isLoading }: { data?: Pi
                                         <td className="py-2 pr-3">{ROLE[p.role] ?? p.role}</td>
                                         <td className="py-2 pr-3 text-xs">{p.rtoms.join(', ')}</td>
                                         <td className="py-2 pr-3 font-semibold">{p.checkedThisMonth}</td>
+                                        <td className="py-2 pr-3 font-semibold">{p.invoicedThisMonth}</td>
                                         <td className="py-2 pr-3">{p.waitingNow}</td>
                                         <td className={`py-2 pr-3 ${p.returnedNow > 0 ? 'font-bold text-red-800' : ''}`}>{p.returnedNow}</td>
                                     </tr>
