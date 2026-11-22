@@ -280,4 +280,16 @@ test('every area role may raise a support ticket, the IT queue stays with IT sta
     assert.ok(read('src/app/dashboard/page.tsx').includes('WorkFilterBar'), 'the RTOM and month filter is at the top of the work tab');
 });
 
+test('the SOD engineers have no store or fleet menu, and store operations are shown only to roles that can act on them', () => {
+    const boot = read('src/config/rbac-bootstrap.ts');
+    const block = (key: string) => boot.slice(boot.indexOf(key), boot.indexOf(']', boot.indexOf(key)));
+    for (const key of ['INVENTORY_READ]: [', 'FLEET_READ]: [']) {
+        assert.ok(!block(key).includes("'ENGINEER'") && !block(key).includes("'ASSISTANT_ENGINEER'"), 'the SOD engineers do not hold ' + key);
+    }
+    const menu = read('src/config/sidebar-menu.ts');
+    const inv = menu.slice(menu.indexOf("title: 'Inventory / Stores'"), menu.indexOf("title: 'Approvals'"));
+    assert.equal((inv.match(/permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE/g) ?? []).length, 10, 'the ten store-operation items need the inventory write capability');
+    assert.ok(inv.includes("title: 'Material Requisitions'") && !/Material Requisitions'[^}]*INVENTORY_WRITE/.test(inv), 'the requisitions the Area Manager approves stay visible to approvers');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });

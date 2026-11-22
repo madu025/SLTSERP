@@ -332,12 +332,14 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Item Master Data', // Merged Material Registration + Bulk Import
                 path: '/inventory/items',
                 icon: FileText,
+                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
             },
             // 2. Stock Inflow
             {
                 title: 'Goods Receipt (GRN)',
                 path: '/inventory/grn',
                 icon: Receipt,
+                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
             },
             {
                 // Single Unified Hub: Stock Requests + Material Requests + Approvals
@@ -361,22 +363,26 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Goods Issue (MIN)',
                 path: '/inventory/issues',
                 icon: PackageMinus,
+                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
             },
             {
                 title: 'Inventory Adjustments (Wastage)',
                 path: '/inventory/admin/wastage',
                 icon: ClipboardCheck,
+                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
             },
             // Contractor custody and store set-up pages that previously had no navigation entry
             {
                 title: 'Contractor Material Issue',
                 path: '/inventory/admin/issue',
                 icon: PackageMinus,
+                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
             },
             {
                 title: 'Contractor Returns',
                 path: '/inventory/admin/returns',
                 icon: RefreshCw,
+                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
             },
             {
                 title: 'Contractor Balance Sheet',
@@ -387,17 +393,20 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Initial Stock Setup',
                 path: '/inventory/admin/initial',
                 icon: BarChart3,
+                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
             },
             {
                 title: 'Virtual Material Swap',
                 path: '/inventory/admin/virtual-swap',
                 icon: RefreshCw,
+                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
             },
             // 4. Returns & Reconciliation
             {
                 title: 'Material Returns (MRN)',
                 path: '/inventory/admin/mrns',
                 icon: RefreshCw,
+                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
             },
             {
                 title: 'Physical Stock Take & Recon', // Merged Material Reconciliation, Contractor Balance Sheet, Material Audit, Inventory Audit
@@ -408,6 +417,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Pre-ERP Legacy Recon',
                 path: '/inventory/admin/pre-erp-reconciliation',
                 icon: HistoryIcon,
+                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
             },
             // 5. Analytics & History
             {
