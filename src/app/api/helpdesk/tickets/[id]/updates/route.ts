@@ -24,7 +24,7 @@ export const GET = apiHandler(async (req, params) => {
   }
 
   return ticket.updates;
-});
+}, { permissions: [RBAC_PERMISSIONS.HELPDESK_READ, RBAC_PERMISSIONS.HELPDESK_WRITE, RBAC_PERMISSIONS.HELPDESK_TICKET_CREATE] });
 
 export const POST = apiHandler(
   async (req, params, body) => {
@@ -54,6 +54,7 @@ export const POST = apiHandler(
   },
   {
     schema: CreateTicketUpdateSchema,
+    permissions: [RBAC_PERMISSIONS.HELPDESK_WRITE, RBAC_PERMISSIONS.HELPDESK_TICKET_CREATE], // the owner checks inside decide what a standard employee may do
     audit: {
       action: "UPDATE",
       entity: "Ticket"

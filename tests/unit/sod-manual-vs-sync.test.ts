@@ -103,7 +103,7 @@ test('the My work tab has a month and an RTOM filter that can only narrow what t
     assert.ok(ov.includes('opts.month') && ov.includes('opts.year') && ov.includes('const to = new Date(y, m, 1)'), 'the figures are for the chosen month');
     assert.ok(read('src/services/service-order/sod-approval.service.ts').includes('narrowScope(allScope, rtom)'), 'the waiting counts follow the RTOM filter too');
     const comp = read('src/app/dashboard/components/MyWorkSection.tsx');
-    assert.ok(comp.includes('aria-label="Month"') && comp.includes('aria-label="RTOM"') && comp.includes('All my RTOMs') && comp.includes('(data?.areas.length ?? 0) > 1'), 'month and year always, the RTOM filter only when the person has several RTOMs');
+    assert.ok(comp.includes('aria-label="Month"') && comp.includes('aria-label="RTOM"') && comp.includes('All my RTOMs') && comp.includes('areas.length > 1'), 'month and year always, the RTOM filter only when the person has several RTOMs');
     assert.ok(comp.includes("href: '/service-orders/work-order/completed'") && comp.includes("href: '/service-orders/work-order/return'") && comp.includes("href: '/service-orders/work-order'"), 'the figures lead to the lists they count');
     assert.ok(comp.includes('Completed in {data.month}') && comp.includes('Returned in {data.month}'), 'the table columns name the month shown');
 });
@@ -119,7 +119,7 @@ test('the area dashboard shows why orders were returned and each contractor\'s S
 
 test('an area person sees only the stock of their own contractors, and the contractor field portal is for the contractors own people', () => {
     const svc = read('src/services/service-order/area-contractor-stock.service.ts');
-    assert.ok(svc.includes('resolveOpmcScope(userId)') && svc.includes('contractor: { opmcId: { in: scope } }') && svc.includes('narrowScope('), 'stock is limited to the contractors of their own RTOMs');
+    assert.ok(svc.includes('resolveOpmcScope(userId)') && svc.includes('opmcId: { in: scope }') && svc.includes('narrowScope('), 'stock is limited to the contractors of their own RTOMs');
     assert.ok(read('src/app/api/service-orders/contractor-stock/route.ts').includes('RBAC_PERMISSIONS.SOD_READ'), 'read with the service order capability');
     const menu = read('src/config/sidebar-menu.ts');
     assert.ok(menu.includes("path: '/service-orders/contractor-stock'") && menu.includes('permissionId: RBAC_PERMISSIONS.CONTRACTOR_WRITE, // the field portal'), 'the stock page is in the menu and the field portal needs the contractor capability');
@@ -265,6 +265,19 @@ test('the Area Manager desk: invoices and contractors waiting, stuck invoices, m
     assert.ok(read('src/app/contractors/management/approvals/page.tsx').includes('/api/contractors/approval-queue'), 'the page reads that queue');
     assert.ok(read('src/app/dashboard/page.tsx').includes('isManagerView') && read('src/app/dashboard/page.tsx').includes('AreaManagerDeskSection'), 'the dashboard shows the desk to the Area Manager');
     assert.ok(read('src/services/service-order/area-pipeline.service.ts').includes("'ENGINEER'") && read('src/services/service-order/area-pipeline.service.ts').includes("action: 'SOD_INVOICED'"), 'the team includes engineers with the orders they invoiced');
+});
+
+test('every area role may raise a support ticket, the IT queue stays with IT staff, contractors show their registration, and the reports follow the role', () => {
+    const boot = read('src/config/rbac-bootstrap.ts');
+    const ticketBlock = boot.slice(boot.indexOf('HELPDESK_TICKET_CREATE]: ['), boot.indexOf(']', boot.indexOf('HELPDESK_TICKET_CREATE]: [') + 30));
+    assert.ok(['AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'].every((r) => ticketBlock.includes(`'${r}'`)), 'the five area roles hold the ticket capability');
+    const pages = read('src/config/page-capabilities.ts');
+    assert.ok(pages.includes("prefix: '/helpdesk/admin', permission: RBAC_PERMISSIONS.HELPDESK_WRITE") && pages.includes("prefix: '/helpdesk', permission: RBAC_PERMISSIONS.HELPDESK_TICKET_CREATE"), 'the portal is for ticket raisers, the IT queue for IT staff');
+    assert.ok(pages.includes("prefix: '/reports/manager', permission: RBAC_PERMISSIONS.REPORTS_MANAGER_READ") && pages.includes("prefix: '/reports/arm', permission: RBAC_PERMISSIONS.REPORTS_AREA_READ"), 'the company overview is for company managers, the area report for the Area Manager');
+    assert.ok(read('src/app/api/helpdesk/tickets/route.ts').includes('HELPDESK_TICKET_CREATE'), 'the ticket API accepts the capability');
+    const svc = read('src/services/service-order/area-contractor-stock.service.ts');
+    assert.ok(svc.includes('registration:') && svc.includes('agreementSigned') && svc.includes('armApprovedAt') && !svc.includes('nic') && !svc.includes('bankAccount'), 'the registration details are shown without identity or bank data');
+    assert.ok(read('src/app/dashboard/page.tsx').includes('WorkFilterBar'), 'the RTOM and month filter is at the top of the work tab');
 });
 
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });

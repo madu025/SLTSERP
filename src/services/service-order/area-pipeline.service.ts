@@ -17,7 +17,7 @@ export interface PipelineArea extends PipelineCounts {
     /** Share of the orders that are past the check and the contractor (ready to invoice or held) among all finished orders still to be invoiced. */
     progressPct: number | null;
 }
-export interface PipelinePerson { id: string; name: string; role: string; rtoms: string[]; checkedThisMonth: number; invoicedThisMonth: number; waitingNow: number; returnedNow: number }
+export interface PipelinePerson { id: string; name: string; role: string; email: string | null; lastLoginAt: Date | null; rtoms: string[]; checkedThisMonth: number; invoicedThisMonth: number; waitingNow: number; returnedNow: number }
 export interface AreaPipeline {
     month: string; monthNumber: number; year: number; rtom: string;
     areas: PipelineArea[]; people: PipelinePerson[]; totals: PipelineCounts;
@@ -60,7 +60,7 @@ export class AreaPipelineService {
             prisma.invoice.groupBy({ by: ['opmcId'], where: { opmcId: { in: scope }, confirmStage: { notIn: ['CONFIRMED', 'CANCELLED'] }, status: { not: 'CANCELLED' } }, _count: { _all: true } }),
             prisma.user.findMany({
                 where: { status: 'active', role: { in: [...TEAM_ROLES] }, accessibleOpmcs: { some: { id: { in: scope } } } },
-                select: { id: true, name: true, role: true, accessibleOpmcs: { where: { id: { in: scope } }, select: { id: true, rtom: true } } },
+                select: { id: true, name: true, role: true, email: true, lastLoginAt: true, accessibleOpmcs: { where: { id: { in: scope } }, select: { id: true, rtom: true } } },
                 orderBy: { name: 'asc' },
             }),
         ]);
@@ -92,7 +92,7 @@ export class AreaPipelineService {
         const people: PipelinePerson[] = team.map((t) => {
             const ids = t.accessibleOpmcs.map((o) => o.id);
             const sum = (mp: Map<string, number>) => ids.reduce((x, id) => x + (mp.get(id) ?? 0), 0);
-            return { id: t.id, name: t.name ?? '-', role: String(t.role), rtoms: t.accessibleOpmcs.map((o) => o.rtom).sort(), checkedThisMonth: doneBy.get(t.id) ?? 0, invoicedThisMonth: invoicedBy.get(t.id) ?? 0, waitingNow: sum(cChk), returnedNow: sum(cRet) };
+            return { id: t.id, name: t.name ?? '-', role: String(t.role), email: t.email ?? null, lastLoginAt: t.lastLoginAt ?? null, rtoms: t.accessibleOpmcs.map((o) => o.rtom).sort(), checkedThisMonth: doneBy.get(t.id) ?? 0, invoicedThisMonth: invoicedBy.get(t.id) ?? 0, waitingNow: sum(cChk), returnedNow: sum(cRet) };
         });
         void rtomIdByName;
 

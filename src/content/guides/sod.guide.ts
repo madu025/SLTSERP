@@ -67,7 +67,7 @@ export const SOD_GUIDE: ModuleGuide = {
                 'An order cannot be completed without a contractor: pick the contractor who did the work on Confirm Completion (and before a bulk Complete). A finished order that came from the portal with no contractor shows a NO CONTRACTOR mark; assign the contractor from the list.',
                 'An order you add by hand with Manual Entry sits on the same lists as the portal orders and carries a MANUAL mark; an Install Closed one needs its contractor.',
                 'Orders completed outside the portal carry an Offline mark. There is no separate page for them: press Offline only on any order list to see just those.',
-                'Contractor Stock (Service Orders → Contractor Stock) shows the material the contractors of your own RTOMs hold in hand. It is view only and limited to your areas.',
+                'Contractors & Stock (Service Orders → Contractors & Stock) shows, for the contractors of your own RTOMs, how each is registered (status, registration number, contact, agreement, approvals, teams) and the material it holds in hand. It is view only and limited to your areas; the Area Manager, Engineer, Assistant Engineer, Area Coordinator and QC Officer all have it.',
             ],
             anchors: [
                 { file: LIST_PAGE, text: 'Update from Portal' },

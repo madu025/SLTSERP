@@ -42,6 +42,8 @@ export const RBAC_PERMISSIONS = {
     HELPDESK_READ: 'helpdesk.read',
     HELPDESK_WRITE: 'helpdesk.write',
     HELPDESK_APPROVE: 'helpdesk.approve',
+    /** Raise a support ticket and see the person's own tickets (every staff role); the IT queue, assets and reports stay with helpdesk.write / read. */
+    HELPDESK_TICKET_CREATE: 'helpdesk.ticket.create',
     FLEET_READ: 'fleet.read',
     FLEET_WRITE: 'fleet.write',
     REPORTS_READ: 'reports.read',
@@ -111,6 +113,7 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.CONTRACTOR_WRITE, module: 'CONTRACTOR', action: 'WRITE', scope: 'OPMC', description: 'Submit contractor portal work, stock, and return actions within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.HELPDESK_READ, module: 'HELPDESK', action: 'READ', scope: 'OPMC', description: 'Read helpdesk tickets, assets, telemetry, and support data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.HELPDESK_WRITE, module: 'HELPDESK', action: 'WRITE', scope: 'OPMC', description: 'Create or update helpdesk tickets, assets, and support records within the assigned OPMC scope' },
+    { code: RBAC_PERMISSIONS.HELPDESK_TICKET_CREATE, module: 'HELPDESK', action: 'TICKET_CREATE', scope: 'OPMC', description: 'Raise a support ticket and see your own tickets' },
     { code: RBAC_PERMISSIONS.HELPDESK_APPROVE, module: 'HELPDESK', action: 'APPROVE', scope: 'OPMC', description: 'Approve helpdesk asset custody and disposal workflows within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.FLEET_READ, module: 'FLEET', action: 'READ', scope: 'OPMC', description: 'Read fleet, vehicle, trip, and utilization data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.FLEET_WRITE, module: 'FLEET', action: 'WRITE', scope: 'OPMC', description: 'Modify fleet, vehicle, and trip records within the assigned OPMC scope' },

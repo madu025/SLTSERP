@@ -8,7 +8,7 @@ import type { WorkFilters } from './MyWorkSection';
 
 interface Counts { waitingPat: number; noContractor: number; waitingCheck: number; waitingContractor: number; readyToInvoice: number; held: number; invoicedThisMonth: number; invoicesInApproval: number; returnedToCheck: number; oldestWaitingCheckDays: number | null }
 interface Area extends Counts { rtom: string; name: string; team: Array<{ id: string; name: string; role: string }>; progressPct: number | null }
-interface Person { id: string; name: string; role: string; rtoms: string[]; checkedThisMonth: number; invoicedThisMonth: number; waitingNow: number; returnedNow: number }
+interface Person { id: string; name: string; role: string; email: string | null; lastLoginAt: string | null; rtoms: string[]; checkedThisMonth: number; invoicedThisMonth: number; waitingNow: number; returnedNow: number }
 export interface PipelineData { month: string; monthNumber: number; year: number; rtom: string; areas: Area[]; people: Person[]; totals: Counts }
 
 export function useAreaPipeline(enabled: boolean, f: WorkFilters) {
@@ -98,12 +98,14 @@ export default function EngineerPipelineSection({ data, isLoading }: { data?: Pi
                 {data.people.length === 0 ? <p className="mt-2 text-sm text-slate-900">Nobody works in your RTOMs.</p> : (
                     <div className="mt-2 overflow-x-auto">
                         <table className="w-full text-sm">
-                            <thead><tr className="border-b border-slate-300"><th className={th}>Name</th><th className={th}>Role</th><th className={th}>RTOMs</th><th className={th}>Checked in {data.month}</th><th className={th}>Orders invoiced in {data.month}</th><th className={th}>Waiting now</th><th className={th}>Sent back</th></tr></thead>
+                            <thead><tr className="border-b border-slate-300"><th className={th}>Name</th><th className={th}>Role</th><th className={th}>Contact</th><th className={th}>Last signed in</th><th className={th}>RTOMs</th><th className={th}>Checked in {data.month}</th><th className={th}>Orders invoiced in {data.month}</th><th className={th}>Waiting now</th><th className={th}>Sent back</th></tr></thead>
                             <tbody>
                                 {data.people.map((p) => (
                                     <tr key={p.id} className="border-b border-slate-200 text-slate-900">
                                         <td className="py-2 pr-3 font-semibold">{p.name}</td>
                                         <td className="py-2 pr-3">{ROLE[p.role] ?? p.role}</td>
+                                        <td className="py-2 pr-3 text-xs">{p.email ?? '-'}</td>
+                                        <td className="py-2 pr-3 text-xs whitespace-nowrap">{p.lastLoginAt ? new Date(p.lastLoginAt).toLocaleDateString('en-GB') : 'never'}</td>
                                         <td className="py-2 pr-3 text-xs">{p.rtoms.join(', ')}</td>
                                         <td className="py-2 pr-3 font-semibold">{p.checkedThisMonth}</td>
                                         <td className="py-2 pr-3 font-semibold">{p.invoicedThisMonth}</td>

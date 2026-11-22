@@ -56,9 +56,10 @@ const th = 'py-2 pr-3 text-left text-xs font-bold uppercase tracking-wide text-s
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const selectCls = 'h-9 rounded-md border border-slate-400 bg-white px-2 text-sm font-semibold text-slate-900';
 
-function AreaProgress({ data, isLoading, filters, onFilters }: { data?: AreaOverviewData; isLoading: boolean; filters: WorkFilters; onFilters: (f: WorkFilters) => void }) {
+/** Month, year and RTOM of the figures: one bar for the whole work tab (an Engineer or Area Manager with several RTOMs picks one or all of them here). */
+export function WorkFilterBar({ areas, filters, onFilters }: { areas: Array<{ rtom: string; name: string }>; filters: WorkFilters; onFilters: (f: WorkFilters) => void }) {
     const thisYear = new Date().getFullYear();
-    const filterBar = (
+    return (
         <div className="flex flex-wrap items-center gap-2 px-1" role="group" aria-label="Show figures for">
             <span className="text-sm font-bold text-slate-900 dark:text-white">Show:</span>
             <select aria-label="Month" value={filters.month} onChange={(e) => onFilters({ ...filters, month: Number(e.target.value) })} className={selectCls}>
@@ -67,14 +68,18 @@ function AreaProgress({ data, isLoading, filters, onFilters }: { data?: AreaOver
             <select aria-label="Year" value={filters.year} onChange={(e) => onFilters({ ...filters, year: Number(e.target.value) })} className={selectCls}>
                 {[thisYear - 1, thisYear].map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
-            {(data?.areas.length ?? 0) > 1 && (
+            {areas.length > 1 && (
                 <select aria-label="RTOM" value={filters.rtom} onChange={(e) => onFilters({ ...filters, rtom: e.target.value })} className={selectCls}>
                     <option value="ALL">All my RTOMs</option>
-                    {data!.areas.map((a) => <option key={a.rtom} value={a.rtom}>{a.rtom}</option>)}
+                    {areas.map((a) => <option key={a.rtom} value={a.rtom}>{a.rtom}</option>)}
                 </select>
             )}
         </div>
     );
+}
+
+function AreaProgress({ data, isLoading, filters, onFilters, hideFilters }: { data?: AreaOverviewData; isLoading: boolean; filters: WorkFilters; onFilters: (f: WorkFilters) => void; hideFilters?: boolean }) {
+    const filterBar = hideFilters ? null : <WorkFilterBar areas={data?.areas ?? []} filters={filters} onFilters={onFilters} />;
     if (isLoading && !data) return <div className="space-y-4">{filterBar}<Skeleton className="h-64 rounded-2xl" /></div>;
     if (!data) return null;
     return (
@@ -144,7 +149,7 @@ function AreaProgress({ data, isLoading, filters, onFilters }: { data?: AreaOver
     );
 }
 
-export default function MyWorkSection({ summary, isLoading, area, areaLoading, filters, onFilters }: { summary?: MyWorkSummary; isLoading: boolean; area?: AreaOverviewData; areaLoading?: boolean; filters: WorkFilters; onFilters: (f: WorkFilters) => void }) {
+export default function MyWorkSection({ summary, isLoading, area, areaLoading, filters, onFilters, hideFilters }: { summary?: MyWorkSummary; isLoading: boolean; area?: AreaOverviewData; areaLoading?: boolean; filters: WorkFilters; onFilters: (f: WorkFilters) => void; hideFilters?: boolean }) {
     if (isLoading) return <div className="grid grid-cols-1 gap-4 md:grid-cols-3">{Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-32 rounded-2xl" />)}</div>;
     const stages = summary?.stages ?? [];
     const waiting = stages.reduce((a, s) => a + s.count, 0);
@@ -179,7 +184,7 @@ export default function MyWorkSection({ summary, isLoading, area, areaLoading, f
                     <div className="mt-3 text-sm font-bold text-indigo-800 dark:text-indigo-300">Open Pending SOD</div>
                 </Link>
             </div>
-            <AreaProgress data={area} isLoading={!!areaLoading} filters={filters} onFilters={onFilters} />
+            <AreaProgress data={area} isLoading={!!areaLoading} filters={filters} onFilters={onFilters} hideFilters={hideFilters} />
             {waiting === 0 && stages.length > 0 && <p className="px-1 text-sm text-slate-800 dark:text-slate-200">You have no orders to pass right now.</p>}
         </div>
     );

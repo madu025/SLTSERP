@@ -33,7 +33,7 @@ export const GET = apiHandler(async (req, params) => {
     assignedToId,
     search
   });
-});
+}, { permissions: [RBAC_PERMISSIONS.HELPDESK_READ, RBAC_PERMISSIONS.HELPDESK_WRITE, RBAC_PERMISSIONS.HELPDESK_TICKET_CREATE] });
 
 export const POST = apiHandler(
   async (req, _params, body) => {
@@ -45,6 +45,7 @@ export const POST = apiHandler(
   },
   {
     schema: CreateTicketSchema,
+    permissions: [RBAC_PERMISSIONS.HELPDESK_WRITE, RBAC_PERMISSIONS.HELPDESK_TICKET_CREATE],
     audit: {
       action: "CREATE",
       entity: "Ticket"

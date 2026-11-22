@@ -144,6 +144,11 @@ export const CANONICAL_BOOTSTRAP_ROLE_GRANTS = {
         'ASSISTANT_ENGINEER',
         'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT', 'SITE_OFFICE_STAFF',
     ],
+    // every role that works in the field or an area may raise a support ticket (the User Portal and New Support Ticket); the IT queue is for IT staff
+    [RBAC_PERMISSIONS.HELPDESK_TICKET_CREATE]: [
+        'SUPER_ADMIN', 'ADMIN', 'CEO', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER',
+        'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT', 'SITE_OFFICE_STAFF',
+    ],
     [RBAC_PERMISSIONS.HELPDESK_WRITE]: [
         'SUPER_ADMIN', 'ADMIN', 'CEO', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT', 'SITE_OFFICE_STAFF',
     ],

@@ -17,7 +17,7 @@ import { isContractorRole } from '@/config/roles';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import ExecutiveControlTower from './components/ExecutiveControlTower';
 import CompanyHealthSection from './components/CompanyHealthSection';
-import MyWorkSection, { useAreaOverview, useMyWorkSummary } from './components/MyWorkSection';
+import MyWorkSection, { WorkFilterBar, useAreaOverview, useMyWorkSummary } from './components/MyWorkSection';
 import EngineerPipelineSection, { useAreaPipeline } from './components/EngineerPipelineSection';
 import AreaManagerDeskSection, { useAreaManagerDesk } from './components/AreaManagerDeskSection';
 import OperationsScoreboard from './components/OperationsScoreboard';
@@ -399,9 +399,10 @@ export default function DashboardPage() {
                                 
                                 {hasMyWork && (
                                     <TabsContent value="work" className="space-y-6">
+                                        {(isManagerView || isEngineerView) && <WorkFilterBar areas={areaWork.data?.areas ?? []} filters={workFilters} onFilters={setWorkFilters} />}
                                         {isManagerView && <AreaManagerDeskSection data={desk.data} isLoading={desk.isLoading} />}
                                         {isEngineerView && <EngineerPipelineSection data={pipeline.data} isLoading={pipeline.isLoading} />}
-                                        <MyWorkSection summary={workSummary.data} isLoading={workSummary.isLoading} area={areaWork.data} areaLoading={areaWork.isLoading} filters={workFilters} onFilters={setWorkFilters} />
+                                        <MyWorkSection summary={workSummary.data} isLoading={workSummary.isLoading} area={areaWork.data} areaLoading={areaWork.isLoading} filters={workFilters} onFilters={setWorkFilters} hideFilters={isManagerView || isEngineerView} />
                                     </TabsContent>
                                 )}
 

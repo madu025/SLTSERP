@@ -175,7 +175,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
             },
             {
                 // Only the contractors of the person's own RTOMs, view only
-                title: 'Contractor Stock',
+                title: 'Contractors & Stock',
                 path: '/service-orders/contractor-stock',
                 icon: Package,
                 permissionId: RBAC_PERMISSIONS.SOD_READ
