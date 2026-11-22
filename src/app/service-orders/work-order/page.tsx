@@ -259,10 +259,12 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
             const matchedOpmc = urlRtom ? safeOpmcs.find(o => o.rtom === urlRtom) : null;
             const defaultOpmc = matchedOpmc || safeOpmcs[0];
             hasSetDefault.current = true;
+            // Someone registered on several RTOMs (an Engineer) starts on all of them; one RTOM is chosen from the list when needed.
+            const startOnAll = !matchedOpmc && safeOpmcs.length > 1;
             // Use setTimeout to avoid synchronous setState warning and cascading renders
             setTimeout(() => {
-                setSelectedRtomId(defaultOpmc.id);
-                setSelectedRtom(defaultOpmc.rtom);
+                setSelectedRtomId(startOnAll ? 'ALL' : defaultOpmc.id);
+                setSelectedRtom(startOnAll ? 'ALL' : defaultOpmc.rtom);
             }, 0);
         }
     }, [safeOpmcs, selectedRtomId, urlRtom]);
@@ -587,10 +589,10 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                  <div className="h-4 w-px bg-border/60 mx-0.5" />
 
                                  {/* Action Icons */}
-                                 <Button variant="outline" size="sm" className="h-7 px-2.5 shadow-sm border-border/40 hover:bg-muted" onClick={() => syncMutation.mutate()} disabled={!selectedRtomId || syncMutation.isPending} title="Update from Portal">
+                                 <Button variant="outline" size="sm" className="h-7 px-2.5 shadow-sm border-border/40 hover:bg-muted" onClick={() => syncMutation.mutate()} disabled={!selectedRtomId || selectedRtomId === 'ALL' || syncMutation.isPending} title="Update from Portal" aria-label={selectedRtomId === 'ALL' ? 'Update from Portal (choose one RTOM first)' : 'Update from Portal'}>
                                      <RefreshCw className={`w-3.5 h-3.5 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
                                  </Button>
-                                 {filterType === 'pending' && <Button size="sm" className="h-7 px-2.5 bg-primary hover:bg-primary-dark text-white font-semibold shadow-sm" onClick={() => setShowManualModal(true)} disabled={!selectedRtomId} title="Manual Entry"><Plus className="w-3.5 h-3.5" /></Button>}
+                                 {filterType === 'pending' && <Button size="sm" className="h-7 px-2.5 bg-primary hover:bg-primary-dark text-white font-semibold shadow-sm" onClick={() => setShowManualModal(true)} disabled={!selectedRtomId || selectedRtomId === 'ALL'} title="Manual Entry" aria-label={selectedRtomId === 'ALL' ? 'Manual Entry (choose one RTOM first)' : 'Manual Entry'}><Plus className="w-3.5 h-3.5" /></Button>}
                                  {filterType === 'pending' && <Button variant="outline" size="sm" className="h-7 px-2.5 border-emerald-500/20 text-emerald-500 bg-emerald-500/5 hover:bg-emerald-500/10 shadow-sm" onClick={() => setShowExcelModal(true)} title="Excel Import"><FileSpreadsheet className="w-3.5 h-3.5" /></Button>}
                              </div>
                         </div>

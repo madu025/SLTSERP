@@ -246,4 +246,12 @@ test('the engineer dashboard shows the month-end pipeline by RTOM and the team o
     assert.ok(page.includes('isEngineerView') && page.includes('EngineerPipelineSection') && page.includes('!landedOnWork && !hasMyWork'), 'the engineer lands on the work tab with the pipeline');
 });
 
+test('the engineer and assistant engineer cover the coordinator: they may pass the check, and a person on several RTOMs starts on all of them', () => {
+    const boot = read('src/config/rbac-bootstrap.ts');
+    assert.ok(/INVOICE_CONFIRM_QC\]: \[[^\]]*'ENGINEER', 'ASSISTANT_ENGINEER'\]/.test(boot), 'the check capability is granted to both engineer roles');
+    const page = read('src/app/service-orders/work-order/page.tsx');
+    assert.ok(page.includes('const startOnAll = !matchedOpmc && safeOpmcs.length > 1'), 'someone with several RTOMs starts on all of them');
+    assert.ok(page.includes("selectedRtomId === 'ALL'") && page.includes('choose one RTOM first'), 'portal update and manual entry need one RTOM');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });
