@@ -104,7 +104,7 @@ export default function InvoicingPage() {
                     <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2"><Receipt className="w-7 h-7 text-indigo-700" />Invoicing</h1>
-                            <p className="mt-1 text-sm text-slate-800">These orders passed the check on Completed SOD (connection, material and photos) by the Area Coordinator or the QC Officer of your area, and were then verified by the contractor. Choose the billing month, tick the orders and press <span className="font-bold">Create invoices</span>: one invoice is made for each contractor and area. Orders completed in an earlier month than the billing month are late SODs; they go on this month&apos;s invoice and are shown as late. Then the contractor reviews each invoice and the Area Manager approves it.</p>
+                            <p className="mt-1 text-sm text-slate-800">These orders passed the check on Completed SOD (connection, material and photos) by the Area Coordinator or the QC Officer of your area, and were then verified by the contractor. Choose the billing month, tick the orders and press <span className="font-bold">Create invoices</span>: one invoice is made for each contractor and area. Orders completed in an earlier month than the billing month are late SODs; they go on this month&apos;s invoice and are shown as late. Each invoice then goes through the approval steps of the invoice gate (the list at the bottom shows where each one waits).</p>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
@@ -150,7 +150,7 @@ export default function InvoicingPage() {
                                         <ul className="mt-1 list-disc pl-5">{result.blocked.slice(0, 30).map((b) => <li key={b.soNum}><span className="font-semibold">{b.soNum}</span>: {b.reasons.map((r) => REASON[r] ?? r).join('; ')}</li>)}</ul>
                                     </div>
                                 )}
-                                {result.created.some((c) => c.invoiceNumber) && <p className="text-xs text-slate-800">Each new invoice now waits for the contractor to accept it, then for the Area Manager to approve it.</p>}
+                                {result.created.some((c) => c.invoiceNumber) && <p className="text-xs text-slate-800">Each new invoice now goes through the invoice approval steps; the list below shows where it waits.</p>}
                                 {result.notEligible > 0 && <p className="text-xs text-slate-800">{result.notEligible} selected order(s) were not eligible (not passed, held back, in another area, or completed after the billing month).</p>}
                             </div>
                         )}
@@ -191,7 +191,7 @@ export default function InvoicingPage() {
 
                         <section className="rounded-xl border border-slate-300 bg-white p-4">
                             <h2 className="text-base font-bold text-slate-900">Invoices of your area</h2>
-                            <p className="text-xs text-slate-800">The latest invoices and where each one waits. You have no further step on them: the contractor accepts, then the Area Manager approves.</p>
+                            <p className="text-xs text-slate-800">The latest invoices and where each one waits. You have no further step on them; they go through the approval steps of the invoice gate.</p>
                             {recent.isLoading ? <p className="mt-2 text-sm text-slate-900">Loading...</p> : (recent.data ?? []).length === 0 ? <p className="mt-2 text-sm text-slate-900">No invoices yet.</p> : (
                                 <div className="mt-2 overflow-x-auto">
                                     <table className="w-full text-sm">

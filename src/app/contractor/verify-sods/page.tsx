@@ -48,8 +48,8 @@ export default function ContractorVerifyOrdersPage() {
     return (
         <div className="space-y-4 p-4">
             <div>
-                <h1 className="text-xl font-bold text-slate-900">Verify completed orders</h1>
-                <p className="mt-1 text-sm text-slate-800">These orders of your team were checked by the Area Coordinator or the QC Officer. Check the material and the customer. Tick the correct ones and press <span className="font-bold">Verify</span>; they then go to the Engineer for invoicing. If something is wrong, tick the order, write what is wrong and press <span className="font-bold">Report a problem</span>: it goes back to the check.</p>
+                <h1 className="text-xl font-bold text-white">Verify completed orders</h1>
+                <p className="mt-1 text-sm text-slate-200">These orders of your team were checked by the Area Coordinator or the QC Officer. Check the material and the customer. Tick the correct ones and press <span className="font-bold">Verify</span>; they then go to the Engineer for invoicing. If something is wrong, tick the order, write what is wrong and press <span className="font-bold">Report a problem</span>: it goes back to the check.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-300 bg-white p-3">
                 <span className="text-sm font-bold text-slate-900">{ids.length} selected</span>
@@ -59,7 +59,7 @@ export default function ContractorVerifyOrdersPage() {
                 <button type="button" disabled={ids.length === 0 || note.trim().length < 3 || act.isPending} onClick={() => act.mutate({ action: 'REPORT', sodIds: ids, note })} className="h-9 rounded-md border border-red-700 bg-white px-3 text-sm font-bold text-red-800 disabled:opacity-50">Report a problem</button>
             </div>
             {q.isLoading ? <div className="py-8 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-slate-700" /></div>
-                : q.isError ? <p className="text-sm text-red-800">{(q.error as Error).message}</p>
+                : q.isError ? <p className="text-sm text-red-300">{(q.error as Error).message}</p>
                     : orders.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-900">No orders are waiting for your verification.</p>
                         : (
                             <div className="overflow-x-auto rounded-xl border border-slate-300 bg-white p-3">
