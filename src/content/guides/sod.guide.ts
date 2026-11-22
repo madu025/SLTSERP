@@ -342,8 +342,9 @@ export const SOD_GUIDE: ModuleGuide = {
                 'Open Service Orders → Invoice Status. Choose the RTOM if you have several, and search by invoice number, contractor name or a service order number (the invoice that holds the order is shown).',
                 'Each row says in one line where the invoice is now, for example "Waiting for the Area Manager to approve it (step 3 of 8)", with eight dots: green done, amber now, empty later.',
                 'Click a row to see every step with its date: created, contractor confirms, Area Manager approves, OSP Quality (SF Audit) verifies, Finance sends it to the OSP managers, an OSP Manager approves, Finance prepares the payment, Head Office pays. A returned invoice shows the reason.',
-                'Use "Show" to list only the invoices that wait at one step, or only the unpaid or paid ones. The days column tells how long an unpaid invoice has been open.',
-                'The contractor sees the same steps in the contractor portal, Invoices & Claims, under "Where your invoice is".',
+                'Use "Show" to list only the invoices that wait at one step, or only the unpaid or paid ones. Type a contractor name in "Contractor" (all the contractors of your RTOMs are in the list) to see only its invoices; pick a billing month; use "Open for" (7, 14, 30, 60 days or more) to find the invoices that wait too long; sort by newest, oldest, longest waiting or largest amount. "Clear" resets every filter.',
+                'With no contractor chosen, the panel "Unpaid invoices by contractor" lists each contractor with the number and amount of its unpaid invoices and how long the oldest has waited; click a contractor to open its invoices.',
+                'The contractor sees the same steps in the contractor portal, Invoices & Claims, under "Where your invoice is", with the orders on the invoice, the Head Office reference and paid date once it is paid, and a filter for not yet paid / paid claims. The contractor also gets a notice when the area approves the invoice, when the OSP managers approve it and when Head Office pays it.',
             ],
             tips: [
                 'A paid invoice still has its retention held back; it is released after the warranty period.',

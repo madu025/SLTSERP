@@ -1,4 +1,5 @@
 import { AppError } from '@/lib/error';
+import { notifyContractorUsers } from '@/services/invoice/invoice-contractor-notify';
 import { prisma } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
 import { Prisma } from '@prisma/client';
@@ -464,7 +465,9 @@ export class PaymentVoucherService {
       await ApprovalLimitService.assertCanApprove(userId, Number(existing.netAmount), 'PAYMENT_VOUCHER', id);
     }
 
-    return prisma.$transaction(async (tx) => {
+    // the contractor invoices that this payment completed: their contractors are told once the payment is committed
+    const paidContractorInvoiceIds: string[] = [];
+    const result = await prisma.$transaction(async (tx) => {
       // Lock before posting the ledger or reading settlement balances, matching
       // the receipt path's invoice-first settlement lock ordering.
       if (status === 'PAID' && existing.invoiceId) {
@@ -548,6 +551,7 @@ export class PaymentVoucherService {
                 data: { status: 'PAID', statusA: 'PAID', statusB: 'PAID', paidDateA: new Date(), paidDateB: new Date() },
               }));
               if (err) console.error('Failed to sync monthly Contractor Invoice status from BOM PV:', err);
+              else paidContractorInvoiceIds.push(bomInvoiceId);
             }
           }
         }
@@ -585,6 +589,11 @@ export class PaymentVoucherService {
 
       return updatedVoucher;
     });
+    for (const invoiceId of paidContractorInvoiceIds) {
+      const inv = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { invoiceNumber: true, contractorId: true } });
+      if (inv) await notifyContractorUsers(inv.contractorId, { invoiceId, step: 'PAID', priority: 'HIGH', title: 'Invoice paid', message: `Invoice ${inv.invoiceNumber} is paid by Head Office. The retention is released after the warranty period.` });
+    }
+    return result;
   }
 
   /**

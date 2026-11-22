@@ -11,7 +11,12 @@ import { Loader2, ReceiptText } from 'lucide-react';
 interface Step { key: string; label: string; state: 'done' | 'current' | 'waiting' | 'cancelled'; at: string | null; note?: string | null }
 interface Track { flow: string; steps: Step[]; currentKey: string | null; stepNumber: number; totalSteps: number; finished: boolean; cancelled: boolean; headline: string; waitingFor: string | null; retentionHeld: boolean }
 interface Row { id: string; invoiceNumber: string; contractor: string; rtom: string; month: number | null; year: number | null; orders: number; total: number; retention: number; createdAt: string; daysOpen: number; track: Track; matchedOrder: string | null; hoReference: string | null }
-interface Result { areas: Array<{ rtom: string; name: string }>; rtom: string; rows: Row[]; summary: { total: number; paid: number; cancelled: number; open: number; byStep: Array<{ key: string; label: string; count: number }> } }
+interface Result {
+    areas: Array<{ rtom: string; name: string }>; rtom: string; rows: Row[]; summary: { total: number; paid: number; cancelled: number; open: number; byStep: Array<{ key: string; label: string; count: number }> };
+    contractors: Array<{ id: string; name: string; count: number }>;
+    byContractor: Array<{ id: string; name: string; open: number; openAmount: number; oldestDays: number }>;
+    truncated: boolean;
+}
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const money = (n: number) => `Rs. ${n.toLocaleString('en-LK', { maximumFractionDigits: 0 })}`;
@@ -35,12 +40,18 @@ export default function InvoiceStatusPage() {
     const [search, setSearch] = useState('');
     const [typed, setTyped] = useState('');
     const [state, setState] = useState('all');
+    const [contractorId, setContractorId] = useState('');
+    const [contractorText, setContractorText] = useState('');
+    const [month, setMonth] = useState('');
+    const [year, setYear] = useState(String(new Date().getFullYear()));
+    const [minDays, setMinDays] = useState('');
+    const [sort, setSort] = useState('newest');
     const [open, setOpen] = useState<string | null>(null);
 
     const q = useQuery<Result>({
-        queryKey: ['invoice-status', rtom, search, state],
+        queryKey: ['invoice-status', rtom, search, state, contractorId, month, year, minDays, sort],
         queryFn: async () => {
-            const res = await fetch(`/api/service-orders/invoice-status?rtom=${encodeURIComponent(rtom)}&search=${encodeURIComponent(search)}&state=${encodeURIComponent(state)}`, { cache: 'no-store' });
+            const res = await fetch(`/api/service-orders/invoice-status?rtom=${encodeURIComponent(rtom)}&search=${encodeURIComponent(search)}&state=${encodeURIComponent(state)}&contractorId=${contractorId}&month=${month}&year=${month ? year : ''}&minDays=${minDays}&sort=${sort}`, { cache: 'no-store' });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error?.message || 'Could not load the invoices');
             return (json.data ?? json) as Result;
@@ -81,7 +92,33 @@ export default function InvoiceStatusPage() {
                                     {(d?.summary.byStep ?? []).map((s) => <option key={s.key} value={s.key}>Waiting at: {s.label} ({s.count})</option>)}
                                 </select>
                             </label>
+                            <label className="text-xs font-semibold text-slate-900">Contractor ({d?.contractors.length ?? 0})
+                                <input list="invoice-status-contractors" value={contractorText} placeholder="Type to find a contractor" className={`${selectCls} mt-1 block w-64 placeholder:text-slate-600`}
+                                    onChange={(e) => {
+                                        const v = e.target.value; setContractorText(v);
+                                        const hit = d?.contractors.find((c) => c.name.toLowerCase() === v.trim().toLowerCase());
+                                        setContractorId(hit ? hit.id : '');
+                                    }} />
+                                <datalist id="invoice-status-contractors">{(d?.contractors ?? []).map((c) => <option key={c.id} value={c.name}>{c.count} invoices</option>)}</datalist>
+                            </label>
+                            <label className="text-xs font-semibold text-slate-900">Billing month
+                                <span className="mt-1 flex gap-1">
+                                    <select value={month} onChange={(e) => setMonth(e.target.value)} className={selectCls}><option value="">Any</option>{MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select>
+                                    {month && <select value={year} onChange={(e) => setYear(e.target.value)} className={selectCls}>{[new Date().getFullYear() - 1, new Date().getFullYear()].map((y) => <option key={y} value={y}>{y}</option>)}</select>}
+                                </span>
+                            </label>
+                            <label className="text-xs font-semibold text-slate-900">Open for
+                                <select value={minDays} onChange={(e) => setMinDays(e.target.value)} className={`${selectCls} mt-1 block`}>
+                                    <option value="">Any time</option><option value="7">7 days or more</option><option value="14">14 days or more</option><option value="30">30 days or more</option><option value="60">60 days or more</option>
+                                </select>
+                            </label>
+                            <label className="text-xs font-semibold text-slate-900">Sort
+                                <select value={sort} onChange={(e) => setSort(e.target.value)} className={`${selectCls} mt-1 block`}>
+                                    <option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="days">Longest waiting first</option><option value="amount">Largest amount first</option>
+                                </select>
+                            </label>
                             <button type="submit" className="h-9 rounded-md bg-indigo-800 px-4 text-sm font-bold text-white">Search</button>
+                            <button type="button" onClick={() => { setTyped(''); setSearch(''); setState('all'); setContractorId(''); setContractorText(''); setMonth(''); setMinDays(''); setSort('newest'); }} className="h-9 rounded-md border border-slate-400 bg-white px-3 text-sm font-semibold text-slate-900">Clear</button>
                         </form>
 
                         {d && (
@@ -92,6 +129,26 @@ export default function InvoiceStatusPage() {
                                 {d.summary.cancelled > 0 && <span className="rounded-full border border-red-500 bg-red-50 px-3 py-0.5 text-red-950">{d.summary.cancelled} cancelled</span>}
                             </div>
                         )}
+
+                        {d && !contractorId && d.byContractor.length > 0 && (
+                            <details className="rounded-xl border border-slate-300 bg-white p-3" open={d.contractors.length > 8}>
+                                <summary className="cursor-pointer text-sm font-bold text-slate-900">Unpaid invoices by contractor ({d.byContractor.length}{d.byContractor.length >= 60 ? '+' : ''}), longest waiting first</summary>
+                                <div className="mt-2 overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead><tr className="border-b border-slate-300"><th className={th}>Contractor</th><th className={th}>Unpaid invoices</th><th className={th}>Amount</th><th className={th}>Oldest waiting</th></tr></thead>
+                                        <tbody>
+                                            {d.byContractor.map((c) => (
+                                                <tr key={c.id} className="cursor-pointer border-b border-slate-200 text-slate-900 hover:bg-slate-50" onClick={() => { setContractorId(c.id); setContractorText(c.name); }}>
+                                                    <td className="py-1.5 pr-3 font-semibold">{c.name}</td><td className="py-1.5 pr-3">{c.open}</td><td className="py-1.5 pr-3 whitespace-nowrap">{money(c.openAmount)}</td>
+                                                    <td className={`py-1.5 pr-3 whitespace-nowrap ${c.oldestDays >= 30 ? 'font-bold text-red-800' : c.oldestDays >= 14 ? 'font-semibold text-amber-900' : ''}`}>{c.oldestDays} days</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </details>
+                        )}
+                        {d?.truncated && <p className="text-xs font-semibold text-amber-950">Only the first {d.rows.length} invoices are shown. Narrow the search with a contractor, a month or a step.</p>}
 
                         {q.isLoading ? <div className="py-8 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-slate-700" /></div>
                             : q.isError ? <p className="text-sm text-red-800">{(q.error as Error).message}</p>

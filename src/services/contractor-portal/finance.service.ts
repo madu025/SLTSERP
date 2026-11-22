@@ -44,7 +44,7 @@ export class ContractorFinanceService {
             where: { contractorId },
             include: {
                 sods: {
-                    select: { id: true, contractorAmount: true, revenueAmount: true }
+                    select: { id: true, soNum: true, contractorAmount: true, revenueAmount: true }, orderBy: { soNum: 'asc' }
                 },
                 sodRemovals: { select: { soNum: true, reason: true } }
             },
@@ -54,12 +54,12 @@ export class ContractorFinanceService {
         // where each invoice is on its way to payment (the payment vouchers of the invoices tell the last steps)
         const vouchers = invoices.length ? await prisma.paymentVoucher.findMany({
             where: { OR: invoices.map((i) => ({ description: { startsWith: `${SOD_INVOICE_REF}${i.id}` } })), status: { not: 'CANCELLED' } },
-            select: { description: true, status: true, createdAt: true, submittedToHoAt: true, hoPaidDate: true },
+            select: { description: true, status: true, createdAt: true, submittedToHoAt: true, hoPaidDate: true, hoReference: true },
         }) : [];
         const voucherOf = (id: string) => {
             const mine = vouchers.filter((v) => (v.description ?? '').startsWith(`${SOD_INVOICE_REF}${id}`));
             if (mine.length === 0) return { exists: false };
-            return { exists: true, createdAt: mine.map((v) => v.createdAt).sort()[0], submittedToHoAt: mine.map((v) => v.submittedToHoAt).filter(Boolean).sort()[0] ?? null, paid: mine.every((v) => v.status === 'PAID'), hoPaidDate: mine.map((v) => v.hoPaidDate).filter(Boolean).sort().slice(-1)[0] ?? null };
+            return { exists: true, createdAt: mine.map((v) => v.createdAt).sort()[0], submittedToHoAt: mine.map((v) => v.submittedToHoAt).filter(Boolean).sort()[0] ?? null, paid: mine.every((v) => v.status === 'PAID'), hoPaidDate: mine.map((v) => v.hoPaidDate).filter(Boolean).sort().slice(-1)[0] ?? null, hoReference: mine.find((v) => v.hoReference)?.hoReference ?? null };
         };
 
         let totalClaimedLkr = 0;
@@ -95,6 +95,10 @@ export class ContractorFinanceService {
                 status: inv.status || 'PENDING',
                 confirmStage: inv.confirmStage,
                 tracker: trackInvoice(inv, voucherOf(inv.id)),
+                // the orders on the invoice (the contractor checks them before confirming) and, once paid, when and under which Head Office reference
+                orders: inv.sods.map((s) => ({ soNum: s.soNum, amount: Number(s.contractorAmount ?? 0) })),
+                paidDate: (voucherOf(inv.id) as { hoPaidDate?: Date | null }).hoPaidDate ?? inv.paidDateA ?? null,
+                hoReference: (voucherOf(inv.id) as { hoReference?: string | null }).hoReference ?? null,
                 removedSods: inv.sodRemovals,
                 grossLkr: gross,
                 retentionLkr: retention,

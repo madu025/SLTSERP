@@ -1,3 +1,4 @@
+import { notifyContractorUsers } from '@/services/invoice/invoice-contractor-notify';
 import type { InvoiceStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
@@ -13,7 +14,7 @@ const SELECT = {
     id: true, invoiceNumber: true, totalAmount: true, amountA: true, amountB: true, month: true, year: true, rtomArea: true,
     approvalFlow: true, approvalStatus: true, statusA: true, status: true, contractorConfirmStatus: true, confirmStage: true,
     ospSentAt: true, ospSentById: true, ospDecisionAt: true, ospNote: true, createdAt: true,
-    contractor: { select: { name: true, opmcId: true } }, _count: { select: { sods: true } },
+    contractorId: true, contractor: { select: { name: true, opmcId: true } }, _count: { select: { sods: true } },
 } as const;
 
 /**
@@ -91,6 +92,7 @@ export class InvoiceOspApprovalService {
                 },
             });
             done.push({ invoiceNumber: inv.invoiceNumber });
+            if (action === 'APPROVE') await notifyContractorUsers(inv.contractorId, { invoiceId: inv.id, step: 'OSP_APPROVED', title: 'Invoice approved for payment', message: `Invoice ${inv.invoiceNumber} is approved by the OSP managers. Finance prepares the payment and sends it to Head Office.` });
         }
 
         if (done.length > 0) await this.notify(action, done.length, invoices.filter((i) => done.some((d) => d.invoiceNumber === i.invoiceNumber)), reason);

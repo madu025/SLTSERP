@@ -119,3 +119,10 @@ Gaps found:
 3. No way to ask by service order number which invoice holds an order and what state it is in.
 
 Built: a pure tracker (\`src/lib/invoice-tracker.ts\`, 8 steps: created, contractor confirms, Area Manager, OSP Quality (SF Audit), Finance sends to OSP managers, OSP Manager approves, Finance prepares the payment, Head Office pays; older invoices 4 steps), the page **Service Orders → Invoice Status** (level \`view\`, so every service order designation has it: search by invoice, contractor or SO number, filter by the step an invoice waits at, click for every step with dates, returned invoices show the reason), limited to the person's own RTOMs, and the same steps in the contractor portal ("Where your invoice is"). The payment steps come from the payment voucher of the invoice (\`BOM_INVOICING_REF:<invoice id>\`).
+
+### Invoice Status filters and the contractor side (22 Nov 2026)
+
+All-island there are hundreds of contractors, so the status page now filters by **contractor** (a type-ahead of every contractor of the person's RTOMs that has an invoice), **billing month**, the **step** an invoice waits at, **open for 7/14/30/60 days or more**, and sorts by newest, oldest, longest waiting or largest amount; with no contractor chosen a panel lists the unpaid invoices of each contractor (count, amount, oldest wait).
+
+Contractor-side gaps found and fixed: (1) the penalty notice was addressed to the contractor id, which is not a user, so it never arrived; notices now go to the active users of the contractor; (2) the contractor was told nothing after confirming: now it gets one notice when the area approves, when the OSP managers approve and when Head Office pays; (3) the claims list had no "where it is" column and no filter (all / not yet paid / paid, search); (4) the contractor could not see the orders on an invoice before confirming it, nor the paid date and Head Office reference.
+Not done: expected payment dates (no step has a target duration in the system) and e-mail notices (in-app only).

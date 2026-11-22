@@ -1,3 +1,4 @@
+import { notifyContractorUsers } from '@/services/invoice/invoice-contractor-notify';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { InvoiceQueryService } from './invoice.query.service';
@@ -62,14 +63,8 @@ export class InvoiceService {
                 link: '/invoices'
             });
         } else if (status === 'APPROVED' && invoice?.contractorId) {
-            await NotificationService.send({
-                userId: invoice.contractorId,
-                title: 'Penalty Applied',
-                message: `A penalty of LKR ${amount.toFixed(2)} has been applied to Invoice ${invNum}. Reason: ${reason || 'MANUAL'}.`,
-                type: 'FINANCE',
-                priority: 'HIGH',
-                link: '/invoices'
-            });
+            // a notification needs a user id: the people of the contractor, not the contractor id
+            await notifyContractorUsers(invoice.contractorId, { invoiceId, step: `PENALTY:${Math.round(amount * 100)}`, priority: 'HIGH', title: 'Penalty applied to your invoice', message: `A penalty of LKR ${amount.toFixed(2)} has been applied to Invoice ${invNum}. Reason: ${reason || 'MANUAL'}.` });
         }
 
         return penalty;
@@ -114,14 +109,7 @@ export class InvoiceService {
         });
 
         if (status === 'APPROVED' && invoice?.contractorId) {
-            await NotificationService.send({
-                userId: invoice.contractorId,
-                title: 'Penalty Applied',
-                message: `A proposed penalty of LKR ${updatedPenalty.amount.toFixed(2)} has been approved and applied to your Invoice ${invNum}.`,
-                type: 'FINANCE',
-                priority: 'HIGH',
-                link: '/invoices'
-            });
+            await notifyContractorUsers(invoice.contractorId, { invoiceId, step: `PENALTY:${Math.round(Number(updatedPenalty.amount) * 100)}`, priority: 'HIGH', title: 'Penalty applied to your invoice', message: `A proposed penalty of LKR ${updatedPenalty.amount.toFixed(2)} has been approved and applied to your Invoice ${invNum}.` });
         }
 
         return updatedPenalty;

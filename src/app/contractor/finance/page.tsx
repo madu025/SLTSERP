@@ -22,6 +22,9 @@ interface ContractorClaim {
     netLkr?: number;
     /** where the invoice is in the area approval: a role code while it waits, CONFIRMED when done */
     confirmStage?: string;
+    orders?: Array<{ soNum: string; amount: number }>;
+    paidDate?: string | null;
+    hoReference?: string | null;
     tracker?: { headline: string; stepNumber: number; totalSteps: number; finished: boolean; cancelled: boolean; retentionHeld: boolean; steps: Array<{ key: string; label: string; state: 'done' | 'current' | 'waiting' | 'cancelled'; at: string | null; note?: string | null }> };
     removedSods?: Array<{ soNum: string; reason: string }>;
 }
@@ -81,6 +84,8 @@ function StatusBadge({ status, confirm }: { status: string; confirm?: string }) 
 
 export default function ContractorFinancePage() {
     const [selectedClaim, setSelectedClaim] = useState<ContractorClaim | null>(null);
+    const [claimView, setClaimView] = useState<'all' | 'open' | 'paid'>('all');
+    const [claimSearch, setClaimSearch] = useState('');
     const [disputeNote, setDisputeNote] = useState('');
     const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
     const queryClient = useQueryClient();
@@ -239,7 +244,13 @@ export default function ContractorFinancePage() {
             <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-lg space-y-3 p-4">
                 <div className="flex justify-between items-center">
                     <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Monthly Invoice Claim History</h2>
-                    <span className="text-[10px] text-slate-500 font-mono">Tap any claim to view voucher</span>
+                    <span className="text-[10px] text-slate-400 font-mono">Tap any claim to see where it is</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                    {(['all', 'open', 'paid'] as const).map((v) => (
+                        <button key={v} type="button" onClick={() => setClaimView(v)} className={cn('rounded-full border px-3 py-1 text-[11px] font-bold', claimView === v ? 'border-emerald-400 bg-emerald-500/20 text-emerald-200' : 'border-slate-600 bg-slate-900 text-slate-200')}>{v === 'all' ? 'All claims' : v === 'open' ? 'Not yet paid' : 'Paid'}</button>
+                    ))}
+                    <input value={claimSearch} onChange={(e) => setClaimSearch(e.target.value)} placeholder="Invoice number or month" aria-label="Search claims" className="h-8 w-48 rounded-md border border-slate-600 bg-slate-950 px-2 text-[11px] text-white placeholder:text-slate-400" />
                 </div>
 
                 {isLoading ? (
@@ -267,11 +278,12 @@ export default function ContractorFinancePage() {
                                     <th className="p-3">Month</th>
                                     <th className="p-3 text-right">SODs</th>
                                     <th className="p-3 text-right">Claim Amount</th>
+                                    <th className="p-3">Where it is</th>
                                     <th className="p-3 text-center">Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800/60 bg-slate-950/40">
-                                {claims.map((claim: ContractorClaim) => (
+                                {claims.filter((c: ContractorClaim) => (claimView === 'all' || (claimView === 'paid') === !!c.tracker?.finished) && (!claimSearch.trim() || `${c.claimNumber} ${c.month}`.toLowerCase().includes(claimSearch.trim().toLowerCase()))).map((claim: ContractorClaim) => (
                                     <tr
                                         key={claim.id}
                                         onClick={() => { setSelectedClaim(claim); setDisputeNote(''); setMessage(null); }}
@@ -284,6 +296,7 @@ export default function ContractorFinancePage() {
                                         <td className="p-3 font-semibold text-slate-200">{claim.month}</td>
                                         <td className="p-3 text-right font-mono font-bold text-blue-400">{claim.sodCount}</td>
                                         <td className="p-3 text-right font-mono font-black text-white">Rs. {Number(claim.amountLkr).toLocaleString()}</td>
+                                        <td className="p-3 text-[11px] font-semibold text-slate-200">{claim.tracker?.headline ?? '-'}</td>
                                         <td className="p-3 text-center">
                                             <StatusBadge status={claim.status} confirm={claim.confirmStage} />
                                         </td>
@@ -362,6 +375,20 @@ export default function ContractorFinancePage() {
                                     <p className="text-xs font-bold text-white">{approvalLine(selectedClaim.status, selectedClaim.confirmStage, isCertified(selectedClaim)).title}</p>
                                     <p className="text-[11px] text-slate-300">{approvalLine(selectedClaim.status, selectedClaim.confirmStage, isCertified(selectedClaim)).detail}</p>
                                 </div>
+                            )}
+
+                            {selectedClaim.tracker?.finished && (selectedClaim.paidDate || selectedClaim.hoReference) && (
+                                <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/30 text-[11px] font-bold text-emerald-200">
+                                    Paid{selectedClaim.paidDate ? ` on ${new Date(selectedClaim.paidDate).toLocaleDateString('en-GB')}` : ''}{selectedClaim.hoReference ? ` · Head Office reference ${selectedClaim.hoReference}` : ''}
+                                </div>
+                            )}
+                            {(selectedClaim.orders?.length ?? 0) > 0 && (
+                                <details className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                                    <summary className="cursor-pointer text-[11px] font-bold text-slate-200">Orders on this invoice ({selectedClaim.orders!.length})</summary>
+                                    <ul className="mt-2 max-h-40 space-y-0.5 overflow-y-auto text-[11px] text-slate-200">
+                                        {selectedClaim.orders!.map((o) => <li key={o.soNum} className="flex justify-between"><span className="font-mono">{o.soNum}</span><span>Rs. {o.amount.toLocaleString()}</span></li>)}
+                                    </ul>
+                                </details>
                             )}
 
                             {selectedClaim.confirmStage === 'CONTRACTOR' && (

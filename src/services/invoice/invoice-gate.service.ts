@@ -5,6 +5,7 @@ import { invoiceAreaOf } from '@/lib/invoice-access';
 import { deriveEffectivePermissions } from '@/lib/effective-permissions';
 import { mayActOnLevel, roleLabel, type GateActor } from '@/lib/gate-eligibility';
 import { ProcessGateEngine } from '@/services/approval/process-gate-engine';
+import { notifyContractorUsers } from '@/services/invoice/invoice-contractor-notify';
 import { LedgerService } from '@/services/finance/ledger.service';
 import { SodApprovalService } from '@/services/service-order/sod-approval.service';
 import { InvoiceCalculatorService } from '@/services/invoice/invoice.calculator.service';
@@ -233,6 +234,7 @@ export class InvoiceGateService {
                     approved.push({ invoiceNumber: inv.invoiceNumber, stage: next?.requiredRole });
                 } else {
                     approved.push({ invoiceNumber: inv.invoiceNumber, stage: STAGE_DONE });
+                    await notifyContractorUsers(inv.contractorId, { invoiceId: inv.id, step: 'AREA_DONE', title: 'Invoice approved by the area', message: `Invoice ${inv.invoiceNumber} is approved by the area. OSP Quality (SF Audit) and Finance are next.` });
                 }
             } catch (e) {
                 failed.push({ invoiceNumber: inv.invoiceNumber, message: e instanceof Error ? e.message : 'Could not approve' });

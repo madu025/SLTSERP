@@ -312,4 +312,18 @@ test('Invoice Status: every service order person sees where the invoices of thei
     assert.ok(read('src/app/contractor/finance/page.tsx').includes('Where your invoice is'), 'the contractor sees the steps');
 });
 
+test('Invoice Status filters for hundreds of contractors, and the contractor is told at each milestone', () => {
+    const svc = read('src/services/invoice/invoice-status.service.ts');
+    for (const k of ['contractorId', 'month', 'minDays', "sort === 'amount'", 'byContractor', 'contractors', 'truncated']) assert.ok(svc.includes(k), 'the service handles ' + k);
+    assert.ok(svc.includes('isValidUuid(opts.contractorId)'), 'a bad contractor id is ignored, not a 500');
+    const page = read('src/app/service-orders/invoice-status/page.tsx');
+    for (const k of ['invoice-status-contractors', 'Billing month', 'Open for', 'Unpaid invoices by contractor', 'Clear']) assert.ok(page.includes(k), 'the page has ' + k);
+    const notify = read('src/services/invoice/invoice-contractor-notify.ts');
+    assert.ok(notify.includes('where: { contractorId, status') && notify.includes('dedupKey'), 'notices go to the users of the contractor, once per step');
+    assert.ok(read('src/services/invoice/invoice-gate.service.ts').includes("step: 'AREA_DONE'") && read('src/services/invoice/invoice-osp-approval.service.ts').includes("step: 'OSP_APPROVED'") && read('src/services/finance/payment-voucher.service.ts').includes("step: 'PAID'"), 'area approval, OSP approval and payment notify the contractor');
+    assert.ok(!read('src/services/invoice/invoice.service.ts').includes('userId: invoice.contractorId'), 'a notification is never addressed to a contractor id (it is not a user)');
+    const portal = read('src/services/contractor-portal/finance.service.ts');
+    assert.ok(portal.includes('orders: inv.sods.map') && portal.includes('hoReference'), 'the contractor sees the orders and the payment reference');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });
