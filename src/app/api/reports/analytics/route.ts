@@ -4,6 +4,7 @@ import { AppError } from '@/lib/error';
 import { z } from 'zod';
 import { swrMemo } from '@/lib/swr-memo';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { resolveReportScope } from '@/lib/report-scope';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,10 +46,13 @@ export const GET = apiHandler(async (request, params) => {
 
     // The report depends only on these inputs (the view capability was checked above), so they are the whole
     // cache key. Fresh for 1 minute, served stale for up to 5 while one background refresh runs.
-    const key = `reports-analytics:${view}:${period}:${groupBy}:${customFrom ?? ''}:${customTo ?? ''}`;
+    // The area view shows the person's own RTOMs only (the scope is part of the cache key: two managers never share an answer).
+    const scope = view === 'area' ? await resolveReportScope(params._userId) : undefined;
+    const key = `reports-analytics:${view}:${period}:${groupBy}:${customFrom ?? ''}:${customTo ?? ''}:${scope ? [...scope.opmcIds].sort().join(',') : 'all'}`;
     return swrMemo(key, 60_000, 5 * 60_000, () => ReportService.getAnalyticsReport(view, period, {
         customFrom,
         customTo,
-        groupBy
+        groupBy,
+        opmcIds: scope?.opmcIds
     }));
 }, { rawResponse: true, permissions: [RBAC_PERMISSIONS.REPORTS_READ] });

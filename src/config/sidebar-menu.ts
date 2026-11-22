@@ -883,6 +883,17 @@ export const SIDEBAR_MENU: MenuItem[] = [
         icon: FileText,
         submenu: [
             {
+                // every report the person may open, with a search and a builder for their own reports
+                title: 'Report Center',
+                path: '/reports',
+                icon: FileText,
+            },
+            {
+                title: 'Contractor Scorecard',
+                path: '/contractors/scorecard',
+                icon: TrendingUp,
+            },
+            {
                 title: 'Executive Overview',
                 path: '/reports/manager',
                 icon: LayoutDashboard,

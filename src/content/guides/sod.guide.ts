@@ -346,6 +346,7 @@ export const SOD_GUIDE: ModuleGuide = {
             ],
             tips: [
                 'Everything is limited to the RTOMs you manage.',
+                'Reports & Analytics holds the Report Center (every report you may open), Contractor Scorecard, Area Performance and the Daily Operational report; these two show your own RTOMs only, never the company.',
                 'The Registration Approvals queue now reads from a list the Area Manager may open (it used to be the administrator list, so the queue looked empty).',
             ],
             anchors: [

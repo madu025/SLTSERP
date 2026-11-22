@@ -13,6 +13,8 @@ export interface AnalyticsReportOptions {
   customFrom?: string | null;
   customTo?: string | null;
   groupBy?: string | null;
+  /** Limit the area view to these areas (an Area Manager's own RTOMs); omitted for the company view. */
+  opmcIds?: string[];
 }
 
 export interface DailyOperationalReportOptions {
@@ -252,6 +254,8 @@ export class ReportService {
     }
 
     const { customFrom, customTo, groupBy = 'RTOM' } = options;
+    // The areas an Area Manager's report is limited to (undefined = the whole company, for company managers)
+    const areaScope: Prisma.ServiceOrderWhereInput = options.opmcIds ? { opmcId: { in: options.opmcIds } } : {};
 
     if (groupBy && !VALID_GROUP_BY.includes(groupBy as typeof VALID_GROUP_BY[number])) {
       throw AppError.badRequest(`Invalid groupBy: ${groupBy}`);
@@ -428,24 +432,25 @@ export class ReportService {
         groupBy === 'COORDINATOR'
           ? prisma.serviceOrder.groupBy({
               by: ['teamId', 'sltsStatus'],
-              where: { createdAt: { gte: startDate, lte: endDate } },
+              where: { ...areaScope, createdAt: { gte: startDate, lte: endDate } },
               _count: { _all: true },
             })
           : groupBy === 'REGION' || groupBy === 'ARM'
             ? prisma.serviceOrder.groupBy({
                 by: ['opmcId', 'sltsStatus'],
-                where: { createdAt: { gte: startDate, lte: endDate } },
+                where: { ...areaScope, createdAt: { gte: startDate, lte: endDate } },
                 _count: { _all: true },
               })
             : prisma.serviceOrder.groupBy({
                 by: ['rtom', 'sltsStatus'],
-                where: { createdAt: { gte: startDate, lte: endDate } },
+                where: { ...areaScope, createdAt: { gte: startDate, lte: endDate } },
                 _count: { _all: true },
               }),
         // Trend: completed orders grouped by date
         prisma.serviceOrder.groupBy({
           by: ['completedDate'],
           where: {
+            ...areaScope,
             sltsStatus: { in: ['COMPLETED', 'INSTALL_CLOSED'] },
             completedDate: { gte: startDate, lte: endDate },
           },
@@ -455,15 +460,16 @@ export class ReportService {
         prisma.serviceOrder.groupBy({
           by: ['statusDate'],
           where: {
+            ...areaScope,
             sltsStatus: 'INPROGRESS',
             statusDate: { gte: startDate, lte: endDate },
           },
           _count: { _all: true },
         }),
-        prisma.serviceOrder.count({ where: { createdAt: { gte: startDate, lte: endDate } } }),
-        prisma.serviceOrder.count({ where: { createdAt: { gte: startDate, lte: endDate }, sltsStatus: { in: ['COMPLETED', 'INSTALL_CLOSED'] } } }),
-        prisma.serviceOrder.count({ where: { createdAt: { gte: startDate, lte: endDate }, sltsStatus: 'INPROGRESS' } }),
-        prisma.serviceOrder.count({ where: { createdAt: { gte: startDate, lte: endDate }, sltsStatus: 'RETURN' } }),
+        prisma.serviceOrder.count({ where: { ...areaScope, createdAt: { gte: startDate, lte: endDate } } }),
+        prisma.serviceOrder.count({ where: { ...areaScope, createdAt: { gte: startDate, lte: endDate }, sltsStatus: { in: ['COMPLETED', 'INSTALL_CLOSED'] } } }),
+        prisma.serviceOrder.count({ where: { ...areaScope, createdAt: { gte: startDate, lte: endDate }, sltsStatus: 'INPROGRESS' } }),
+        prisma.serviceOrder.count({ where: { ...areaScope, createdAt: { gte: startDate, lte: endDate }, sltsStatus: 'RETURN' } }),
       ]);
 
       // Resolve dimension names from grouped data
@@ -1221,6 +1227,8 @@ export class ReportService {
     date?: string | null;
     rtom?: string | null;
     category?: string | null;
+    /** The RTOMs an Area Manager may see (undefined = all) */
+    allowedRtoms?: string[];
   }) {
     const { date, rtom, category } = options;
     const selectedDate = date ? new Date(date) : new Date();
@@ -1234,6 +1242,15 @@ export class ReportService {
       const cleanRtom = rtom.replace(/^R-/i, '').trim();
       const rtomVariants = Array.from(new Set([rtom.trim(), cleanRtom, `R-${cleanRtom}`]));
       where.rtom = { in: rtomVariants, mode: 'insensitive' };
+    }
+    if (options.allowedRtoms) {
+      const allowed = new Set(options.allowedRtoms.map((n) => n.replace(/^R-/i, '').trim().toUpperCase()));
+      if (where.rtom && typeof where.rtom === 'object' && 'in' in where.rtom) {
+        const wanted = (where.rtom.in as string[]).filter((v) => allowed.has(v.replace(/^R-/i, '').trim().toUpperCase()));
+        where.rtom = { in: wanted.length ? wanted : ['__none__'], mode: 'insensitive' };
+      } else {
+        where.rtom = { in: options.allowedRtoms.flatMap((n) => { const c = n.replace(/^R-/i, '').trim(); return [n.trim(), c, `R-${c}`]; }), mode: 'insensitive' };
+      }
     }
 
     const categoryUpper = (category || 'ALL').toUpperCase();

@@ -292,4 +292,15 @@ test('the SOD engineers have no store or fleet menu, and store operations are sh
     assert.ok(inv.includes("title: 'Material Requisitions'") && !/Material Requisitions'[^}]*INVENTORY_WRITE/.test(inv), 'the requisitions the Area Manager approves stay visible to approvers');
 });
 
+test('the Area Manager reports show the own RTOMs only and the Reports menu leads to every report', () => {
+    const scope = read('src/lib/report-scope.ts');
+    assert.ok(scope.includes('resolveOpmcScope') && scope.includes('normalizeRtom'), 'the report scope comes from the person areas and treats R-HK and HK alike');
+    const analytics = read('src/app/api/reports/analytics/route.ts');
+    assert.ok(analytics.includes("view === 'area' ? await resolveReportScope") && analytics.includes('opmcIds: scope?.opmcIds') && analytics.includes('scope.opmcIds'), 'the area view is scoped and the scope is part of the cache key');
+    assert.ok(read('src/services/core/report.service.ts').split('...areaScope').length - 1 >= 7, 'every area-view query is limited to the scope');
+    assert.ok(read('src/app/api/reports/daily-operational/route.ts').includes('resolveReportScope') && read('src/app/api/reports/daily-operational/orders/route.ts').includes('allowedRtoms'), 'the daily operational report and its orders are cut to the own RTOMs');
+    const menu = read('src/config/sidebar-menu.ts');
+    assert.ok(menu.includes("title: 'Report Center'") && menu.includes("title: 'Contractor Scorecard'"), 'the Reports menu has the Report Center and the scorecard');
+});
+
 after(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref?.(); });
