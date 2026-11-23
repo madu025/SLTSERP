@@ -820,7 +820,57 @@ export default function RequestsPage() {
                                                     </div>
                                                 </div>
 
-                                                {/* Step 2: Management Approval */}
+                                                {/* Internal store request: approval by the Stores Manager / Executive, release by the main store, receipt by the requesting store */}
+                                                {(!!selectedRequest.toStoreId && !(selectedRequest.sourceType && ['LOCAL', 'PROCUREMENT', 'LOCAL_PURCHASE', 'EMERGENCY_LOCAL', 'SLT'].includes(selectedRequest.sourceType))) ? (() => {
+                                                    const stage = selectedRequest.workflowStage ?? '';
+                                                    const completed = selectedRequest.status === 'COMPLETED' || stage === 'COMPLETED';
+                                                    const rejected = selectedRequest.status === 'REJECTED';
+                                                    const awaitingApproval = !completed && !rejected && ['REQUEST', 'PENDING', 'ARM_APPROVAL', 'OSP_MANAGER_APPROVAL'].includes(stage);
+                                                    const awaitingRelease = !completed && !rejected && stage === 'MAIN_STORE_RELEASE';
+                                                    const partlyIssued = !completed && !rejected && stage === 'PARTIALLY_ISSUED';
+                                                    const awaitingReceipt = !completed && !rejected && ['SUB_STORE_RECEIVE', 'RECEIVE_PENDING', 'DISPATCHED'].includes(stage);
+                                                    const approvalDone = !rejected && !awaitingApproval;
+                                                    const releaseDone = completed || awaitingReceipt;
+                                                    const dot = (c: string, pulse = false) => <span className={`absolute -left-6 top-0.5 w-3 h-3 rounded-full ${c} border-2 border-white dark:border-slate-900 ${pulse ? 'animate-pulse' : ''}`}></span>;
+                                                    return (
+                                                        <>
+                                                            {rejected ? (
+                                                                <div className="relative">
+                                                                    {dot('bg-rose-500')}
+                                                                    <div className="font-bold text-rose-600 dark:text-rose-450">Request Rejected</div>
+                                                                    <div className="text-[10px] text-slate-400">{selectedRequest.remarks ? `“${selectedRequest.remarks}”` : 'Rejected by the approver'}</div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="relative">
+                                                                    {dot(approvalDone ? 'bg-emerald-500' : 'bg-amber-500', !approvalDone)}
+                                                                    <div className="font-bold text-slate-800 dark:text-slate-200">Stores approval</div>
+                                                                    <div className={`text-[10px] font-semibold ${approvalDone ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600'}`}>
+                                                                        {approvalDone ? 'Approved by the Stores Manager / Executive' : 'Waiting for the Stores Manager or Executive'}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            {!rejected && (
+                                                                <div className={`relative ${!approvalDone ? 'opacity-60' : ''}`}>
+                                                                    {dot(releaseDone ? 'bg-emerald-500' : (awaitingRelease || partlyIssued) ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-700', awaitingRelease || partlyIssued)}
+                                                                    <div className={`font-bold ${approvalDone ? 'text-slate-800 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'}`}>Main store release</div>
+                                                                    <div className={`text-[10px] ${releaseDone ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : awaitingRelease || partlyIssued ? 'text-blue-500 font-semibold' : 'text-slate-400'}`}>
+                                                                        {releaseDone ? 'Stock released from the main store' : awaitingRelease ? 'Waiting for the main store to release the stock' : partlyIssued ? 'Part released, the balance is still to be released' : 'Pending the approval'}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            {!rejected && (
+                                                                <div className={`relative ${!(releaseDone || partlyIssued) ? 'opacity-60' : ''}`}>
+                                                                    {dot(completed ? 'bg-emerald-500' : (awaitingReceipt || partlyIssued) ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-700', awaitingReceipt)}
+                                                                    <div className={`font-bold ${(releaseDone || partlyIssued) ? 'text-slate-800 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'}`}>Receipt at your store</div>
+                                                                    <div className={`text-[10px] ${completed ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : awaitingReceipt ? 'text-blue-500 font-semibold' : 'text-slate-400'}`}>
+                                                                        {completed ? 'Received and counted into the store' : awaitingReceipt ? 'Waiting for the requesting store to receive' : partlyIssued ? 'The released part can be received now' : 'Pending the release'}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    );
+                                                })() : (<>
+                                                {/* Step 2: Management Approval (external purchase requests) */}
                                                 {selectedRequest.status === 'REJECTED' ? (
                                                     <div className="relative">
                                                         <span className="absolute -left-6 top-0.5 w-3 h-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900"></span>
@@ -839,11 +889,9 @@ export default function RequestsPage() {
                                                     <div className="relative">
                                                         <span className="absolute -left-6 top-0.5 w-3 h-3 rounded-full bg-amber-500 border-2 border-white dark:border-slate-900 animate-pulse"></span>
                                                         <div className="font-bold text-slate-800 dark:text-slate-200">
-                                                            {selectedRequest.workflowStage === 'ARM_APPROVAL' ? 'Area Manager (ARM) Review' :
-                                                             selectedRequest.workflowStage === 'OSP_MANAGER_APPROVAL' ? 'OSP Manager Review' :
-                                                             'Management Review'}
+                                                            {selectedRequest.workflowStage === 'OSP_MANAGER_APPROVAL' ? 'OSP Manager Review' : 'Management Review'}
                                                         </div>
-                                                        <div className="text-[10px] text-amber-600 font-semibold">Awaiting OSP Manager Approval</div>
+                                                        <div className="text-[10px] text-amber-600 font-semibold">{selectedRequest.workflowStage === 'OSP_MANAGER_APPROVAL' ? 'Awaiting OSP Manager Approval' : 'Awaiting approval'}</div>
                                                     </div>
                                                 )}
 
@@ -890,6 +938,7 @@ export default function RequestsPage() {
                                                         <div className="text-[10px] text-slate-400">Pending previous steps</div>
                                                     </div>
                                                 )}
+                                                </>)}
                                             </div>
                                         </div>
                                     </>
