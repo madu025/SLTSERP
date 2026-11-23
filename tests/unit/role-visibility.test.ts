@@ -116,3 +116,9 @@ test('the Procurement Officer can stand in for the Stores Manager at the main st
     assert.ok(sql.includes("'ARM_APPROVAL'") && sql.includes("'MAIN_STORE_RELEASE'") && sql.includes('PROCUREMENT_OFFICER') && sql.includes('NOT ('), 'targets that one gate and is idempotent');
     assert.ok(fs.readFileSync('prisma/migrations/20261214000000_stores_executive_role/migration.sql', 'utf8').includes("ADD VALUE IF NOT EXISTS 'STORES_EXECUTIVE'"));
 });
+
+test('the low-stock trigger has the cooldown table it writes to (its absence rolled back every stock movement that reached the minimum level)', () => {
+    const all = fs.readdirSync('prisma/migrations').filter((d) => fs.existsSync(`prisma/migrations/${d}/migration.sql`));
+    const creators = all.filter((d) => /CREATE TABLE IF NOT EXISTS "InventoryAlertCooldown"/.test(fs.readFileSync(`prisma/migrations/${d}/migration.sql`, 'utf8')));
+    assert.ok(creators.length >= 2, 'the table is created again by a later migration, because the first one did not leave it in production');
+});

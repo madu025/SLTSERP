@@ -132,6 +132,13 @@ export class DomainActionDispatcher {
             itemsData = resolved.items as unknown as LegacyItem[];
         }
 
+        // the lines sent by a caller may carry only the line id and the quantity: the item of each line is read from the request itself
+        if (itemsData && Array.isArray(itemsData)) {
+            const lines = await tx.stockRequestItem.findMany({ where: { requestId: payload.entityId }, select: { id: true, itemId: true, requestedQty: true, approvedQty: true } });
+            const byId = new Map(lines.map((l) => [l.id, l]));
+            itemsData = itemsData.map((i) => ({ ...i, itemId: i.itemId ?? byId.get(i.id)?.itemId ?? '', requestedQty: i.requestedQty ?? Number(byId.get(i.id)?.requestedQty ?? 0) } as LegacyItem));
+        }
+
         if (itemsData && Array.isArray(itemsData)) {
             for (const item of itemsData) {
                 const finalApproved = (item.approvedQty && item.approvedQty > 0) ? item.approvedQty : (item.requestedQty || 0);

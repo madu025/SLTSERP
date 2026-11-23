@@ -136,6 +136,8 @@ test('data scope by domain: a scope capability opens one domain, nothing else, a
     }
     for (const r of ['FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER', 'AR_OFFICER', 'INVOICE_MANAGER', 'INVOICE_ASSISTANT', 'SF_AUDIT_MANAGER', 'SF_AUDIT_OFFICER']) assert.ok(g['scope.project.all'].includes(r) && g['invoice.status.read'].includes(r), `${r}: project money and Invoice Status`);
     for (const c of ['scope.procurement.all', 'scope.contractor.all', 'scope.inventory.all']) for (const r of ['FINANCE_MANAGER', 'FINANCE_ASSISTANT']) assert.ok(g[c].includes(r), `${r} ${c}`);
+    for (const r of ['STORES_MANAGER', 'PROCUREMENT_OFFICER']) assert.ok(g['scope.inventory.all'].includes(r), `${r} sees every store`);
+    assert.ok(!g['scope.inventory.all'].includes('STORES_EXECUTIVE') && !g['scope.inventory.all'].includes('STORES_ASSISTANT'), 'the Executive and the officers work in their assigned stores');
     for (const r of ['CEO', 'HEAD_OF_OSP', 'OSP_MANAGER']) for (const c of ['reports.read', 'reports.manager.read', 'reports.area.read']) assert.ok(g[c].includes(r), `${r} ${c}`);
     // the finance people read purchase orders and stock value but cannot change them
     for (const r of ['FINANCE_MANAGER', 'FINANCE_ASSISTANT']) { assert.ok(g['procurement.read'].includes(r) && g['inventory.read'].includes(r)); assert.ok(!g['procurement.write'].includes(r) && !g['inventory.write'].includes(r)); }
