@@ -415,7 +415,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 level: 'operate',
                 path: '/inventory/admin/wastage',
                 icon: ClipboardCheck,
-                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
+                permissionId: RBAC_PERMISSIONS.INVENTORY_ADJUST, // stock adjustments: the Stores Executive and the Stores Manager, not the store officers
             },
             // Contractor custody and store set-up pages that previously had no navigation entry
             {

@@ -96,6 +96,7 @@ export default function RequestsPage() {
     // enforces the operation and the selected-store checks below enforce scope.
     const isStoresOfficer = mounted && !!user?.permissions?.includes(RBAC_PERMISSIONS.INVENTORY_WRITE);
     const isAreaManager = mounted && !!user?.permissions?.includes(RBAC_PERMISSIONS.INVENTORY_APPROVE);
+    const canReview = mounted && !!user?.permissions?.includes(RBAC_PERMISSIONS.INVENTORY_REVIEW);
     const canProcurementWrite = mounted && !!user?.permissions?.includes(RBAC_PERMISSIONS.PROCUREMENT_WRITE);
     const isProcurementRole = mounted && (canProcurementWrite || isStoresOfficer);
 
@@ -168,7 +169,7 @@ export default function RequestsPage() {
     });
 
     const approvalMutation = useMutation({
-        mutationFn: async ({ action }: { action: 'APPROVE' | 'REJECT' | 'ARM_APPROVE' | 'STORES_MANAGER_APPROVE' | 'RELEASE' | 'RECEIVE' | 'RECALL_APPROVAL' | 'CREATE_PO' }) => {
+        mutationFn: async ({ action }: { action: 'APPROVE' | 'REJECT' | 'ARM_APPROVE' | 'STORES_MANAGER_APPROVE' | 'RELEASE' | 'RECEIVE' | 'RECALL_APPROVAL' | 'CREATE_PO' | 'ADJUST_QTY' }) => {
             if (!selectedRequest) return;
 
             const body = {
@@ -176,7 +177,7 @@ export default function RequestsPage() {
                 action,
                 remarks: approverRemarks,
                 userId: user?.id,
-                allocation: (action === 'APPROVE' || action === 'ARM_APPROVE' || action === 'STORES_MANAGER_APPROVE' || action === 'RELEASE' || action === 'RECEIVE') ? selectedRequest.items.map((i) => {
+                allocation: (action === 'APPROVE' || action === 'ARM_APPROVE' || action === 'STORES_MANAGER_APPROVE' || action === 'ADJUST_QTY' || action === 'RELEASE' || action === 'RECEIVE') ? selectedRequest.items.map((i) => {
                     let defaultQty = i.requestedQty;
                     if (action === 'RELEASE') {
                         defaultQty = Math.max(0, (i.approvedQty > 0 ? i.approvedQty : i.requestedQty) - (i.issuedQty || 0));
@@ -186,7 +187,7 @@ export default function RequestsPage() {
                     return {
                         id: i.id,
                         itemId: i.itemId,
-                        approvedQty: (action === 'APPROVE' || action === 'ARM_APPROVE' || action === 'STORES_MANAGER_APPROVE') ? (allocation[i.itemId] ?? i.requestedQty) : undefined,
+                        approvedQty: (action === 'APPROVE' || action === 'ARM_APPROVE' || action === 'STORES_MANAGER_APPROVE' || action === 'ADJUST_QTY') ? (allocation[i.itemId] ?? i.requestedQty) : undefined,
                         issuedQty: action === 'RELEASE' ? (allocation[i.itemId] ?? defaultQty) : undefined,
                         receivedQty: action === 'RECEIVE' ? (allocation[i.itemId] ?? defaultQty) : undefined
                     };
@@ -905,6 +906,17 @@ export default function RequestsPage() {
                             </Button>
                             {selectedRequest && selectedRequest.status !== 'COMPLETED' && selectedRequest.status !== 'REJECTED' && (
                                 <div className="flex gap-2">
+                                    {selectedRequest.status === 'PENDING' && canReview && selectedRequest.requestedById !== user?.id && (
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => (approvalMode ? approvalMutation.mutate({ action: 'ADJUST_QTY' }) : setApprovalMode(true))}
+                                            disabled={approvalMutation.isPending || (approvalMode && approverRemarks.trim().length < 3)}
+                                            title={approvalMode ? 'Write the reason in the comments, change the quantities, then save' : 'Change the quantities before the approval'}
+                                            className="h-9 px-4 text-xs font-bold rounded-xl border-blue-300 hover:bg-blue-50 text-blue-800 flex items-center gap-1.5"
+                                        >
+                                            {approvalMutation.isPending ? 'Saving...' : approvalMode ? 'Save adjusted quantities' : 'Adjust quantities'}
+                                        </Button>
+                                    )}
                                     {selectedRequest.status === 'APPROVED' && (!selectedRequest.purchaseOrders || selectedRequest.purchaseOrders.length === 0) && canProcurementWrite && (
                                         <Button
                                             variant="outline"

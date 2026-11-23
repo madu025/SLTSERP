@@ -187,6 +187,8 @@ export async function processStockRequestAction(data: any) {
     try {
         const result = await InventoryService.processStockRequestAction({
             ...data,
+            // the page sends the typed quantities as "allocation"; the service reads them as "items" (the API route maps it the same way)
+            items: data?.items ?? data?.allocation,
             userId: user.id
         });
         revalidatePath('/inventory/requests');

@@ -72,7 +72,9 @@ const INV_VIEW = ['Dashboard Overview', 'Inventory Health', 'Material Requisitio
 const INV_OPERATE = ['Item Master Data', 'Goods Receipt (GRN)', 'Goods Issue (MIN)', 'Inventory Adjustments (Wastage)', 'Contractor Material Issue', 'Contractor Returns', 'Initial Stock Setup', 'Virtual Material Swap', 'Material Returns (MRN)', 'Pre-ERP Legacy Recon'];
 
 test('Inventory: the store staff and administrators have the whole menu, the Area Manager and other approvers the balances and requisitions', () => {
-    for (const d of ['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN']) assert.deepEqual(inventoryItems(d).sort(), [...INV_VIEW, ...INV_OPERATE].sort(), d);
+    for (const d of ['STORES_MANAGER', 'STORES_EXECUTIVE', 'ADMIN']) assert.deepEqual(inventoryItems(d).sort(), [...INV_VIEW, ...INV_OPERATE].sort(), d);
+    // the store officers do the daily work but make no stock adjustments
+    assert.deepEqual(inventoryItems('STORES_ASSISTANT').sort(), [...INV_VIEW, ...INV_OPERATE].filter((t) => t !== 'Inventory Adjustments (Wastage)').sort(), 'the store officers');
     for (const d of ['AREA_MANAGER', 'OSP_MANAGER', 'HEAD_OF_OSP']) assert.deepEqual(inventoryItems(d).sort(), [...INV_VIEW].sort(), d);
 });
 

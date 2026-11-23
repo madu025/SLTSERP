@@ -33,6 +33,7 @@ const ROLE_LABELS: Record<string, string> = {
     AREA_MANAGER: 'Area Manager',
     ENGINEER: 'Engineer',
     STORES_MANAGER: 'Stores Manager',
+    STORES_EXECUTIVE: 'Stores Executive',
     STORES_ASSISTANT: 'Stores Assistant',
     PROCUREMENT_OFFICER: 'Procurement Officer',
     QC_OFFICER: 'QC Officer',

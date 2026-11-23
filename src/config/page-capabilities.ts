@@ -25,6 +25,7 @@ const PAGE_RULES: ReadonlyArray<{ prefix: string; permission: RbacPermission }> 
     { prefix: '/invoices/osp-approvals', permission: RBAC_PERMISSIONS.INVOICE_OSP_APPROVE },
     { prefix: '/invoices', permission: RBAC_PERMISSIONS.SOD_INVOICE },
     { prefix: '/projects', permission: RBAC_PERMISSIONS.PROJECT_READ },
+    { prefix: '/inventory/admin/wastage', permission: RBAC_PERMISSIONS.INVENTORY_ADJUST },
     { prefix: '/inventory/admin/initial', permission: RBAC_PERMISSIONS.INVENTORY_APPROVE },
     { prefix: '/inventory/admin/virtual-swap', permission: RBAC_PERMISSIONS.INVENTORY_APPROVE },
     { prefix: '/inventory/admin/pre-erp-reconciliation', permission: RBAC_PERMISSIONS.INVENTORY_APPROVE },

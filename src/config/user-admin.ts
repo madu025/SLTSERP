@@ -44,7 +44,7 @@ export function roleNeedsOpmc(role: string | null | undefined): boolean {
 
 /** Store staff work through the store they are assigned to; they need a store or a region. */
 export function roleNeedsStoreOrOpmc(role: string | null | undefined): boolean {
-    return role === 'STORES_MANAGER' || role === 'STORES_ASSISTANT';
+    return role === 'STORES_MANAGER' || role === 'STORES_EXECUTIVE' || role === 'STORES_ASSISTANT';
 }
 
 /** Department tabs of the user list, built from the same role groups the role picker uses. */

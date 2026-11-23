@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { SIDEBAR_MENU, canAccessMenuItem } from '../../src/config/sidebar-menu';
 import { CANONICAL_BOOTSTRAP_ROLE_GRANTS, MODULE_DESIGNATION_GRANTS } from '../../src/config/rbac-bootstrap';
 import { SECTION_MAPPING } from '../../src/config/auth-defaults';
@@ -66,4 +67,52 @@ test('the project finance dashboard is for the finance roles and the OSP manager
 test('Invoice Status keeps everyone who had it (service order people) and adds the finance people', () => {
     for (const r of ['AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER']) assert.ok(visible(r).has('/service-orders/invoice-status'), r);
     for (const r of ['STORES_MANAGER', 'PROCUREMENT_OFFICER']) assert.ok(!visible(r).has('/service-orders/invoice-status'), `${r} has no business there`);
+});
+
+test('Stores: the Executive and the Manager adjust stock, the officers do not; the Executive reviews requests but cannot approve or reject', async () => {
+    const g = CANONICAL_BOOTSTRAP_ROLE_GRANTS as unknown as Record<string, string[]>;
+    const { getStockRequestActionPermission } = await import('../../src/lib/inventory-stock-request-permissions');
+    for (const r of ['STORES_EXECUTIVE', 'STORES_MANAGER', 'CEO']) assert.ok(g['inventory.adjust'].includes(r), `${r} adjusts stock`);
+    assert.ok(!g['inventory.adjust'].includes('STORES_ASSISTANT'), 'the store officers do not adjust stock');
+    // the officers raise and do the daily work
+    for (const c of ['inventory.read', 'inventory.write']) assert.ok(g[c].includes('STORES_ASSISTANT') && g[c].includes('STORES_EXECUTIVE'), c);
+    // review (change quantities before the approval): the Executive and every approver; approve / reject: not the Executive
+    for (const r of ['STORES_EXECUTIVE', 'STORES_MANAGER', 'OSP_MANAGER', 'CEO', 'PROCUREMENT_OFFICER']) assert.ok(g['inventory.review'].includes(r), `${r} reviews`);
+    assert.ok(!g['inventory.review'].includes('STORES_ASSISTANT'));
+    assert.ok(!g['inventory.approve'].includes('STORES_EXECUTIVE'), 'the Executive cannot approve or reject requests');
+    assert.equal(getStockRequestActionPermission('ADJUST_QTY'), 'inventory.review');
+    assert.equal(getStockRequestActionPermission('REJECT'), 'inventory.approve');
+    // the Procurement Officer stands in when there is no Stores Manager
+    assert.ok(g['inventory.approve'].includes('PROCUREMENT_OFFICER') && g['inventory.review'].includes('PROCUREMENT_OFFICER'));
+    // pages
+    assert.ok(visible('STORES_EXECUTIVE').has('/inventory/admin/wastage') && visible('STORES_MANAGER').has('/inventory/admin/wastage'));
+    assert.ok(!visible('STORES_ASSISTANT').has('/inventory/admin/wastage'), 'no adjustments page for the officers');
+    for (const p of ['/inventory', '/inventory/requests', '/inventory/grn', '/inventory/issues', '/inventory/admin/returns']) assert.ok(visible('STORES_EXECUTIVE').has(p) && visible('STORES_ASSISTANT').has(p), p);
+});
+
+test('the quantities typed on the request page reach the service, and a wastage entry needs the adjust capability', () => {
+    const fsx = require('node:fs') as typeof import('node:fs');
+    assert.ok(fsx.readFileSync('src/actions/inventory-actions.ts', 'utf8').includes('items: data?.items ?? data?.allocation'), 'allocation is mapped to items (it was silently dropped)');
+    assert.ok(fsx.readFileSync('src/app/api/inventory/wastage/route.ts', 'utf8').includes('INVENTORY_ADJUST'));
+    const svc = fsx.readFileSync('src/services/inventory/stock-request.service.ts', 'utf8');
+    assert.ok(svc.includes("case 'ADJUST_QTY'") && svc.includes("'RELEASE', 'ADJUST_QTY'"), 'the adjust action exists and the requester cannot adjust their own request');
+});
+
+test('a quantity adjustment needs a reason, known lines, and non-negative numbers', async () => {
+    const { validateQtyAdjustment } = await import('../../src/lib/stock-request-adjust');
+    const lines = [{ id: 'a', requestedQty: 10 }, { id: 'b', requestedQty: 5 }];
+    assert.equal(validateQtyAdjustment([{ id: 'a', approvedQty: 6 }], lines, 'only 6 are needed').ok, true);
+    assert.equal(validateQtyAdjustment([{ id: 'a', approvedQty: 6 }], lines, '').ok, false, 'a reason is required');
+    assert.equal(validateQtyAdjustment([{ id: 'zzz', approvedQty: 1 }], lines, 'reason').ok, false, 'a line of another request');
+    assert.equal(validateQtyAdjustment([{ id: 'a', approvedQty: -1 }], lines, 'reason').ok, false);
+    assert.equal(validateQtyAdjustment([{ id: 'a', approvedQty: Number.NaN }], lines, 'reason').ok, false);
+    assert.equal(validateQtyAdjustment([{ id: 'a', approvedQty: 1 }, { id: 'a', approvedQty: 2 }], lines, 'reason').ok, false, 'a line twice');
+    assert.equal(validateQtyAdjustment([], lines, 'reason').ok, false);
+    assert.equal(validateQtyAdjustment([{ id: 'a', approvedQty: 0 }], lines, 'not needed').ok, true, 'zero is allowed: the line is not needed');
+});
+
+test('the Procurement Officer can stand in for the Stores Manager at the main store approval gate', () => {
+    const sql = fs.readFileSync('prisma/migrations/20261214000001_stores_manager_gate_fallback/migration.sql', 'utf8');
+    assert.ok(sql.includes("'ARM_APPROVAL'") && sql.includes("'MAIN_STORE_RELEASE'") && sql.includes('PROCUREMENT_OFFICER') && sql.includes('NOT ('), 'targets that one gate and is idempotent');
+    assert.ok(fs.readFileSync('prisma/migrations/20261214000000_stores_executive_role/migration.sql', 'utf8').includes("ADD VALUE IF NOT EXISTS 'STORES_EXECUTIVE'"));
 });

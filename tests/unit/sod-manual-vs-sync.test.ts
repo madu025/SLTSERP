@@ -288,7 +288,8 @@ test('the SOD engineers have no store or fleet menu, and store operations are sh
     }
     const menu = read('src/config/sidebar-menu.ts');
     const inv = menu.slice(menu.indexOf("title: 'Inventory / Stores'"), menu.indexOf("title: 'Approvals'"));
-    assert.equal((inv.match(/permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE/g) ?? []).length, 10, 'the ten store-operation items need the inventory write capability');
+    assert.equal((inv.match(/permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE/g) ?? []).length, 9, 'the nine store-operation items need the inventory write capability');
+    assert.equal((inv.match(/permissionId: RBAC_PERMISSIONS.INVENTORY_ADJUST/g) ?? []).length, 1, 'the stock adjustment page needs the adjust capability (Executive and Manager, not the officers)');
     assert.ok(inv.includes("title: 'Material Requisitions'") && !/Material Requisitions'[^}]*INVENTORY_WRITE/.test(inv), 'the requisitions the Area Manager approves stay visible to approvers');
 });
 

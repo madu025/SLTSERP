@@ -58,6 +58,10 @@ export const RBAC_PERMISSIONS = {
     SCOPE_COMPANY_ALL: 'scope.company.all',
     /** Track the contractor invoices of service orders step by step (Service Orders > Invoice Status). A finance person needs this without being allowed to open the orders (sod.read). */
     INVOICE_STATUS_READ: 'invoice.status.read',
+    /** Review a material request before its approval: change the approved quantities (the Stores Executive; every approver can too). Never approves or rejects. */
+    INVENTORY_REVIEW: 'inventory.review',
+    /** Stock adjustments: record contractor wastage / write-offs. The Stores Executive and the Stores Manager (and above); not the store officers. */
+    INVENTORY_ADJUST: 'inventory.adjust',
     FLEET_READ: 'fleet.read',
     FLEET_WRITE: 'fleet.write',
     REPORTS_READ: 'reports.read',
@@ -139,6 +143,8 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.PROJECT_FINANCE_DASHBOARD, module: 'PROJECT', action: 'FINANCE_DASHBOARD', scope: 'OPMC', description: 'Open the project finance dashboard (budgets, invoices, vouchers of the projects in scope)' },
     { code: RBAC_PERMISSIONS.INVOICE_STATUS_READ, module: 'SOD', action: 'INVOICE_STATUS_READ', scope: 'OPMC', description: 'Track the contractor invoices of service orders (read only; the orders themselves need sod.read)' },
     { code: RBAC_PERMISSIONS.SCOPE_COMPANY_ALL, module: 'SCOPE', action: 'COMPANY_ALL', scope: 'GLOBAL', description: 'See every OPMC in every module, including procurement, contractors and the dashboard (data scope only)' },
+    { code: RBAC_PERMISSIONS.INVENTORY_REVIEW, module: 'INVENTORY', action: 'REVIEW', scope: 'OPMC', description: 'Review a material request and adjust its approved quantities before the approval' },
+    { code: RBAC_PERMISSIONS.INVENTORY_ADJUST, module: 'INVENTORY', action: 'ADJUST', scope: 'OPMC', description: 'Record stock adjustments (contractor wastage / write-offs)' },
     { code: RBAC_PERMISSIONS.FLEET_READ, module: 'FLEET', action: 'READ', scope: 'OPMC', description: 'Read fleet, vehicle, trip, and utilization data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.FLEET_WRITE, module: 'FLEET', action: 'WRITE', scope: 'OPMC', description: 'Modify fleet, vehicle, and trip records within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.REPORTS_READ, module: 'REPORTS', action: 'READ', scope: 'OPMC', description: 'Read operational reports within the assigned OPMC scope' },

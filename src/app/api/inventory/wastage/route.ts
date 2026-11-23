@@ -28,7 +28,7 @@ export const POST = apiHandler(async (_request, params, body) => {
 
     return result;
 }, {
-    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+    permissions: [RBAC_PERMISSIONS.INVENTORY_ADJUST],
     audit: { action: 'CREATE', entity: 'WASTAGE' },
     rawResponse: true
 });

@@ -12,7 +12,7 @@ export const ROLE_CATEGORIES: Record<string, string[]> = {
     'Main Management': ['CEO', 'HEAD_OF_OSP', 'HEAD_OF_SECTION', 'OSP_MANAGER', 'MANAGER'],
     'OSP & Operations': ['AREA_MANAGER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'],
     'OSP Project': ['ENGINEER', 'OSP_ENGINEER', 'CIVIL_SUPERVISOR', 'CABLE_SPLICER'],
-    'Stores & Inventory': ['STORES_MANAGER', 'STORES_ASSISTANT'],
+    'Stores & Inventory': ['STORES_MANAGER', 'STORES_EXECUTIVE', 'STORES_ASSISTANT'],
     Finance: ['FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER', 'AR_OFFICER'],
     'Invoice Section': ['INVOICE_MANAGER', 'INVOICE_ASSISTANT'],
     'Service Assurance': ['SA_MANAGER', 'SA_ASSISTANT', 'FAULT_COORDINATOR', 'REPAIR_TECHNICIAN'],
@@ -36,7 +36,7 @@ export function isContractorRole(role: string | null | undefined): boolean {
 }
 
 /** Stores navigation segment used only after canonical permission checks. */
-export const STORES_ROLES = ['STORES_MANAGER', 'STORES_ASSISTANT'] as const;
+export const STORES_ROLES = ['STORES_MANAGER', 'STORES_EXECUTIVE', 'STORES_ASSISTANT'] as const;
 
 export function isStoresRole(role: string | null | undefined): boolean {
     return !!role && (STORES_ROLES as readonly string[]).includes(role);

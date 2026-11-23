@@ -119,7 +119,7 @@ export default function DashboardPage() {
             return;
         }
 
-        const isStoresRole = ['STORES_MANAGER', 'STORES_ASSISTANT'].includes(user.role);
+        const isStoresRole = ['STORES_MANAGER', 'STORES_EXECUTIVE', 'STORES_ASSISTANT'].includes(user.role);
         if (isStoresRole) {
             router.push("/inventory");
             return;

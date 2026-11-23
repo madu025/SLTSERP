@@ -1,3 +1,4 @@
+import { validateQtyAdjustment } from '@/lib/stock-request-adjust';
 import { AppError } from '@/lib/error';
 import { safe } from '@/utils/safe-await.util';
 import { StockRequest, Prisma, StockRequestItem } from '@prisma/client';
@@ -306,7 +307,7 @@ export class StockRequestService {
         }
 
         // Segregation of Duties (SoD) enforcement: Request creator cannot approve/release/process their own request
-        if (['ARM_APPROVE', 'STORES_MANAGER_APPROVE', 'APPROVE', 'GATE_PASSED', 'REJECT', 'RECALL_APPROVAL', 'RELEASE'].includes(action)) {
+        if (['ARM_APPROVE', 'STORES_MANAGER_APPROVE', 'APPROVE', 'GATE_PASSED', 'REJECT', 'RECALL_APPROVAL', 'RELEASE', 'ADJUST_QTY'].includes(action)) {
             if (stockRequest.requestedById === userId) {
                 throw AppError.badRequest("SEGREGATION_OF_DUTIES_VIOLATION: Request creator cannot approve or release this stock request.");
             }
@@ -322,6 +323,8 @@ export class StockRequestService {
                 return StockRequestService.handleReturn(data);
             case 'RECALL_APPROVAL':
                 return StockRequestService.handleRecallApproval(data);
+            case 'ADJUST_QTY':
+                return StockRequestService.handleAdjustQty(data);
             case 'REJECT':
                 return StockRequestService.handleReject(data);
             case 'CREATE_PO':
@@ -530,6 +533,37 @@ export class StockRequestService {
 
         this.safeNotifyFinalAction(updated, 'REJECTED');
         return updated;
+    }
+
+    /**
+     * Review of a pending request: the quantities that will be approved are changed (down or up, never negative) with a written reason, before the approval.
+     * The request stays where it is; the approver then sees the adjusted quantities. Every change is in the audit log with the old and new value.
+     */
+    private static async handleAdjustQty(data: StockRequestActionData) {
+        const { requestId, userId, remarks, items } = data;
+        return await prisma.$transaction(async (tx) => {
+            const stockReq = await tx.stockRequest.findUnique({ where: { id: requestId }, include: { items: true } });
+            if (!stockReq) throw AppError.badRequest('REQUEST_NOT_FOUND');
+            if (stockReq.status !== 'PENDING') throw AppError.badRequest(`INVALID_STATE: Quantities can only be adjusted while the request is pending (it is ${stockReq.status}).`);
+            const checked = validateQtyAdjustment(items, stockReq.items, remarks);
+            if (!checked.ok) throw AppError.badRequest(checked.message);
+            const before = new Map(stockReq.items.map((i) => [i.id, Number(i.approvedQty) > 0 ? Number(i.approvedQty) : Number(i.requestedQty)]));
+            const changed = checked.changes.filter((c) => c.approvedQty !== before.get(c.id));
+            if (changed.length === 0) throw AppError.badRequest('Nothing changed: the quantities are the same as before.');
+            for (const c of changed) await tx.stockRequestItem.update({ where: { id: c.id }, data: { approvedQty: c.approvedQty } });
+            await tx.auditLog.create({
+                data: {
+                    action: 'ADJUST_QTY', entity: 'STOCK_REQUEST', entityId: requestId, userId,
+                    oldValue: { items: changed.map((c) => ({ id: c.id, qty: before.get(c.id) })) },
+                    newValue: { reason: remarks!.trim(), items: changed.map((c) => ({ id: c.id, qty: c.approvedQty })) },
+                    ipAddress: 'SYSTEM', userAgent: 'SYSTEM',
+                },
+            });
+            if (stockReq.requestedById) {
+                await tx.notification.create({ data: { userId: stockReq.requestedById, title: 'Request quantities adjusted', message: `The quantities of request ${stockReq.requestNr} were adjusted before the approval: ${remarks!.trim()}`, type: 'INFO', metadata: { requestId } } });
+            }
+            return tx.stockRequest.findUniqueOrThrow({ where: { id: requestId }, include: { items: true } });
+        });
     }
 
     private static async handleRecallApproval(data: StockRequestActionData) {

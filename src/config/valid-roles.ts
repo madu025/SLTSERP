@@ -24,6 +24,7 @@ export const VALID_ROLES: ReadonlyArray<string> = [
     'INVOICE_MANAGER',
     'INVOICE_ASSISTANT',
     'STORES_MANAGER',
+    'STORES_EXECUTIVE',
     'STORES_ASSISTANT',
     'SA_MANAGER',
     'SA_ASSISTANT',
