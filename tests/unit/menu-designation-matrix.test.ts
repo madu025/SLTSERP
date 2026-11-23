@@ -15,14 +15,17 @@ const grantsOf = (code: string): string[] => Object.entries({ ...CANONICAL_BOOTS
 
 const sectionItems = (title: string, designations: string[], base = designations[0]): string[] => {
     const perms = [...new Set(designations.flatMap(grantsOf))];
-    const sod = SIDEBAR_MENU.find((m) => m.title === title)!;
-    const ok = (m: typeof sod, parent?: typeof sod) => canAccessMenuItem({
+    const top = SIDEBAR_MENU.find((m) => m.title === title)!;
+    type Item = typeof top;
+    const ok = (m: Item, parent?: Item, module?: Item['module']) => canAccessMenuItem({
         itemTitle: m.title, permissionId: m.permissionId || parent?.permissionId, userPermissions: perms, pathname: m.path,
-        designations, module: m.module ?? parent?.module, level: m.level,
+        designations, module: m.module ?? module, level: m.level,
     });
-    if (!ok(sod)) return [];
+    if (!ok(top)) return [];
     void base;
-    return (sod.submenu ?? []).filter((s) => ok(s, sod)).map((s) => s.title);
+    // a group (path '#') shows its visible items; an item shows only when its group does
+    const leaves = (list: Item[] | undefined, parent: Item, module: Item['module']): string[] => (list ?? []).filter((x) => ok(x, parent, module)).flatMap((x) => (x.submenu ? leaves(x.submenu, x, module) : [x.title]));
+    return leaves(top.submenu, top, top.module);
 };
 const sodItems = (designation: string): string[] => sectionItems('Service Orders', [designation]);
 const inventoryItems = (...designations: string[]): string[] => sectionItems('Inventory / Stores', designations);
@@ -69,13 +72,15 @@ test('login and refresh carry the designations the menu needs', async () => {
 });
 
 const INV_VIEW = ['Dashboard Overview', 'Inventory Health', 'Material Requisitions', 'Project Material Control', 'Inventory Balance', 'Contractor Balance Sheet', 'Physical Stock Take & Recon', 'Stock Ledger (Cardex)', 'Material Consumption Report'];
+// the approvers (Manager, Executive, Area Manager, OSP Manager, Head of OSP, CEO, admins) also have the Pending Approvals page
+const INV_APPROVALS = ['Pending Approvals'];
 const INV_OPERATE = ['Item Master Data', 'Goods Receipt (GRN)', 'Goods Issue (MIN)', 'Inventory Adjustments (Wastage)', 'Contractor Material Issue', 'Contractor Returns', 'Initial Stock Setup', 'Virtual Material Swap', 'Material Returns (MRN)', 'Pre-ERP Legacy Recon'];
 
 test('Inventory: the store staff and administrators have the whole menu, the Area Manager and other approvers the balances and requisitions', () => {
-    for (const d of ['STORES_MANAGER', 'STORES_EXECUTIVE', 'ADMIN']) assert.deepEqual(inventoryItems(d).sort(), [...INV_VIEW, ...INV_OPERATE].sort(), d);
+    for (const d of ['STORES_MANAGER', 'STORES_EXECUTIVE', 'ADMIN']) assert.deepEqual(inventoryItems(d).sort(), [...INV_VIEW, ...INV_OPERATE, ...INV_APPROVALS].sort(), d);
     // the store officers do the daily work but make no stock adjustments
-    assert.deepEqual(inventoryItems('STORES_ASSISTANT').sort(), [...INV_VIEW, ...INV_OPERATE].filter((t) => !['Inventory Adjustments (Wastage)', 'Goods Receipt (GRN)', 'Item Master Data', 'Initial Stock Setup', 'Virtual Material Swap', 'Pre-ERP Legacy Recon'].includes(t)).sort(), 'the store officers');
-    for (const d of ['AREA_MANAGER', 'OSP_MANAGER', 'HEAD_OF_OSP']) assert.deepEqual(inventoryItems(d).sort(), [...INV_VIEW].sort(), d);
+    assert.deepEqual(inventoryItems('STORES_ASSISTANT').sort(), [...INV_VIEW, ...INV_OPERATE].filter((t) => !['Inventory Adjustments (Wastage)', 'Goods Receipt (GRN)', 'Item Master Data', 'Initial Stock Setup', 'Virtual Material Swap', 'Pre-ERP Legacy Recon', 'Material Returns (MRN)', 'Pending Approvals'].includes(t)).sort(), 'the store officers');
+    for (const d of ['AREA_MANAGER', 'OSP_MANAGER', 'HEAD_OF_OSP']) assert.deepEqual(inventoryItems(d).sort(), [...INV_VIEW, ...INV_APPROVALS].sort(), d);
 });
 
 test('Inventory: a Project Engineer (designation) sees the project material pages, the SOD Engineer has no inventory menu at all', () => {

@@ -360,29 +360,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: LayoutDashboard,
             },
             {
-                title: 'Inventory Health',
-                level: 'view',
-                path: '/inventory/health',
-                icon: TrendingUp,
-                permissionId: RBAC_PERMISSIONS.INVENTORY_READ
-            },
-            // 1. Setup & Master Data
-            {
-                title: 'Item Master Data', // Merged Material Registration + Bulk Import
-                level: 'operate',
-                path: '/inventory/items',
-                icon: FileText,
-                permissionId: RBAC_PERMISSIONS.INVENTORY_MASTER, // the item master: the Executive, the Manager and above, not the officers
-            },
-            // 2. Stock Inflow
-            {
-                title: 'Goods Receipt (GRN)',
-                level: 'operate',
-                path: '/inventory/grn',
-                icon: Receipt,
-                permissionId: RBAC_PERMISSIONS.INVENTORY_GRN, // store operations: shown to store staff, not to roles that only read or approve
-            },
-            {
                 // Single Unified Hub: Stock Requests + Material Requests + Approvals
                 title: 'Material Requisitions',
                 level: 'view',
@@ -390,101 +367,170 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: ClipboardList,
             },
             {
-                title: 'Project Material Control',
-                level: 'view',
-                path: '/inventory/project-materials',
-                icon: Package,
-                permissionId: RBAC_PERMISSIONS.INVENTORY_READ
+                title: 'Daily work',
+                path: '#',
+                icon: ClipboardList,
+                level: 'operate',
+                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE,
+                submenu: [
+                    {
+                        title: 'Goods Issue (MIN)',
+                        level: 'operate',
+                        path: '/inventory/issues',
+                        icon: PackageMinus,
+                        permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
+                    },
+                    {
+                        title: 'Contractor Material Issue',
+                        level: 'operate',
+                        path: '/inventory/admin/issue',
+                        icon: PackageMinus,
+                        permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
+                    },
+                    {
+                        title: 'Contractor Returns',
+                        level: 'operate',
+                        path: '/inventory/admin/returns',
+                        icon: RefreshCw,
+                        permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
+                    }
+                ]
             },
-            // 3. Stock Outflow
             {
-                title: 'Inventory Balance',
-                level: 'view',
-                path: '/inventory/stock',
+                title: 'Stock & reports',
+                path: '#',
                 icon: BarChart3,
+                level: 'view',
+                permissionId: RBAC_PERMISSIONS.INVENTORY_READ,
+                submenu: [
+                    {
+                        title: 'Inventory Health',
+                        level: 'view',
+                        path: '/inventory/health',
+                        icon: TrendingUp,
+                        permissionId: RBAC_PERMISSIONS.INVENTORY_READ
+                    },
+                    {
+                        title: 'Inventory Balance',
+                        level: 'view',
+                        path: '/inventory/stock',
+                        icon: BarChart3,
+                    },
+                    {
+                        title: 'Project Material Control',
+                        level: 'view',
+                        path: '/inventory/project-materials',
+                        icon: Package,
+                        permissionId: RBAC_PERMISSIONS.INVENTORY_READ
+                    },
+                    {
+                        title: 'Contractor Balance Sheet',
+                        level: 'view',
+                        path: '/inventory/admin/balance-sheet',
+                        icon: ClipboardCheck,
+                    },
+                    {
+                        title: 'Physical Stock Take & Recon', // Merged Material Reconciliation, Contractor Balance Sheet, Material Audit, Inventory Audit
+                        level: 'view',
+                        path: '/inventory/audit',
+                        icon: ShieldCheck,
+                    },
+                    {
+                        title: 'Stock Ledger (Cardex)',
+                        level: 'view',
+                        path: '/inventory/reports/cardex',
+                        icon: HistoryIcon,
+                    },
+                    {
+                        title: 'Material Consumption Report',
+                        level: 'view',
+                        path: '/inventory/reports/material-summary',
+                        icon: BarChart3,
+                    }
+                ]
             },
             {
-                title: 'Goods Issue (MIN)',
+                title: 'Receiving & returns',
+                path: '#',
+                icon: Receipt,
                 level: 'operate',
-                path: '/inventory/issues',
-                icon: PackageMinus,
-                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
+                permissionId: RBAC_PERMISSIONS.INVENTORY_GRN,
+                submenu: [
+                    {
+                        title: 'Goods Receipt (GRN)',
+                        level: 'operate',
+                        path: '/inventory/grn',
+                        icon: Receipt,
+                        permissionId: RBAC_PERMISSIONS.INVENTORY_GRN, // store operations: shown to store staff, not to roles that only read or approve
+                    },
+                    {
+                        title: 'Material Returns (MRN)',
+                        level: 'operate',
+                        path: '/inventory/admin/mrns',
+                        icon: RefreshCw,
+                        permissionId: RBAC_PERMISSIONS.INVENTORY_GRN, // store operations: shown to store staff, not to roles that only read or approve
+                    },
+                    {
+                        title: 'Inventory Adjustments (Wastage)',
+                        level: 'operate',
+                        path: '/inventory/admin/wastage',
+                        icon: ClipboardCheck,
+                        permissionId: RBAC_PERMISSIONS.INVENTORY_ADJUST, // stock adjustments: the Stores Executive and the Stores Manager, not the store officers
+                    }
+                ]
             },
             {
-                title: 'Inventory Adjustments (Wastage)',
-                level: 'operate',
-                path: '/inventory/admin/wastage',
+                title: 'Approvals',
+                path: '#',
                 icon: ClipboardCheck,
-                permissionId: RBAC_PERMISSIONS.INVENTORY_ADJUST, // stock adjustments: the Stores Executive and the Stores Manager, not the store officers
+                level: 'approve',
+                permissionId: RBAC_PERMISSIONS.INVENTORY_APPROVE,
+                submenu: [
+                    {
+                        title: 'Pending Approvals',
+                        level: 'approve',
+                        path: '/inventory/approvals',
+                        icon: CheckCircle2,
+                        permissionId: RBAC_PERMISSIONS.INVENTORY_APPROVE,
+                    }
+                ]
             },
-            // Contractor custody and store set-up pages that previously had no navigation entry
             {
-                title: 'Contractor Material Issue',
+                title: 'Setup',
+                path: '#',
+                icon: Warehouse,
                 level: 'operate',
-                path: '/inventory/admin/issue',
-                icon: PackageMinus,
-                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
-            },
-            {
-                title: 'Contractor Returns',
-                level: 'operate',
-                path: '/inventory/admin/returns',
-                icon: RefreshCw,
-                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
-            },
-            {
-                title: 'Contractor Balance Sheet',
-                level: 'view',
-                path: '/inventory/admin/balance-sheet',
-                icon: ClipboardCheck,
-            },
-            {
-                title: 'Initial Stock Setup',
-                level: 'operate',
-                path: '/inventory/admin/initial',
-                icon: BarChart3,
-                permissionId: RBAC_PERMISSIONS.INVENTORY_MASTER, // store operations: shown to store staff, not to roles that only read or approve
-            },
-            {
-                title: 'Virtual Material Swap',
-                level: 'operate',
-                path: '/inventory/admin/virtual-swap',
-                icon: RefreshCw,
-                permissionId: RBAC_PERMISSIONS.INVENTORY_MASTER, // store operations: shown to store staff, not to roles that only read or approve
-            },
-            // 4. Returns & Reconciliation
-            {
-                title: 'Material Returns (MRN)',
-                level: 'operate',
-                path: '/inventory/admin/mrns',
-                icon: RefreshCw,
-                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
-            },
-            {
-                title: 'Physical Stock Take & Recon', // Merged Material Reconciliation, Contractor Balance Sheet, Material Audit, Inventory Audit
-                level: 'view',
-                path: '/inventory/audit',
-                icon: ShieldCheck,
-            },
-            {
-                title: 'Pre-ERP Legacy Recon',
-                level: 'operate',
-                path: '/inventory/admin/pre-erp-reconciliation',
-                icon: HistoryIcon,
-                permissionId: RBAC_PERMISSIONS.INVENTORY_MASTER, // store operations: shown to store staff, not to roles that only read or approve
-            },
-            // 5. Analytics & History
-            {
-                title: 'Stock Ledger (Cardex)',
-                level: 'view',
-                path: '/inventory/reports/cardex',
-                icon: HistoryIcon,
-            },
-            {
-                title: 'Material Consumption Report',
-                level: 'view',
-                path: '/inventory/reports/material-summary',
-                icon: BarChart3,
+                permissionId: RBAC_PERMISSIONS.INVENTORY_MASTER,
+                submenu: [
+                    {
+                        title: 'Item Master Data', // Merged Material Registration + Bulk Import
+                        level: 'operate',
+                        path: '/inventory/items',
+                        icon: FileText,
+                        permissionId: RBAC_PERMISSIONS.INVENTORY_MASTER, // the item master: the Executive, the Manager and above, not the officers
+                    },
+                    {
+                        title: 'Initial Stock Setup',
+                        level: 'operate',
+                        path: '/inventory/admin/initial',
+                        icon: BarChart3,
+                        permissionId: RBAC_PERMISSIONS.INVENTORY_MASTER, // store operations: shown to store staff, not to roles that only read or approve
+                    },
+                    {
+                        title: 'Virtual Material Swap',
+                        level: 'operate',
+                        path: '/inventory/admin/virtual-swap',
+                        icon: RefreshCw,
+                        permissionId: RBAC_PERMISSIONS.INVENTORY_MASTER, // store operations: shown to store staff, not to roles that only read or approve
+                    },
+                    {
+                        title: 'Pre-ERP Legacy Recon',
+                        level: 'operate',
+                        path: '/inventory/admin/pre-erp-reconciliation',
+                        icon: HistoryIcon,
+                        permissionId: RBAC_PERMISSIONS.INVENTORY_MASTER, // store operations: shown to store staff, not to roles that only read or approve
+                    }
+                ]
             }
         ]
     },

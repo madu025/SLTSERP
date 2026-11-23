@@ -19,10 +19,11 @@ const visible = (role: string): Set<string> => {
     const designations = [role, ...(((SECTION_MAPPING as Record<string, string[]>)[role] ?? []).map((s) => `${s}_${role}`))];
     const perms = [...new Set(designations.flatMap(grantsOf))];
     const out = new Set<string>();
-    const walk = (items: typeof SIDEBAR_MENU, inherit: { module?: string; level?: string; permissionId?: string } = {}) => {
+    const walk = (items: typeof SIDEBAR_MENU, inherit: { module?: string; level?: string; permissionId?: string } = {}, depth = 0) => {
         for (const it of items) {
             const m = { module: it.module ?? inherit.module, level: it.level ?? inherit.level, permissionId: it.permissionId ?? inherit.permissionId };
-            if (it.submenu) walk(it.submenu, m);
+            // a group shows its items only when the group itself is visible
+            if (it.submenu) { if (depth === 0 || canAccessMenuItem({ designations, module: m.module as never, level: it.level as never, permissionId: it.permissionId ?? inherit.permissionId, userPermissions: perms, pathname: it.path, itemTitle: it.title })) walk(it.submenu, { ...m, level: undefined }, depth + 1); }
             else if (canAccessMenuItem({ designations, module: m.module as never, level: m.level as never, permissionId: m.permissionId, userPermissions: perms, pathname: it.path, itemTitle: it.title })) out.add(it.path);
         }
     };
@@ -47,7 +48,9 @@ test('OSP Manager, Head of OSP and CEO open every service order, Invoice Status,
 test('the finance people open Invoice Status and every money page, but no service order page and no operational report', () => {
     for (const r of ['FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER', 'AR_OFFICER', 'INVOICE_MANAGER', 'INVOICE_ASSISTANT', 'SF_AUDIT_MANAGER', 'SF_AUDIT_OFFICER']) {
         const v = visible(r);
-        for (const p of ['/service-orders/invoice-status', '/finance/payments', '/finance/general-ledger', '/projects/dashboards/financials']) assert.ok(v.has(p), `${r} should open ${p}`);
+        for (const p of ['/service-orders/invoice-status', '/finance/general-ledger', '/projects/dashboards/financials']) assert.ok(v.has(p), `${r} should open ${p}`);
+        // the group Finance Setup & Ops (payment vouchers, head office payments...) needs finance.write: the read-only finance roles do not have it
+        if (['FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER'].includes(r)) assert.ok(v.has('/finance/payments'), `${r} should open /finance/payments`);
         for (const p of ['/service-orders/work-order', '/service-orders/work-order/completed', '/reports/arm', '/reports/manager']) assert.ok(!v.has(p), `${r} must not open ${p}`);
     }
     for (const r of ['FINANCE_MANAGER', 'FINANCE_ASSISTANT']) {
@@ -158,4 +161,20 @@ test('every inventory function has an owner among the store roles; master data, 
     assert.ok(g['notification.audience.process-gate-stores'].includes('STORES_EXECUTIVE'), 'the deputy hears of the gates');
     for (const r of ['STORES_ASSISTANT', 'STORES_EXECUTIVE', 'STORES_MANAGER']) assert.ok(visible(r).has('/inventory/requests') && visible(r).has('/inventory/stock') && visible(r).has('/inventory/admin/balance-sheet') && visible(r).has('/inventory/audit'), `${r} basic pages`);
     for (const p of ['/inventory/admin/initial', '/inventory/admin/virtual-swap', '/inventory/admin/pre-erp-reconciliation', '/inventory/items']) assert.ok(visible('STORES_EXECUTIVE').has(p) && !visible('STORES_ASSISTANT').has(p), `${p}: the Executive yes, the officers no`);
+});
+
+test('the Inventory menu is in five groups by what the person does, and Pending Approvals is one page for the approvers', () => {
+    const inv = SIDEBAR_MENU.find((m) => m.title === 'Inventory / Stores')!;
+    const groups = (inv.submenu ?? []).filter((x) => x.submenu).map((x) => x.title);
+    assert.deepEqual(groups, ['Daily work', 'Stock & reports', 'Receiving & returns', 'Approvals', 'Setup']);
+    // the officers see only the first two groups (plus the dashboard and the requisitions); the Executive and the Manager see all five
+    const top = (r: string) => { const g = new Set<string>(); const v = visible(r); for (const grp of inv.submenu ?? []) if (grp.submenu && grp.submenu.some((c) => v.has(c.path))) g.add(grp.title); return [...g]; };
+    assert.deepEqual(top('STORES_ASSISTANT'), ['Daily work', 'Stock & reports']);
+    assert.deepEqual(top('STORES_EXECUTIVE'), ['Daily work', 'Stock & reports', 'Receiving & returns', 'Approvals', 'Setup']);
+    assert.deepEqual(top('STORES_MANAGER'), ['Daily work', 'Stock & reports', 'Receiving & returns', 'Approvals', 'Setup']);
+    // the approvers who do not work in the stores keep the requisitions, the reports and the approvals page
+    for (const r of ['AREA_MANAGER', 'OSP_MANAGER', 'HEAD_OF_OSP']) { assert.ok(visible(r).has('/inventory/requests') && visible(r).has('/inventory/approvals'), r); assert.ok(!visible(r).has('/inventory/grn'), r); }
+    assert.ok(!visible('STORES_ASSISTANT').has('/inventory/approvals') && !visible('STORES_ASSISTANT').has('/inventory/admin/mrns'));
+    assert.ok(fs.readFileSync('src/app/api/inventory/approvals/route.ts', 'utf8').includes('INVENTORY_APPROVE'));
+    assert.ok(fs.readFileSync('src/services/inventory/approval-queue.service.ts', 'utf8').includes("status: 'PENDING_APPROVAL'") && fs.readFileSync('src/services/inventory/approval-queue.service.ts', 'utf8').includes('own:'));
 });

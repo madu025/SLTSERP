@@ -287,10 +287,10 @@ test('the SOD engineers have no store or fleet menu, and store operations are sh
         assert.ok(!block(key).includes("'ENGINEER'") && !block(key).includes("'ASSISTANT_ENGINEER'"), 'the SOD engineers do not hold ' + key);
     }
     const menu = read('src/config/sidebar-menu.ts');
-    const inv = menu.slice(menu.indexOf("title: 'Inventory / Stores'"), menu.indexOf("title: 'Approvals'"));
-    assert.equal((inv.match(/permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE/g) ?? []).length, 4, 'the four store-operation items need the inventory write capability');
-    assert.equal((inv.match(/permissionId: RBAC_PERMISSIONS.INVENTORY_MASTER/g) ?? []).length, 4, 'the item master, initial stock, virtual swap and legacy reconciliation need the master-data capability (Executive and Manager, not the officers)');
-    assert.equal((inv.match(/permissionId: RBAC_PERMISSIONS.INVENTORY_GRN/g) ?? []).length, 1, 'goods receipt needs its own capability (Executive and Manager only)');
+    const inv = menu.slice(menu.indexOf("title: 'Inventory / Stores'"), menu.indexOf("title: 'Approvals'", menu.indexOf("title: 'Setup'")));
+    assert.equal((inv.match(/permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE/g) ?? []).length, 4, 'the daily-work group and its three items need the inventory write capability');
+    assert.equal((inv.match(/permissionId: RBAC_PERMISSIONS.INVENTORY_MASTER/g) ?? []).length, 5, 'the Setup group, the item master, initial stock, virtual swap and legacy reconciliation need the master-data capability (Executive and Manager, not the officers)');
+    assert.equal((inv.match(/permissionId: RBAC_PERMISSIONS.INVENTORY_GRN/g) ?? []).length, 3, 'the Receiving & returns group, goods receipt and returns to the supplier need the goods-receipt capability (Executive and Manager only)');
     assert.equal((inv.match(/permissionId: RBAC_PERMISSIONS.INVENTORY_ADJUST/g) ?? []).length, 1, 'the stock adjustment page needs the adjust capability (Executive and Manager, not the officers)');
     assert.ok(inv.includes("title: 'Material Requisitions'") && !/Material Requisitions'[^}]*INVENTORY_WRITE/.test(inv), 'the requisitions the Area Manager approves stay visible to approvers');
 });
