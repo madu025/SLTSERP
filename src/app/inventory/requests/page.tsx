@@ -188,7 +188,7 @@ export default function RequestsPage() {
                     return {
                         id: i.id,
                         itemId: i.itemId,
-                        approvedQty: (action === 'APPROVE' || action === 'ARM_APPROVE' || action === 'STORES_MANAGER_APPROVE' || action === 'ADJUST_QTY') ? (allocation[i.itemId] ?? i.requestedQty) : undefined,
+                        approvedQty: (action === 'APPROVE' || action === 'ARM_APPROVE' || action === 'STORES_MANAGER_APPROVE' || action === 'ADJUST_QTY') ? (allocation[i.itemId] ?? (i.approvedQty > 0 ? i.approvedQty : i.requestedQty)) : undefined,
                         issuedQty: action === 'RELEASE' ? (allocation[i.itemId] ?? defaultQty) : undefined,
                         receivedQty: action === 'RECEIVE' ? (allocation[i.itemId] ?? defaultQty) : undefined
                     };
@@ -616,7 +616,8 @@ export default function RequestsPage() {
                                                                                         ? Math.max(0, (item.issuedQty || 0) - (item.receivedQty || 0))
                                                                                         : (selectedRequest?.workflowStage === 'MAIN_STORE_RELEASE' || (selectedRequest?.workflowStage === 'PARTIALLY_ISSUED' && user?.assignedStoreId !== selectedRequest?.fromStoreId))
                                                                                             ? Math.max(0, (item.approvedQty > 0 ? item.approvedQty : item.requestedQty) - (item.issuedQty || 0))
-                                                                                            : item.requestedQty
+                                                                                            // a quantity the Executive already adjusted is what the approver sees and approves
+                                                                                            : (item.approvedQty > 0 ? item.approvedQty : item.requestedQty)
                                                                                 }
                                                                                 onChange={(e) => setAllocation(prev => ({ ...prev, [item.itemId]: parseFloat(e.target.value) }))}
                                                                             />
@@ -944,7 +945,7 @@ export default function RequestsPage() {
                                             </Badge>
                                         )
                                     ) : null}
-                                    {(selectedRequest.workflowStage === 'RECEIVE_PENDING' || selectedRequest.workflowStage === 'DISPATCHED' || selectedRequest.workflowStage === 'PARTIALLY_ISSUED') && (user?.assignedStoreId === selectedRequest.fromStoreId || !user?.assignedStoreId) ? (
+                                    {(selectedRequest.workflowStage === 'RECEIVE_PENDING' || selectedRequest.workflowStage === 'DISPATCHED' || selectedRequest.workflowStage === 'SUB_STORE_RECEIVE' || selectedRequest.workflowStage === 'PARTIALLY_ISSUED') && (user?.assignedStoreId === selectedRequest.fromStoreId || !user?.assignedStoreId) ? (
                                         (isStoresOfficer || user?.id === selectedRequest.requestedById) ? (
                                             <Button
                                                 onClick={() => approvalMutation.mutate({ action: 'RECEIVE' })}
