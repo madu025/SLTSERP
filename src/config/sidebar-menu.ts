@@ -271,7 +271,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 level: 'view',
                 path: '/projects/dashboards/financials',
                 icon: LineChart,
-                permissionId: RBAC_PERMISSIONS.FINANCE_READ
+                permissionId: RBAC_PERMISSIONS.PROJECT_FINANCE_DASHBOARD
             },
             {
                 title: 'QA/QC Dashboard',

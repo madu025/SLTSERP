@@ -14,13 +14,13 @@ export const GET = apiHandler(async (request, params) => {
     }
 
     const section = new URL(request.url).searchParams.get('section');
-    // the finance section needs project.finance.read (the finance people have no project.read for the general statistics, and the reverse)
+    // the finance section needs project.finance.dashboard (the finance people have no project.read for the general statistics, and the reverse)
     const held = params._permissions ?? [];
-    if (section === 'financials' ? !held.includes(RBAC_PERMISSIONS.PROJECT_FINANCE_READ) : !held.includes(RBAC_PERMISSIONS.PROJECT_READ)) {
+    if (section === 'financials' ? !held.includes(RBAC_PERMISSIONS.PROJECT_FINANCE_DASHBOARD) : !held.includes(RBAC_PERMISSIONS.PROJECT_READ)) {
         throw AppError.forbidden('Missing the capability for this dashboard');
     }
     const data = section === 'financials'
         ? { financials: await ProjectDashboardService.getFinancialStats(userId) }
         : await ProjectDashboardService.getProjectStats(userId);
     return data;
-}, { permissions: [RBAC_PERMISSIONS.PROJECT_READ, RBAC_PERMISSIONS.PROJECT_FINANCE_READ], rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.PROJECT_READ, RBAC_PERMISSIONS.PROJECT_FINANCE_DASHBOARD], rawResponse: true });

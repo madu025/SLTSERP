@@ -31,7 +31,7 @@ const visible = (role: string): Set<string> => {
 
 const MANAGER_PAGES = [
     '/service-orders/work-order', '/service-orders/work-order/completed', '/service-orders/work-order/pat', '/service-orders/invoice-status', '/service-orders/contractor-stock', '/service-orders/performance',
-    '/projects', '/projects/dashboards/pm', '/projects/dashboards/qaqc', '/projects/dashboards/logistics',
+    '/projects', '/projects/dashboards/pm', '/projects/dashboards/financials', '/projects/dashboards/qaqc', '/projects/dashboards/logistics',
     '/inventory', '/inventory/health', '/inventory/stock', '/inventory/requests', '/inventory/reports/cardex', '/inventory/reports/material-summary', '/inventory/stores',
     '/reports', '/reports/manager', '/reports/arm', '/reports/daily-operational',
 ];
@@ -54,6 +54,13 @@ test('the finance people open Invoice Status and every money page, but no servic
         for (const p of ['/procurement/purchase-orders', '/procurement/invoices', '/inventory/stock', '/inventory/reports/material-summary', '/contractors/scorecard']) assert.ok(v.has(p), `${r} should open ${p}`);
         for (const p of ['/inventory/issues', '/inventory/grn', '/procurement/quotations/new']) assert.ok(!v.has(p), `${r} must not open ${p} (writes stay with the stores and procurement)`);
     }
+});
+
+test('the project finance dashboard is for the finance roles and the OSP managers, not for the project engineers', () => {
+    for (const r of ['OSP_MANAGER', 'HEAD_OF_OSP', 'CEO', 'FINANCE_MANAGER', 'SF_AUDIT_OFFICER']) assert.ok(visible(r).has('/projects/dashboards/financials'), r);
+    for (const r of ['ENGINEER', 'AREA_MANAGER', 'STORES_MANAGER']) assert.ok(!visible(r).has('/projects/dashboards/financials'), r);
+    // the OSP Manager still has no Finance & Accounting menu
+    assert.ok(!visible('OSP_MANAGER').has('/finance/payments'));
 });
 
 test('Invoice Status keeps everyone who had it (service order people) and adds the finance people', () => {

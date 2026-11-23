@@ -51,7 +51,7 @@ test('frontend project routes use DB capabilities rather than role names', () =>
     assert.equal(hasRouteAccess('/projects', 'OSP_ENGINEER'), false);
     assert.equal(hasRouteAccess('/projects', 'OSP_ENGINEER', [RBAC_PERMISSIONS.PROJECT_READ]), true);
     assert.equal(hasRouteAccess('/projects/dashboards/financials', 'OSP_ENGINEER', [RBAC_PERMISSIONS.PROJECT_READ]), false);
-    assert.equal(hasRouteAccess('/projects/dashboards/financials', 'FINANCE_MANAGER', [RBAC_PERMISSIONS.FINANCE_READ]), true);
+    assert.equal(hasRouteAccess('/projects/dashboards/financials', 'FINANCE_MANAGER', [RBAC_PERMISSIONS.PROJECT_FINANCE_DASHBOARD]), true);
 });
 
 test('API route capability defaults separate module and action boundaries', () => {

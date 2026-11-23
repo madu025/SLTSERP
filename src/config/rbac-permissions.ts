@@ -28,6 +28,8 @@ export const RBAC_PERMISSIONS = {
     INVOICE_CONFIRM_MANAGER: 'invoice.confirm.manager',
     INVOICE_OSP_APPROVE: 'invoice.osp.approve',
     PROJECT_FINANCE_READ: 'project.finance.read',
+    /** The company-level project money dashboard (Projects > Finance Dashboard). Held by the finance roles and the OSP Manager; not by the project engineers, who see only their own project finance. */
+    PROJECT_FINANCE_DASHBOARD: 'project.finance.dashboard',
     PROJECT_FINANCE_WRITE: 'project.finance.write',
     PROJECT_FINANCE_APPROVE: 'project.finance.approve',
     PROJECT_FINANCE_ASSIGN: 'project.finance.assign',
@@ -134,6 +136,7 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.SCOPE_REPORTS_ALL, module: 'SCOPE', action: 'REPORTS_ALL', scope: 'GLOBAL', description: 'See the reports of every OPMC (data scope only)' },
     { code: RBAC_PERMISSIONS.SCOPE_PROCUREMENT_ALL, module: 'SCOPE', action: 'PROCUREMENT_ALL', scope: 'GLOBAL', description: 'See the purchase orders, quotations and supplier invoices of every OPMC (data scope only)' },
     { code: RBAC_PERMISSIONS.SCOPE_CONTRACTOR_ALL, module: 'SCOPE', action: 'CONTRACTOR_ALL', scope: 'GLOBAL', description: 'See the contractors of every OPMC (data scope only)' },
+    { code: RBAC_PERMISSIONS.PROJECT_FINANCE_DASHBOARD, module: 'PROJECT', action: 'FINANCE_DASHBOARD', scope: 'OPMC', description: 'Open the project finance dashboard (budgets, invoices, vouchers of the projects in scope)' },
     { code: RBAC_PERMISSIONS.INVOICE_STATUS_READ, module: 'SOD', action: 'INVOICE_STATUS_READ', scope: 'OPMC', description: 'Track the contractor invoices of service orders (read only; the orders themselves need sod.read)' },
     { code: RBAC_PERMISSIONS.SCOPE_COMPANY_ALL, module: 'SCOPE', action: 'COMPANY_ALL', scope: 'GLOBAL', description: 'See every OPMC in every module, including procurement, contractors and the dashboard (data scope only)' },
     { code: RBAC_PERMISSIONS.FLEET_READ, module: 'FLEET', action: 'READ', scope: 'OPMC', description: 'Read fleet, vehicle, trip, and utilization data within the assigned OPMC scope' },
