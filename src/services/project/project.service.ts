@@ -264,7 +264,7 @@ export class ProjectService {
         const { projectCode, name, type, contractorId, opmcId, projectTypeId, parentId, planningSource, actorUserId } = data;
 
         if (!projectTypeId) throw AppError.badRequest('PROJECT_TYPE_REQUIRED');
-        const accessibleOpmcs = actorUserId === undefined ? undefined : await resolveOpmcScope(actorUserId);
+        const accessibleOpmcs = actorUserId === undefined ? undefined : await resolveOpmcScope(actorUserId, 'project');
         if (accessibleOpmcs !== undefined && (!opmcId || !accessibleOpmcs.includes(opmcId))) {
             throw AppError.forbidden('Project OPMC is outside the authenticated user scope');
         }
@@ -387,7 +387,7 @@ export class ProjectService {
             throw AppError.badRequest('PROJECT_NOT_FOUND');
         }
 
-        const accessibleOpmcs = actorUserId === undefined ? undefined : await resolveOpmcScope(actorUserId);
+        const accessibleOpmcs = actorUserId === undefined ? undefined : await resolveOpmcScope(actorUserId, 'project');
         if (accessibleOpmcs !== undefined && (!existingProject.opmcId || !accessibleOpmcs.includes(existingProject.opmcId))) {
             throw AppError.forbidden('Project is outside the authenticated user scope');
         }

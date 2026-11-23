@@ -44,6 +44,14 @@ export const RBAC_PERMISSIONS = {
     HELPDESK_APPROVE: 'helpdesk.approve',
     /** Raise a support ticket and see the person's own tickets (every staff role); the IT queue, assets and reports stay with helpdesk.write / read. */
     HELPDESK_TICKET_CREATE: 'helpdesk.ticket.create',
+    /** DATA SCOPE, not a function: the holder sees every OPMC's rows of that domain without having OPMCs assigned. It never grants the function itself (sod.read, finance.read...). */
+    SCOPE_SOD_ALL: 'scope.sod.all',
+    SCOPE_FINANCE_ALL: 'scope.finance.all',
+    SCOPE_PROJECT_ALL: 'scope.project.all',
+    SCOPE_INVENTORY_ALL: 'scope.inventory.all',
+    SCOPE_REPORTS_ALL: 'scope.reports.all',
+    /** every domain, including procurement, contractors and the dashboard */
+    SCOPE_COMPANY_ALL: 'scope.company.all',
     FLEET_READ: 'fleet.read',
     FLEET_WRITE: 'fleet.write',
     REPORTS_READ: 'reports.read',
@@ -115,6 +123,12 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.HELPDESK_WRITE, module: 'HELPDESK', action: 'WRITE', scope: 'OPMC', description: 'Create or update helpdesk tickets, assets, and support records within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.HELPDESK_TICKET_CREATE, module: 'HELPDESK', action: 'TICKET_CREATE', scope: 'OPMC', description: 'Raise a support ticket and see your own tickets' },
     { code: RBAC_PERMISSIONS.HELPDESK_APPROVE, module: 'HELPDESK', action: 'APPROVE', scope: 'OPMC', description: 'Approve helpdesk asset custody and disposal workflows within the assigned OPMC scope' },
+    { code: RBAC_PERMISSIONS.SCOPE_SOD_ALL, module: 'SCOPE', action: 'SOD_ALL', scope: 'GLOBAL', description: 'See the service orders of every OPMC (data scope only; sod.read is still needed to open them)' },
+    { code: RBAC_PERMISSIONS.SCOPE_FINANCE_ALL, module: 'SCOPE', action: 'FINANCE_ALL', scope: 'GLOBAL', description: 'See the invoices, vouchers and finance records of every OPMC (data scope only)' },
+    { code: RBAC_PERMISSIONS.SCOPE_PROJECT_ALL, module: 'SCOPE', action: 'PROJECT_ALL', scope: 'GLOBAL', description: 'See the projects of every OPMC (data scope only)' },
+    { code: RBAC_PERMISSIONS.SCOPE_INVENTORY_ALL, module: 'SCOPE', action: 'INVENTORY_ALL', scope: 'GLOBAL', description: 'See the stores and stock of every OPMC (data scope only)' },
+    { code: RBAC_PERMISSIONS.SCOPE_REPORTS_ALL, module: 'SCOPE', action: 'REPORTS_ALL', scope: 'GLOBAL', description: 'See the reports of every OPMC (data scope only)' },
+    { code: RBAC_PERMISSIONS.SCOPE_COMPANY_ALL, module: 'SCOPE', action: 'COMPANY_ALL', scope: 'GLOBAL', description: 'See every OPMC in every module, including procurement, contractors and the dashboard (data scope only)' },
     { code: RBAC_PERMISSIONS.FLEET_READ, module: 'FLEET', action: 'READ', scope: 'OPMC', description: 'Read fleet, vehicle, trip, and utilization data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.FLEET_WRITE, module: 'FLEET', action: 'WRITE', scope: 'OPMC', description: 'Modify fleet, vehicle, and trip records within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.REPORTS_READ, module: 'REPORTS', action: 'READ', scope: 'OPMC', description: 'Read operational reports within the assigned OPMC scope' },

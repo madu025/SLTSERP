@@ -11,7 +11,7 @@ const closeSchema = z.object({ year: z.number().int().min(2000).max(2100) });
 
 export const POST = apiHandler(async (_req, params, body: z.infer<typeof closeSchema>) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
-    if (await resolveOpmcScope(params._userId) !== undefined) {
+    if (await resolveOpmcScope(params._userId, 'finance') !== undefined) {
         throw AppError.forbidden('Year-end close requires global Finance scope');
     }
     const result = await PeriodCloseService.executeYearEndClose(body.year, params._userId);

@@ -181,7 +181,7 @@ export class StockRequestService {
         procurementStatus?: string;
         awaitingApproval?: boolean;
     }, userId: string) {
-        const opmcScope = await resolveOpmcScope(userId);
+        const opmcScope = await resolveOpmcScope(userId, 'inventory');
         const accessibleStoreIds = opmcScope === undefined
             ? undefined
             : (await StoreService.getAccessibleStores(userId)).map((store) => store.id);
@@ -295,7 +295,7 @@ export class StockRequestService {
         const requestStoreIds = [stockRequest.fromStoreId, stockRequest.toStoreId].filter(
             (storeId): storeId is string => Boolean(storeId),
         );
-        if (requestStoreIds.length === 0 && (await resolveOpmcScope(userId)) !== undefined) {
+        if (requestStoreIds.length === 0 && (await resolveOpmcScope(userId, 'inventory')) !== undefined) {
             throw AppError.forbidden('STORE_SCOPE_VIOLATION: Request is not attached to an accessible store.');
         }
         if (requestStoreIds.length > 0) {

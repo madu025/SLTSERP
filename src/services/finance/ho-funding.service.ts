@@ -19,7 +19,7 @@ export class HoFundingService {
 
     /** What the next period will need: approved vouchers waiting to go to Head Office or already with it, plus approved invoices not yet covered by a voucher. */
     static async suggest(userId: string, periodTo: Date) {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         if (scope !== undefined) throw AppError.forbidden('Funding requests need company-wide finance access');
         const vouchers = await prisma.paymentVoucher.findMany({ where: { status: { in: ['APPROVED', 'SUBMITTED_TO_HO'] } }, select: { netAmount: true } });
         const invoices = await prisma.supplierInvoice.findMany({
@@ -129,7 +129,7 @@ export class HoFundingService {
 
     /** Where OSP stands with Head Office: what was asked, approved and provided, and what Head Office has paid on OSP's behalf. */
     static async position(userId: string) {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         if (scope !== undefined) throw AppError.forbidden('The Head Office position needs company-wide finance access');
         const [funding, submitted, paid, ho] = await Promise.all([
             prisma.hoFundingRequest.groupBy({ by: ['purpose'], where: { status: { in: ['SUBMITTED', 'APPROVED', 'FUNDED'] } }, _sum: { requestedAmount: true, approvedAmount: true, fundedAmount: true } }),
@@ -151,7 +151,7 @@ export class HoFundingService {
 
     /** The current account with Head Office: every posting to HO-2020 with a running balance, for the monthly reconciliation. */
     static async account(userId: string, from?: string, to?: string) {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         if (scope !== undefined) throw AppError.forbidden('The Head Office account needs company-wide finance access');
         const lines = await prisma.journalLine.findMany({
             where: { accountCode: ACCOUNTS.HO_CURRENT, entry: { ...(from || to ? { date: { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) } } : {}) } },

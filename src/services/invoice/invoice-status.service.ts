@@ -44,7 +44,7 @@ const STEP_LABEL: Record<string, string> = {
  */
 export class InvoiceStatusService {
     static async forUser(userId: string, opts: { rtom?: string; search?: string; state?: string; contractorId?: string; month?: number; year?: number; minDays?: number; sort?: string } = {}): Promise<InvoiceStatusResult> {
-        const allScope = await resolveOpmcScope(userId);
+        const allScope = await resolveOpmcScope(userId, 'finance');
         const areaWhere = allScope === undefined ? {} : { id: { in: allScope } };
         const areas = await prisma.oPMC.findMany({ where: areaWhere, select: { id: true, rtom: true, name: true }, orderBy: { rtom: 'asc' } });
         const empty: InvoiceStatusResult = { areas: areas.map((a) => ({ rtom: a.rtom, name: a.name })), rtom: 'ALL', rows: [], summary: { total: 0, paid: 0, cancelled: 0, open: 0, byStep: [] }, contractors: [], byContractor: [], truncated: false };

@@ -82,13 +82,13 @@ test('cash forecast API is finance-gated and the service enforces OPMC scope', (
   const route = fs.readFileSync('src/app/api/finance/cash-forecast/route.ts', 'utf8');
   assert.match(route, /FINANCE_READ/);
   const svc = fs.readFileSync('src/services/finance/cash-forecast.service.ts', 'utf8');
-  assert.match(svc, /resolveOpmcScope\(userId\)/);
+  assert.match(svc, /resolveOpmcScope\(userId(, '[a-z]+')?\)/);
   assert.match(svc, /scope === undefined \? LedgerReportService\.getCashFlowReport/);
 });
 
 test('company health is company-wide: scoped users are refused and aging is explicitly unscoped, never "null user"', () => {
   const route = fs.readFileSync('src/app/api/dashboard/company-health/route.ts', 'utf8');
-  assert.match(route, /resolveOpmcScope\(params\._userId\)/);
+  assert.match(route, /resolveOpmcScope\(params\._userId(, '[a-z]+')?\)/);
   assert.match(route, /scope !== undefined\) throw AppError\.forbidden/);
   const svc = fs.readFileSync('src/services/core/company-health.service.ts', 'utf8');
   assert.match(svc, /getArAgingReport\(null, \{ unscoped: true \}\)/);
@@ -125,7 +125,7 @@ test('journal entry dimensions: schema, migration, posting and reversal all carr
 
 test('profitability report: scoped users never see company-level rows and reuse the FP&A classifier', async () => {
   const svc = fs.readFileSync('src/services/finance/profitability.service.ts', 'utf8');
-  assert.match(svc, /resolveOpmcScope\(userId\)/);
+  assert.match(svc, /resolveOpmcScope\(userId(, '[a-z]+')?\)/);
   assert.match(svc, /k !== null \|\| scope === undefined/);
   assert.match(svc, /classifyAccount/);
   const { summarise } = await import('../../src/services/finance/profitability.service');
@@ -156,7 +156,7 @@ test('budget API: reads need finance.read, writes need finance.write, and scope 
   assert.match(route, /FINANCE_READ/);
   assert.match(route, /FINANCE_WRITE/);
   const svc = fs.readFileSync('src/services/finance/ledger-budget.service.ts', 'utf8');
-  assert.match(svc, /resolveOpmcScope\(userId\)/);
+  assert.match(svc, /resolveOpmcScope\(userId(, '[a-z]+')?\)/);
   assert.match(svc, /Company-wide budgets are available only to users with company-wide access/);
   assert.match(svc, /deleteMany[\s\S]*createMany/);
 });

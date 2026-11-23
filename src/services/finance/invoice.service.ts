@@ -17,7 +17,7 @@ export class InvoiceService {
         const skip = (page - 1) * limit;
 
         const where: Prisma.InvoiceWhereInput = {};
-        const allowedOpmcs = await resolveOpmcScope(userId);
+        const allowedOpmcs = await resolveOpmcScope(userId, 'finance');
         if (allowedOpmcs !== undefined) where.project = { opmcId: { in: allowedOpmcs } };
 
         if (search) {

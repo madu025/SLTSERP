@@ -27,7 +27,7 @@ export class InvoiceOspApprovalService {
     }
 
     private static async scopeWhere(userId: string) {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         return { scope, where: scope !== undefined ? { contractor: { opmcId: { in: [...scope] } } } : {} };
     }
 
@@ -65,7 +65,7 @@ export class InvoiceOspApprovalService {
         if (unique.length === 0) throw AppError.badRequest('Select at least one invoice');
         if (unique.length > MAX_BATCH) throw AppError.badRequest(`At most ${MAX_BATCH} invoices at a time`);
         if (action === 'RETURN' && (note?.trim().length ?? 0) < 3) throw AppError.badRequest('A reason is required to return an invoice');
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         const invoices = await prisma.invoice.findMany({ where: { id: { in: unique } }, select: SELECT });
         const done: OspOutcome[] = [];
         const failed: OspOutcome[] = [];

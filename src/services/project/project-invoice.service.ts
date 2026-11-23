@@ -93,7 +93,7 @@ export class ProjectInvoiceService {
      * Get all client-facing project invoices (BOM Client Invoices)
      */
     static async getAllClientInvoices(userId?: string | null) {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'project');
         const invoices = await prisma.projectInvoice.findMany({
             where: { type: 'CLIENT', ...(scope === undefined ? {} : { project: { opmcId: { in: scope } } }) },
             include: {

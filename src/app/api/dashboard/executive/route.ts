@@ -16,7 +16,7 @@ export const GET = apiHandler(async (request, params) => {
     // OPMC scope is resolved server-side — the client-supplied list is never
     // trusted on its own. Client values are intersected with the caller's
     // resolved scope (admins unrestricted, empty scope denies all).
-    const scope = await resolveOpmcScope(params._userId);
+    const scope = await resolveOpmcScope(params._userId, 'company');
     const opmcIds = scope === undefined
         ? clientOpmcIds
         : clientOpmcIds

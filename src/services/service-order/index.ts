@@ -48,7 +48,7 @@ export class ServiceOrderService {
     static async getServiceOrders(_userId: string, params: GetServiceOrdersParams) {
         // OPMC scope is capability-based. User.role is compatibility data and
         // must never decide whether a caller receives global SOD visibility.
-        const accessibleOpmcs = await resolveOpmcScope(_userId);
+        const accessibleOpmcs = await resolveOpmcScope(_userId, 'sod');
         if (accessibleOpmcs !== undefined) {
             params.accessibleOpmcs = accessibleOpmcs;
         }
@@ -100,7 +100,7 @@ export class ServiceOrderService {
         // @db.Uuid, so passing a marker string makes Prisma throw instead of
         // returning null (breaks sync workers / automation endpoints).
         if (userId && isValidUuid(userId)) {
-            const accessibleIds = await resolveOpmcScope(userId);
+            const accessibleIds = await resolveOpmcScope(userId, 'sod');
             if (accessibleIds !== undefined) {
                 if (!oldOrder.opmcId || !accessibleIds.includes(oldOrder.opmcId)) {
                     throw AppError.forbidden('Service order is outside your OPMC access');

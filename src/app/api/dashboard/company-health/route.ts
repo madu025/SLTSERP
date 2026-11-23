@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 // additionally limited to the caller's own module capabilities (see CompanyHealthService).
 export const GET = apiHandler(async (_request, params) => {
     // The figures are company-wide, so users limited to specific OPMCs must not receive them.
-    const scope = await resolveOpmcScope(params._userId);
+    const scope = await resolveOpmcScope(params._userId, 'company');
     if (scope !== undefined) throw AppError.forbidden('Company health is available to users with company-wide access');
     const permissions = params._permissions ?? [];
     const userId = params._userId ?? undefined;

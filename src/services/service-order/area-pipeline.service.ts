@@ -33,7 +33,7 @@ const NOT_READY = { OR: [{ sodApprovalStage: null }, { sodApprovalStage: { notIn
  */
 export class AreaPipelineService {
     static async forUser(userId: string, opts: { month?: number; year?: number; rtom?: string } = {}): Promise<AreaPipeline | null> {
-        const allScope = await resolveOpmcScope(userId);
+        const allScope = await resolveOpmcScope(userId, 'sod');
         if (allScope === undefined) return null;
         const now = new Date();
         const m = opts.month && opts.month >= 1 && opts.month <= 12 ? opts.month : now.getMonth() + 1;

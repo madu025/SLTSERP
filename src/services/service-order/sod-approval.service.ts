@@ -120,7 +120,7 @@ export class SodApprovalService {
 
     /** Orders waiting at a step this person holds, inside their area. */
     static async queue(userId: string, filter: SodQueueFilter = {}) {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'sod');
         await this.ensureStarted(scope);
         const policy = await loadPolicy();
         if (!policy || !policy.isEnabled) return { stages: [], counts: {}, orders: [] as never[], total: 0 };
@@ -178,7 +178,7 @@ export class SodApprovalService {
     static async summary(userId: string, rtom?: string) {
         const none = { total: 0, slts: 0, opmc: 0, ho: 0, rejected: 0 };
         const empty = { stages: [] as Array<{ key: string; label: string; count: number }>, awaitingPat: none };
-        const allScope = await resolveOpmcScope(userId);
+        const allScope = await resolveOpmcScope(userId, 'sod');
         if (allScope !== undefined && allScope.length === 0) return empty;
         const scope = allScope === undefined ? undefined : await narrowScope(allScope, rtom);
         const policy = await loadPolicy();
@@ -227,7 +227,7 @@ export class SodApprovalService {
         if (!policy || !policy.isEnabled) throw AppError.badRequest('The order approval gate is not configured');
         const { actor, permissions } = await loadActor(userId);
         const levels = policy.approvalLevels as Level[];
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'sod');
         await this.ensureStarted(scope, { ids });
         const orders = await prisma.serviceOrder.findMany({ where: { id: { in: ids } }, select: { id: true, soNum: true, opmcId: true, photosCheckedAt: true, invoiced: true, contractorId: true, sodApprovalStage: true, sltsPatStatus: true, opmcPatStatus: true, hoPatStatus: true, isManualEntry: true } });
         const open = await prisma.universalApprovalInstance.findMany({ where: { entityType: SOD_GATE.entityType, policyId: policy.id, status: 'PENDING', entityId: { in: ids } }, select: { id: true, entityId: true, level: true } });

@@ -26,7 +26,7 @@ export interface AreaManagerDesk {
  */
 export class AreaManagerDeskService {
     static async forUser(userId: string, opts: { month?: number; year?: number; rtom?: string } = {}): Promise<AreaManagerDesk | null> {
-        const allScope = await resolveOpmcScope(userId);
+        const allScope = await resolveOpmcScope(userId, 'sod');
         if (allScope === undefined) return null;
         const now = new Date();
         const m = opts.month && opts.month >= 1 && opts.month <= 12 ? opts.month : now.getMonth() + 1;

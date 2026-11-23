@@ -19,7 +19,7 @@ const schema = z.object({
 // for LOCKED periods (those were closed by the year-end close). Every change is audited with who and which month.
 export const POST = apiHandler(async (_req, params, body: z.infer<typeof schema>) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
-    if (await resolveOpmcScope(params._userId) !== undefined) throw AppError.forbidden('Period close requires global Finance scope');
+    if (await resolveOpmcScope(params._userId, 'finance') !== undefined) throw AppError.forbidden('Period close requires global Finance scope');
 
     const { year, month, action } = body;
     const start = new Date(Date.UTC(year, month - 1, 1));

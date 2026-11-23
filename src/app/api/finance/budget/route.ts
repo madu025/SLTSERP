@@ -29,7 +29,7 @@ export const GET = apiHandler(async (request, ctx) => {
   const { searchParams } = new URL(request.url);
   const requestedOpmcId = searchParams.get('opmcId') ?? undefined;
   if (requestedOpmcId) await assertOpmcAccess(requestedOpmcId, ctx._userId);
-  const scope = await resolveOpmcScope(ctx._userId);
+  const scope = await resolveOpmcScope(ctx._userId, 'finance');
   if (scope !== undefined && scope.length === 0) {
     throw AppError.forbidden('You are not assigned to any OPMC scope');
   }

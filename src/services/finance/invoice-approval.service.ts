@@ -61,7 +61,7 @@ export class InvoiceApprovalService {
         if (!invoice) throw AppError.notFound('Invoice not found');
         if (invoice.projectId) {
             await assertProjectAccess(invoice.projectId, actorId);
-        } else if (await resolveOpmcScope(actorId) !== undefined) {
+        } else if (await resolveOpmcScope(actorId, 'finance') !== undefined) {
             throw AppError.forbidden('Unlinked invoice is outside assigned OPMC scope');
         }
     }

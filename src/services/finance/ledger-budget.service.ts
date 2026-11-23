@@ -57,7 +57,7 @@ export class LedgerBudgetService {
 
     /** Resolve which OPMC a caller may read/write: company-wide only for unscoped users. */
     private static async resolveTarget(userId: string | null | undefined, requested: string | null | undefined) {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         if (scope === undefined) return { opmcId: requested ?? null, scope };
         if (!requested) throw AppError.forbidden('Company-wide budgets are available only to users with company-wide access; choose one of your OPMCs');
         if (!scope.includes(requested)) throw AppError.forbidden('That OPMC is outside your access');

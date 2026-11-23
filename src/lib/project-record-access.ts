@@ -66,7 +66,7 @@ export async function assertRecordInProject(kind: ProjectRecordKind, recordId: s
  */
 export async function getAccessibleProjectIds(userId: string | null | undefined): Promise<Set<string> | undefined> {
     if (!userId) throw AppError.unauthorized('Authentication required');
-    const opmcs = await resolveOpmcScope(userId);
+    const opmcs = await resolveOpmcScope(userId, 'project');
     if (opmcs === undefined) return undefined;
     if (opmcs.length === 0) return new Set();
     const projects = await prisma.project.findMany({ where: { opmcId: { in: opmcs } }, select: { id: true } });
@@ -89,7 +89,7 @@ export async function requireAnyPermission(userId: string | null | undefined, pe
 /** Enforce that the user's OPMC scope includes the given OPMC (global-capability users pass). */
 export async function assertOpmcAccess(opmcId: string, userId: string | null | undefined): Promise<void> {
     if (!userId) throw AppError.unauthorized('Authentication required');
-    const opmcs = await resolveOpmcScope(userId);
+    const opmcs = await resolveOpmcScope(userId, 'project');
     if (opmcs !== undefined && !opmcs.includes(opmcId)) {
         throw AppError.forbidden('You are not assigned to this OPMC scope');
     }

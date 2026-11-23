@@ -24,7 +24,7 @@ export interface AreaContractorStock {
  */
 export class AreaContractorStockService {
     static async forUser(userId: string, opts: { rtom?: string } = {}): Promise<AreaContractorStock> {
-        const allScope = await resolveOpmcScope(userId);
+        const allScope = await resolveOpmcScope(userId, 'sod');
         const areaWhere = allScope === undefined ? {} : { id: { in: allScope } };
         const areas = await prisma.oPMC.findMany({ where: areaWhere, select: { id: true, rtom: true, name: true }, orderBy: { rtom: 'asc' } });
         if (allScope !== undefined && allScope.length === 0) return { areas: [], rtom: 'ALL', contractors: [] };

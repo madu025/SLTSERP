@@ -55,7 +55,7 @@ export class ServiceOrderDashboardService {
                 select: { id: true, rtom: true, region: true },
                 orderBy: { rtom: 'asc' }
             }),
-            resolveOpmcScope(userId)
+            resolveOpmcScope(userId, 'sod')
         ]);
 
         if (!user) {
@@ -130,7 +130,7 @@ export class ServiceOrderDashboardService {
         // from legacy role-name lists. This keeps dashboard visibility aligned
         // with the same RBAC source used by API route guards.
         const effectivePermissions = deriveEffectivePermissions(user);
-        const accessibleOpmcScope = await resolveOpmcScope(userId);
+        const accessibleOpmcScope = await resolveOpmcScope(userId, 'sod');
         const canFilterGlobally = accessibleOpmcScope === undefined;
         const canViewContractorPerformance =
             canFilterGlobally || effectivePermissions.includes(RBAC_PERMISSIONS.SOD_READ);

@@ -24,7 +24,7 @@ const runSchema = z.object({
 
 async function caller(userId: string | undefined) {
     if (!userId) throw AppError.unauthorized('Authentication required');
-    const [permissions, scope] = await Promise.all([getUserEffectivePermissions(userId), resolveOpmcScope(userId)]);
+    const [permissions, scope] = await Promise.all([getUserEffectivePermissions(userId), resolveOpmcScope(userId, 'reports')]);
     return { permissions: new Set(permissions), scope };
 }
 

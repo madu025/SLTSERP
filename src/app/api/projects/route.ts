@@ -29,7 +29,7 @@ export const GET = apiHandler(async (req, params) => {
 
     // Server-side OPMC scope — client opmcId is intersected with it inside
     // the service (admins unrestricted, empty scope denies all).
-    const accessibleOpmcs = await resolveOpmcScope(params._userId);
+    const accessibleOpmcs = await resolveOpmcScope(params._userId, 'project');
 
     return await ProjectService.getProjects(filters, pagination, accessibleOpmcs);
 }, {

@@ -61,7 +61,7 @@ export class InvoiceGeneratorService {
 
         if (!contractor) throw AppError.notFound('Contractor not found');
 
-        const accessibleOpmcs = await resolveOpmcScope(userId);
+        const accessibleOpmcs = await resolveOpmcScope(userId, 'finance');
         const areaId = data.opmcId ?? contractor.opmcId;
         if (accessibleOpmcs !== undefined && (!areaId || !accessibleOpmcs.includes(areaId))) {
             throw AppError.forbidden('The area of this invoice is outside your OPMC access');

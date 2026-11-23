@@ -12,7 +12,7 @@ export async function assertProjectAccess(projectId: string, userId: string | nu
     });
     if (!project) throw AppError.notFound('Project not found');
 
-    const accessibleOpmcs = await resolveOpmcScope(userId);
+    const accessibleOpmcs = await resolveOpmcScope(userId, 'project');
     if (accessibleOpmcs !== undefined && (!project.opmcId || !accessibleOpmcs.includes(project.opmcId))) {
         throw AppError.forbidden('You are not assigned to this project scope');
     }

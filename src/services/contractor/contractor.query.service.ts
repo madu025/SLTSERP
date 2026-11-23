@@ -39,7 +39,7 @@ export class ContractorQueryService {
         //  - admin tier          → unrestricted (client filter honoured as-is)
         //  - non-admin + scope   → restricted to accessibleOpmcs
         //  - non-admin + empty   → DENY ALL (previously `[]` returned ALL rows)
-        const accessibleOpmcIds = await resolveOpmcScope(userId);
+        const accessibleOpmcIds = await resolveOpmcScope(userId, 'company');
         const isAdmin = accessibleOpmcIds === undefined;
 
         if (!isAdmin) {

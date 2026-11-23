@@ -19,7 +19,7 @@ export class InventoryHealthService {
     /** `userId` null = company-wide (daily job); otherwise limited to the stores that user may access. */
     static async getReport(userId: string | null, showValues: boolean, now = new Date()): Promise<InventoryHealth> {
         const storeIds = userId === null ? null : (await StoreService.getAccessibleStores(userId)).map((s) => s.id);
-        if (userId !== null && (await resolveOpmcScope(userId)) !== undefined && storeIds && storeIds.length === 0) {
+        if (userId !== null && (await resolveOpmcScope(userId, 'inventory')) !== undefined && storeIds && storeIds.length === 0) {
             return this.empty(now, showValues);
         }
         const key = `${storeIds === null ? 'ALL' : [...storeIds].sort().join(',')}|${showValues}`;

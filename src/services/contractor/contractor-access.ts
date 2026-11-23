@@ -30,7 +30,7 @@ export class ContractorAccess {
     /** Staff access to one contractor, inside the caller's OPMC scope. */
     static async assertStaffManagesContractor(userId: string | null | undefined, contractorId: string): Promise<void> {
         await this.assertStaff(userId);
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'company');
         if (scope === undefined) return;
         const contractor = await prisma.contractor.findUnique({
             where: { id: contractorId },

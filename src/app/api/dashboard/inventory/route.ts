@@ -19,7 +19,7 @@ export const GET = apiHandler(async (req, params) => {
     // Identity/scope come from the session only — any client userId param is
     // ignored. OPMC scope is resolved server-side (admins unrestricted;
     // client rtom is validated against the scope inside the service).
-    const accessibleOpmcs = await resolveOpmcScope(params._userId);
+    const accessibleOpmcs = await resolveOpmcScope(params._userId, 'company');
 
     return await DashboardService.getInventoryMetrics(parsed.rtom, accessibleOpmcs);
 }, { permissions: [RBAC_PERMISSIONS.INVENTORY_READ], rawResponse: true });

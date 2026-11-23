@@ -90,7 +90,7 @@ export class ProjectTaskNotificationService {
 
     /** Open work assigned to the viewer, limited to the OPMC scope they may access. */
     static async listForUser(userId: string) {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'project');
         const projectScope = scope === undefined ? {} : { project: { opmcId: { in: scope } } };
 
         const [tasks, fieldTasks] = await Promise.all([

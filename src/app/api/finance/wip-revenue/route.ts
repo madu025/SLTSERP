@@ -12,7 +12,7 @@ export const GET = apiHandler(async (request, params) => {
 
     // Server-side OPMC scope — client opmcId is intersected with it inside
     // the service (admins unrestricted, empty scope denies all).
-    const accessibleOpmcs = await resolveOpmcScope(params._userId);
+    const accessibleOpmcs = await resolveOpmcScope(params._userId, 'finance');
 
     const data = await SODWipRevenueService.getWipSummary(opmcId, accessibleOpmcs);
     return data;

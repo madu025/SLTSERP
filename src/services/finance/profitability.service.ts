@@ -40,7 +40,7 @@ export function summarise(revenue: number, directCost: number, opex: number) {
  */
 export class ProfitabilityService {
     static async getReport(userId: string | null | undefined, by: ProfitabilityDimension, from?: Date, to?: Date): Promise<ProfitabilityReport> {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         const dim = by === 'opmc' ? 'opmcId' : 'projectId';
 
         const rows = await prisma.$queryRawUnsafe<{ k: string | null; code: string; debit: unknown; credit: unknown }[]>(

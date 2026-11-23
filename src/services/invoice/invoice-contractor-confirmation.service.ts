@@ -5,7 +5,7 @@ import { resolveOpmcScope } from '@/lib/opmc-scope';
 export class InvoiceContractorConfirmationService {
     /** Invoices the contractor confirmed (and the area chain cleared) that wait for OSP Quality, inside the caller's OPMC scope. */
     static async ospQualityQueue(userId: string) {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         const scopeWhere = scope !== undefined ? { contractor: { opmcId: { in: [...scope] } } } : {};
         const [ready, inApproval] = await Promise.all([
             prisma.invoice.findMany({

@@ -110,7 +110,7 @@ export class HoRunService {
             orderBy: { createdAt: 'asc' }, take: 300,
             select: { id: true, pvNumber: true, status: true, type: true, payeeName: true, amount: true, taxWithheld: true, netAmount: true, createdById: true, approvedById: true, projectId: true, supplierInvoiceId: true, invoiceId: true, description: true, project: { select: { name: true, opmcId: true } } },
         });
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         const sodAreas = new Map<string, string | null>();
         const sodIds = rows.map((r) => (r.projectId ? null : sodInvoiceIdOf(r.description))).filter((x): x is string => !!x);
         if (scope !== undefined && sodIds.length) for (const i of await prisma.invoice.findMany({ where: { id: { in: sodIds } }, select: { id: true, opmcId: true, contractor: { select: { opmcId: true } } } })) sodAreas.set(i.id, i.opmcId ?? i.contractor?.opmcId ?? null);

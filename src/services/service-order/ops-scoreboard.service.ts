@@ -21,7 +21,7 @@ export class OpsScoreboardService {
     ): Promise<OpsScoreboard> {
         const windowDays = Math.min(180, Math.max(7, filters.windowDays ?? 30));
         const from = new Date(now.getTime() - windowDays * DAY_MS);
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'sod');
         const scopeArr = scope === undefined ? null : scope;
 
         const [perf, opmcs] = await Promise.all([

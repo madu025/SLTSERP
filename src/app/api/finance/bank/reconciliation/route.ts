@@ -7,7 +7,7 @@ import { resolveOpmcScope } from '@/lib/opmc-scope';
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (req, params) => {
-    if (await resolveOpmcScope(params._userId) !== undefined) {
+    if (await resolveOpmcScope(params._userId, 'finance') !== undefined) {
         throw AppError.forbidden('Bank reconciliation requires global Finance scope');
     }
     const { searchParams } = new URL(req.url);
@@ -22,7 +22,7 @@ export const GET = apiHandler(async (req, params) => {
 });
 
 export const POST = apiHandler(async (req, params) => {
-    if (await resolveOpmcScope(params._userId) !== undefined) {
+    if (await resolveOpmcScope(params._userId, 'finance') !== undefined) {
         throw AppError.forbidden('Bank reconciliation requires global Finance scope');
     }
     const body = await req.json();

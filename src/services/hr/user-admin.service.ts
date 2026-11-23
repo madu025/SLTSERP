@@ -206,7 +206,7 @@ export class UserAdminService {
     static async formOptions() {
         const [enumRows, systemRoles, sections] = await Promise.all([
             prisma.$queryRawUnsafe<Array<{ role: string }>>('SELECT unnest(enum_range(NULL::"Role")) AS role'),
-            prisma.systemRole.findMany({ where: { isActive: true }, select: { id: true, code: true, name: true, sectionId: true } }),
+            prisma.systemRole.findMany({ where: { isActive: true }, select: { id: true, code: true, name: true, sectionId: true, rolePermissions: { select: { permissionDefinition: { select: { code: true } } } } } }),
             prisma.section.findMany({ where: { isActive: true }, select: { id: true, code: true, name: true }, orderBy: { name: 'asc' } }),
         ]);
         const enumRoles = enumRows.map((r) => r.role);
@@ -216,7 +216,14 @@ export class UserAdminService {
             section: s,
             roles: systemRoles.filter((r) => r.sectionId === s.id && !enumRoles.includes(r.code) && !isQaLeftoverRole(r.code)).map((r) => ({ id: r.id, code: r.code, name: r.name, forRole: designationRoleOf(r.code, s.code, enumRoles) })),
         })).filter((s) => s.roles.length > 0);
-        return { roles: enumRoles, baseAvailable, designations };
+        // which data domains a base role sees for every OPMC (scope.<domain>.all grants), so the form can say that no region is needed
+        const scopeAll: Record<string, string[]> = {};
+        for (const r of systemRoles) {
+            if (!enumRoles.includes(r.code)) continue;
+            const d = r.rolePermissions.map((p) => p.permissionDefinition?.code ?? '').filter((c) => /^scope..+.all$/.test(c)).map((c) => c.split('.')[1]);
+            if (d.length) scopeAll[r.code] = d;
+        }
+        return { roles: enumRoles, baseAvailable, designations, scopeAll };
     }
 
     static async create(data: AdminUserInput, currentUserId: string) {

@@ -29,7 +29,7 @@ export interface PackLine {
 export class HoBatchService {
     /** Vouchers that are approved and not yet in a pack, within the caller's access. */
     static async readyToSubmit(userId: string) {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         return prisma.paymentVoucher.findMany({
             where: { status: 'APPROVED', hoBatchId: null, ...(scope === undefined ? {} : { project: { opmcId: { in: scope } } }) },
             orderBy: { approvedAt: 'asc' }, take: 300,
@@ -81,7 +81,7 @@ export class HoBatchService {
     }
 
     static async list(userId: string, status?: string) {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         const batches = await prisma.hoPaymentBatch.findMany({ orderBy: { submittedAt: 'desc' }, take: 100 });
         const vouchers = await prisma.paymentVoucher.findMany({
             where: { hoBatchId: { in: batches.map((b) => b.id) } },

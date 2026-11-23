@@ -314,7 +314,7 @@ export class ContractorLifecycleService {
     }
 
     private static async assertApprovalScope(actorUserId: string, contractorOpmcId: string | null, teamOpmcIds: Array<string | null>) {
-        const scope = await resolveOpmcScope(actorUserId);
+        const scope = await resolveOpmcScope(actorUserId, 'company');
         if (scope === undefined) return;
         const visibleOpmcIds = [contractorOpmcId, ...teamOpmcIds].filter((value): value is string => Boolean(value));
         if (!visibleOpmcIds.some((opmcId) => scope.includes(opmcId))) {

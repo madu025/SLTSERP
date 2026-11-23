@@ -23,7 +23,7 @@ test('invoice penalty status updates require the authenticated actor and canonic
     assert.match(guard, /getUserEffectivePermissions\(actorUserId\)/);
     assert.match(guard, /RBAC_PERMISSIONS\.SOD_INVOICE/);
     assert.match(guard, /assertProjectAccess\(invoice\.projectId, actorUserId\)/);
-    assert.match(guard, /resolveOpmcScope\(actorUserId\)/);
+    assert.match(guard, /resolveOpmcScope\(actorUserId(, '[a-z]+')?\)/);
     assert.match(guard, /Authentication required/);
 });
 

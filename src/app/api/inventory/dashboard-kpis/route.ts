@@ -15,7 +15,7 @@ export const GET = apiHandler(async (req, params) => {
 
     // Capability and store scope are separate. A display role must never turn
     // a scoped store user into a global inventory reader.
-    const isGlobalScope = (await resolveOpmcScope(_userId)) === undefined;
+    const isGlobalScope = (await resolveOpmcScope(_userId, 'inventory')) === undefined;
     const user = await prisma.user.findUnique({
         where: { id: _userId },
         select: { assignedStoreId: true },

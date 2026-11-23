@@ -17,6 +17,7 @@ export const GET = apiHandler(async () => {
         roles: o.roles,
         baseAvailable: o.baseAvailable,
         designations: o.designations,
+        scopeAll: o.scopeAll,
         opmcRequiredRoles: OPMC_REQUIRED_ROLES,
         categories: ROLE_CATEGORIES,
     };

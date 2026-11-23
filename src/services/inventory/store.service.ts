@@ -40,7 +40,7 @@ export class StoreService {
         }
 
         // Global bypass is capability-based, not a legacy role-name bypass.
-        if (await resolveOpmcScope(userId) === undefined) {
+        if (await resolveOpmcScope(userId, 'inventory') === undefined) {
             return;
         }
 
@@ -69,7 +69,7 @@ export class StoreService {
     }
 
     static async getAccessibleStores(userId: string): Promise<StoreWithDetails[]> {
-        const isGlobal = await resolveOpmcScope(userId) === undefined;
+        const isGlobal = await resolveOpmcScope(userId, 'inventory') === undefined;
         let whereClause: Prisma.InventoryStoreWhereInput = {};
 
         if (!isGlobal) {

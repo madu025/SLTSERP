@@ -18,7 +18,7 @@ export const GET = apiHandler(async (_request, params) => {
     // OPMC membership check: regionally-scoped users may only read SODs
     // belonging to their accessible OPMCs (admins unrestricted). Matched via
     // rtom because the PAT-status fallback shape carries no opmcId.
-    const scope = await resolveOpmcScope(params._userId);
+    const scope = await resolveOpmcScope(params._userId, 'sod');
     if (scope !== undefined) {
         const orderRtom = (serviceOrder as { rtom?: string | null }).rtom ?? null;
         const allowed = orderRtom

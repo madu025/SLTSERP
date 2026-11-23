@@ -32,7 +32,7 @@ test('approval service derives stage, audit fields, scope, and active canonical 
   assert.match(lifecycle, /RBAC_PERMISSIONS\.ADMIN_RBAC/);
   assert.match(lifecycle, /status: true,/);
   assert.match(lifecycle, /actor\.status !== 'active'/);
-  assert.match(lifecycle, /resolveOpmcScope\(actorUserId\)/);
+  assert.match(lifecycle, /resolveOpmcScope\(actorUserId(, '[a-z]+')?\)/);
   assert.match(lifecycle, /systemRole: \{ select: \{ code: true, isActive: true \} \}/);
   assert.match(lifecycle, /sectionAssignments: \{ select: \{ role: \{ select: \{ code: true, isActive: true \} \} \} \}/);
   assert.match(lifecycle, /contractor\.status === 'ARM_PENDING'/);

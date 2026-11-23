@@ -33,7 +33,7 @@ export interface BillingPackLine {
  */
 export class HoBillingService {
     private static async scopeWhere(userId: string): Promise<Prisma.ProjectInvoiceWhereInput> {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         return scope === undefined ? {} : { project: { opmcId: { in: scope } } };
     }
 

@@ -69,7 +69,7 @@ export function computeDso(receivables: number, billedLast90Days: number): numbe
 
 export class CashForecastService {
     static async getForecast(userId: string | null | undefined, horizonWeeks = 13, now = new Date()): Promise<CashForecast> {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         const projectScope = scope === undefined ? {} : { project: { opmcId: { in: scope } } };
 
         const [receivables, payables, payrollRows, cash] = await Promise.all([
@@ -153,7 +153,7 @@ export class CashForecastService {
     }
 
     static async getReceivablesRisk(userId: string | null | undefined, now = new Date()): Promise<ReceivablesRisk> {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         const projectScope = scope === undefined ? {} : { project: { opmcId: { in: scope } } };
         const since = new Date(now.getTime() - 90 * DAY);
 

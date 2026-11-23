@@ -37,7 +37,7 @@ export interface AreaOverview {
  */
 export class AreaOverviewService {
     static async forUser(userId: string, opts: { month?: number; year?: number; rtom?: string } = {}): Promise<AreaOverview | null> {
-        const allScope = await resolveOpmcScope(userId);
+        const allScope = await resolveOpmcScope(userId, 'sod');
         // A person with no area limit (company-wide) has no "own area": the company dashboards are for them.
         if (allScope === undefined) return null;
         const now = new Date();

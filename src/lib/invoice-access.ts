@@ -17,7 +17,7 @@ export function invoiceAreaWhere(scope: readonly string[]): Prisma.InvoiceWhereI
 }
 
 export async function invoiceScopeWhere(userId: string | null | undefined): Promise<Prisma.InvoiceWhereInput> {
-    const scope = await resolveOpmcScope(userId);
+    const scope = await resolveOpmcScope(userId, 'finance');
     return scope === undefined ? {} : invoiceAreaWhere(scope);
 }
 
@@ -25,7 +25,7 @@ export async function invoiceScopeWhere(userId: string | null | undefined): Prom
 export async function assertInvoiceAccess(invoiceId: string, userId: string | null | undefined): Promise<void> {
     const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { opmcId: true, contractor: { select: { opmcId: true } } } });
     if (!invoice) throw AppError.notFound('Invoice not found');
-    const scope = await resolveOpmcScope(userId);
+    const scope = await resolveOpmcScope(userId, 'finance');
     const area = invoiceAreaOf(invoice);
     if (scope !== undefined && (!area || !scope.includes(area))) {
         throw AppError.forbidden('This invoice is outside your area');
@@ -36,7 +36,7 @@ export async function assertInvoiceAccess(invoiceId: string, userId: string | nu
 export async function assertContractorInScope(contractorId: string, userId: string | null | undefined): Promise<void> {
     const contractor = await prisma.contractor.findUnique({ where: { id: contractorId }, select: { opmcId: true } });
     if (!contractor) throw AppError.notFound('Contractor not found');
-    const scope = await resolveOpmcScope(userId);
+    const scope = await resolveOpmcScope(userId, 'finance');
     if (scope !== undefined && (!contractor.opmcId || !scope.includes(contractor.opmcId))) {
         throw AppError.forbidden('This contractor is outside your area');
     }

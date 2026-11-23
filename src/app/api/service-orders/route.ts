@@ -72,7 +72,7 @@ export const POST = apiHandler(
 
         // Regional ownership check: non-admin users may only create SODs in
         // their accessible OPMCs (admins unrestricted).
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'sod');
         if (scope !== undefined && !scope.includes(opmc.id)) {
             throw AppError.forbidden('Target OPMC is outside your regional access');
         }

@@ -175,7 +175,7 @@ export class ArApService {
     }
 
     static async getCustomerReceipts(userId?: string | null) {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         return await prisma.customerReceipt.findMany({
             where: scope === undefined
                 ? undefined
@@ -196,7 +196,7 @@ export class ArApService {
     static async getArAgingReport(userId?: string | null, opts?: { unscoped?: boolean }): Promise<ArAgingReport> {
         // `unscoped` is for system/management callers that already enforce company-wide access themselves;
         // a missing userId alone means "no access" (empty scope), never "everything".
-        const scope = opts?.unscoped ? undefined : await resolveOpmcScope(userId);
+        const scope = opts?.unscoped ? undefined : await resolveOpmcScope(userId, 'finance');
         const unpaidInvoices = await prisma.projectInvoice.findMany({
             where: {
                 ...(scope === undefined ? {} : { project: { opmcId: { in: scope } } }),
@@ -283,7 +283,7 @@ export class ArApService {
      * Compute Accounts Payable (AP) Aging Report across all unpaid contractor invoices.
      */
     static async getApAgingReport(userId?: string | null, opts?: { unscoped?: boolean }): Promise<ApAgingReport> {
-        const scope = opts?.unscoped ? undefined : await resolveOpmcScope(userId);
+        const scope = opts?.unscoped ? undefined : await resolveOpmcScope(userId, 'finance');
         const unpaidInvoices = await prisma.invoice.findMany({
             where: {
                 ...(scope === undefined ? {} : { project: { opmcId: { in: scope } } }),

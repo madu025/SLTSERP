@@ -75,7 +75,7 @@ test('a person who holds an approval step lands on a "My work" dashboard tab wit
 
 test('the dashboard of a person who works on the orders of their own RTOMs shows only that work, their RTOMs and each contractor\'s progress', () => {
     const svc = read('src/services/service-order/area-overview.service.ts');
-    assert.ok(svc.includes('resolveOpmcScope(userId)') && svc.includes('opmcId: { in: scope }'), 'always limited to the person\'s own areas');
+    assert.ok(svc.includes('resolveOpmcScope(userId') && svc.includes('opmcId: { in: scope }'), 'always limited to the person\'s own areas');
     assert.ok(svc.includes('if (allScope === undefined) return null'), 'a company-wide person has no own area and keeps the company dashboards');
     assert.ok(svc.includes('inHand') && svc.includes('completedThisMonth') && svc.includes('returnedThisMonth') && svc.includes('oldestInHandDays'), 'in hand, completed and returned per contractor');
     assert.ok(read('src/app/api/service-orders/area-overview/route.ts').includes('AreaOverviewService.forUser'), 'its own read-only route');
@@ -119,7 +119,7 @@ test('the area dashboard shows why orders were returned and each contractor\'s S
 
 test('an area person sees only the stock of their own contractors, and the contractor field portal is for the contractors own people', () => {
     const svc = read('src/services/service-order/area-contractor-stock.service.ts');
-    assert.ok(svc.includes('resolveOpmcScope(userId)') && svc.includes('opmcId: { in: scope }') && svc.includes('narrowScope('), 'stock is limited to the contractors of their own RTOMs');
+    assert.ok(svc.includes('resolveOpmcScope(userId') && svc.includes('opmcId: { in: scope }') && svc.includes('narrowScope('), 'stock is limited to the contractors of their own RTOMs');
     assert.ok(read('src/app/api/service-orders/contractor-stock/route.ts').includes('RBAC_PERMISSIONS.SOD_READ'), 'read with the service order capability');
     const menu = read('src/config/sidebar-menu.ts');
     assert.ok(menu.includes("path: '/service-orders/contractor-stock'") && menu.includes('permissionId: RBAC_PERMISSIONS.CONTRACTOR_WRITE, // the field portal'), 'the stock page is in the menu and the field portal needs the contractor capability');

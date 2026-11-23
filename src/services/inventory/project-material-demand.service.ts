@@ -44,7 +44,7 @@ export class ProjectMaterialDemandService {
    * not update Project.status or any Project workflow stage.
    */
   static async getBoard(filters: BoardFilters) {
-    const scope = await resolveOpmcScope(filters.userId);
+    const scope = await resolveOpmcScope(filters.userId, 'inventory');
     const opmcFilter = scope === undefined
       ? undefined
       : { in: scope.length > 0 ? scope : [NIL_UUID] };

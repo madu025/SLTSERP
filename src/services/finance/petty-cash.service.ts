@@ -6,7 +6,7 @@ import { resolveOpmcScope } from '@/lib/opmc-scope';
 
 /** Petty cash is per OPMC: the actor must be global or have the account's OPMC in scope. */
 async function assertPettyCashOpmcAccess(actorId: string | null | undefined, opmcId: string) {
-  const scope = await resolveOpmcScope(actorId);
+  const scope = await resolveOpmcScope(actorId, 'finance');
   if (scope !== undefined && !scope.includes(opmcId)) {
     throw AppError.forbidden('OPMC_SCOPE_VIOLATION: Petty cash account is outside your OPMC scope.');
   }
@@ -52,7 +52,7 @@ export class PettyCashService {
    * List all petty cash accounts
    */
   static async getPettyCashAccounts(actorId?: string | null) {
-    const scope = actorId ? await resolveOpmcScope(actorId) : undefined;
+    const scope = actorId ? await resolveOpmcScope(actorId, 'finance') : undefined;
     return prisma.pettyCashAccount.findMany({
       where: scope === undefined ? undefined : { opmcId: { in: scope.length > 0 ? scope : ['00000000-0000-0000-0000-000000000000'] } },
       include: {
@@ -350,7 +350,7 @@ export class PettyCashService {
    * Get petty cash reimbursements
    */
   static async getReimbursements(accountId?: string, actorId?: string | null) {
-    const scope = actorId ? await resolveOpmcScope(actorId) : undefined;
+    const scope = actorId ? await resolveOpmcScope(actorId, 'finance') : undefined;
     if (accountId) {
       const account = await prisma.pettyCashAccount.findUnique({
         where: { id: accountId }

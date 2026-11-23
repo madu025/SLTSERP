@@ -58,7 +58,7 @@ export class PaymentVoucherService {
     projectId?: string;
     type?: string;
   }, userId?: string | null) {
-    const scope = await resolveOpmcScope(userId);
+    const scope = await resolveOpmcScope(userId, 'finance');
     const where: Record<string, unknown> = {};
     if (scope !== undefined) {
       // project vouchers by the area of their project; contractor invoice vouchers (no project) by the area of the contractor

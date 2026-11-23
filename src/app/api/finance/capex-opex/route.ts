@@ -56,7 +56,7 @@ export const GET = apiHandler(async (request, ctx) => {
   if (params.opmcId) {
     await assertOpmcAccess(params.opmcId, ctx._userId);
   } else {
-    const scope = await resolveOpmcScope(ctx._userId);
+    const scope = await resolveOpmcScope(ctx._userId, 'finance');
     if (scope !== undefined) {
       if (scope.length === 0) throw AppError.forbidden('You are not assigned to any OPMC scope');
       if (scope.length > 1) throw AppError.badRequest('opmcId is required');

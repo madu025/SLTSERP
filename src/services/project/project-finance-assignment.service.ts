@@ -83,7 +83,7 @@ async function getProject(projectId: string) {
 }
 
 async function assertUserCanWorkInProjectScope(userId: string, opmcId: string | null) {
-  const scope = await resolveOpmcScope(userId);
+  const scope = await resolveOpmcScope(userId, 'project');
   if (scope !== undefined && (!opmcId || !scope.includes(opmcId))) {
     throw AppError.badRequest('The selected user is not assigned to this project OPMC scope');
   }

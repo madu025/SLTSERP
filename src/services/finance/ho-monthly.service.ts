@@ -21,7 +21,7 @@ export class HoMonthlyService {
         const m = month || currentMonth();
         const range = monthRange(m);
         if (!range) throw AppError.badRequest('INVALID_MONTH: use YYYY-MM');
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         const rows: PlanRow[] = [];
 
         if (scope === undefined) {
@@ -92,7 +92,7 @@ export class HoMonthlyService {
 
     // ---- month-end reconciliation of the Head Office account ----
     static async reconciliations(userId: string) {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         if (scope !== undefined) throw AppError.forbidden('The Head Office account needs company-wide finance access');
         const rows = await prisma.hoReconciliation.findMany({ orderBy: { month: 'desc' }, take: 36 });
         return rows.map((r) => ({ ...r, ledgerBalance: num(r.ledgerBalance), hoBalance: num(r.hoBalance), difference: num(r.difference) }));
@@ -107,7 +107,7 @@ export class HoMonthlyService {
     }
 
     static async record(userId: string, input: { month: string; hoBalance: number; note?: string | null }) {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         if (scope !== undefined) throw AppError.forbidden('The Head Office account needs company-wide finance access');
         const range = monthRange(input.month);
         if (!range) throw AppError.badRequest('INVALID_MONTH: use YYYY-MM');

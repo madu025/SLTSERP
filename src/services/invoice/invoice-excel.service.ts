@@ -17,7 +17,7 @@ export class InvoiceExcelService {
             },
         });
         if (!invoice) throw AppError.notFound('Invoice not found');
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         if (scope !== undefined && (!invoice.contractor.opmcId || !scope.includes(invoice.contractor.opmcId))) throw AppError.forbidden('Invoice is outside your area');
         if (invoice.sods.length === 0) throw AppError.badRequest('This invoice has no service orders to export');
 

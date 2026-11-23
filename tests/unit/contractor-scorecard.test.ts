@@ -58,7 +58,7 @@ test('month range is oldest first and crosses year ends', () => {
 
 test('scorecard service and API are scoped, cached nowhere stale, and the page is client-safe', () => {
   const svc = fs.readFileSync('src/services/contractor/contractor-scorecard.service.ts', 'utf8');
-  assert.match(svc, /resolveOpmcScope\(userId\)/);
+  assert.match(svc, /resolveOpmcScope\(userId(, '[a-z]+')?\)/);
   assert.match(svc, /SOD_TURNAROUND_SLA_DAYS/);
   assert.doesNotMatch(svc, /ContractorPerformanceScore/, 'never touches the project-based score table');
   const route = fs.readFileSync('src/app/api/contractors/scorecard/route.ts', 'utf8');

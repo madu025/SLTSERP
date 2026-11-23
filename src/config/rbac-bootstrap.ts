@@ -146,6 +146,16 @@ export const CANONICAL_BOOTSTRAP_ROLE_GRANTS = {
         'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT', 'SITE_OFFICE_STAFF',
     ],
     // every role that works in the field or an area may raise a support ticket (the User Portal and New Support Ticket); the IT queue is for IT staff
+    // Data scope (see docs/authorization-architecture.md): these never grant a function, only which OPMCs' rows the holder's functions apply to.
+    [RBAC_PERMISSIONS.SCOPE_COMPANY_ALL]: ['CEO', 'HEAD_OF_OSP', 'OSP_MANAGER'],
+    [RBAC_PERMISSIONS.SCOPE_SOD_ALL]: ['CEO', 'HEAD_OF_OSP', 'OSP_MANAGER'],
+    [RBAC_PERMISSIONS.SCOPE_PROJECT_ALL]: ['CEO', 'HEAD_OF_OSP', 'OSP_MANAGER'],
+    [RBAC_PERMISSIONS.SCOPE_INVENTORY_ALL]: ['CEO', 'HEAD_OF_OSP', 'OSP_MANAGER'],
+    [RBAC_PERMISSIONS.SCOPE_REPORTS_ALL]: ['CEO', 'HEAD_OF_OSP', 'OSP_MANAGER'],
+    [RBAC_PERMISSIONS.SCOPE_FINANCE_ALL]: [
+        'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER', 'AR_OFFICER',
+        'INVOICE_MANAGER', 'INVOICE_ASSISTANT', 'SF_AUDIT_MANAGER', 'SF_AUDIT_OFFICER',
+    ],
     [RBAC_PERMISSIONS.HELPDESK_TICKET_CREATE]: [
         'SUPER_ADMIN', 'ADMIN', 'CEO', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER',
         'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT', 'SITE_OFFICE_STAFF',

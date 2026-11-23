@@ -30,7 +30,7 @@ export const GET = apiHandler(async (_request, params) => {
 export const POST = apiHandler(async (_req, params, body: z.infer<typeof receiptSchema>) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
     if (!body.invoiceId && (!await userHasPermission(params._userId, RBAC_PERMISSIONS.FINANCE_APPROVE)
-        || await resolveOpmcScope(params._userId) !== undefined)) {
+        || await resolveOpmcScope(params._userId, 'finance') !== undefined)) {
         throw AppError.forbidden('A scoped receipt must be linked to an accessible project invoice');
     }
     // OSP has no bank: collections of client invoices are confirmed by Head Office (see /finance/ho-billing).

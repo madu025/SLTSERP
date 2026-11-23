@@ -27,7 +27,7 @@ export const POST = apiHandler<unknown, z.infer<typeof syncSODSchema>>(async (_r
     // Regional ownership check: non-admin users may only sync OPMCs inside
     // their accessible scope (admins unrestricted). targetId may be a UUID
     // or an RTOM code — resolve the OPMC first, then verify membership.
-    const scope = await resolveOpmcScope(params._userId);
+    const scope = await resolveOpmcScope(params._userId, 'sod');
     if (scope !== undefined) {
         const opmc = await prisma.oPMC.findFirst({
             where: {

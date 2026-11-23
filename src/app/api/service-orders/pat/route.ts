@@ -20,7 +20,7 @@ export const GET = apiHandler(async (request, params) => {
     // Server-side OPMC scope: regionally-scoped users only see PAT results
     // for their accessible RTOMs; client rtom/region params are intersected
     // with that scope inside the query service (admins unrestricted).
-    const scope = await resolveOpmcScope(params._userId);
+    const scope = await resolveOpmcScope(params._userId, 'sod');
     const accessibleRtoms = scope === undefined
         ? undefined
         : scope.length > 0

@@ -118,7 +118,7 @@ export class ProjectDashboardService {
     static async getProjectStats(userId: string) {
         const projectWhere = await this.getProjectScope(userId);
         const projectIds = await this.getProjectIdsForScope(projectWhere);
-        const inventoryOpmcScope = await resolveOpmcScope(userId);
+        const inventoryOpmcScope = await resolveOpmcScope(userId, 'project');
         const inventoryStoreWhere: Prisma.InventoryStoreWhereInput = inventoryOpmcScope === undefined
             ? {}
             : {
@@ -435,7 +435,7 @@ export class ProjectDashboardService {
      * result.
      */
     private static async getProjectScope(userId: string): Promise<Prisma.ProjectWhereInput> {
-        const opmcScope = await resolveOpmcScope(userId);
+        const opmcScope = await resolveOpmcScope(userId, 'project');
         if (opmcScope === undefined) {
             return {};
         }

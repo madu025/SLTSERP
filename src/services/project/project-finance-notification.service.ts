@@ -121,7 +121,7 @@ export class ProjectFinanceNotificationService {
             rolesByProject.set(a.projectId, (rolesByProject.get(a.projectId) ?? new Set()).add(a.assignmentRole));
         }
 
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'project');
         const invoices = await prisma.projectInvoice.findMany({
             where: {
                 projectId: { in: [...rolesByProject.keys()] },

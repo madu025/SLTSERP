@@ -8,7 +8,7 @@ test('year-end close uses authenticated identity and canonical approval capabili
   const route = source('src/app/api/finance/period-close/route.ts');
   assert.match(route, /params\._userId/);
   assert.match(route, /RBAC_PERMISSIONS\.FINANCE_APPROVE/);
-  assert.match(route, /resolveOpmcScope\(params\._userId\)/);
+  assert.match(route, /resolveOpmcScope\(params\._userId(, '[a-z]+')?\)/);
   assert.doesNotMatch(route, /x-user-id|ROLE_GROUPS/);
 });
 
@@ -26,7 +26,7 @@ test('bank reconciliation page never substitutes zero balances on fetch failure'
 
 test('global bank reconciliation route rejects scoped readers and writers', () => {
   const route = source('src/app/api/finance/bank/reconciliation/route.ts');
-  assert.equal((route.match(/resolveOpmcScope\(params\._userId\)/g) || []).length, 2);
+  assert.equal((route.match(/resolveOpmcScope\(params\._userId(, '[a-z]+')?\)/g) || []).length, 2);
   assert.match(route, /RBAC_PERMISSIONS\.FINANCE_READ/);
   assert.match(route, /RBAC_PERMISSIONS\.FINANCE_APPROVE/);
 });

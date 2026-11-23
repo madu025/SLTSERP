@@ -35,7 +35,7 @@ export class BillingService {
         if (!Number.isInteger(currentYear) || !Number.isInteger(currentMonth) || currentMonth < 1 || currentMonth > 12) {
             throw AppError.badRequest('Invalid invoice period');
         }
-        const accessibleOpmcs = await resolveOpmcScope(userId);
+        const accessibleOpmcs = await resolveOpmcScope(userId, 'finance');
         const contractor = await prisma.contractor.findUnique({ where: { id: contractorId }, select: { opmcId: true } });
         if (!contractor) throw AppError.notFound('Contractor not found');
         if (accessibleOpmcs !== undefined && (!contractor.opmcId || !accessibleOpmcs.includes(contractor.opmcId))) {

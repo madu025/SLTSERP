@@ -11,7 +11,7 @@ export const POST = apiHandler(async (_req, params, body) => {
 
     // Regional ownership check: non-admin users may only bulk-import into
     // their accessible OPMCs (admins unrestricted).
-    const scope = await resolveOpmcScope(params._userId);
+    const scope = await resolveOpmcScope(params._userId, 'sod');
     if (scope !== undefined && !scope.includes(opmcId)) {
         throw AppError.forbidden('Target OPMC is outside your regional access');
     }

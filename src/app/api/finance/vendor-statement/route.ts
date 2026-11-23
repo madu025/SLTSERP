@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 // GET /api/finance/vendor-statement?vendorId=<id>   -> one vendor's statement (invoices, payments, debit notes, running balance)
 // Vendor balances are company-wide figures, so users limited to specific OPMCs cannot read them.
 export const GET = apiHandler(async (req, params) => {
-    if (await resolveOpmcScope(params._userId) !== undefined) throw AppError.forbidden('Vendor statements need company-wide finance access');
+    if (await resolveOpmcScope(params._userId, 'finance') !== undefined) throw AppError.forbidden('Vendor statements need company-wide finance access');
     const vendorId = new URL(req.url).searchParams.get('vendorId');
     if (!vendorId) return VendorStatementService.listBalances();
     const statement = await VendorStatementService.getStatement(vendorId);

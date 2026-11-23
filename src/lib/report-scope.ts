@@ -12,7 +12,7 @@ export interface ReportScope { opmcIds: string[]; rtomNames: string[]; normalize
  */
 export async function resolveReportScope(userId: string | undefined | null): Promise<ReportScope | undefined> {
     if (!userId) return { opmcIds: [], rtomNames: [], normalized: new Set() };
-    const opmcIds = await resolveOpmcScope(userId);
+    const opmcIds = await resolveOpmcScope(userId, 'reports');
     if (opmcIds === undefined) return undefined;
     const rows = opmcIds.length ? await prisma.oPMC.findMany({ where: { id: { in: opmcIds } }, select: { rtom: true } }) : [];
     const rtomNames = rows.map((r) => r.rtom);

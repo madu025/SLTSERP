@@ -39,7 +39,7 @@ test('one shared SLA definition and status groups', () => {
 
 test('SOD performance: scoped, bad-date-safe, aggregate-only and client-safe', () => {
   const svc = fs.readFileSync('src/services/service-order/sod-performance.service.ts', 'utf8');
-  assert.match(svc, /resolveOpmcScope\(userId\)/);
+  assert.match(svc, /resolveOpmcScope\(userId(, '[a-z]+')?\)/);
   assert.match(svc, /"completedDate" >= so\."receivedDate"/, 'completion before receipt is excluded from turnaround');
   assert.match(svc, /percentile_cont\(0\.5\)/);
   assert.match(svc, /percentile_cont\(0\.9\)/);
@@ -65,7 +65,7 @@ test('RTOM scoreboard health: average of the components that exist, weakest list
   assert.equal(healthScore(null, null, null), null);
   assert.equal(healthScore(100, 0, 40), 66.7, 'returns above 20% score zero, never negative');
   const svc = fs.readFileSync('src/services/service-order/ops-scoreboard.service.ts', 'utf8');
-  assert.match(svc, /resolveOpmcScope\(userId\)/);
+  assert.match(svc, /resolveOpmcScope\(userId(, '[a-z]+')?\)/);
   assert.match(svc, /SodPerformanceService\.getReport/, 'figures come from the same cached aggregates as the performance page');
   assert.match(svc, /\(a\.health \?\? 101\) - \(b\.health \?\? 101\)/);
   assert.match(fs.readFileSync('src/app/api/dashboard/ops-scoreboard/route.ts', 'utf8'), /SOD_READ/);

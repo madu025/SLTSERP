@@ -139,7 +139,7 @@ export class InvoiceService {
 
         if (invoice.projectId) {
             await assertProjectAccess(invoice.projectId, actorUserId);
-        } else if (await resolveOpmcScope(actorUserId) !== undefined) {
+        } else if (await resolveOpmcScope(actorUserId, 'finance') !== undefined) {
             throw AppError.forbidden('Unlinked invoice is outside assigned OPMC scope');
         }
     }

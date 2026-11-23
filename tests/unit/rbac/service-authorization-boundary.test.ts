@@ -19,7 +19,7 @@ const boqApproval = readFileSync('src/services/project/project-boq-approval.serv
 const boqApprovalRoute = readFileSync('src/app/api/projects/[id]/boq/approve/route.ts', 'utf8');
 
 test('service-order reads derive global scope from canonical OPMC capability', () => {
-    assert.match(serviceOrder, /resolveOpmcScope\(_userId\)/);
+    assert.match(serviceOrder, /resolveOpmcScope\(_userId(, '[a-z]+')?\)/);
     assert.doesNotMatch(serviceOrder, /user\.role\s*!==\s*['"]SUPER_ADMIN/);
 });
 
@@ -46,7 +46,7 @@ test('admin and contractor portal services use canonical identity boundaries', (
 
 test('Nexus AI uses canonical permissions and OPMC-scoped context tools', () => {
     assert.match(nexusAgent, /getUserEffectivePermissions\(userId\)/);
-    assert.match(nexusAgent, /resolveOpmcScope\(userId\)/);
+    assert.match(nexusAgent, /resolveOpmcScope\(userId(, '[a-z]+')?\)/);
     assert.match(nexusAgent, /RBAC_PERMISSIONS\.FINANCE_READ/);
     assert.match(nexusAgent, /permissions\.has\(RBAC_PERMISSIONS\.INVENTORY_READ\)/);
     assert.match(nexusAgent, /getFinanceContext\(opmcScope\)/);

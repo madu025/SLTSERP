@@ -212,3 +212,14 @@ One service, `UserAdminService` (`src/services/hr/user-admin.service.ts`), is us
 - **Password**: one policy for create, edit, reset, change and forgot-password (`passwordProblem`: 8+ characters, a letter and a number). An administrator-set password sets `mustChangePassword` and ends open sessions. The welcome email never contains the password.
 - **Status**: `active | inactive | resigned` (`deleted` only by the delete action). Compare statuses with `normalizeUserStatus`/`isActiveStatus`, never `===`.
 - **Contractor users** are created from the contractor registration (they need `contractorId`), not from this form.
+
+## Data scope by domain (company-wide roles)
+
+`resolveOpmcScope(userId, domain?)` decides which OPMCs a user's rows may come from. `undefined` = every OPMC.
+
+- A user with `admin.rbac` is global everywhere (administrator powers are separate and unchanged).
+- A **scope capability** opens one domain: `scope.sod.all`, `scope.finance.all`, `scope.project.all`, `scope.inventory.all`, `scope.reports.all`; `scope.company.all` opens every domain, including procurement, contractors and the dashboard. They are granted to roles in `rbac-bootstrap.ts` (DB `RolePermission`), so a new OPMC is covered at once and nobody needs all OPMCs assigned by hand.
+- A scope capability is **never a function**: `scope.finance.all` does not let anyone open service orders (that needs `sod.read` and `scope.sod.all`). Finance roles therefore see the invoices, vouchers and finance records of every OPMC but not the service orders.
+- A call with no domain stays strict (assigned OPMCs only), so nothing widens by accident. Each module passes its own domain; the admin control monitor and the notification inbox stay strict.
+- Grants: CEO, Head of OSP and OSP Manager hold `scope.company.all` and every domain; Finance Manager/Assistant, Cashier, AR Officer, Invoice Manager/Assistant and SF Audit hold `scope.finance.all` only.
+- Rows of a domain still follow the function check (`sod.read`, `finance.read`...) and the existing row-level rules (own contractor, own area for area roles).

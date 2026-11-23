@@ -69,7 +69,7 @@ export interface StoreProp {
 }
 
 interface DesignationOption { section: { id: string; code: string; name: string }; roles: Array<{ id: string; code: string; name: string; forRole: string | null }> }
-interface FormOptions { roles: string[]; baseAvailable: string[]; designations: DesignationOption[]; opmcRequiredRoles: string[]; categories: Record<string, string[]> }
+interface FormOptions { scopeAll?: Record<string, string[]>; roles: string[]; baseAvailable: string[]; designations: DesignationOption[]; opmcRequiredRoles: string[]; categories: Record<string, string[]> }
 
 export type DesignationPick = { sectionId: string; roleId: string; isPrimary: boolean };
 
@@ -601,6 +601,12 @@ export function UserFormDrawer({
                       <FormMessage />
                     </FormItem>
                   )} />
+
+                  {(options?.scopeAll?.[watchedRole]?.length ?? 0) > 0 && (
+                    <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-[11px] font-medium text-emerald-950">
+                      This role sees <strong>every OPMC / RTOM</strong> in: {options!.scopeAll![watchedRole].map((d) => d.toUpperCase()).join(', ')}. No region is needed; selecting regions here only matters for the other modules.
+                    </div>
+                  )}
 
                   <FormField control={form.control} name="opmcIds" render={() => (
                     <FormItem className="space-y-3 pt-2">

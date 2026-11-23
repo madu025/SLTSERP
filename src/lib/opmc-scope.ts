@@ -15,7 +15,20 @@ export const NIL_UUID = '00000000-0000-0000-0000-000000000000';
  * Fail-closed: a missing identity or unknown user resolves to `[]` (deny all),
  * never to global access.
  */
-export async function resolveOpmcScope(userId: string | null | undefined): Promise<string[] | undefined> {
+export type ScopeDomain = 'sod' | 'finance' | 'project' | 'inventory' | 'reports' | 'company';
+
+/** Pure rule: which OPMCs a user's rows may come from, given what they hold. undefined = every OPMC. */
+export function scopeFromPermissions(permissions: readonly string[], opmcIds: string[], domain?: ScopeDomain): string[] | undefined {
+    if (permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC)) return undefined;
+    // a data-scope capability opens one domain only; a call that names no domain stays strict (assigned OPMCs), so nothing widens by accident
+    if (domain) {
+        const code = `scope.${domain}.all`;
+        if (permissions.includes(code) || permissions.includes(RBAC_PERMISSIONS.SCOPE_COMPANY_ALL)) return undefined;
+    }
+    return opmcIds;
+}
+
+export async function resolveOpmcScope(userId: string | null | undefined, domain?: ScopeDomain): Promise<string[] | undefined> {
     if (!userId) return [];
 
     const user = await prisma.user.findUnique({
@@ -45,7 +58,5 @@ export async function resolveOpmcScope(userId: string | null | undefined): Promi
     });
 
     if (!user) return [];
-    const permissions = deriveEffectivePermissions(user);
-    if (permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC)) return undefined;
-    return user.accessibleOpmcs.map(o => o.id);
+    return scopeFromPermissions(deriveEffectivePermissions(user), user.accessibleOpmcs.map(o => o.id), domain);
 }

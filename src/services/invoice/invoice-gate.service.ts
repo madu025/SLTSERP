@@ -145,7 +145,7 @@ export class InvoiceGateService {
         const levels = policy.approvalLevels as Level[];
         const mine = levels.filter((l) => holdsStep(actor, permissions, l));
         if (mine.length === 0) return { stages: [], counts: {}, invoices: [] };
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         const wanted = filter.stage ? mine.filter((l) => l.requiredRole === filter.stage) : mine;
         const q = filter.q?.trim();
 
@@ -192,7 +192,7 @@ export class InvoiceGateService {
         if (!policy || !policy.isEnabled) throw AppError.badRequest('The invoice approval gate is not configured');
         const { actor, permissions } = await loadActor(userId);
         const levels = policy.approvalLevels as Level[];
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         await this.healPending(ids.length, ids);
         const invoices = await prisma.invoice.findMany({ where: { id: { in: ids } }, select: { id: true, invoiceNumber: true, contractorId: true, confirmStage: true, opmcId: true, contractor: { select: { opmcId: true } } } });
         const open = await prisma.universalApprovalInstance.findMany({ where: { entityType: INVOICE_GATE.entityType, policyId: policy.id, status: 'PENDING', entityId: { in: ids } }, select: { id: true, entityId: true, level: true } });
@@ -296,7 +296,7 @@ export class InvoiceGateService {
         const levels = policy.approvalLevels as Level[];
         const inv = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { id: true, contractorId: true, opmcId: true, contractor: { select: { opmcId: true } } } });
         if (!inv) throw AppError.notFound('Invoice not found');
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         const ownContractor = !!actor.contractorId && actor.contractorId === inv.contractorId;
         const inArea = scope === undefined || (!!invoiceAreaOf(inv) && scope.includes(invoiceAreaOf(inv) as string));
         const staffStep = levels.some((l) => l.assignee !== 'ORDER_CONTRACTOR' && mayActOnLevel(actor, permissions, l, { contractorId: inv.contractorId }));

@@ -11,7 +11,7 @@ export const GET = apiHandler(async (request, params) => {
     const all = await OpmcService.getAllOPMCs();
     // ?scope=mine limits the list to the OPMCs the caller may work in (used by create/assign dialogs)
     if (new URL(request.url).searchParams.get('scope') === 'mine' && Array.isArray(all)) {
-        const scope = await resolveOpmcScope(params._userId);
+        const scope = await resolveOpmcScope(params._userId, 'company');
         if (scope !== undefined) return all.filter((o: { id: string }) => scope.includes(o.id));
     }
     return all;

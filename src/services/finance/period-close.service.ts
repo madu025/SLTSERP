@@ -205,7 +205,7 @@ export class PeriodCloseService {
         });
     }
     static async getCreditDebitNotes(userId?: string | null) {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         const where = scope === undefined
             ? undefined
             : { invoice: { project: { opmcId: { in: scope } } } };

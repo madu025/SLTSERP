@@ -97,7 +97,7 @@ export class SODSltReportedMaterialService {
    * (so a short stock is visible before saving) and what SLT reported for this order and when it arrived.
    */
   static async materialContext(userId: string, serviceOrderId: string, contractorIdOverride?: string) {
-    const scope = await resolveOpmcScope(userId);
+    const scope = await resolveOpmcScope(userId, 'sod');
     const order = await prisma.serviceOrder.findUnique({
       where: { id: serviceOrderId },
       select: { id: true, opmcId: true, contractorId: true, sltReportedMaterials: { select: { itemId: true, rawCode: true, rawName: true, quantity: true, source: true, reportedAt: true } } },
@@ -146,7 +146,7 @@ export class SODSltReportedMaterialService {
    * "Not entered" is only raised for COMPLETED orders (an open order may still be filled in).
    */
   static async deviationReport(userId: string, filters: { from?: Date; to?: Date; opmcId?: string; contractorId?: string; onlyDeviations?: boolean; limit?: number }) {
-    const scope = await resolveOpmcScope(userId);
+    const scope = await resolveOpmcScope(userId, 'sod');
     const where: Prisma.ServiceOrderWhereInput = { sltReportedMaterials: { some: {} } };
     if (scope !== undefined) where.opmcId = { in: scope.length ? scope : [NIL_UUID] };
     if (filters.opmcId) where.opmcId = scope === undefined ? filters.opmcId : scope.includes(filters.opmcId) ? filters.opmcId : NIL_UUID;

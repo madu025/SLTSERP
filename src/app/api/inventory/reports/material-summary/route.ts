@@ -17,7 +17,7 @@ export const GET = apiHandler(async (req: Request, params) => {
     const year  = yearParam  ? parseInt(yearParam,  10) : undefined;
     const month = monthParam ? parseInt(monthParam, 10) : undefined;
 
-    const opmcScope = await resolveOpmcScope(params._userId);
+    const opmcScope = await resolveOpmcScope(params._userId, 'inventory');
     const allowedRtoms = opmcScope === undefined
         ? undefined
         : (opmcScope.length === 0

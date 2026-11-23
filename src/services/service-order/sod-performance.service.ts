@@ -32,7 +32,7 @@ const cache = new Map<string, { at: number; value: Promise<SodPerformanceReport>
  */
 export class SodPerformanceService {
     static async getReport(userId: string | null | undefined, from: Date, to: Date, now = new Date()): Promise<SodPerformanceReport> {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'sod');
         const key = `${scope === undefined ? 'ALL' : scope.join(',')}|${from.toISOString()}|${to.toISOString()}`;
         const hit = cache.get(key);
         if (hit && now.getTime() - hit.at < CACHE_TTL_MS) return hit.value;

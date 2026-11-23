@@ -18,7 +18,7 @@ const cache = new Map<string, { at: number; value: Promise<ProcurementReport> }>
  */
 export class ProcurementPerformanceService {
     static async getReport(userId: string | null, now = new Date()): Promise<ProcurementReport> {
-        const scope = userId === null ? undefined : await resolveOpmcScope(userId);
+        const scope = userId === null ? undefined : await resolveOpmcScope(userId, 'company');
         const storeIds = userId === null ? null : (await StoreService.getAccessibleStores(userId)).map((s) => s.id);
         const key = `${storeIds === null ? 'ALL' : [...storeIds].sort().join(',')}|${scope === undefined ? 'G' : scope.join(',')}`;
         const hit = cache.get(key);

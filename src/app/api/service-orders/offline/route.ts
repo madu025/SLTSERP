@@ -18,7 +18,7 @@ export const GET = apiHandler(async (req, params) => {
 
     // Server-side OPMC scope — client opmcId is intersected with it inside
     // the service (admins unrestricted, empty scope denies all).
-    const accessibleOpmcs = await resolveOpmcScope(params._userId);
+    const accessibleOpmcs = await resolveOpmcScope(params._userId, 'sod');
 
     const result = await SODLifecycleService.getOfflineOrders(page, limit, opmcId, status, accessibleOpmcs);
 
@@ -47,7 +47,7 @@ export const PATCH = apiHandler(async (req, params) => {
     const validated = patchSchema.parse(body);
 
     // OPMC membership check on the fetched SOD (admins unrestricted).
-    const scope = await resolveOpmcScope(params._userId);
+    const scope = await resolveOpmcScope(params._userId, 'sod');
     if (scope !== undefined) {
         const target = await prisma.serviceOrder.findUnique({
             where: { id: validated.id },
@@ -99,7 +99,7 @@ export const POST = apiHandler(async (req, params) => {
 
     // Regional ownership check: non-admin users may only register offline
     // work orders inside their accessible OPMCs (admins unrestricted).
-    const scope = await resolveOpmcScope(params._userId);
+    const scope = await resolveOpmcScope(params._userId, 'sod');
     if (scope !== undefined && !scope.includes(validated.opmcId)) {
         throw AppError.forbidden('Target OPMC is outside your regional access');
     }

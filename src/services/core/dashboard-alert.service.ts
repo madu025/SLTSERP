@@ -15,7 +15,7 @@ interface AlertItem {
 
 export class DashboardAlertService {
     static async getDashboardAlerts(userId: string): Promise<{ alerts: AlertItem[] }> {
-        const accessibleOpmcScope = await resolveOpmcScope(userId);
+        const accessibleOpmcScope = await resolveOpmcScope(userId, 'company');
         const storeWhere: Prisma.InventoryStoreWhereInput = accessibleOpmcScope === undefined
             ? {}
             : accessibleOpmcScope.length > 0

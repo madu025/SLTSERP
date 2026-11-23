@@ -114,3 +114,36 @@ test('a designation fits only its own base role (SECTION_ROLE), or no role at al
     assert.ok(!designationFitsRole('PROJECTS_ENGINEER', 'PROJECTS', 'ASSISTANT_ENGINEER', roles));
     assert.ok(designationFitsRole('REGIONAL_GENERAL_MANAGER', 'EXECUTIVE', 'FINANCE_ASSISTANT', roles));
 });
+
+test('data scope by domain: a scope capability opens one domain, nothing else, and a call without a domain stays strict', async () => {
+    const { scopeFromPermissions } = await import('../../src/lib/opmc-scope');
+    const { CANONICAL_BOOTSTRAP_ROLE_GRANTS } = await import('../../src/config/rbac-bootstrap');
+    const own = ['opmc-1'];
+    assert.equal(scopeFromPermissions(['admin.rbac'], own), undefined, 'an administrator sees everything');
+    assert.deepEqual(scopeFromPermissions(['finance.read'], own, 'finance'), own, 'a function alone never widens the data');
+    assert.equal(scopeFromPermissions(['scope.finance.all'], [], 'finance'), undefined, 'finance scope opens finance');
+    assert.deepEqual(scopeFromPermissions(['scope.finance.all'], [], 'sod'), [], 'finance scope does not open service orders');
+    assert.deepEqual(scopeFromPermissions(['scope.finance.all'], own, undefined), own, 'a call with no domain stays strict');
+    assert.equal(scopeFromPermissions(['scope.company.all'], [], 'procurement' as never), undefined, 'company scope opens every domain');
+    assert.deepEqual(scopeFromPermissions([], [], 'sod'), [], 'no OPMC and no scope capability sees nothing');
+
+    const g = CANONICAL_BOOTSTRAP_ROLE_GRANTS as unknown as Record<string, string[]>;
+    for (const r of ['CEO', 'HEAD_OF_OSP', 'OSP_MANAGER']) for (const c of ['scope.company.all', 'scope.sod.all', 'scope.project.all', 'scope.inventory.all', 'scope.reports.all', 'scope.finance.all']) assert.ok(g[c].includes(r), `${r} ${c}`);
+    for (const r of ['FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER', 'AR_OFFICER', 'INVOICE_MANAGER', 'INVOICE_ASSISTANT', 'SF_AUDIT_MANAGER', 'SF_AUDIT_OFFICER']) assert.ok(g['scope.finance.all'].includes(r), r);
+    // finance people see invoices of every region but never the service orders: no SOD, project, inventory or company scope for them
+    for (const c of ['scope.sod.all', 'scope.project.all', 'scope.inventory.all', 'scope.reports.all', 'scope.company.all']) {
+        for (const r of ['FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER', 'INVOICE_MANAGER', 'SF_AUDIT_OFFICER']) assert.ok(!g[c].includes(r), `${r} must not have ${c}`);
+    }
+    assert.ok(!g['scope.sod.all'].includes('AREA_MANAGER') && !g['scope.company.all'].includes('STORES_MANAGER'));
+});
+
+test('every module passes its domain to the scope check; admin-only and notification checks stay strict', () => {
+    const files: Array<[string, string]> = [
+        ['src/services/invoice/invoice-status.service.ts', 'finance'], ['src/services/invoice/invoicing.service.ts', 'finance'], ['src/lib/payment-voucher-access.ts', 'finance'],
+        ['src/services/service-order/sod-dashboard.service.ts', 'sod'], ['src/lib/project-access.ts', 'project'], ['src/services/inventory/store.service.ts', 'inventory'],
+        ['src/lib/report-scope.ts', 'reports'], ['src/app/api/opmcs/route.ts', 'company'],
+    ];
+    for (const [f, d] of files) assert.ok(new RegExp(`resolveOpmcScope\([^)]*, '${d}'\)`).test(read(f)), `${f} uses the ${d} domain`);
+    assert.ok(!/resolveOpmcScope\([^)]*, '/.test(read('src/app/api/admin/control/route.ts')), 'the admin control monitor stays strict');
+    assert.ok(!/resolveOpmcScope\([^)]*, '/.test(read('src/services/notification/index.ts')), 'the notification inbox stays strict');
+});

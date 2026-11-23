@@ -54,7 +54,7 @@ export class ProjectNextActionService {
 
     static async listForUser(userId: string): Promise<NextAction[]> {
         const [scope, permissions, user] = await Promise.all([
-            resolveOpmcScope(userId),
+            resolveOpmcScope(userId, 'project'),
             getUserEffectivePermissions(userId),
             prisma.user.findUnique({
                 where: { id: userId },

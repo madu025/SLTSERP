@@ -31,7 +31,7 @@ const num = (v: unknown) => (v === null || v === undefined ? 0 : Number(v));
 export class InvoicingService {
     static async candidates(userId: string, filter: { month: number; year: number; rtom?: string; contractorId?: string }) {
         if (!filter.month || !filter.year) throw AppError.badRequest('Choose the billing month and year');
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         if (scope !== undefined && scope.length === 0) return { groups: [] as InvoicingGroup[], held: [] as InvoicingGroup[], total: 0, waitingCheck: 0, waitingContractor: 0 };
         const end = monthRange(filter.month, filter.year).lt;
         const orders = await prisma.serviceOrder.findMany({
@@ -88,7 +88,7 @@ export class InvoicingService {
         const ids = [...new Set(input.sodIds)];
         if (ids.length === 0) throw AppError.badRequest('Select at least one order');
         if (ids.length > MAX_ORDERS) throw AppError.badRequest(`Create invoices for at most ${MAX_ORDERS} orders at a time`);
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         const end = monthRange(input.month, input.year).lt;
         const orders = await prisma.serviceOrder.findMany({
             where: {
@@ -131,7 +131,7 @@ export class InvoicingService {
 
     /** The latest invoices of the engineer's area and where each one waits (the engineer has no step on them, but follows them). */
     static async recentInvoices(userId: string, limit = 30) {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         if (scope !== undefined && scope.length === 0) return [];
         const rows = await prisma.invoice.findMany({
             where: { sods: { some: {} }, ...(scope === undefined ? {} : { opmcId: { in: scope } }) },
@@ -145,7 +145,7 @@ export class InvoicingService {
     static async hold(userId: string, sodIds: string[], reason: string) {
         const why = reason.trim();
         if (why.length < 3) throw AppError.badRequest('A reason is required');
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         const r = await prisma.serviceOrder.updateMany({
             where: { id: { in: [...new Set(sodIds)] }, invoiced: false, sodApprovalStage: { in: [...SOD_READY_STAGES] }, ...(scope === undefined ? {} : { opmcId: { in: scope } }) },
             data: { invoicingHeldAt: new Date(), invoicingHoldReason: why },
@@ -155,7 +155,7 @@ export class InvoicingService {
     }
 
     static async release(userId: string, sodIds: string[]) {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         const r = await prisma.serviceOrder.updateMany({
             where: { id: { in: [...new Set(sodIds)] }, invoiced: false, invoicingHeldAt: { not: null }, ...(scope === undefined ? {} : { opmcId: { in: scope } }) },
             data: { invoicingHeldAt: null, invoicingHoldReason: null },
@@ -165,7 +165,7 @@ export class InvoicingService {
 
     /** Orders that have a problem go back to the Area Coordinator (the whole chain again). */
     static async returnToCoordinator(userId: string, sodIds: string[], reason: string) {
-        const scope = await resolveOpmcScope(userId);
+        const scope = await resolveOpmcScope(userId, 'finance');
         return SodApprovalService.returnReady(sodIds, userId, reason, scope, 'engineer');
     }
 }

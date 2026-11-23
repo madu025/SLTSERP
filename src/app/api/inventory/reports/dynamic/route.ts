@@ -10,7 +10,7 @@ import { runUserReport } from '@/services/reports/report-center.service';
 export const POST = apiHandler(async (_request, params, body) => {
     const userId = params._userId;
     if (!userId) throw AppError.unauthorized('Authentication required');
-    const [permissions, scope] = await Promise.all([getUserEffectivePermissions(userId), resolveOpmcScope(userId)]);
+    const [permissions, scope] = await Promise.all([getUserEffectivePermissions(userId), resolveOpmcScope(userId, 'inventory')]);
     const result = await runUserReport(body as Record<string, unknown>, new Set(permissions), scope, { rowLimit: 500 });
     if ('error' in result) throw AppError.badRequest(result.error);
     return { success: true, data: result };

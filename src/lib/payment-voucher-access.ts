@@ -21,7 +21,7 @@ export function areaAllows(scope: readonly string[] | undefined, opmcId: string 
 
 /** A contractor invoice follows its own area (the area of its orders), because it has no project. */
 export async function assertContractorAreaAccess(opmcId: string | null | undefined, userId: string | null | undefined): Promise<void> {
-    if (!areaAllows(await resolveOpmcScope(userId), opmcId)) {
+    if (!areaAllows(await resolveOpmcScope(userId, 'finance'), opmcId)) {
         throw AppError.forbidden('This contractor invoice is outside your area');
     }
 }
@@ -36,7 +36,7 @@ export async function assertVoucherAccess(projectId: string | null | undefined, 
         await assertProjectAccess(projectId, userId);
         return;
     }
-    const scope = await resolveOpmcScope(userId);
+    const scope = await resolveOpmcScope(userId, 'finance');
     if (scope === undefined) return;
     const invoiceId = sodInvoiceIdOf(description);
     if (invoiceId) {
