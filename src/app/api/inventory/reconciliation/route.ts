@@ -48,7 +48,7 @@ export const POST = apiHandler(async (_request, params, body) => {
 
     throw AppError.badRequest('Invalid action');
 }, {
-    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+    permissions: [RBAC_PERMISSIONS.INVENTORY_ADJUST],
     audit: { action: 'EXECUTE', entity: 'RECONCILIATION' },
     rawResponse: true
 });

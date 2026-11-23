@@ -125,7 +125,8 @@ export const CANONICAL_BOOTSTRAP_ROLE_GRANTS = {
     ],
     [RBAC_PERMISSIONS.INVENTORY_APPROVE]: [
         'SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'HEAD_OF_SECTION', 'OSP_MANAGER', 'AREA_MANAGER',
-        'STORES_MANAGER', 'PROCUREMENT_OFFICER',
+        // the Stores Executive is the Stores Manager's deputy: approves and rejects when there is no Manager
+        'STORES_MANAGER', 'STORES_EXECUTIVE', 'PROCUREMENT_OFFICER',
     ],
     // The Stores Executive reviews a request (adjusts the quantities) before the approval; everyone who approves requests can adjust too (the Procurement Officer
     // stands in when there is no Stores Manager). The Executive has no inventory.approve, so cannot approve or reject.
@@ -134,6 +135,8 @@ export const CANONICAL_BOOTSTRAP_ROLE_GRANTS = {
     ],
     // Stock adjustments (contractor wastage): the Stores Executive and the Stores Manager, and the CEO; not the store officers.
     // Goods receipt: the Stores Executive and the Stores Manager (and the CEO and admins); not the store officers.
+    // Master data (item master, stores): the Executive, the Manager, the CEO and admins.
+    [RBAC_PERMISSIONS.INVENTORY_MASTER]: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'STORES_MANAGER', 'STORES_EXECUTIVE'],
     [RBAC_PERMISSIONS.INVENTORY_RELEASE]: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'STORES_MANAGER', 'STORES_EXECUTIVE'],
     [RBAC_PERMISSIONS.INVENTORY_GRN]: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'STORES_MANAGER', 'STORES_EXECUTIVE'],
     [RBAC_PERMISSIONS.INVENTORY_ADJUST]: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'STORES_MANAGER', 'STORES_EXECUTIVE'],
@@ -178,9 +181,9 @@ export const CANONICAL_BOOTSTRAP_ROLE_GRANTS = {
         'SA_MANAGER', 'SA_ASSISTANT', 'FAULT_COORDINATOR', 'REPAIR_TECHNICIAN', 'OSP_ENGINEER', 'CIVIL_SUPERVISOR', 'CABLE_SPLICER',
         'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER', 'AR_OFFICER', 'INVOICE_MANAGER', 'INVOICE_ASSISTANT', 'SF_AUDIT_MANAGER', 'SF_AUDIT_OFFICER',
     ],
-    // the Stores Manager runs every store of the island, and the Procurement Officer stands in for the Manager at the approval, so both see every store.
-    // The Stores Executive and the officers work in the stores they are assigned to.
-    [RBAC_PERMISSIONS.SCOPE_INVENTORY_ALL]: ['CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'STORES_MANAGER', 'PROCUREMENT_OFFICER'],
+    // the Stores Manager runs every store of the island and the Stores Executive, as the Manager's deputy, works in every store too; the officers work in the stores they are assigned to.
+    // (The Procurement Officer sees every store for the purchase requests it approves.)
+    [RBAC_PERMISSIONS.SCOPE_INVENTORY_ALL]: ['CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'STORES_MANAGER', 'STORES_EXECUTIVE', 'PROCUREMENT_OFFICER'],
     [RBAC_PERMISSIONS.SCOPE_REPORTS_ALL]: ['CEO', 'HEAD_OF_OSP', 'OSP_MANAGER'],
     [RBAC_PERMISSIONS.SCOPE_FINANCE_ALL]: [
         'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER', 'AR_OFFICER',
@@ -234,7 +237,7 @@ export const CANONICAL_BOOTSTRAP_ROLE_GRANTS = {
     [RBAC_PERMISSIONS.NOTIFICATION_PROCESS_GATE_OSP_MANAGER]: ['OSP_MANAGER'],
     [RBAC_PERMISSIONS.NOTIFICATION_PROCESS_GATE_HEAD_OF_SECTION]: ['HEAD_OF_SECTION'],
     [RBAC_PERMISSIONS.NOTIFICATION_PROCESS_GATE_PROCUREMENT]: ['PROCUREMENT_OFFICER'],
-    [RBAC_PERMISSIONS.NOTIFICATION_PROCESS_GATE_STORES]: ['STORES_MANAGER'],
+    [RBAC_PERMISSIONS.NOTIFICATION_PROCESS_GATE_STORES]: ['STORES_MANAGER', 'STORES_EXECUTIVE'],
     [RBAC_PERMISSIONS.ADMIN_RBAC]: ['SUPER_ADMIN', 'ADMIN'],
     [RBAC_PERMISSIONS.ADMIN_SUPER]: ['SUPER_ADMIN'],
 } as const satisfies Partial<Record<RbacPermission, readonly Role[]>>;

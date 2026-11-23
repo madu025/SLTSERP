@@ -78,7 +78,7 @@ export const POST = apiHandler(async (_req, params, body) => {
   }
 }, {
   schema: z.union([BulkBalanceSchema, SingleBalanceSchema]),
-  permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+  permissions: [RBAC_PERMISSIONS.INVENTORY_ADJUST],
   audit: { action: 'UPSERT', entity: 'PRE_ERP_MATERIAL_BALANCE' },
   rawResponse: true,
 });

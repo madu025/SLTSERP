@@ -22,7 +22,7 @@ export const POST = apiHandler(async (_req, _params, body) => {
         castBody<Parameters<typeof InventoryService.createStore>[0]>(body)
     );
 }, {
-    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+    permissions: [RBAC_PERMISSIONS.INVENTORY_MASTER],
     audit: { action: 'CREATE', entity: 'STORE' }
 });
 
@@ -34,7 +34,7 @@ export const PUT = apiHandler(async (_req, _params, body) => {
     const { id: _id, ...data } = body;
     return await InventoryService.updateStore(id, data);
 }, {
-    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+    permissions: [RBAC_PERMISSIONS.INVENTORY_MASTER],
     audit: { action: 'UPDATE', entity: 'STORE' }
 });
 
@@ -47,6 +47,6 @@ export const DELETE = apiHandler(async (req) => {
     }
     return await InventoryService.deleteStore(id);
 }, {
-    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+    permissions: [RBAC_PERMISSIONS.INVENTORY_MASTER],
     audit: { action: 'DELETE', entity: 'STORE' }
 });

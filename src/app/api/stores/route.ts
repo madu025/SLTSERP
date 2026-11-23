@@ -28,7 +28,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
     const store = await InventoryService.createStore(body as { name: string; type: string; location?: string; managerId?: string; opmcIds?: string[]; });
     return store;
 }, {
-    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+    permissions: [RBAC_PERMISSIONS.INVENTORY_MASTER],
     audit: { action: 'STORE_CREATE', entity: 'Store' },
     rawResponse: true
 });

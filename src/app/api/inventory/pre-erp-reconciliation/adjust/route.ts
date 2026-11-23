@@ -24,7 +24,7 @@ export const POST = apiHandler(async (_req, params, body) => {
   return { success: true, data: result };
 }, {
   schema: AdjustSchema,
-  permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+  permissions: [RBAC_PERMISSIONS.INVENTORY_ADJUST],
   audit: { action: 'SUBMIT_ADJUSTMENT', entity: 'MATERIAL_VARIANCE_ADJUSTMENT' },
   rawResponse: true,
 });

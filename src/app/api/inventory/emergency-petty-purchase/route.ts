@@ -144,7 +144,7 @@ export const POST = apiHandler(async (_request, params, body) => {
 
   return result;
 }, {
-  permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+  permissions: [RBAC_PERMISSIONS.INVENTORY_GRN],
   audit: { action: 'EMERGENCY_FULFILL', entity: 'STOCK_REQUEST' },
   rawResponse: true
 });

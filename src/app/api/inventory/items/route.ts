@@ -25,7 +25,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     return await InventoryService.createItem(data);
 }, {
     schema: inventoryItemSchema,
-    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+    permissions: [RBAC_PERMISSIONS.INVENTORY_MASTER],
     audit: { action: 'CREATE', entity: 'ITEM' },
     rawResponse: true
 });
@@ -40,7 +40,7 @@ export const PUT = apiHandler(async (_req, _params, body) => {
     const { id: _id, ...data } = body;
     return await InventoryService.updateItem(id, data);
 }, {
-    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+    permissions: [RBAC_PERMISSIONS.INVENTORY_MASTER],
     audit: { action: 'UPDATE', entity: 'ITEM' },
     rawResponse: true
 });
@@ -53,7 +53,7 @@ export const PATCH = apiHandler(async (_req, _params, body) => {
     }
     return await InventoryService.patchBulkItems(updates);
 }, {
-    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+    permissions: [RBAC_PERMISSIONS.INVENTORY_MASTER],
     audit: { action: 'BULK_UPDATE', entity: 'ITEM' },
     rawResponse: true
 });
@@ -67,7 +67,7 @@ export const DELETE = apiHandler(async (req) => {
     }
     return await InventoryService.deleteItem(id);
 }, {
-    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+    permissions: [RBAC_PERMISSIONS.INVENTORY_MASTER],
     audit: { action: 'DELETE', entity: 'ITEM' },
     rawResponse: true
 });

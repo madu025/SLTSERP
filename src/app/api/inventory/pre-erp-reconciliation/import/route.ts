@@ -28,7 +28,7 @@ export const POST = apiHandler(async (_req, params, body) => {
   return result;
 }, {
   schema: ImportSchema,
-  permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+  permissions: [RBAC_PERMISSIONS.INVENTORY_ADJUST],
   audit: { action: 'IMPORT', entity: 'PRE_ERP_MATERIAL_EXCEL' },
   rawResponse: true,
 });

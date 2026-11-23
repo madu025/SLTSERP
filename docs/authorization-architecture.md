@@ -247,3 +247,5 @@ One service, `UserAdminService` (`src/services/hr/user-admin.service.ts`), is us
 | Approve / reject a request, approve MRN, wastage, stock take (`inventory.approve`) | no | no | yes (Procurement Officer stands in) | yes |
 
 A contractor belongs to a store when its OPMC is served by the store or one of its teams is assigned to the store (`ContractorStoreService`); the stores pages use `/api/inventory/contractors` (the administrator-only contractor API gave store people an empty list).
+
+**Update:** the Stores Executive is the Stores Manager's *deputy*: it also holds `inventory.approve` (approve and reject requests, approve MRN, wastage and stock takes; the maker still cannot approve their own), `scope.inventory.all` (every store) and `inventory.master`. When there is no Manager the Executive, not the Procurement Officer, passes the main store gates. `inventory.master` (item master, stores, initial stock, virtual swap, legacy reconciliation) and `inventory.grn` (also emergency purchases) are not the officers'.

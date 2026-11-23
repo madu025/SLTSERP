@@ -14,4 +14,5 @@ export const POST = apiHandler(async (_request, params, body) => {
     const result = await runUserReport(body as Record<string, unknown>, new Set(permissions), scope, { rowLimit: 500 });
     if ('error' in result) throw AppError.badRequest(result.error);
     return { success: true, data: result };
-}, { rawResponse: true, permissions: [RBAC_PERMISSIONS.REPORTS_READ] });
+// the runner itself checks the capability of every dataset; the stores people hold inventory.read, not reports.read, and were locked out of their own inventory reports
+}, { rawResponse: true, permissions: [RBAC_PERMISSIONS.REPORTS_READ, RBAC_PERMISSIONS.INVENTORY_READ] });

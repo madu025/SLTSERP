@@ -69,7 +69,7 @@ test('Invoice Status keeps everyone who had it (service order people) and adds t
     for (const r of ['STORES_MANAGER', 'PROCUREMENT_OFFICER']) assert.ok(!visible(r).has('/service-orders/invoice-status'), `${r} has no business there`);
 });
 
-test('Stores: the Executive and the Manager adjust stock, the officers do not; the Executive reviews requests but cannot approve or reject', async () => {
+test('Stores: the Executive is the Manager\'s deputy (approves, reviews, adjusts, releases, receives goods, master data); the officers do the daily work only', async () => {
     const g = CANONICAL_BOOTSTRAP_ROLE_GRANTS as unknown as Record<string, string[]>;
     const { getStockRequestActionPermission } = await import('../../src/lib/inventory-stock-request-permissions');
     for (const r of ['STORES_EXECUTIVE', 'STORES_MANAGER', 'CEO']) assert.ok(g['inventory.adjust'].includes(r), `${r} adjusts stock`);
@@ -79,11 +79,13 @@ test('Stores: the Executive and the Manager adjust stock, the officers do not; t
     // review (change quantities before the approval): the Executive and every approver; approve / reject: not the Executive
     for (const r of ['STORES_EXECUTIVE', 'STORES_MANAGER', 'OSP_MANAGER', 'CEO', 'PROCUREMENT_OFFICER']) assert.ok(g['inventory.review'].includes(r), `${r} reviews`);
     assert.ok(!g['inventory.review'].includes('STORES_ASSISTANT'));
-    assert.ok(!g['inventory.approve'].includes('STORES_EXECUTIVE'), 'the Executive cannot approve or reject requests');
+    assert.ok(g['inventory.approve'].includes('STORES_EXECUTIVE') && !g['inventory.approve'].includes('STORES_ASSISTANT'), 'the Executive approves and rejects as the Manager\'s deputy; the officers do not');
+    for (const c of ['inventory.master', 'inventory.release', 'inventory.grn', 'inventory.adjust', 'inventory.review']) assert.ok(g[c].includes('STORES_EXECUTIVE') && g[c].includes('STORES_MANAGER') && !g[c].includes('STORES_ASSISTANT'), c);
+    assert.ok(g['scope.inventory.all'].includes('STORES_EXECUTIVE'), 'the Executive works in every store, like the Manager');
     assert.equal(getStockRequestActionPermission('ADJUST_QTY'), 'inventory.review');
     assert.equal(getStockRequestActionPermission('REJECT'), 'inventory.approve');
-    // the Procurement Officer stands in when there is no Stores Manager
-    assert.ok(g['inventory.approve'].includes('PROCUREMENT_OFFICER') && g['inventory.review'].includes('PROCUREMENT_OFFICER'));
+    // the gate fallback is the Executive, not the Procurement Officer
+    assert.ok(fs.readFileSync('prisma/migrations/20261215000000_stores_executive_gate_deputy/migration.sql', 'utf8').includes('STORES_EXECUTIVE'));
     // pages
     assert.ok(visible('STORES_EXECUTIVE').has('/inventory/admin/wastage') && visible('STORES_MANAGER').has('/inventory/admin/wastage'));
     assert.ok(!visible('STORES_ASSISTANT').has('/inventory/admin/wastage'), 'no adjustments page for the officers');
@@ -120,7 +122,7 @@ test('a quantity adjustment needs a reason, known lines, and non-negative number
     assert.equal(validateQtyAdjustment([{ id: 'a', approvedQty: 0 }], lines, 'not needed').ok, true, 'zero is allowed: the line is not needed');
 });
 
-test('the Procurement Officer can stand in for the Stores Manager at the main store approval gate', () => {
+test('the first fallback migration (Procurement) exists and a later one makes the Executive the deputy', () => {
     const sql = fs.readFileSync('prisma/migrations/20261214000001_stores_manager_gate_fallback/migration.sql', 'utf8');
     assert.ok(sql.includes("'ARM_APPROVAL'") && sql.includes("'MAIN_STORE_RELEASE'") && sql.includes('PROCUREMENT_OFFICER') && sql.includes('NOT ('), 'targets that one gate and is idempotent');
     assert.ok(fs.readFileSync('prisma/migrations/20261214000000_stores_executive_role/migration.sql', 'utf8').includes("ADD VALUE IF NOT EXISTS 'STORES_EXECUTIVE'"));
@@ -142,4 +144,18 @@ test('contractor material: the store pages load their contractors through a stor
     for (const f of ['issue.service', 'wastage.service', 'transaction.service']) assert.ok(fs.readFileSync(`src/services/inventory/${f}.ts`, 'utf8').includes('ContractorStoreService.assertForStore'), f);
     assert.ok(fs.readFileSync('src/app/api/inventory/in-hand-stock/route.ts', 'utf8').includes('assertCanSee'));
     assert.ok(fs.readFileSync('src/app/api/inventory/contractors/route.ts', 'utf8').includes('INVENTORY_READ'));
+});
+
+test('every inventory function has an owner among the store roles; master data, adjustments and emergency purchases are not the officers\'', () => {
+    const g = CANONICAL_BOOTSTRAP_ROLE_GRANTS as unknown as Record<string, string[]>;
+    const guard = (f: string, method: string) => { const s = fs.readFileSync(f, 'utf8'); const i = s.indexOf(`export const ${method} =`); const j = s.indexOf('permissions: [', i); return s.slice(j, s.indexOf(']', j)); };
+    assert.ok(guard('src/app/api/inventory/items/route.ts', 'DELETE').includes('INVENTORY_MASTER') && guard('src/app/api/inventory/stores/route.ts', 'POST').includes('INVENTORY_MASTER'), 'item master and stores are master data');
+    assert.ok(guard('src/app/api/inventory/reconciliation/route.ts', 'POST').includes('INVENTORY_ADJUST') && guard('src/app/api/inventory/pre-erp-reconciliation/adjust/route.ts', 'POST').includes('INVENTORY_ADJUST'), 'reconciliation adjustments are stock adjustments');
+    assert.ok(guard('src/app/api/inventory/emergency-petty-purchase/route.ts', 'POST').includes('INVENTORY_GRN'), 'an emergency purchase receives goods');
+    assert.ok(guard('src/app/api/inventory/reports/dynamic/route.ts', 'POST').includes('INVENTORY_READ'), 'the stores people can run their inventory reports (they hold inventory.read, not reports.read)');
+    for (const r of ['STORES_EXECUTIVE', 'STORES_MANAGER']) for (const c of ['inventory.master', 'inventory.adjust', 'inventory.grn', 'inventory.release', 'inventory.approve', 'inventory.review']) assert.ok(g[c].includes(r), `${r} ${c}`);
+    assert.ok(!g['inventory.master'].includes('STORES_ASSISTANT'));
+    assert.ok(g['notification.audience.process-gate-stores'].includes('STORES_EXECUTIVE'), 'the deputy hears of the gates');
+    for (const r of ['STORES_ASSISTANT', 'STORES_EXECUTIVE', 'STORES_MANAGER']) assert.ok(visible(r).has('/inventory/requests') && visible(r).has('/inventory/stock') && visible(r).has('/inventory/admin/balance-sheet') && visible(r).has('/inventory/audit'), `${r} basic pages`);
+    for (const p of ['/inventory/admin/initial', '/inventory/admin/virtual-swap', '/inventory/admin/pre-erp-reconciliation', '/inventory/items']) assert.ok(visible('STORES_EXECUTIVE').has(p) && !visible('STORES_ASSISTANT').has(p), `${p}: the Executive yes, the officers no`);
 });

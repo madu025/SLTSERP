@@ -435,7 +435,7 @@ export default function MaterialRequestPage() {
                                         <span className="text-[10px] uppercase font-black text-blue-700 tracking-wider bg-blue-100 px-2 py-0.5 rounded">Approval Workflow Path:</span>
                                         <span className="font-semibold text-slate-800">
                                             {sourceType === 'MAIN_STORE' ? (
-                                                <>Requester <span className="text-blue-500 font-bold">➔</span> OSP Manager Approval <span className="text-blue-500 font-bold">➔</span> Main Store Release <span className="text-blue-500 font-bold">➔</span> Receiving Store</>
+                                                <>Requester <span className="text-blue-500 font-bold">➔</span> Stores Manager Approval <span className="text-blue-500 font-bold">➔</span> Main Store Release <span className="text-blue-500 font-bold">➔</span> Receiving Store</>
                                             ) : (
                                                 <>Requester <span className="text-blue-500 font-bold">➔</span> OSP Manager Approval <span className="text-blue-500 font-bold">➔</span> Procurement Officer Processing</>
                                             )}

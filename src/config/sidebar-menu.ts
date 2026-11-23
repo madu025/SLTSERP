@@ -372,7 +372,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 level: 'operate',
                 path: '/inventory/items',
                 icon: FileText,
-                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
+                permissionId: RBAC_PERMISSIONS.INVENTORY_MASTER, // the item master: the Executive, the Manager and above, not the officers
             },
             // 2. Stock Inflow
             {
@@ -443,14 +443,14 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 level: 'operate',
                 path: '/inventory/admin/initial',
                 icon: BarChart3,
-                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
+                permissionId: RBAC_PERMISSIONS.INVENTORY_MASTER, // store operations: shown to store staff, not to roles that only read or approve
             },
             {
                 title: 'Virtual Material Swap',
                 level: 'operate',
                 path: '/inventory/admin/virtual-swap',
                 icon: RefreshCw,
-                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
+                permissionId: RBAC_PERMISSIONS.INVENTORY_MASTER, // store operations: shown to store staff, not to roles that only read or approve
             },
             // 4. Returns & Reconciliation
             {
@@ -471,7 +471,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 level: 'operate',
                 path: '/inventory/admin/pre-erp-reconciliation',
                 icon: HistoryIcon,
-                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
+                permissionId: RBAC_PERMISSIONS.INVENTORY_MASTER, // store operations: shown to store staff, not to roles that only read or approve
             },
             // 5. Analytics & History
             {
