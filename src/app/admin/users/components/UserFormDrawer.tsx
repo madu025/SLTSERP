@@ -500,6 +500,9 @@ export function UserFormDrawer({
                           {isEdit
                             ? 'Change these only to give or take away a module level. Left alone, they stay as they are.'
                             : 'Leave empty to add the usual designation for the chosen role automatically.'}
+                          {isEdit && watchedRole && initialData && watchedRole !== initialData.role && !designationsTouched && (
+                            <strong className="block mt-1 text-amber-900">The role is changing: only the old role&apos;s usual designation is swapped for the new one. Every other designation below stays.</strong>
+                          )}
                         </p>
                         <div className="space-y-2 rounded-xl border border-slate-300 bg-white p-3">
                           {options!.designations.map((d) => (

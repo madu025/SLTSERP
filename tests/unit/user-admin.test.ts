@@ -95,3 +95,10 @@ test('the welcome email template is registered and seeded', () => {
     assert.ok(read('src/config/notification-templates.ts').includes("code: 'USER_ACCOUNT_CREATED'"));
     assert.ok(read('prisma/seed-notification-templates.ts').includes("code: 'USER_ACCOUNT_CREATED'"));
 });
+
+test('a role change keeps the other designations, and an admin-capable designation needs a Super Admin', () => {
+    const svc = read('src/services/hr/user-admin.service.ts');
+    assert.ok(svc.includes('oldUsual') && svc.includes("roleId: { in: [...oldUsual] }"), 'only the old role usual designations are removed');
+    assert.ok(!/if \(roleChanged\) designations = /.test(svc), 'a role change no longer wipes every designation');
+    assert.ok(svc.includes('callerCanGrantAdmin') && svc.includes('RBAC_PERMISSIONS.ADMIN_RBAC'), 'an administrator designation is only assignable by a Super Admin');
+});

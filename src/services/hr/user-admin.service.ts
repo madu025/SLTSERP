@@ -5,6 +5,7 @@ import { AppError } from '@/lib/error';
 import { assertDatabaseRole } from '@/lib/role-validation';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { deriveEffectivePermissions } from '@/lib/effective-permissions';
 import { SECTION_MAPPING } from '@/config/auth-defaults';
 import { isContractorRole } from '@/config/roles';
 import { SystemService } from '@/services/core/system.service';
@@ -87,14 +88,20 @@ async function assertReferences(tx: Tx, data: { opmcIds?: string[]; supervisorId
 }
 
 /** Designations the administrator may pick: SystemRoles that belong to a section and are not a base role. */
-async function validatedDesignations(tx: Tx, input: DesignationInput[]) {
+async function validatedDesignations(tx: Tx, input: DesignationInput[], callerId: string) {
+    const callerCanGrantAdmin = (await getUserEffectivePermissions(callerId)).includes(RBAC_PERMISSIONS.ADMIN_SUPER);
     const out: Array<{ sectionId: string; roleId: string; isPrimary: boolean }> = [];
     const seen = new Set<string>();
     for (const d of input) {
         if (seen.has(d.sectionId)) throw AppError.badRequest('DUPLICATE_SECTION', { message: 'A user can hold one designation per section.' });
         seen.add(d.sectionId);
-        const role = await tx.systemRole.findUnique({ where: { id: d.roleId }, select: { id: true, code: true, sectionId: true, isActive: true } });
+        const role = await tx.systemRole.findUnique({ where: { id: d.roleId }, select: { id: true, code: true, sectionId: true, isActive: true, permissions: true, rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } } } });
         if (!role || !role.isActive || role.sectionId !== d.sectionId) throw AppError.badRequest('INVALID_DESIGNATION', { message: 'A selected designation does not belong to the chosen section.' });
+        // a designation that carries the administrator capability would turn any staff user into an administrator: only a Super Admin may hand it out
+        const grants = deriveEffectivePermissions({ systemRole: role });
+        if ((grants.includes(RBAC_PERMISSIONS.ADMIN_RBAC) || grants.includes(RBAC_PERMISSIONS.ADMIN_SUPER)) && !callerCanGrantAdmin) {
+            throw AppError.forbidden(`The ${role.code.replace(/_/g, ' ')} designation gives administrator rights; only a Super Admin can assign it.`);
+        }
         out.push({ sectionId: d.sectionId, roleId: d.roleId, isPrimary: !!d.isPrimary });
     }
     if (out.length && !out.some((o) => o.isPrimary)) out[0].isPrimary = true;
@@ -230,7 +237,7 @@ export class UserAdminService {
         const result = await prisma.$transaction(async (tx) => {
             await assertReferences(tx, data);
             const base = await resolveBaseRole(tx, role);
-            const designations = data.designations ? await validatedDesignations(tx, data.designations) : await usualDesignations(tx, role);
+            const designations = data.designations ? await validatedDesignations(tx, data.designations, currentUserId) : await usualDesignations(tx, role);
 
             let staffId: string | undefined;
             if (employeeId) {
@@ -303,13 +310,23 @@ export class UserAdminService {
                 });
                 staffId = staff.id;
             }
-            // designations: replaced when the form sends them; a role change without a choice starts from the usual ones
-            let designations: Array<{ sectionId: string; roleId: string; isPrimary: boolean }> | null = null;
-            if (data.designations) designations = await validatedDesignations(tx, data.designations);
-            else if (roleChanged) designations = await usualDesignations(tx, role);
-            if (designations) {
+            // designations: replaced when the form sends them. A role change without a choice swaps only the OLD role's usual designations
+            // for the new role's; every other designation the person holds (Fleet, Inventory, a second section...) is kept.
+            if (data.designations) {
+                const designations = await validatedDesignations(tx, data.designations, currentUserId);
                 await tx.userSectionAssignment.deleteMany({ where: { userId: id } });
                 if (designations.length) await tx.userSectionAssignment.createMany({ data: designations.map((d) => ({ ...d, userId: id })) });
+            } else if (roleChanged) {
+                const oldUsual = new Set((await usualDesignations(tx, existing.role)).map((d) => d.roleId));
+                await tx.userSectionAssignment.deleteMany({ where: { userId: id, roleId: { in: [...oldUsual] } } });
+                const kept = await tx.userSectionAssignment.findMany({ where: { userId: id }, select: { sectionId: true, isPrimary: true } });
+                const heldSections = new Set(kept.map((k) => k.sectionId));
+                let primaryHeld = kept.some((k) => k.isPrimary);
+                for (const d of await usualDesignations(tx, role)) {
+                    if (heldSections.has(d.sectionId)) continue;
+                    await tx.userSectionAssignment.create({ data: { userId: id, sectionId: d.sectionId, roleId: d.roleId, isPrimary: !primaryHeld } });
+                    primaryHeld = true;
+                }
             }
             return tx.user.update({
                 where: { id },
