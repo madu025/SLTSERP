@@ -82,6 +82,7 @@ export default function UserRegistrationPage() {
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [includeContractors, setIncludeContractors] = useState(false);
   const [page, setPage] = useState(1);
   const [showDrawer, setShowDrawer] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
@@ -104,13 +105,14 @@ export default function UserRegistrationPage() {
 
   // --- QUERIES ---
   const { data, isLoading: usersLoading, isError, refetch } = useQuery<UserListResponse>({
-    queryKey: ["users", page, search, deptFilter, statusFilter],
+    queryKey: ["users", page, search, deptFilter, statusFilter, includeContractors],
     placeholderData: keepPreviousData,
     queryFn: async () => {
       const qs = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
       if (search) qs.set('search', search);
       if (deptFilter !== 'ALL') qs.set('dept', deptFilter);
       if (statusFilter !== 'all') qs.set('status', statusFilter);
+      if (includeContractors) qs.set('includeContractors', '1');
       const res = await fetch(`/api/users?${qs.toString()}`, { cache: 'no-store' });
       if (!res.ok) throw new Error('Could not load the users');
       return res.json();
@@ -295,6 +297,10 @@ export default function UserRegistrationPage() {
                 </div>
 
                 <div className="flex items-center gap-2 w-full lg:w-auto">
+                  <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 whitespace-nowrap" title="Contractor logins are created from the contractor registration">
+                    <input type="checkbox" checked={includeContractors} onChange={e => { setIncludeContractors(e.target.checked); setPage(1); }} />
+                    Show contractor logins
+                  </label>
                   <select
                     aria-label="Filter by status"
                     value={statusFilter}

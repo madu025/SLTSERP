@@ -35,8 +35,9 @@ export const GET = apiHandler(async (request) => {
     const search = searchParams.get('search') || undefined;
     const status = searchParams.get('status') || undefined;
     const dept = searchParams.get('dept') || undefined;
+    const includeContractors = searchParams.get('includeContractors') === '1';
 
-    const result = await UserService.getUsers(page, limit, search, { status, dept });
+    const result = await UserService.getUsers(page, limit, search, { status, dept, includeContractors });
     return result;
 }, {
     rawResponse: true

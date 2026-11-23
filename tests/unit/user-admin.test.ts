@@ -46,7 +46,8 @@ test('regional roles need an OPMC; company-wide, contractor and admin roles do n
 });
 
 test('every department tab lists real roles, and the department filter finds them', () => {
-    const known = new Set([...Object.values(ROLE_CATEGORIES).flat(), 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE']);
+    const known = new Set(Object.values(ROLE_CATEGORIES).flat());
+    assert.ok(!USER_DEPARTMENTS.some((d) => d.id === 'CONTRACTOR'), 'no contractor tab: contractor logins belong to the contractor registration');
     for (const d of USER_DEPARTMENTS) {
         assert.ok(d.roles.length > 0, d.id);
         for (const r of d.roles) assert.ok(known.has(r), `${d.id}: ${r}`);

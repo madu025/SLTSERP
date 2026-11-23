@@ -146,7 +146,7 @@ export class UserService {
     }
 
     /** Lists users (paging, search, status and department filters, counts). The implementation is UserAdminService. */
-    static async getUsers(page: number, limit: number, search?: string, filters: { status?: string; dept?: string } = {}) {
+    static async getUsers(page: number, limit: number, search?: string, filters: { status?: string; dept?: string; includeContractors?: boolean } = {}) {
         return UserAdminService.list({ page, limit, search, ...filters });
     }
 

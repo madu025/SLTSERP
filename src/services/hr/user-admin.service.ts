@@ -11,7 +11,7 @@ import { SystemService } from '@/services/core/system.service';
 import { EmailService } from '@/services/notification/email.service';
 import { NotificationTemplateEngineService } from '@/services/notification/template-engine.service';
 import {
-    USER_STATUSES, USER_DEPARTMENTS, departmentRoles, normalizeUserStatus, passwordProblem, roleNeedsOpmc, roleNeedsStoreOrOpmc, isQaLeftoverRole,
+    CONTRACTOR_LOGIN_ROLES, USER_STATUSES, USER_DEPARTMENTS, departmentRoles, normalizeUserStatus, passwordProblem, roleNeedsOpmc, roleNeedsStoreOrOpmc, isQaLeftoverRole,
 } from '@/config/user-admin';
 
 /**
@@ -41,7 +41,7 @@ export interface AdminUserInput {
     designations?: DesignationInput[];
 }
 
-export interface UserListQuery { page: number; limit: number; search?: string; status?: string; dept?: string }
+export interface UserListQuery { page: number; limit: number; search?: string; status?: string; dept?: string; includeContractors?: boolean }
 
 const clean = (v: string | undefined | null) => (v ?? '').replace(/\0/g, '').trim();
 
@@ -142,7 +142,9 @@ async function assertUnique(username: string, email: string, employeeId: string 
 export class UserAdminService {
     static async list(q: UserListQuery) {
         const search = clean(q.search);
-        const and: Prisma.UserWhereInput[] = [{ status: { not: 'deleted' } }];
+        // contractor logins are created and owned by the contractor registration: the staff list leaves them out unless asked
+        const noContractors: Prisma.UserWhereInput = q.includeContractors ? {} : { role: { notIn: [...CONTRACTOR_LOGIN_ROLES] as Role[] } };
+        const and: Prisma.UserWhereInput[] = [{ status: { not: 'deleted' } }, noContractors];
         if (search) {
             and.push({ OR: [
                 { name: { contains: search, mode: 'insensitive' } }, { email: { contains: search, mode: 'insensitive' } },
@@ -154,7 +156,7 @@ export class UserAdminService {
         const roles = q.dept && q.dept !== 'ALL' ? departmentRoles(q.dept) : null;
         if (roles) and.push({ role: { in: roles as Role[] } });
         const where: Prisma.UserWhereInput = { AND: and };
-        const base: Prisma.UserWhereInput = { status: { not: 'deleted' } };
+        const base: Prisma.UserWhereInput = { AND: [{ status: { not: 'deleted' } }, noContractors] };
         const cnt = (extra: Prisma.UserWhereInput) => prisma.user.count({ where: { AND: [base, extra] } });
 
         const [total, users, all, active, inactive, resigned, ...byDept] = await Promise.all([

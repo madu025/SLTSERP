@@ -53,8 +53,11 @@ export const USER_DEPARTMENTS: Array<{ id: string; label: string; roles: string[
     { id: 'STORES', label: 'Stores & Inventory', roles: ROLE_CATEGORIES['Stores & Inventory'] },
     { id: 'FINANCE', label: 'Finance & Invoicing', roles: [...ROLE_CATEGORIES.Finance, ...ROLE_CATEGORIES['Invoice Section'], ...ROLE_CATEGORIES['SF Audit Section'], ...ROLE_CATEGORIES.Procurement] },
     { id: 'ADMIN', label: 'System Admins', roles: ROLE_CATEGORIES['System Admin'] },
-    { id: 'CONTRACTOR', label: 'Contractors', roles: ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE'] },
+
 ];
+
+/** Contractor logins belong to the contractor registration (Contractors module); the staff list leaves them out unless asked. */
+export const CONTRACTOR_LOGIN_ROLES = ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE'] as const;
 
 export function departmentRoles(id: string): string[] | null {
     return USER_DEPARTMENTS.find((d) => d.id === id)?.roles ?? null;
