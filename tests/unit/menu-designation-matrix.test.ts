@@ -102,7 +102,7 @@ const PRJ_VIEW = ['All Projects', 'PM Dashboard', 'QA/QC Dashboard', 'Logistics 
 test('Projects: the Project Engineer and the managers run and approve, the Assistant Engineer operates, the readers see the dashboards only', () => {
     assert.deepEqual(projectItems('ENGINEER', 'PROJECTS_ENGINEER').sort(), [...PRJ_VIEW, 'IR Material Audit', 'My Tasks', 'GIS File Import'].sort(), 'a Project Engineer');
     assert.ok(projectItems('ASSISTANT_ENGINEER', 'PROJECTS_ASSISTANT_ENGINEER').includes('My Tasks'), 'an Assistant Project Engineer has My Tasks');
-    assert.ok(projectItems('FINANCE_ASSISTANT').every((t) => [...PRJ_VIEW, 'Finance Dashboard'].includes(t)), 'a reader sees dashboards and the map only');
+    assert.ok(projectItems('FINANCE_ASSISTANT').every((t) => [...PRJ_VIEW, 'Finance Dashboard', 'IR Material Audit'].includes(t)), 'a reader sees dashboards and the map only (and the IR material audit, which they can read with stock read)');
     for (const d of ['FINANCE_MANAGER', 'STORES_ASSISTANT', 'CASHIER']) assert.ok(!projectItems(d).includes('My Tasks') && !projectItems(d).includes('GIS File Import'), d + ' has no tasks and no import');
 });
 

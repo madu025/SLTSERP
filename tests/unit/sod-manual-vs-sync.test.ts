@@ -306,7 +306,7 @@ test('the Area Manager reports show the own RTOMs only and the Reports menu lead
 test('Invoice Status: every service order person sees where the invoices of their own RTOMs are, the contractor sees the same steps', () => {
     const svc = read('src/services/invoice/invoice-status.service.ts');
     assert.ok(svc.includes('resolveOpmcScope') && svc.includes('narrowScope(') && svc.includes('SOD_INVOICE_REF') && svc.includes('trackInvoice('), 'scoped to the own areas, and the voucher tells the payment steps');
-    assert.ok(read('src/app/api/service-orders/invoice-status/route.ts').includes('RBAC_PERMISSIONS.SOD_READ'), 'read with the service order capability, so coordinators and QC officers can answer a contractor');
+    assert.ok(read('src/app/api/service-orders/invoice-status/route.ts').includes('RBAC_PERMISSIONS.INVOICE_STATUS_READ'), 'read with its own capability: the service order people hold it with sod.read, and the finance people hold it without sod.read');
     const portal = read('src/services/contractor-portal/finance.service.ts');
     assert.ok(portal.includes('tracker: trackInvoice('), 'the contractor portal carries the tracker');
     assert.ok(read('src/app/contractor/finance/page.tsx').includes('Where your invoice is'), 'the contractor sees the steps');

@@ -17,7 +17,7 @@ export class VendorScorecardService {
     static async getScorecard(userId: string | null, months = 12, now = new Date()): Promise<VendorScorecard> {
         const windowMonths = Math.min(36, Math.max(1, months));
         const since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - windowMonths + 1, 1));
-        const scope = userId === null ? undefined : await resolveOpmcScope(userId, 'company');
+        const scope = userId === null ? undefined : await resolveOpmcScope(userId, 'procurement');
         const scopeArr = scope === undefined ? null : scope;
         const storeIds = userId === null ? null : (await StoreService.getAccessibleStores(userId)).map((s) => s.id);
 

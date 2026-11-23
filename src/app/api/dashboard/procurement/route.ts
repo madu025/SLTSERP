@@ -16,7 +16,7 @@ export const GET = apiHandler(async (req, params) => {
 
     // Server-side OPMC scope — client rtom is validated against it inside
     // the service (admins unrestricted, empty scope denies all).
-    const accessibleOpmcs = await resolveOpmcScope(params._userId, 'company');
+    const accessibleOpmcs = await resolveOpmcScope(params._userId, 'procurement');
 
     return await DashboardService.getProcurementMetrics(parsed.rtom, accessibleOpmcs);
 }, {

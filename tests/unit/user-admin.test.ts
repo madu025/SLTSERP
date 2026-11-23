@@ -130,10 +130,16 @@ test('data scope by domain: a scope capability opens one domain, nothing else, a
     const g = CANONICAL_BOOTSTRAP_ROLE_GRANTS as unknown as Record<string, string[]>;
     for (const r of ['CEO', 'HEAD_OF_OSP', 'OSP_MANAGER']) for (const c of ['scope.company.all', 'scope.sod.all', 'scope.project.all', 'scope.inventory.all', 'scope.reports.all', 'scope.finance.all']) assert.ok(g[c].includes(r), `${r} ${c}`);
     for (const r of ['FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER', 'AR_OFFICER', 'INVOICE_MANAGER', 'INVOICE_ASSISTANT', 'SF_AUDIT_MANAGER', 'SF_AUDIT_OFFICER']) assert.ok(g['scope.finance.all'].includes(r), r);
-    // finance people see invoices of every region but never the service orders: no SOD, project, inventory or company scope for them
-    for (const c of ['scope.sod.all', 'scope.project.all', 'scope.inventory.all', 'scope.reports.all', 'scope.company.all']) {
+    // finance people see the money of every region but never the service orders, reports or company-wide data
+    for (const c of ['scope.sod.all', 'scope.reports.all', 'scope.company.all']) {
         for (const r of ['FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER', 'INVOICE_MANAGER', 'SF_AUDIT_OFFICER']) assert.ok(!g[c].includes(r), `${r} must not have ${c}`);
     }
+    for (const r of ['FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER', 'AR_OFFICER', 'INVOICE_MANAGER', 'INVOICE_ASSISTANT', 'SF_AUDIT_MANAGER', 'SF_AUDIT_OFFICER']) assert.ok(g['scope.project.all'].includes(r) && g['invoice.status.read'].includes(r), `${r}: project money and Invoice Status`);
+    for (const c of ['scope.procurement.all', 'scope.contractor.all', 'scope.inventory.all']) for (const r of ['FINANCE_MANAGER', 'FINANCE_ASSISTANT']) assert.ok(g[c].includes(r), `${r} ${c}`);
+    for (const r of ['CEO', 'HEAD_OF_OSP', 'OSP_MANAGER']) for (const c of ['reports.read', 'reports.manager.read', 'reports.area.read']) assert.ok(g[c].includes(r), `${r} ${c}`);
+    // the finance people read purchase orders and stock value but cannot change them
+    for (const r of ['FINANCE_MANAGER', 'FINANCE_ASSISTANT']) { assert.ok(g['procurement.read'].includes(r) && g['inventory.read'].includes(r)); assert.ok(!g['procurement.write'].includes(r) && !g['inventory.write'].includes(r)); }
+    assert.ok(!g['sod.read'].includes('FINANCE_MANAGER') && !g['sod.read'].includes('FINANCE_ASSISTANT'), 'finance still cannot open service orders');
     assert.ok(!g['scope.sod.all'].includes('AREA_MANAGER') && !g['scope.company.all'].includes('STORES_MANAGER'));
 });
 

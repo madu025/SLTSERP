@@ -51,7 +51,11 @@ export const RBAC_PERMISSIONS = {
     SCOPE_INVENTORY_ALL: 'scope.inventory.all',
     SCOPE_REPORTS_ALL: 'scope.reports.all',
     /** every domain, including procurement, contractors and the dashboard */
+    SCOPE_PROCUREMENT_ALL: 'scope.procurement.all',
+    SCOPE_CONTRACTOR_ALL: 'scope.contractor.all',
     SCOPE_COMPANY_ALL: 'scope.company.all',
+    /** Track the contractor invoices of service orders step by step (Service Orders > Invoice Status). A finance person needs this without being allowed to open the orders (sod.read). */
+    INVOICE_STATUS_READ: 'invoice.status.read',
     FLEET_READ: 'fleet.read',
     FLEET_WRITE: 'fleet.write',
     REPORTS_READ: 'reports.read',
@@ -128,6 +132,9 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.SCOPE_PROJECT_ALL, module: 'SCOPE', action: 'PROJECT_ALL', scope: 'GLOBAL', description: 'See the projects of every OPMC (data scope only)' },
     { code: RBAC_PERMISSIONS.SCOPE_INVENTORY_ALL, module: 'SCOPE', action: 'INVENTORY_ALL', scope: 'GLOBAL', description: 'See the stores and stock of every OPMC (data scope only)' },
     { code: RBAC_PERMISSIONS.SCOPE_REPORTS_ALL, module: 'SCOPE', action: 'REPORTS_ALL', scope: 'GLOBAL', description: 'See the reports of every OPMC (data scope only)' },
+    { code: RBAC_PERMISSIONS.SCOPE_PROCUREMENT_ALL, module: 'SCOPE', action: 'PROCUREMENT_ALL', scope: 'GLOBAL', description: 'See the purchase orders, quotations and supplier invoices of every OPMC (data scope only)' },
+    { code: RBAC_PERMISSIONS.SCOPE_CONTRACTOR_ALL, module: 'SCOPE', action: 'CONTRACTOR_ALL', scope: 'GLOBAL', description: 'See the contractors of every OPMC (data scope only)' },
+    { code: RBAC_PERMISSIONS.INVOICE_STATUS_READ, module: 'SOD', action: 'INVOICE_STATUS_READ', scope: 'OPMC', description: 'Track the contractor invoices of service orders (read only; the orders themselves need sod.read)' },
     { code: RBAC_PERMISSIONS.SCOPE_COMPANY_ALL, module: 'SCOPE', action: 'COMPANY_ALL', scope: 'GLOBAL', description: 'See every OPMC in every module, including procurement, contractors and the dashboard (data scope only)' },
     { code: RBAC_PERMISSIONS.FLEET_READ, module: 'FLEET', action: 'READ', scope: 'OPMC', description: 'Read fleet, vehicle, trip, and utilization data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.FLEET_WRITE, module: 'FLEET', action: 'WRITE', scope: 'OPMC', description: 'Modify fleet, vehicle, and trip records within the assigned OPMC scope' },

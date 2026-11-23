@@ -349,7 +349,7 @@ export const SOD_GUIDE: ModuleGuide = {
             tips: [
                 'A paid invoice still has its retention held back; it is released after the warranty period.',
                 'Older invoices ran a shorter chain (created, area approval, finance approval, paid); they show four steps.',
-                'Only the invoices of your own RTOMs are listed.',
+                'Only the invoices of your own RTOMs are listed. The OSP Manager, Head of OSP, CEO and the finance people (Finance Manager and Assistant, Cashier, AR Officer, Invoice Manager and Assistant, SF Audit) see the invoices of every RTOM; the finance people see only the invoices here, never the service orders.',
             ],
             anchors: [
                 { file: 'src/app/service-orders/invoice-status/page.tsx', text: 'Where it is now' },

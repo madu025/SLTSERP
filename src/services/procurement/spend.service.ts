@@ -31,7 +31,7 @@ export interface CommitmentRisk { projectId: string; name: string; budget: numbe
  */
 export class SpendService {
     static async getSpend(userId: string | null, now = new Date()): Promise<SpendReport> {
-        const scope = userId === null ? undefined : await resolveOpmcScope(userId, 'company');
+        const scope = userId === null ? undefined : await resolveOpmcScope(userId, 'procurement');
         const storeIds = userId === null ? null : (await StoreService.getAccessibleStores(userId)).map((s) => s.id);
         const since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1));
         const projectScope = scope === undefined ? {} : { project: { opmcId: { in: scope } } };

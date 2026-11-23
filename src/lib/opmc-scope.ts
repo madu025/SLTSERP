@@ -15,7 +15,7 @@ export const NIL_UUID = '00000000-0000-0000-0000-000000000000';
  * Fail-closed: a missing identity or unknown user resolves to `[]` (deny all),
  * never to global access.
  */
-export type ScopeDomain = 'sod' | 'finance' | 'project' | 'inventory' | 'reports' | 'company';
+export type ScopeDomain = 'sod' | 'finance' | 'project' | 'inventory' | 'reports' | 'procurement' | 'contractor' | 'company';
 
 /** Pure rule: which OPMCs a user's rows may come from, given what they hold. undefined = every OPMC. */
 export function scopeFromPermissions(permissions: readonly string[], opmcIds: string[], domain?: ScopeDomain): string[] | undefined {

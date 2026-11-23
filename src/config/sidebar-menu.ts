@@ -165,6 +165,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Invoice Status',
                 path: '/service-orders/invoice-status',
                 icon: Receipt,
+                permissionId: RBAC_PERMISSIONS.INVOICE_STATUS_READ,
             },
             {
                 // The Area Manager's main decision: the invoices of the area waiting for approval

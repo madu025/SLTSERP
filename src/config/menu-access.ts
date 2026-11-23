@@ -63,7 +63,7 @@ export const MODULE_DESIGNATION_LEVELS: Readonly<Record<MenuModule, Readonly<Rec
     // Reports. The Area Manager reads the reports of the own areas; the company managers read the company reports too.
     REPORTS: {
         SUPER_ADMIN: 'admin', ADMIN: 'admin',
-        CEO: 'company', OSP_MANAGER: 'company', MANAGER: 'company', HEAD_OF_SECTION: 'company', REGIONAL_GENERAL_MANAGER: 'company',
+        CEO: 'company', HEAD_OF_OSP: 'company', OSP_MANAGER: 'company', MANAGER: 'company', HEAD_OF_SECTION: 'company', REGIONAL_GENERAL_MANAGER: 'company',
         AREA_MANAGER: 'area',
     },
     // IT help desk. Everyone who works in the field or an area raises tickets; the office staff are the IT staff; the asset audits need an approver.

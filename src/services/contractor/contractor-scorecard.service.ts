@@ -21,7 +21,7 @@ const currentMonth = (now: Date) => `${now.getUTCFullYear()}-${String(now.getUTC
  */
 export class ContractorScorecardService {
     static async getScorecard(userId: string | null | undefined, month?: string, trendMonths = 6, now = new Date()): Promise<ContractorScorecardReport> {
-        const scope = await resolveOpmcScope(userId, 'company');
+        const scope = await resolveOpmcScope(userId, 'contractor');
         return this.compute(scope === undefined ? null : scope, month ?? currentMonth(now), trendMonths);
     }
 

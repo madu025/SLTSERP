@@ -4,7 +4,7 @@ import { InvoiceStatusService } from '@/services/invoice/invoice-status.service'
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/service-orders/invoice-status?rtom=&search=&state= - where the contractor invoices of the caller's own RTOMs are on their way to payment (read-only)
+// GET /api/service-orders/invoice-status?rtom=&search=&state= - where the contractor invoices are on their way to payment: the caller's own RTOMs, or every RTOM for a company-wide role (read-only)
 export const GET = apiHandler(async (req, params) => {
     const sp = new URL(req.url).searchParams;
     return InvoiceStatusService.forUser(params._userId ?? '', {
@@ -12,4 +12,4 @@ export const GET = apiHandler(async (req, params) => {
         contractorId: sp.get('contractorId') || undefined, month: Number(sp.get('month')) || undefined, year: Number(sp.get('year')) || undefined,
         minDays: Number(sp.get('minDays')) || undefined, sort: sp.get('sort') ?? undefined,
     });
-}, { permissions: [RBAC_PERMISSIONS.SOD_READ] });
+}, { permissions: [RBAC_PERMISSIONS.INVOICE_STATUS_READ] });

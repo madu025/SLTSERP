@@ -29,7 +29,7 @@ export interface UnifiedPo {
  */
 export class UnifiedPoService {
     static async list(userId: string, filter: { kind?: 'STORE' | 'PROJECT'; status?: string } = {}): Promise<UnifiedPo[]> {
-        const scope = await resolveOpmcScope(userId, 'company');
+        const scope = await resolveOpmcScope(userId, 'procurement');
         const storeIds = filter.kind === 'PROJECT' ? [] : (await StoreService.getAccessibleStores(userId)).map((s) => s.id);
         const [store, project] = await Promise.all([
             filter.kind === 'PROJECT' ? [] : prisma.purchaseOrder.findMany({
