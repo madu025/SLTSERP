@@ -43,7 +43,8 @@ if (write) {
 }
 
 // ── Validation: extract role literals from RBAC config sources ──────────────
-const ALLOWED_NON_ENUM = new Set(['ALL']); // sidebar wildcard for "every authenticated role"
+// ALL: sidebar wildcard for "every authenticated role". PROJECTS_*: module designations, which are SystemRole codes (UserSectionAssignment), not User.role values.
+const ALLOWED_NON_ENUM = new Set(['ALL', 'PROJECTS_ENGINEER', 'PROJECTS_ASSISTANT_ENGINEER']);
 
 const targets = [
     'src/config/rbac-bootstrap.ts',

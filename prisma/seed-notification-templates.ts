@@ -497,6 +497,53 @@ const DEFAULT_TEMPLATES = [
 </html>`
   },
   {
+    code: 'USER_ACCOUNT_CREATED',
+    title: 'User account created',
+    subject: 'Your SLT ERP account is ready',
+    message: 'Dear {{user}}, your SLT ERP account ({{username}}) is ready as {{role}}. Your administrator will give you the temporary password separately. You must choose a new password when you first sign in: {{loginUrl}}',
+    entityType: 'USER',
+    channels: ['EMAIL'],
+    htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family:'Segoe UI',Arial,sans-serif;padding:0;margin:0;background-color:#f4f6f9;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f6f9;">
+    <tr>
+      <td align="center" style="padding:20px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+          <tr>
+            <td bgcolor="#1e40af" style="background-color:#1e40af;background-image:linear-gradient(135deg,#1e40af,#3b82f6);padding:24px 30px;border-radius:8px 8px 0 0;">
+              <h2 style="color:#ffffff;margin:0;font-size:20px;font-family:'Segoe UI',Arial,sans-serif;">Welcome to SLT ERP</h2>
+            </td>
+          </tr>
+          <tr>
+            <td bgcolor="#ffffff" style="background-color:#ffffff;padding:30px;border-radius:0 0 8px 8px;">
+              <p style="font-size:16px;color:#1e293b;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">Dear {{user}},</p>
+              <p style="color:#475569;font-size:14px;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">An administrator has created your account as <strong>{{role}}</strong>.</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f8fafc" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">
+                <tr><td style="padding:16px;font-size:14px;color:#1e293b;font-family:'Segoe UI',Arial,sans-serif;">Username: <strong>{{username}}</strong></td></tr>
+              </table>
+              <p style="color:#475569;font-size:14px;margin:16px 0;font-family:'Segoe UI',Arial,sans-serif;">Your administrator will give you the temporary password separately. You must choose a new password when you first sign in.</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:24px auto 0;">
+                <tr><td>
+                  <a href="{{loginUrl}}" style="display:inline-block;padding:12px 22px;white-space:nowrap;text-align:center;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;background-color:#3b82f6;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;">Sign in</a>
+                </td></tr>
+              </table>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+                <tr><td style="padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center;font-family:'Segoe UI',Arial,sans-serif;">
+                  <p style="margin:8px 0 0;color:#94a3b8;">SLTS Nexus ERP - Outside Plant Operations</p>
+                </td></tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+  },
+  {
     code: 'NOTIFICATION_GENERIC',
     title: 'Generic Notification',
     subject: '[SLTS NEXUS] {{title}}',

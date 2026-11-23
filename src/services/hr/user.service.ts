@@ -7,7 +7,6 @@ import { Role, Prisma } from '@prisma/client';
 import { AppError } from '@/lib/error';
 import { safe, safeSync } from '@/utils/safe-await.util';
 import { requireEnv } from '@/lib/env';
-import { assertDatabaseRole } from '@/lib/role-validation';
 import { deriveEffectivePermissions } from '@/lib/effective-permissions';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
@@ -33,6 +32,7 @@ export interface CreateUserData {
     supervisorId?: string;
     assignedStoreId?: string;
     status?: string;
+    designations?: DesignationInput[];
 }
 
 export interface UpdateUserData {
@@ -46,9 +46,11 @@ export interface UpdateUserData {
     supervisorId?: string;
     assignedStoreId?: string;
     status?: string;
+    designations?: DesignationInput[];
 }
 
-import { DEFAULT_ROLE_PERMISSIONS, SECTION_MAPPING } from '@/config/auth-defaults';
+import { UserAdminService, type DesignationInput } from '@/services/hr/user-admin.service';
+import { passwordProblem } from '@/config/user-admin';
 
 export class UserService {
     /**
@@ -143,384 +145,19 @@ export class UserService {
         };
     }
 
-    /**
-     * Retrieves all users with pagination and search
-     */
-    static async getUsers(page: number, limit: number, search?: string) {
-        const skip = (page - 1) * limit;
-
-        const where: Prisma.UserWhereInput = {
-            status: { not: 'deleted' }
-        };
-        if (search) {
-            where.AND = [
-                { status: { not: 'deleted' } },
-                {
-                    OR: [
-                        { name: { contains: search, mode: 'insensitive' } },
-                        { email: { contains: search, mode: 'insensitive' } },
-                        { employeeId: { contains: search, mode: 'insensitive' } },
-                        { username: { contains: search, mode: 'insensitive' } }
-                    ]
-                }
-            ];
-        }
-
-        const [total, users] = await Promise.all([
-            prisma.user.count({ where }),
-            prisma.user.findMany({
-                where,
-                select: {
-                    id: true,
-                    username: true,
-                    email: true,
-                    name: true,
-                    role: true,
-                    status: true,
-                    createdAt: true,
-                    staffId: true,
-                    assignedStoreId: true,
-                    permissions: true,
-                    accessibleOpmcs: { select: { id: true, rtom: true } },
-                    supervisor: { select: { id: true, name: true, username: true, role: true } },
-                    sectionAssignments: {
-                        select: {
-                            id: true,
-                            isPrimary: true,
-                            section: { select: { id: true, name: true } },
-                            role: { select: { id: true, name: true } }
-                        }
-                    }
-                },
-                orderBy: { createdAt: 'desc' },
-                skip,
-                take: limit
-            })
-        ]);
-
-        return {
-            users,
-            meta: {
-                total,
-                page,
-                limit,
-                totalPages: Math.ceil(total / limit)
-            }
-        };
+    /** Lists users (paging, search, status and department filters, counts). The implementation is UserAdminService. */
+    static async getUsers(page: number, limit: number, search?: string, filters: { status?: string; dept?: string } = {}) {
+        return UserAdminService.list({ page, limit, search, ...filters });
     }
 
-    /**
-     * Creates a new user with transactional section assignments
-     */
+    /** Creates a user on the RBAC model (see UserAdminService). */
     static async createUser(data: CreateUserData, currentUserId: string) {
-        const { username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId, status } = data;
-
-        // Do not allow organization-specific labels or malformed values to
-        // enter User.role. Human-readable organization role names belong to
-        // SystemRole.name; authorization uses the DB Role enum capability.
-        assertDatabaseRole(role);
-
-        // Privilege escalation guard: only the canonical global-super capability
-        // may grant the SUPER_ADMIN identity. User.role is compatibility data.
-        if (role === 'SUPER_ADMIN') {
-            const callerPermissions = await getUserEffectivePermissions(currentUserId);
-            if (!callerPermissions.includes(RBAC_PERMISSIONS.ADMIN_SUPER)) {
-                throw AppError.forbidden('CANNOT_ASSIGN_SUPER_ADMIN');
-            }
-        }
-
-        // Validate OPMC requirement for New Connection & Service Assurance
-        const requiresOPMC = ['MANAGER', 'SA_MANAGER', 'SA_ASSISTANT'].includes(role);
-        if (requiresOPMC && (!opmcIds || opmcIds.length === 0)) {
-            throw AppError.badRequest('OPMC_REQUIRED');
-        }
-
-        if (!password) {
-            throw AppError.badRequest('PASSWORD_REQUIRED');
-        }
-        if (password.length < 4) {
-            throw AppError.badRequest('Password must be at least 4 characters long');
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        const sectionMappingConfig = await SystemService.getConfig<Record<string, string[]>>('SECTION_MAPPING', SECTION_MAPPING);
-        const defaultRolePermissionsConfig = await SystemService.getConfig<Record<string, string[]>>('DEFAULT_ROLE_PERMISSIONS', DEFAULT_ROLE_PERMISSIONS);
-
-        const result = await prisma.$transaction(async (tx) => {
-            // 1. Create Staff record if employeeId is present
-            let staffId = undefined;
-            if (employeeId) {
-                const existingStaff = await tx.staff.findUnique({ where: { employeeId } });
-
-                if (existingStaff) {
-                    staffId = existingStaff.id;
-                } else {
-                    const staff = await tx.staff.create({
-                        data: {
-                            name: name || username,
-                            employeeId,
-                            designation: role,
-                            opmcId: opmcIds && opmcIds.length > 0 ? opmcIds[0] : undefined
-                        }
-                    });
-                    staffId = staff.id;
-                }
-            }
-
-            // 2. Create User record
-            const user = await tx.user.create({
-                data: {
-                    username,
-                    email,
-                    password: hashedPassword,
-                    passwordChangedAt: new Date(),
-                    name,
-                    role: role || 'ENGINEER',
-                    status: status || 'active',
-                    staff: staffId ? { connect: { id: staffId } } : undefined,
-                    assignedStore: assignedStoreId && assignedStoreId !== 'none' ? { connect: { id: assignedStoreId } } : undefined,
-                    accessibleOpmcs: {
-                        connect: opmcIds && Array.isArray(opmcIds)
-                            ? opmcIds.map((id: string) => ({ id }))
-                            : []
-                    },
-                    supervisor: supervisorId && supervisorId !== 'none' ? { connect: { id: supervisorId } } : undefined
-                },
-                include: {
-                    accessibleOpmcs: { select: { rtom: true } }
-                }
-            });
-            // 3. Auto-assign to Sections based on Role (Multi-section support)
-            const sectionCodes = sectionMappingConfig[role] || [];
-            
-            // Optimize with Promise.all and upsert to avoid O(M) blocking sequential queries
-            await Promise.all(sectionCodes.map(async (sectionCode) => {
-                const section = await tx.section.upsert({
-                    where: { code: sectionCode },
-                    create: { name: sectionCode.replace(/_/g, ' '), code: sectionCode },
-                    update: {}
-                });
-
-                const roleCode = `${sectionCode}_${role}`;
-                // Find or create SystemRole — don't overwrite existing permissions (admin customizations preserved)
-                let systemRole = await tx.systemRole.findUnique({ where: { code: roleCode } });
-                if (!systemRole) {
-                    systemRole = await tx.systemRole.create({
-                        data: {
-                            name: role.replace(/_/g, ' '),
-                            code: roleCode,
-                            sectionId: section.id,
-                            permissions: JSON.stringify(defaultRolePermissionsConfig[role] || ['dashboard'])
-                        }
-                    });
-                }
-
-                await tx.userSectionAssignment.upsert({
-                    where: {
-                        userId_sectionId: { userId: user.id, sectionId: section.id }
-                    },
-                    create: {
-                        userId: user.id,
-                        sectionId: section.id,
-                        roleId: systemRole.id,
-                        isPrimary: sectionCode === sectionCodes[0]
-                    },
-                    update: {}
-                });
-            }));
-
-            return user;
-        }, { maxWait: 10_000, timeout: 30_000 });
-
-        const userWithoutPassword = { ...result } as Partial<typeof result>;
-        delete userWithoutPassword.password;
-
-        // Log creation and Notify
-        await SystemService.logEvent({
-            userId: currentUserId,
-            action: 'USER_CREATE',
-            entity: 'User',
-            entityId: result.id as string,
-            newValue: userWithoutPassword,
-            notify: true,
-            notifyTitle: 'Welcome to SLT ERP',
-            notifyMessage: `An administrator has created your account as ${role}. Please setup your security profile.`,
-            notifyType: 'SYSTEM'
-        });
-
-        return userWithoutPassword;
+        return UserAdminService.create(data, currentUserId);
     }
 
-    /**
-     * Updates an existing user record
-     */
+    /** Updates a user on the RBAC model (see UserAdminService). */
     static async updateUser(id: string, data: UpdateUserData, currentUserId: string) {
-        const { username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId, status } = data;
-
-        // Validate before any privilege comparison or persistence so role
-        // changes cannot bypass the database role domain.
-        assertDatabaseRole(role);
-
-        const existingUser = await prisma.user.findUnique({ where: { id }, include: { staff: true } });
-        if (!existingUser) throw AppError.notFound('USER_NOT_FOUND');
-
-        // Privilege escalation guards (fail-closed when caller can't be resolved)
-        const callerPermissions = await getUserEffectivePermissions(currentUserId);
-        const canManageRbac = callerPermissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC);
-        const canManageSuperAdmin = callerPermissions.includes(RBAC_PERMISSIONS.ADMIN_SUPER);
-        const targetPermissions = await getUserEffectivePermissions(existingUser.id);
-        const targetHasAdminCapability = targetPermissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC);
-        const targetHasSuperCapability = targetPermissions.includes(RBAC_PERMISSIONS.ADMIN_SUPER);
-
-        // Target protection is capability-based. User.role is retained as a
-        // compatibility/display field, but must not decide who is protected.
-        if (targetHasAdminCapability && !canManageRbac) {
-            throw AppError.forbidden('CANNOT_MODIFY_SUPER_ADMIN');
-        }
-        if (targetHasSuperCapability && !canManageSuperAdmin) {
-            throw AppError.forbidden('CANNOT_MODIFY_SUPER_ADMIN');
-        }
-        if (role === 'SUPER_ADMIN' && !canManageSuperAdmin) {
-            throw AppError.forbidden('CANNOT_ASSIGN_SUPER_ADMIN');
-        }
-
-        if (targetHasSuperCapability && role !== 'SUPER_ADMIN') {
-            throw AppError.forbidden('CANNOT_DEMOTE_SUPER_ADMIN');
-        }
-
-        const roleChanged = existingUser.role !== role;
-        const statusChanged = !!status && existingUser.status !== status;
-        const passwordChanged = !!(password && password.length > 0);
-
-        const dataToUpdate: {
-            username: string;
-            email: string;
-            name?: string;
-            role: Role;
-            password?: string;
-            mustChangePassword?: boolean;
-            status?: string;
-            tokenVersion?: { increment: number };
-        } = {
-            username,
-            email,
-            name,
-            role,
-            status,
-        };
-
-        if (password && password.length > 0) {
-            if (password.length < 4) {
-                throw AppError.badRequest('Password must be at least 4 characters long');
-            }
-            dataToUpdate.password = await bcrypt.hash(password, 10);
-            dataToUpdate.mustChangePassword = true;
-        }
-
-        // Any privilege-affecting change bumps the token version, instantly
-        // invalidating every token issued before this update.
-        if (roleChanged || statusChanged || passwordChanged) {
-            dataToUpdate.tokenVersion = { increment: 1 };
-        }
-
-        const sectionMappingConfig = await SystemService.getConfig<Record<string, string[]>>('SECTION_MAPPING', SECTION_MAPPING);
-        const defaultRolePermissionsConfig = await SystemService.getConfig<Record<string, string[]>>('DEFAULT_ROLE_PERMISSIONS', DEFAULT_ROLE_PERMISSIONS);
-
-        const result = await prisma.$transaction(async (tx) => {
-            let staffId = existingUser.staffId;
-            if (employeeId) {
-                const staff = await tx.staff.upsert({
-                    where: { employeeId },
-                    create: {
-                        name: name || username,
-                        employeeId,
-                        designation: role,
-                        opmcId: opmcIds && opmcIds.length > 0 ? opmcIds[0] : undefined
-                    },
-                    update: {
-                        name: name || undefined,
-                        designation: role,
-                        opmcId: opmcIds && opmcIds.length > 0 ? opmcIds[0] : undefined
-                    }
-                });
-                staffId = staff.id;
-            }
-
-            // If the role changed, clear old assignments and seed new templates
-            if (existingUser.role !== role) {
-                await tx.userSectionAssignment.deleteMany({ where: { userId: id } });
-
-                const sectionCodes = sectionMappingConfig[role] || [];
-                
-                await Promise.all(sectionCodes.map(async (sectionCode) => {
-                    const section = await tx.section.upsert({
-                        where: { code: sectionCode },
-                        create: { name: sectionCode.replace(/_/g, ' '), code: sectionCode },
-                        update: {}
-                    });
-
-                    const roleCode = `${sectionCode}_${role}`;
-                    // Find or create SystemRole — don't overwrite existing permissions (admin customizations preserved)
-                    let systemRole = await tx.systemRole.findUnique({ where: { code: roleCode } });
-                    if (!systemRole) {
-                        systemRole = await tx.systemRole.create({
-                            data: {
-                                name: role.replace(/_/g, ' '),
-                                code: roleCode,
-                                sectionId: section.id,
-                                permissions: JSON.stringify(defaultRolePermissionsConfig[role] || ['dashboard'])
-                            }
-                        });
-                    }
-
-                    await tx.userSectionAssignment.create({
-                        data: {
-                            userId: id,
-                            sectionId: section.id,
-                            roleId: systemRole.id,
-                            isPrimary: sectionCode === sectionCodes[0]
-                        }
-                    });
-                }));
-            }
-
-            const updatedUser = await tx.user.update({
-                where: { id },
-                data: {
-                    ...dataToUpdate,
-                    permissions: existingUser.role !== role ? null : undefined,
-                    staff: staffId ? { connect: { id: staffId } } : undefined,
-                    assignedStore: assignedStoreId && assignedStoreId !== 'none' ? { connect: { id: assignedStoreId } } : { disconnect: true },
-                    accessibleOpmcs: {
-                        set: [],
-                        connect: opmcIds ? opmcIds.map((oid: string) => ({ id: oid })) : []
-                    },
-                    supervisor: supervisorId && supervisorId !== 'none' ? { connect: { id: supervisorId } } : { disconnect: true }
-                }
-            });
-            return updatedUser;
-        });
-
-        const userWithoutPassword = { ...result } as Partial<typeof result>;
-        delete userWithoutPassword.password;
-
-        await SystemService.logEvent({
-            userId: currentUserId,
-            action: 'USER_UPDATE',
-            entity: 'User',
-            entityId: result.id as string,
-            oldValue: existingUser,
-            newValue: userWithoutPassword,
-            // Notification goes to the user whose profile was updated, not the admin
-            notify: true,
-            notifyTitle: 'Profile Updated',
-            notifyMessage: `Your account details have been updated by an administrator.`,
-            notifyType: 'SYSTEM',
-            notifyUserId: id
-        });
-
-        return userWithoutPassword;
+        return UserAdminService.update(id, data, currentUserId);
     }
 
     static async deleteUser(id: string, currentUserId: string) {
@@ -694,8 +331,9 @@ export class UserService {
      * Resets password to a new value
      */
     static async forgotPasswordReset(token: string, newPassword: string) {
-        if (newPassword.length < 6) {
-            throw AppError.badRequest('PASSWORD_TOO_SHORT');
+        const pwProblem = passwordProblem(newPassword);
+        if (pwProblem) {
+            throw AppError.badRequest(pwProblem);
         }
 
         const [err, decoded] = safeSync<string | JwtPayload>(() => verify(token, getJwtSecret()));
@@ -794,8 +432,9 @@ export class UserService {
      * Changes password of profile user
      */
     static async changePassword(userId: string, currentPassword: string, newPassword: string) {
-        if (newPassword.length < 6) {
-            throw AppError.badRequest('PASSWORD_TOO_SHORT');
+        const pwProblem = passwordProblem(newPassword);
+        if (pwProblem) {
+            throw AppError.badRequest(pwProblem);
         }
 
         const user = await prisma.user.findUnique({

@@ -1,5 +1,7 @@
 "use client";
 
+import { passwordProblem } from '@/config/user-admin';
+
 import {  useState, useEffect  } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
@@ -79,8 +81,8 @@ export default function ProfilePage() {
             if (newPassword !== confirmPassword) {
                 throw new Error('New password and confirmation do not match');
             }
-            if (newPassword.length < 6) {
-                throw new Error('Password must be at least 6 characters long');
+            if (passwordProblem(newPassword)) {
+                throw new Error(passwordProblem(newPassword) as string);
             }
 
             const res = await fetch('/api/profile/change-password', {

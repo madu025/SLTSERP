@@ -3,42 +3,34 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { createUser, updateUser, deleteUser } from '@/actions/user-actions';
-import { z } from 'zod';
 import { toErrorText } from '@/lib/error-text';
 
-const userSchema = z.object({
-    username: z.string().min(3, "Username required"),
-    email: z.string().email("Invalid email"),
-    password: z.string().optional(),
-    name: z.string().min(2, "Name required"),
-    role: z.string(),
-    employeeId: z.string().optional(),
-    opmcIds: z.array(z.string()),
-    supervisorId: z.string().optional(),
-    assignedStoreId: z.string().optional(),
-    permissions: z.array(z.string()).optional(),
-}).superRefine((data, ctx) => {
-    if (data.password !== undefined && data.password !== null && data.password.length > 0 && data.password.length < 4) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Password must be at least 4 characters",
-            path: ["password"],
-        });
-    }
-});
+interface UserUpsertValues {
+    id?: string;
+    username: string;
+    email: string;
+    password?: string;
+    name?: string;
+    role: string;
+    employeeId?: string;
+    opmcIds?: string[];
+    supervisorId?: string;
+    assignedStoreId?: string;
+    status?: string;
+    designations?: Array<{ sectionId: string; roleId: string; isPrimary?: boolean }>;
+}
 
-type UserFormValues = z.infer<typeof userSchema>;
-
+// The rules (role, designations, OPMC, status, password policy) are enforced once, on the server (UserAdminService);
+// the form checks the same things only to give an early message.
 export function useUserOperations() {
     const queryClient = useQueryClient();
 
     const upsertMutation = useMutation({
-        mutationFn: async (values: UserFormValues & { id?: string }) => {
+        mutationFn: async (values: UserUpsertValues) => {
             if (values.id) {
                 return await updateUser({ ...values, id: values.id });
-            } else {
-                return await createUser(values);
             }
+            return await createUser(values);
         },
         onSuccess: (result) => {
             if (result.success) {

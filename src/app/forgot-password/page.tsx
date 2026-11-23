@@ -1,5 +1,7 @@
 "use client";
 
+import { passwordProblem } from '@/config/user-admin';
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -93,8 +95,8 @@ export default function ForgotPasswordPage() {
             return;
         }
 
-        if (newPassword.length < 6) {
-            toast.error("Password must be at least 6 characters");
+        if (passwordProblem(newPassword)) {
+            toast.error(passwordProblem(newPassword) as string);
             return;
         }
 

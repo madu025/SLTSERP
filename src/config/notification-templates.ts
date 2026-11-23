@@ -105,6 +105,14 @@ export const TEMPLATE_CODES: TemplateCodeDef[] = [
     defaultEntityType: 'HO_BILLING_BATCH'
   },
   {
+    code: 'USER_ACCOUNT_CREATED',
+    label: 'User account created',
+    description: 'Sent to a new user when an administrator creates their account (username and sign-in link; the temporary password is never emailed)',
+    category: 'NOTIFICATION',
+    placeholders: ['user', 'username', 'role', 'loginUrl'],
+    defaultEntityType: 'USER'
+  },
+  {
     code: 'NOTIFICATION_GENERIC',
     label: 'Generic Notification',
     description: 'In-app notification sent via email fallback',

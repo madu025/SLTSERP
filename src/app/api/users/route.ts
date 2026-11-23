@@ -3,6 +3,7 @@ import { UserService } from '@/services/hr/user.service';
 import { AppError } from '@/lib/error';
 import { isDatabaseRole } from '@/lib/role-validation';
 import { Role } from '@prisma/client';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,8 @@ const userFieldsSchema = {
     opmcIds: z.array(z.string().min(1).max(100)).max(100).optional(),
     supervisorId: z.string().min(1).max(100).optional(),
     assignedStoreId: z.string().min(1).max(100).optional(),
-    status: z.enum(['active', 'inactive', 'deleted']).optional(),
+    status: z.enum(['active', 'inactive', 'resigned']).optional(),
+    designations: z.array(z.object({ sectionId: z.string().min(1).max(100), roleId: z.string().min(1).max(100), isPrimary: z.boolean().optional() })).max(20).optional(),
 };
 const createUserSchema = z.object(userFieldsSchema).strict();
 const updateUserSchema = z.object({ id: z.string().min(1).max(100), ...userFieldsSchema }).strict();
@@ -31,8 +33,10 @@ export const GET = apiHandler(async (request) => {
     const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1);
     const limit = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') || '50') || 50));
     const search = searchParams.get('search') || undefined;
+    const status = searchParams.get('status') || undefined;
+    const dept = searchParams.get('dept') || undefined;
 
-    const result = await UserService.getUsers(page, limit, search);
+    const result = await UserService.getUsers(page, limit, search, { status, dept });
     return result;
 }, {
     rawResponse: true
@@ -52,15 +56,13 @@ export const POST = apiHandler<unknown, CreateUserRequest>(async (request, param
         if (errorCode === 'P2002') {
             throw AppError.conflict('Username, Email, or Employee ID already exists');
         }
-        if (errorMsg === 'OPMC_REQUIRED') {
-            throw AppError.badRequest('OPMC selection is required for New Connection and Service Assurance roles');
-        }
         if (errorMsg === 'CANNOT_ASSIGN_SUPER_ADMIN') {
             throw AppError.forbidden('Only a Super Admin can assign the SUPER_ADMIN role');
         }
         throw error;
     }
 }, {
+    permissions: [RBAC_PERMISSIONS.ADMIN_RBAC],
     schema: createUserSchema,
     audit: { action: 'USER_CREATE', entity: 'User' }
 });
@@ -93,6 +95,7 @@ export const PUT = apiHandler<unknown, UpdateUserRequest>(async (request, params
         throw error;
     }
 }, {
+    permissions: [RBAC_PERMISSIONS.ADMIN_RBAC],
     schema: updateUserSchema,
     audit: { action: 'USER_UPDATE', entity: 'User' }
 });
@@ -131,6 +134,7 @@ export const DELETE = apiHandler(async (request, params) => {
         throw error;
     }
 }, {
+    permissions: [RBAC_PERMISSIONS.ADMIN_RBAC],
     audit: { action: 'USER_DELETE', entity: 'User' },
     rawResponse: true
 });

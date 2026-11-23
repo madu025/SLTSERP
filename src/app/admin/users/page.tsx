@@ -1,7 +1,7 @@
 "use client";
 
-import {  useState, useMemo  } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
@@ -17,15 +17,21 @@ import {
   Shield,
   Users,
   UserCheck,
-  Store,
+  UserX,
   HardHat,
   KeyRound,
+  ChevronLeft,
+  ChevronRight,
   Sparkles } from "lucide-react";
 import { UserFormDrawer } from './components/UserFormDrawer';
 import { UserFormValues } from './components/UserFormDrawer';
 import { useUserOperations } from './hooks/useUserOperations';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { resetUserPassword } from '@/actions/user-actions';
+import { USER_DEPARTMENTS, USER_STATUS_LABELS, generateTemporaryPassword, isActiveStatus, passwordProblem, PASSWORD_RULE_TEXT } from '@/config/user-admin';
+
+const PAGE_SIZE = 50;
 
 // Types
 interface UserData {
@@ -38,6 +44,10 @@ interface UserData {
   employeeId?: string | null;
   createdAt: string;
   assignedStoreId?: string | null;
+  contractorId?: string | null;
+  mustChangePassword?: boolean;
+  hasCustomGrants?: boolean;
+  systemRole?: { id: string; code: string; name: string } | null;
   accessibleOpmcs: { id: string; rtom: string }[];
   supervisor?: { id: string; name: string | null; username: string };
   sectionAssignments?: Array<{
@@ -46,7 +56,12 @@ interface UserData {
     role: { id: string; name: string };
     isPrimary: boolean;
   }>;
-  permissions?: string[];
+}
+
+interface UserListResponse {
+  users: UserData[];
+  meta: { total: number; page: number; limit: number; totalPages: number };
+  stats: { all: number; active: number; inactive: number; resigned: number; departments: Record<string, number> };
 }
 
 interface OPMC {
@@ -64,29 +79,46 @@ interface Store {
 
 export default function UserRegistrationPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [showDrawer, setShowDrawer] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserData | null>(null);
-  
+
   // Quick Password Reset State
   const [resetTarget, setResetTarget] = useState<UserData | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [isResetting, setIsResetting] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
 
   const router = useRouter();
   const { upsertMutation, removeMutation } = useUserOperations();
 
+  // search runs on the server (the list is paged), so wait for the typing to pause
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchTerm.trim()); setPage(1); }, 300);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
   // --- QUERIES ---
-  const { data: users = [], isLoading: usersLoading } = useQuery<UserData[]>({
-    queryKey: ["users"],
+  const { data, isLoading: usersLoading, isError, refetch } = useQuery<UserListResponse>({
+    queryKey: ["users", page, search, deptFilter, statusFilter],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
-      const res = await fetch(`/api/users?page=1&limit=1000&_t=${Date.now()}`, { cache: 'no-store' });
-      if (!res.ok) return [];
-      const data = await res.json();
-      return data.users || (Array.isArray(data) ? data : []);
+      const qs = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
+      if (search) qs.set('search', search);
+      if (deptFilter !== 'ALL') qs.set('dept', deptFilter);
+      if (statusFilter !== 'all') qs.set('status', statusFilter);
+      const res = await fetch(`/api/users?${qs.toString()}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('Could not load the users');
+      return res.json();
     }
   });
+  const users = useMemo(() => data?.users ?? [], [data]);
+  const meta = data?.meta;
+  const stats = data?.stats;
 
   const { data: opmcs = [] } = useQuery<OPMC[]>({
     queryKey: ["opmcs"],
@@ -107,95 +139,42 @@ export default function UserRegistrationPage() {
   });
 
   const handleOpenDrawer = (user?: UserData) => {
-    if (user) {
-      setSelectedUser(user);
-    } else {
-      setSelectedUser(null);
-    }
+    setSelectedUser(user ?? null);
     setShowDrawer(true);
   };
 
-  const handleFormSubmit = async (values: UserFormValues & { 
-    sectionAssignments?: Array<{ sectionId: string; roleId: string; isPrimary: boolean }>
-    permissions?: string[]
+  // The service saves the user and the module designations in one step, so a failure leaves nothing half done.
+  const handleFormSubmit = async (values: UserFormValues & {
+    designations?: Array<{ sectionId: string; roleId: string; isPrimary: boolean }>
   }) => {
-    const { sectionAssignments, permissions, ...userValues } = values;
-    
-    // Create or update user (this also creates the primary section assignment based on role)
     const result = await upsertMutation.mutateAsync({
-      ...userValues,
-      permissions: permissions && permissions.length > 0 ? permissions : undefined,
+      ...values,
       id: selectedUser?.id
-    }) as { success: boolean; data?: { id: string }; error?: string };
-    
-    // Handle additional section assignments if provided
-    if (sectionAssignments && result.success && result.data?.id) {
-      const userId = result.data.id;
-      
-      // Get existing assignments to compare
-      const existingRes = await fetch(`/api/admin/users/${userId}/sections`);
-      const existingAssignments = existingRes.ok ? await existingRes.json() : [];
-      const existingIds = new Set(existingAssignments.map((a: { section: { id: string } }) => a.section.id));
-      
-      // Add new assignments that don't exist yet
-      for (const assignment of sectionAssignments) {
-        if (!existingIds.has(assignment.sectionId)) {
-          await fetch(`/api/admin/users/${userId}/sections`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(assignment)
-          });
-        }
-      }
-      
-      // Remove assignments that are no longer in the list
-      for (const existing of existingAssignments) {
-        const stillExists = sectionAssignments.some(a => a.sectionId === existing.section.id);
-        if (!stillExists && !existing.isPrimary) {
-          await fetch(`/api/admin/users/${userId}/sections/${existing.id}`, {
-            method: 'DELETE'
-          });
-        }
-      }
+    }) as { success: boolean; error?: string };
+    if (result?.success) {
+      setShowDrawer(false);
+      setSelectedUser(null);
     }
-    
-    setShowDrawer(false);
-    setSelectedUser(null);
   };
 
   const handleQuickPasswordReset = async () => {
-    if (!resetTarget || !newPassword || newPassword.length < 4) {
-      toast.error("Password must be at least 4 characters");
+    if (!resetTarget) return;
+    const problem = passwordProblem(newPassword);
+    if (problem) {
+      toast.error(problem);
       return;
     }
-
     setIsResetting(true);
     try {
-      const res = await fetch(`/api/users/${resetTarget.id}/reset-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: newPassword })
-      });
-
-      if (!res.ok) {
-        // Fallback to upsert logic if specific reset API doesn't exist
-        await upsertMutation.mutateAsync({
-          username: resetTarget.username,
-          email: resetTarget.email,
-          name: resetTarget.name || resetTarget.username,
-          role: resetTarget.role,
-          password: newPassword,
-          employeeId: resetTarget.employeeId || undefined,
-          opmcIds: resetTarget.accessibleOpmcs.map(o => o.id),
-          assignedStoreId: resetTarget.assignedStoreId || undefined,
-          id: resetTarget.id
-        });
+      const result = await resetUserPassword(resetTarget.id, newPassword);
+      if (result.success) {
+        toast.success(`Password updated for ${resetTarget.username}. They must choose a new one at the next sign-in.`);
+        setResetTarget(null);
+        setNewPassword("");
+        setShowResetPassword(false);
       } else {
-        toast.success(`Password updated for ${resetTarget.username}`);
+        toast.error(result.error || "Failed to reset password");
       }
-
-      setResetTarget(null);
-      setNewPassword("");
     } catch {
       toast.error("Failed to reset password");
     } finally {
@@ -203,49 +182,37 @@ export default function UserRegistrationPage() {
     }
   };
 
-  // KPI Analytics
-  const stats = useMemo(() => {
-    const total = users.length;
-    const active = users.filter(u => u.status === 'active' || !u.status).length;
-    const storesTeam = users.filter(u => u.role.includes('STORE') || u.assignedStoreId).length;
-    const ospTeam = users.filter(u => u.role.includes('OSP') || u.role.includes('ENGINEER') || u.role.includes('AREA')).length;
-    return { total, active, storesTeam, ospTeam };
-  }, [users]);
-
-  // Department Filters
-  const filteredUsers = useMemo(() => {
-    return users.filter(u => {
-      const searchLower = searchTerm.toLowerCase();
-      const matchSearch =
-        (u.name && u.name.toLowerCase().includes(searchLower)) ||
-        u.username.toLowerCase().includes(searchLower) ||
-        u.email.toLowerCase().includes(searchLower) ||
-        u.role.toLowerCase().includes(searchLower) ||
-        (u.employeeId && u.employeeId.toLowerCase().includes(searchLower));
-
-      let matchDept = true;
-      if (deptFilter === 'OSP') {
-        matchDept = u.role.includes('OSP') || u.role.includes('ENGINEER') || u.role.includes('AREA') || u.role.includes('COORDINATOR');
-      } else if (deptFilter === 'STORES') {
-        matchDept = u.role.includes('STORE') || Boolean(u.assignedStoreId);
-      } else if (deptFilter === 'FINANCE') {
-        matchDept = u.role.includes('FINANCE') || u.role.includes('INVOICE') || u.role.includes('PROCUREMENT');
-      } else if (deptFilter === 'ADMIN') {
-        matchDept = u.role.includes('ADMIN');
-      }
-
-      return matchSearch && matchDept;
-    });
-  }, [users, searchTerm, deptFilter]);
+  const statusCards = [
+    { label: 'Total Accounts', value: stats?.all, icon: Users, tone: 'bg-indigo-50 text-indigo-700' },
+    { label: 'Active', value: stats?.active, icon: UserCheck, tone: 'bg-emerald-50 text-emerald-700' },
+    { label: 'Inactive / Resigned', value: stats ? stats.inactive + stats.resigned : undefined, icon: UserX, tone: 'bg-amber-50 text-amber-800' },
+    { label: 'OSP & Field Staff', value: stats?.departments.OSP, icon: HardHat, tone: 'bg-sky-50 text-sky-700' },
+  ];
 
   // Role Color Customization
   const getRoleBadgeStyle = (role: string) => {
-    if (role.includes('ADMIN')) return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-    if (role.includes('STORE')) return 'bg-amber-50 text-amber-700 border-amber-200';
-    if (role.includes('FINANCE') || role.includes('INVOICE')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    if (role.includes('OSP') || role.includes('ENGINEER') || role.includes('AREA')) return 'bg-sky-50 text-sky-700 border-sky-200';
-    return 'bg-slate-100 text-slate-700 border-slate-200';
+    if (role.includes('ADMIN')) return 'bg-indigo-50 text-indigo-800 border-indigo-200';
+    if (role.includes('STORE')) return 'bg-amber-50 text-amber-900 border-amber-200';
+    if (role.includes('FINANCE') || role.includes('INVOICE')) return 'bg-emerald-50 text-emerald-800 border-emerald-200';
+    if (role.includes('OSP') || role.includes('ENGINEER') || role.includes('AREA')) return 'bg-sky-50 text-sky-800 border-sky-200';
+    return 'bg-slate-100 text-slate-800 border-slate-200';
   };
+
+  const total = meta?.total ?? 0;
+  const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const to = Math.min(page * PAGE_SIZE, total);
+
+  const drawerInitial = useMemo(() => selectedUser ? {
+    ...selectedUser,
+    name: selectedUser.name || '',
+    employeeId: selectedUser.employeeId || '',
+    supervisorId: selectedUser.supervisor?.id || '',
+    assignedStoreId: selectedUser.assignedStoreId || 'none',
+    opmcIds: selectedUser.accessibleOpmcs.map(o => o.id),
+    status: selectedUser.status || 'active',
+    sectionAssignments: selectedUser.sectionAssignments,
+    hasCustomGrants: selectedUser.hasCustomGrants,
+  } : undefined, [selectedUser]);
 
   return (
     <RoleGuard>
@@ -259,13 +226,13 @@ export default function UserRegistrationPage() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <h1 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-blue-600/10 text-blue-600">
+                  <div className="p-2 rounded-xl bg-blue-600/10 text-blue-700">
                     <Users className="w-6 h-6" />
                   </div>
                   System Users & Permissions
                 </h1>
-                <p className="text-xs text-slate-500 mt-1">
-                  Manage organization accounts, RBAC roles, inventory store assignments & RTOM access scopes.
+                <p className="text-xs text-slate-600 mt-1">
+                  Manage organization accounts, RBAC roles, module designations, inventory store assignments & RTOM access scopes.
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -273,7 +240,7 @@ export default function UserRegistrationPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => router.push('/admin/users/import')}
-                  className="h-10 text-xs font-bold border-slate-200 bg-white hover:bg-slate-50"
+                  className="h-10 text-xs font-bold border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
                 >
                   <Plus className="w-4 h-4 mr-1.5" /> Bulk Import Users
                 </Button>
@@ -287,106 +254,93 @@ export default function UserRegistrationPage() {
               </div>
             </div>
 
-            {/* Top KPI Analytics Cards */}
+            {/* Top KPI Analytics Cards: counted by the server over every account, not over the page on screen */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
-                  <Users className="w-5 h-5" />
+              {statusCards.map((c) => (
+                <div key={c.label} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${c.tone}`}>
+                    <c.icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-2xl font-black text-slate-900">{c.value ?? '-'}</span>
+                    <span className="text-[11px] font-bold text-slate-600 block uppercase tracking-wider">{c.label}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-2xl font-black text-slate-900">{stats.total}</span>
-                  <span className="text-[11px] font-bold text-slate-400 block uppercase tracking-wider">Total Accounts</span>
-                </div>
-              </div>
-
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                  <UserCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <span className="text-2xl font-black text-slate-900">{stats.active}</span>
-                  <span className="text-[11px] font-bold text-slate-400 block uppercase tracking-wider">Active Staff</span>
-                </div>
-              </div>
-
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-                  <Store className="w-5 h-5" />
-                </div>
-                <div>
-                  <span className="text-2xl font-black text-slate-900">{stats.storesTeam}</span>
-                  <span className="text-[11px] font-bold text-slate-400 block uppercase tracking-wider">Stores Officers</span>
-                </div>
-              </div>
-
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center font-bold">
-                  <HardHat className="w-5 h-5" />
-                </div>
-                <div>
-                  <span className="text-2xl font-black text-slate-900">{stats.ospTeam}</span>
-                  <span className="text-[11px] font-bold text-slate-400 block uppercase tracking-wider">OSP & Field Staff</span>
-                </div>
-              </div>
+              ))}
             </div>
 
             {/* Filtering & Table Section */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden flex flex-col">
-              
+
               {/* Filter Bar */}
-              <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/50">
+              <div className="p-4 border-b border-slate-200 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-slate-50">
                 {/* Department Tabs */}
-                <div className="flex items-center gap-1 overflow-x-auto max-w-full pb-1 md:pb-0">
-                  {[
-                    { id: 'ALL', label: 'All Users' },
-                    { id: 'OSP', label: 'OSP & Operations' },
-                    { id: 'STORES', label: 'Stores & Inventory' },
-                    { id: 'FINANCE', label: 'Finance & Invoicing' },
-                    { id: 'ADMIN', label: 'System Admins' }
-                  ].map(tab => (
+                <div className="flex items-center gap-1 overflow-x-auto max-w-full pb-1 lg:pb-0">
+                  {[{ id: 'ALL', label: 'All Users', roles: [] as string[] }, ...USER_DEPARTMENTS].map(tab => (
                     <button
                       key={tab.id}
-                      onClick={() => setDeptFilter(tab.id)}
+                      onClick={() => { setDeptFilter(tab.id); setPage(1); }}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                         deptFilter === tab.id
                           ? 'bg-blue-600 text-white shadow-xs'
-                          : 'text-slate-600 hover:bg-slate-200/60'
+                          : 'text-slate-700 hover:bg-slate-200'
                       }`}
                     >
                       {tab.label}
+                      <span className={`ml-1.5 text-[10px] ${deptFilter === tab.id ? 'text-blue-100' : 'text-slate-500'}`}>
+                        {tab.id === 'ALL' ? stats?.all ?? '' : stats?.departments[tab.id] ?? ''}
+                      </span>
                     </button>
                   ))}
                 </div>
 
-                {/* Search Box */}
-                <div className="relative w-full md:w-72">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <Input
-                    placeholder="Search name, username, email..."
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                    className="h-9 pl-9 text-xs bg-white border-slate-200 rounded-xl"
-                  />
+                <div className="flex items-center gap-2 w-full lg:w-auto">
+                  <select
+                    aria-label="Filter by status"
+                    value={statusFilter}
+                    onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
+                    className="h-9 rounded-xl border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-800"
+                  >
+                    <option value="all">All statuses</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="resigned">Resigned</option>
+                  </select>
+                  {/* Search Box (searches every account) */}
+                  <div className="relative w-full lg:w-72">
+                    <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Input
+                      placeholder="Search name, username, email, employee ID..."
+                      value={searchTerm}
+                      onChange={e => setSearchTerm(e.target.value)}
+                      className="h-9 pl-9 text-xs bg-white border-slate-300 rounded-xl text-slate-900 placeholder:text-slate-500"
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Data Table */}
               <div className="overflow-x-auto">
                 {usersLoading ? (
-                  <div className="p-12 text-center text-slate-400 text-sm">
-                    <Sparkles className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
+                  <div className="p-12 text-center text-slate-600 text-sm">
+                    <Sparkles className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600" />
                     Loading user directory...
                   </div>
-                ) : filteredUsers.length === 0 ? (
-                  <div className="p-12 text-center text-slate-400 text-sm">
+                ) : isError ? (
+                  <div className="p-12 text-center text-sm text-rose-700">
+                    The users could not be loaded.{' '}
+                    <button className="underline font-bold" onClick={() => refetch()}>Try again</button>
+                  </div>
+                ) : users.length === 0 ? (
+                  <div className="p-12 text-center text-slate-600 text-sm">
                     No users matching search filters found.
                   </div>
                 ) : (
                   <table className="w-full text-xs text-left">
-                    <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100 uppercase tracking-wider text-[10px]">
+                    <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase tracking-wider text-[10px]">
                       <tr>
                         <th className="px-4 py-3">User Staff Identity</th>
-                        <th className="px-4 py-3">Role & Department</th>
+                        <th className="px-4 py-3">Role & Designations</th>
                         <th className="px-4 py-3">Warehouse / Store</th>
                         <th className="px-4 py-3">RTOM Scope</th>
                         <th className="px-4 py-3">Supervisor</th>
@@ -394,86 +348,110 @@ export default function UserRegistrationPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium">
-                      {filteredUsers.map((u) => {
+                      {users.map((u) => {
                         const assignedStore = stores.find(s => s.id === u.assignedStoreId);
+                        const active = isActiveStatus(u.status);
                         return (
-                          <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
-                            
+                          <tr key={u.id} className="hover:bg-slate-50 transition-colors">
+
                             {/* User Identity */}
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
                                 <div className="relative">
-                                  <div className="h-9 w-9 rounded-2xl bg-blue-600/10 text-blue-700 font-black text-xs flex items-center justify-center border border-blue-200">
+                                  <div className="h-9 w-9 rounded-2xl bg-blue-600/10 text-blue-800 font-black text-xs flex items-center justify-center border border-blue-200">
                                     {(u.name?.[0] || u.username[0]).toUpperCase()}
                                   </div>
-                                  <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
-                                    u.status === 'active' || !u.status ? 'bg-emerald-500' : 'bg-slate-300'
-                                  }`} />
+                                  <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
                                 </div>
                                 <div>
-                                  <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                                  <div className="font-bold text-slate-900 text-xs flex flex-wrap items-center gap-1.5">
                                     {u.name || u.username}
                                     {u.employeeId && (
-                                      <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[9px] font-mono">
+                                      <span className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded text-[9px] font-mono">
                                         #{u.employeeId}
                                       </span>
                                     )}
+                                    {!active && (
+                                      <span className="bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase">
+                                        {USER_STATUS_LABELS[u.status]?.split(' ')[0] ?? u.status}
+                                      </span>
+                                    )}
+                                    {u.mustChangePassword && (
+                                      <span className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded text-[9px] font-bold" title="Has not yet chosen their own password">
+                                        Password change pending
+                                      </span>
+                                    )}
                                   </div>
-                                  <div className="text-[11px] text-slate-400 font-normal">
+                                  <div className="text-[11px] text-slate-600 font-normal">
                                     {u.username} • {u.email}
                                   </div>
                                 </div>
                               </div>
                             </td>
 
-                            {/* Role Badge */}
+                            {/* Role Badge + designations */}
                             <td className="px-4 py-3">
                               <span className={`px-2.5 py-1 rounded-full text-[10px] border font-bold uppercase tracking-wider inline-block ${getRoleBadgeStyle(u.role)}`}>
                                 {u.role.replace(/_/g, ' ')}
                               </span>
+                              {(u.sectionAssignments?.length ?? 0) > 0 && (
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  {u.sectionAssignments!.map((a) => (
+                                    <span key={a.id} className="px-1.5 py-0.5 rounded text-[9px] bg-white text-slate-700 font-semibold border border-slate-300" title={`${a.section.name}: ${a.role.name}`}>
+                                      {a.section.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              {u.hasCustomGrants && (
+                                <div className="mt-1 text-[9px] font-bold text-purple-800 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5 inline-block" title="A manual permission list replaces this person's role grants">
+                                  Custom permission list
+                                </div>
+                              )}
                             </td>
 
                             {/* Store */}
-                            <td className="px-4 py-3 text-slate-600">
+                            <td className="px-4 py-3 text-slate-700">
                               {assignedStore ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg text-[10px] font-bold">
-                                  <Store className="w-3 h-3 text-amber-600" />
+                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-900 border border-amber-200 rounded-lg text-[10px] font-bold">
                                   {assignedStore.name}
                                 </span>
                               ) : (
-                                <span className="text-slate-400 text-[11px] italic">No Store Assigned</span>
+                                <span className="text-slate-600 text-[11px] italic">No Store Assigned</span>
                               )}
                             </td>
 
                             {/* OPMC Scopes */}
-                            <td className="px-4 py-3 text-slate-600">
+                            <td className="px-4 py-3 text-slate-700">
                               {u.accessibleOpmcs?.length > 0 ? (
                                 <div className="flex flex-wrap gap-1">
                                   {u.accessibleOpmcs.slice(0, 3).map(opmc => (
-                                    <span key={opmc.id} className="px-1.5 py-0.5 rounded text-[9px] bg-slate-100 text-slate-700 font-bold border border-slate-200">
+                                    <span key={opmc.id} className="px-1.5 py-0.5 rounded text-[9px] bg-slate-100 text-slate-800 font-bold border border-slate-300">
                                       {opmc.rtom}
                                     </span>
                                   ))}
                                   {u.accessibleOpmcs.length > 3 && (
-                                    <span className="px-1.5 py-0.5 rounded text-[9px] bg-blue-50 text-blue-700 font-bold border border-blue-200">
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] bg-blue-50 text-blue-800 font-bold border border-blue-200">
                                       +{u.accessibleOpmcs.length - 3}
                                     </span>
                                   )}
                                 </div>
+                              ) : u.contractorId ? (
+                                <span className="text-slate-600 text-[11px] italic">Contractor portal</span>
                               ) : (
-                                <span className="text-slate-400 text-[11px] italic">All Access / None</span>
+                                <span className="text-[11px] font-semibold text-amber-800" title="Without an OPMC / RTOM a regional user sees no orders">No region assigned</span>
                               )}
                             </td>
 
                             {/* Supervisor */}
                             <td className="px-4 py-3">
                               {u.supervisor ? (
-                                <div className="flex items-center gap-1.5 text-slate-700 font-medium text-[11px]">
-                                  <Shield className="w-3.5 h-3.5 text-slate-400" />
+                                <div className="flex items-center gap-1.5 text-slate-800 font-medium text-[11px]">
+                                  <Shield className="w-3.5 h-3.5 text-slate-500" />
                                   {u.supervisor.name || u.supervisor.username}
                                 </div>
                               ) : (
-                                <span className="text-slate-400 text-[11px] italic">Direct Report</span>
+                                <span className="text-slate-600 text-[11px] italic">Direct Report</span>
                               )}
                             </td>
 
@@ -483,9 +461,10 @@ export default function UserRegistrationPage() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  title="Quick Reset Password"
-                                  onClick={() => setResetTarget(u)}
-                                  className="h-8 w-8 text-amber-600 hover:bg-amber-50 hover:text-amber-700 rounded-lg"
+                                  title="Reset Password"
+                                  aria-label="Reset Password"
+                                  onClick={() => { setResetTarget(u); setNewPassword(''); setShowResetPassword(false); }}
+                                  className="h-8 w-8 text-amber-700 hover:bg-amber-50 hover:text-amber-800 rounded-lg"
                                 >
                                   <KeyRound className="w-3.5 h-3.5" />
                                 </Button>
@@ -493,8 +472,9 @@ export default function UserRegistrationPage() {
                                   variant="ghost"
                                   size="icon"
                                   title="Edit User"
+                                  aria-label="Edit User"
                                   onClick={() => handleOpenDrawer(u)}
-                                  className="h-8 w-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700 rounded-lg"
+                                  className="h-8 w-8 text-blue-700 hover:bg-blue-50 hover:text-blue-800 rounded-lg"
                                 >
                                   <Pencil className="w-3.5 h-3.5" />
                                 </Button>
@@ -503,8 +483,9 @@ export default function UserRegistrationPage() {
                                     variant="ghost"
                                     size="icon"
                                     title="Delete User"
+                                    aria-label="Delete User"
                                     onClick={() => setDeleteTarget(u)}
-                                    className="h-8 w-8 text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg"
+                                    className="h-8 w-8 text-rose-700 hover:bg-rose-50 hover:text-rose-800 rounded-lg"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </Button>
@@ -519,6 +500,22 @@ export default function UserRegistrationPage() {
                   </table>
                 )}
               </div>
+
+              {/* Pager */}
+              {total > 0 && (
+                <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-700">
+                  <span>Showing {from}-{to} of {total}</span>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} className="h-8 text-xs font-bold border-slate-300 text-slate-800">
+                      <ChevronLeft className="w-4 h-4" /> Previous
+                    </Button>
+                    <span className="font-semibold">Page {page} of {meta?.totalPages ?? 1}</span>
+                    <Button variant="outline" size="sm" disabled={page >= (meta?.totalPages ?? 1)} onClick={() => setPage(p => p + 1)} className="h-8 text-xs font-bold border-slate-300 text-slate-800">
+                      Next <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
           </main>
@@ -530,21 +527,8 @@ export default function UserRegistrationPage() {
         open={showDrawer}
         onOpenChange={setShowDrawer}
         onSubmit={handleFormSubmit}
-        initialData={useMemo(() => selectedUser ? {
-          ...selectedUser,
-          name: selectedUser.name || '',
-          employeeId: selectedUser.employeeId || '',
-          supervisorId: selectedUser.supervisor?.id || '',
-          assignedStoreId: selectedUser.assignedStoreId || 'none',
-          opmcIds: selectedUser.accessibleOpmcs.map(o => o.id),
-          status: selectedUser.status || 'active',
-          sectionAssignments: selectedUser.sectionAssignments,
-          permissions: typeof selectedUser.permissions === 'string'
-            ? JSON.parse(selectedUser.permissions)
-            : (selectedUser.permissions || [])
-        } : undefined, [selectedUser])}
+        initialData={drawerInitial}
         isSubmitting={upsertMutation.isPending}
-        users={users}
         opmcs={opmcs}
         stores={stores}
       />
@@ -554,30 +538,39 @@ export default function UserRegistrationPage() {
         <DialogContent className="max-w-md bg-white p-6 rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <KeyRound className="w-5 h-5 text-amber-500" />
+              <KeyRound className="w-5 h-5 text-amber-600" />
               Reset Password for {resetTarget?.name || resetTarget?.username}
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Enter a new password for username <strong>{resetTarget?.username}</strong>.
+            <DialogDescription className="text-xs text-slate-600">
+              Set a temporary password for <strong>{resetTarget?.username}</strong>. They must choose their own at the next sign-in, and any open session ends.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-2">
-            <label className="text-xs font-bold text-slate-700">New Password:</label>
-            <Input
-              type="password"
-              placeholder="Enter new password (min 4 chars)"
-              value={newPassword}
-              onChange={e => setNewPassword(e.target.value)}
-              className="h-10 text-sm"
-            />
+          <div className="space-y-2 py-2">
+            <label htmlFor="reset-password" className="text-xs font-bold text-slate-800">Temporary password</label>
+            <div className="flex gap-2">
+              <Input
+                id="reset-password"
+                type={showResetPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                placeholder="Enter a temporary password"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                className="h-10 text-sm text-slate-900 placeholder:text-slate-500"
+              />
+              <Button type="button" variant="outline" size="sm" className="h-10 text-xs font-bold border-slate-300 text-slate-800"
+                onClick={() => { setNewPassword(generateTemporaryPassword()); setShowResetPassword(true); }}>
+                Generate
+              </Button>
+            </div>
+            <p className="text-[11px] text-slate-600">{PASSWORD_RULE_TEXT} Give it to the person yourself; it is not emailed.</p>
           </div>
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setResetTarget(null)}>Cancel</Button>
+            <Button variant="outline" size="sm" onClick={() => setResetTarget(null)} className="border-slate-300 text-slate-800">Cancel</Button>
             <Button
               size="sm"
-              disabled={isResetting || newPassword.length < 4}
+              disabled={isResetting || !!passwordProblem(newPassword)}
               onClick={handleQuickPasswordReset}
               className="bg-amber-600 hover:bg-amber-700 text-white font-bold"
             >
@@ -592,8 +585,8 @@ export default function UserRegistrationPage() {
         <AlertDialogContent className="bg-white rounded-2xl p-6">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base font-bold text-slate-900">Are you sure you want to delete this user?</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-slate-500">
-              This action will permanently delete user <strong>{deleteTarget?.name || deleteTarget?.username}</strong>. This cannot be undone.
+            <AlertDialogDescription className="text-xs text-slate-600">
+              <strong>{deleteTarget?.name || deleteTarget?.username}</strong> will no longer be able to sign in and disappears from this list. The account record stays for the audit trail, so the username cannot be reused.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

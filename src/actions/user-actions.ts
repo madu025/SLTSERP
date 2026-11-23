@@ -3,12 +3,11 @@
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/server-utils';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
-import { getUserEffectivePermissions } from '@/lib/user-permissions';
-import bcrypt from 'bcryptjs';
-import { SystemService } from '@/services/core/system.service';
 import { revalidatePath } from 'next/cache';
-import { Role, Prisma } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { UserService } from '@/services/hr/user.service';
+import { UserAdminService } from '@/services/hr/user-admin.service';
+import { AppError } from '@/lib/error';
 
 export interface UserActionInput {
     username: string;
@@ -21,152 +20,38 @@ export interface UserActionInput {
     supervisorId?: string;
     assignedStoreId?: string;
     status?: string;
-    permissions?: string[];
+    /** Module designations (section + role). Omitted: create adds the usual ones, edit leaves them as they are. */
+    designations?: Array<{ sectionId: string; roleId: string; isPrimary?: boolean }>;
 }
 
+const toInput = (data: UserActionInput | UpdateUserActionData) => ({ ...data, role: data.role as Role }) as Parameters<typeof UserAdminService.create>[0];
+
+const CODE_TEXT: Record<string, string> = {
+    USER_NOT_FOUND: 'User not found',
+    PASSWORD_REQUIRED: 'A password is required for a new user',
+    CANNOT_ASSIGN_SUPER_ADMIN: 'Only a Super Admin can assign the SUPER_ADMIN role',
+    CANNOT_MODIFY_SUPER_ADMIN: 'Only a Super Admin can modify a Super Admin account',
+    CANNOT_DEMOTE_SUPER_ADMIN: 'A Super Admin cannot be given a lower role',
+    INVALID_ROLE: 'That role is not valid',
+};
+
+function failure(error: unknown, fallback: string) {
+    if (error instanceof AppError) return { success: false as const, error: (error.details as { message?: string } | undefined)?.message || CODE_TEXT[error.message] || error.message };
+    const code = (error as { code?: string })?.code;
+    if (code === 'P2002') return { success: false as const, error: 'Username, Email, or Employee ID already exists' };
+    console.error('[USER_ACTION_ERROR]', error);
+    return { success: false as const, error: fallback };
+}
+
+// Creating and editing go through UserAdminService: one rule set (role, designations, OPMC, status, password policy) for the form, the API and the scripts.
 export async function createUser(data: UserActionInput) {
     const currentUser = await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
-
     try {
-        const { username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId, permissions } = data;
-
-        // Privilege escalation guard: only the canonical global-super
-        // capability may grant the SUPER_ADMIN identity.
-        if (role === 'SUPER_ADMIN' && !currentUser.permissions.includes(RBAC_PERMISSIONS.ADMIN_SUPER)) {
-            return { success: false, error: 'Only a Super Admin can assign the SUPER_ADMIN role' };
-        }
-
-        // Validate OPMC requirement
-        const requiresOPMC = ['MANAGER', 'SA_MANAGER', 'SA_ASSISTANT'].includes(role);
-        if (requiresOPMC && (!opmcIds || opmcIds.length === 0)) {
-            return { success: false, error: 'OPMC selection is required for this role' };
-        }
-
-        // Validate password length
-        if (!password || password.length < 4) {
-            return { success: false, error: 'Password must be at least 4 characters long' };
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        const result = await prisma.$transaction(async (tx) => {
-            let staffId = undefined;
-            if (employeeId) {
-                const existingStaff = await tx.staff.findUnique({ where: { employeeId } });
-                if (existingStaff) {
-                    staffId = existingStaff.id;
-                } else {
-                    const staff = await tx.staff.create({
-                        data: {
-                            name: name || username,
-                            employeeId,
-                            designation: (role || 'ENGINEER') as Role,
-                            opmcId: opmcIds && opmcIds.length > 0 ? opmcIds[0] : undefined
-                        }
-                    });
-                    staffId = staff.id;
-                }
-            }
-
-            const sysRole = await tx.systemRole.findUnique({ where: { code: role || 'ENGINEER' } });
-
-            const user = await tx.user.create({
-                data: {
-                    username,
-                    email,
-                    password: hashedPassword,
-                    passwordChangedAt: new Date(),
-                    name,
-                    role: (role || 'ENGINEER') as Role,
-                    permissions: permissions && permissions.length > 0 ? JSON.stringify(permissions) : null,
-                    systemRole: sysRole ? { connect: { id: sysRole.id } } : undefined,
-                    staff: staffId ? { connect: { id: staffId } } : undefined,
-                    assignedStore: assignedStoreId && assignedStoreId !== 'none' ? { connect: { id: assignedStoreId } } : undefined,
-                    accessibleOpmcs: {
-                        connect: opmcIds && Array.isArray(opmcIds)
-                            ? opmcIds.map((id: string) => ({ id }))
-                            : []
-                    },
-                    supervisor: supervisorId ? { connect: { id: supervisorId } } : undefined
-                },
-
-                include: {
-                    accessibleOpmcs: { select: { id: true, rtom: true, name: true } },
-                    assignedStore: { select: { id: true, name: true } },
-                    supervisor: { select: { id: true, name: true, username: true } },
-                    staff: true
-                }
-            });
-
-            // Mapping logic
-            const sectionMapping: Record<string, string> = {
-                'OSP_MANAGER': 'PROJECTS', 'AREA_MANAGER': 'PROJECTS', 'ENGINEER': 'PROJECTS',
-                'ASSISTANT_ENGINEER': 'PROJECTS', 'AREA_COORDINATOR': 'PROJECTS', 'QC_OFFICER': 'PROJECTS',
-                'MANAGER': 'NEW_CONNECTION', 'SA_MANAGER': 'SERVICE_ASSURANCE', 'SA_ASSISTANT': 'SERVICE_ASSURANCE',
-                'STORES_MANAGER': 'STORES', 'STORES_ASSISTANT': 'STORES', 'PROCUREMENT_OFFICER': 'PROCUREMENT',
-                'FINANCE_MANAGER': 'FINANCE', 'FINANCE_ASSISTANT': 'FINANCE', 'INVOICE_MANAGER': 'INVOICE',
-                'INVOICE_ASSISTANT': 'INVOICE', 'OFFICE_ADMIN': 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT': 'OFFICE_ADMIN',
-                'SUPER_ADMIN': 'ADMIN', 'ADMIN': 'ADMIN'
-            };
-
-            const sectionCode = sectionMapping[role];
-            if (sectionCode) {
-                let section = await tx.section.findUnique({ where: { code: sectionCode } });
-                if (!section) {
-                    section = await tx.section.create({
-                        data: { name: sectionCode.replace(/_/g, ' '), code: sectionCode }
-                    });
-                }
-
-                const roleCode = `${sectionCode}_${role}`;
-                let systemRole = await tx.systemRole.findUnique({ where: { code: roleCode } });
-                if (!systemRole) {
-                    systemRole = await tx.systemRole.create({
-                        data: {
-                            name: role.replace(/_/g, ' '),
-                            code: roleCode,
-                            sectionId: section.id,
-                            permissions: JSON.stringify(['dashboard'])
-                        }
-                    });
-                }
-
-                await tx.userSectionAssignment.create({
-                    data: {
-                        userId: user.id,
-                        sectionId: section.id,
-                        roleId: systemRole.id,
-                        isPrimary: true
-                    }
-                });
-            }
-
-            return user;
-        });
-
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { password: _pw, ...userWithoutPassword } = result;
-
-        await SystemService.logEvent({
-            userId: currentUser.id,
-            action: 'USER_CREATE',
-            entity: 'User',
-            entityId: result.id as string,
-            newValue: userWithoutPassword,
-            notify: true,
-            notifyTitle: 'Welcome to SLT ERP',
-            notifyMessage: `An administrator has created your account as ${role}.`,
-            notifyType: 'SYSTEM'
-        });
-
+        const result = await UserAdminService.create(toInput(data), currentUser.id);
         revalidatePath('/admin/users');
-        return { success: true, data: userWithoutPassword };
+        return { success: true as const, data: result };
     } catch (error: unknown) {
-        const prismaError = error as { code?: string };
-        if (prismaError.code === 'P2002') {
-            return { success: false, error: 'Username, Email, or Employee ID already exists' };
-        }
-        return { success: false, error: 'Error creating user' };
+        return failure(error, 'Error creating user');
     }
 }
 
@@ -176,122 +61,25 @@ export interface UpdateUserActionData extends Partial<UserActionInput> {
 
 export async function updateUser(data: UpdateUserActionData) {
     const currentUser = await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
-
     try {
-        const { id, username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId, permissions } = data;
-
-        const existingUser = await prisma.user.findUnique({ where: { id }, include: { staff: true } });
-        if (!existingUser) return { success: false, error: 'User not found' };
-
-        const targetPermissions = await getUserEffectivePermissions(existingUser.id);
-        const targetHasSuperCapability = targetPermissions.includes(RBAC_PERMISSIONS.ADMIN_SUPER);
-        if (targetHasSuperCapability && !currentUser.permissions.includes(RBAC_PERMISSIONS.ADMIN_SUPER)) {
-            return { success: false, error: 'Only a Super Admin can modify a Super Admin account' };
-        }
-        if (role === 'SUPER_ADMIN' && !currentUser.permissions.includes(RBAC_PERMISSIONS.ADMIN_SUPER)) {
-            return { success: false, error: 'Only a Super Admin can assign the SUPER_ADMIN role' };
-        }
-        if (targetHasSuperCapability && role && role !== 'SUPER_ADMIN') {
-            return { success: false, error: 'Cannot demote Super Admin' };
-        }
-
-        const roleChanged = role ? existingUser.role !== role : false;
-        const statusChanged = !!data.status && existingUser.status !== data.status;
-        const passwordChanged = !!(password && password.length > 0);
-
-        const dataToUpdate: Prisma.UserUpdateInput = {};
-        if (username) dataToUpdate.username = username;
-        if (email) dataToUpdate.email = email;
-        if (name) dataToUpdate.name = name;
-        if (role) dataToUpdate.role = role as Role;
-        if (data.status) dataToUpdate.status = data.status;
-
-        if (permissions !== undefined) {
-            dataToUpdate.permissions = permissions && permissions.length > 0 ? JSON.stringify(permissions) : null;
-        }
-
-        if (password && password.length > 0) {
-            if (password.length < 4) {
-                return { success: false, error: 'Password must be at least 4 characters long' };
-            }
-            dataToUpdate.password = await bcrypt.hash(password, 10);
-            dataToUpdate.mustChangePassword = true;
-        }
-
-        // Any privilege-affecting change bumps the token version, instantly
-        // invalidating every token issued before this update.
-        if (roleChanged || statusChanged || passwordChanged) {
-            dataToUpdate.tokenVersion = { increment: 1 };
-        }
-
-        const result = await prisma.$transaction(async (tx) => {
-            let staffId = existingUser.staffId;
-            if (employeeId) {
-                const staff = await tx.staff.upsert({
-                    where: { employeeId },
-                    create: {
-                        name: name || username || 'Staff Member',
-                        employeeId,
-                        designation: (role || existingUser.role) as Role,
-                        opmcId: opmcIds && opmcIds.length > 0 ? opmcIds[0] : undefined
-                    },
-                    update: {
-                        name: name || undefined,
-                        designation: role ? (role as Role) : undefined,
-                        opmcId: opmcIds && opmcIds.length > 0 ? opmcIds[0] : undefined
-                    }
-                });
-                staffId = staff.id;
-            }
-
-            const sysRole = role ? await tx.systemRole.findUnique({ where: { code: role } }) : undefined;
-
-            return await tx.user.update({
-                where: { id },
-                data: {
-                    ...dataToUpdate,
-                    systemRole: sysRole ? { connect: { id: sysRole.id } } : undefined,
-                    staff: staffId ? { connect: { id: staffId } } : undefined,
-                    assignedStore: assignedStoreId && assignedStoreId !== 'none' ? { connect: { id: assignedStoreId } } : { disconnect: true },
-                    accessibleOpmcs: {
-                        set: [],
-                        connect: opmcIds ? opmcIds.map((oid: string) => ({ id: oid })) : []
-                    },
-                    supervisor: supervisorId ? { connect: { id: supervisorId } } : { disconnect: true }
-                },
-                include: {
-                    accessibleOpmcs: { select: { id: true, rtom: true, name: true } },
-                    assignedStore: { select: { id: true, name: true } },
-                    supervisor: { select: { id: true, name: true, username: true } },
-                    staff: true
-                }
-            });
-
-        });
-
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { password: _pw, ...userWithoutPassword } = result;
-
-        await SystemService.logEvent({
-            userId: currentUser.id,
-            action: 'USER_UPDATE',
-            entity: 'User',
-            entityId: result.id as string,
-            oldValue: existingUser,
-            newValue: userWithoutPassword,
-            // Notification goes to the user whose profile was updated, not the admin
-            notify: true,
-            notifyTitle: 'Profile Updated',
-            notifyMessage: `Your account details have been updated by an administrator.`,
-            notifyType: 'SYSTEM',
-            notifyUserId: id
-        });
-
+        const existing = await prisma.user.findUnique({ where: { id: data.id }, select: { username: true, email: true, role: true, name: true } });
+        if (!existing) return { success: false as const, error: 'User not found' };
+        // fields the form did not send keep their stored value
+        const result = await UserAdminService.update(data.id, toInput({ ...data, username: data.username ?? existing.username, email: data.email ?? existing.email, role: data.role ?? existing.role }), currentUser.id);
         revalidatePath('/admin/users');
-        return { success: true, data: userWithoutPassword };
+        return { success: true as const, data: result };
     } catch (error: unknown) {
-        console.error('[USER_ACTION_UPDATE_ERROR]', error);
-        return { success: false, error: 'Error updating user' };
+        return failure(error, 'Error updating user');
+    }
+}
+
+export async function resetUserPassword(id: string, password: string) {
+    const currentUser = await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
+    try {
+        await UserAdminService.resetPassword(id, password, currentUser.id);
+        return { success: true as const };
+    } catch (error: unknown) {
+        return failure(error, 'Could not reset the password');
     }
 }
 

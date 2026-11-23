@@ -1,5 +1,7 @@
 'use client';
 
+import { passwordProblem, PASSWORD_RULE_TEXT } from '@/config/user-admin';
+
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { performClientLogout } from '@/lib/client-logout';
@@ -82,8 +84,8 @@ export default function ForcePasswordChangeModal() {
         setError('');
         setSuccess('');
 
-        if (newPassword.length < 6) {
-            setError('Password must be at least 6 characters long');
+        if (passwordProblem(newPassword)) {
+            setError(passwordProblem(newPassword) as string);
             return;
         }
         if (newPassword !== confirmPassword) {
@@ -190,9 +192,9 @@ export default function ForcePasswordChangeModal() {
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
                             className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            placeholder="Enter new password (min 6 characters)"
+                            placeholder={`New password. ${PASSWORD_RULE_TEXT}`}
                             required
-                            minLength={6}
+                            minLength={8}
                             disabled={loading}
                         />
                     </div>

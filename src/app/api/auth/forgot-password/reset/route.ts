@@ -2,10 +2,11 @@ export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { UserService } from '@/services/hr/user.service';
 import { z } from 'zod';
+import { passwordProblem } from '@/config/user-admin';
 
 const resetSchema = z.object({
     token: z.string().min(1, 'Token is required'),
-    newPassword: z.string().min(6, 'Password must be at least 6 characters')
+    newPassword: z.string().superRefine((v, ctx) => { const p = passwordProblem(v); if (p) ctx.addIssue({ code: z.ZodIssueCode.custom, message: p }); })
 });
 
 export const POST = apiHandler(async (_req, _params, body) => {

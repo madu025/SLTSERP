@@ -19,40 +19,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Shield, User, ChevronLeft, ChevronRight, Check, Sparkles, Building2, Store as StoreIcon, BadgeCheck } from "lucide-react";
-import { ROLE_CATEGORIES } from '@/config/roles';
+import { ROLE_CATEGORIES, isContractorRole } from '@/config/roles';
+import {
+  USER_STATUSES, USER_STATUS_LABELS, OPMC_REQUIRED_ROLES, PASSWORD_RULE_TEXT, generateTemporaryPassword, normalizeUserStatus, passwordProblem,
+  roleNeedsOpmc, roleNeedsStoreOrOpmc,
+} from '@/config/user-admin';
 
-// Available pages for permission override
-const AVAILABLE_PAGES = [
-    { id: 'dashboard', name: 'Dashboard', icon: '' },
-    { id: 'service-orders', name: 'Service Orders', icon: '' },
-    { id: 'contractors', name: 'Contractors', icon: '' },
-    { id: 'restore-requests', name: 'Restore Requests', icon: '' },
-    { id: 'invoices', name: 'Invoices', icon: '💰' },
-    { id: 'inventory', name: 'Inventory / Stores', icon: '📦' },
-    { id: 'procurement', name: 'Procurement', icon: '🛒' },
-    { id: 'administration', name: 'Administration', icon: '⚙️' }
-];
-
-// Zod Schema
+// Zod Schema (the server repeats these rules; this is for an early, readable message)
 const userSchema = z.object({
-  username: z.string().min(3, "Username required (min 3 chars)"),
-  email: z.string().email("Invalid email address"),
+  username: z.string().trim().min(3, "Username required (min 3 chars)"),
+  email: z.string().trim().email("Invalid email address"),
   password: z.string().optional(),
-  name: z.string().min(2, "Full name required"),
+  name: z.string().trim().min(2, "Full name required"),
   role: z.string().min(1, "Role selection is required"),
   employeeId: z.string().optional(),
   opmcIds: z.array(z.string()),
   supervisorId: z.string().optional(),
   assignedStoreId: z.string().optional(),
-  status: z.string().optional(),
-  permissions: z.array(z.string()).optional(),
+  status: z.enum(USER_STATUSES).optional(),
 }).superRefine((data, ctx) => {
-  if (data.password !== undefined && data.password !== null && data.password.length > 0 && data.password.length < 4) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Password must be at least 4 characters",
-      path: ["password"],
-    });
+  if (data.password && data.password.length > 0) {
+    const problem = passwordProblem(data.password);
+    if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem, path: ["password"] });
   }
 });
 
@@ -66,12 +54,6 @@ export interface UserProp {
   accessibleOpmcs?: { id: string }[];
   contractorId?: string | null;
   employeeId?: string | null;
-  sectionAssignments?: Array<{
-    id: string;
-    section: { id: string; name: string };
-    role: { id: string; name: string };
-    isPrimary: boolean;
-  }>;
 }
 
 export interface OpmcProp {
@@ -86,12 +68,20 @@ export interface StoreProp {
   name: string;
 }
 
+interface DesignationOption { section: { id: string; code: string; name: string }; roles: Array<{ id: string; code: string; name: string }> }
+interface FormOptions { roles: string[]; baseAvailable: string[]; designations: DesignationOption[]; opmcRequiredRoles: string[]; categories: Record<string, string[]> }
+
+export type DesignationPick = { sectionId: string; roleId: string; isPrimary: boolean };
+
 interface UserFormDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (values: UserFormValues & { sectionAssignments?: Array<{ sectionId: string; roleId: string; isPrimary: boolean }> }) => void;
-  initialData?: UserFormValues & { 
+  onSubmit: (values: UserFormValues & { designations?: DesignationPick[] }) => void;
+  initialData?: Omit<UserFormValues, 'status'> & {
     id?: string;
+    status?: string;
+    hasCustomGrants?: boolean;
+    supervisor?: { id: string; name: string | null; username: string };
     sectionAssignments?: Array<{
       id: string;
       section: { id: string; name: string };
@@ -100,10 +90,14 @@ interface UserFormDrawerProps {
     }>;
   };
   isSubmitting: boolean;
-  users: UserProp[];
   opmcs: OpmcProp[];
   stores: StoreProp[];
 }
+
+const EMPTY: UserFormValues = {
+  username: '', email: '', password: '', name: '', role: '', employeeId: '',
+  opmcIds: [], supervisorId: '', assignedStoreId: 'none', status: 'active',
+};
 
 export function UserFormDrawer({
   open,
@@ -111,62 +105,47 @@ export function UserFormDrawer({
   onSubmit,
   initialData,
   isSubmitting,
-  users,
   opmcs,
   stores
 }: UserFormDrawerProps) {
   const [step, setStep] = useState(1);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
-  const [sectionAssignments, setSectionAssignments] = useState<Array<{
-    id?: string;
-    sectionId: string;
-    roleId: string;
-    sectionName?: string;
-    roleName?: string;
-    isPrimary: boolean;
-  }>>([]);
+  const [designationPicks, setDesignationPicks] = useState<Record<string, string>>({});
+  const [primarySection, setPrimarySection] = useState<string | null>(null);
+  const [designationsTouched, setDesignationsTouched] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const isEdit = Boolean(initialData?.id);
 
   const form = useForm<UserFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(userSchema) as any,
-    defaultValues: initialData || {
-      username: '',
-      email: '',
-      password: '',
-      name: '',
-      role: '',
-      employeeId: '',
-      opmcIds: [],
-      supervisorId: '',
-      assignedStoreId: 'none',
-      status: 'active',
-      permissions: []
-    }
+    defaultValues: EMPTY,
   });
 
   const watchedOpmcIds = useWatch({ control: form.control, name: 'opmcIds' });
   const watchedRole = useWatch({ control: form.control, name: 'role' });
-  const watchedPermissions = useWatch({ control: form.control, name: 'permissions' });
+  const watchedStore = useWatch({ control: form.control, name: 'assignedStoreId' });
 
-  // Dynamic role options — source of truth is the Postgres Role enum (GET /api/admin/role-options)
-  const { data: roleOptions } = useQuery<{ roles: string[]; categories: Record<string, string[]> }>({
-    queryKey: ['role-options'],
+  // Roles come from the live database enum; baseAvailable lists the ones that really have a SystemRole (a user without one has no permissions)
+  const { data: options } = useQuery<FormOptions>({
+    queryKey: ['user-form-options'],
     queryFn: async () => {
       const res = await fetch('/api/admin/role-options');
       if (!res.ok) throw new Error('Failed to load role options');
       return res.json();
     },
-    staleTime: 5 * 60 * 1000,
-    initialData: {
-      roles: Object.values(ROLE_CATEGORIES).flat(),
-      categories: ROLE_CATEGORIES
-    }
+    staleTime: 60 * 1000,
+    // placeholder, not initialData: initialData counts as fresh and the real options would never be fetched
+    placeholderData: { roles: Object.values(ROLE_CATEGORIES).flat(), baseAvailable: Object.values(ROLE_CATEGORIES).flat(), designations: [], opmcRequiredRoles: [...OPMC_REQUIRED_ROLES], categories: ROLE_CATEGORIES },
   });
+  const baseAvailable = useMemo(() => new Set(options?.baseAvailable ?? []), [options]);
+  const needsOpmc = (role: string) => roleNeedsOpmc(role) || (options?.opmcRequiredRoles ?? []).includes(role);
 
   // Group enum roles by category; unmapped roles land in "Other" so new enum values never vanish from the UI
   const roleCategories = useMemo<Record<string, string[]>>(() => {
-    const roles = roleOptions?.roles || Object.values(ROLE_CATEGORIES).flat();
-    const categories = roleOptions?.categories || ROLE_CATEGORIES;
+    // contractor users are created from the contractor registration; only an existing contractor user keeps its role in the list
+    const roles = (options?.roles || Object.values(ROLE_CATEGORIES).flat()).filter((r) => !isContractorRole(r) || r === initialData?.role);
+    const categories = options?.categories || ROLE_CATEGORIES;
     const grouped: Record<string, string[]> = {};
     const mapped = new Set<string>();
     for (const [cat, catRoles] of Object.entries(categories)) {
@@ -177,104 +156,98 @@ export function UserFormDrawer({
     const other = roles.filter((r) => !mapped.has(r));
     if (other.length) grouped['Other'] = other;
     return Object.keys(grouped).length > 0 ? grouped : ROLE_CATEGORIES;
-  }, [roleOptions]);
+  }, [options, initialData?.role]);
 
   // Sync form and section when drawer opens/closes
   useEffect(() => {
     if (!open) return;
     const timer = setTimeout(() => {
+      setShowPassword(false);
+      setDesignationsTouched(false);
       if (initialData) {
         form.reset({
-          ...initialData,
-          password: '', // Clear password field for security edit
+          username: initialData.username, email: initialData.email, name: initialData.name,
+          role: initialData.role, employeeId: initialData.employeeId || '',
+          password: '', // a blank password keeps the current one
           assignedStoreId: initialData.assignedStoreId || 'none',
+          supervisorId: initialData.supervisorId || '',
           opmcIds: initialData.opmcIds || [],
-          status: initialData.status || 'active',
-          permissions: typeof initialData.permissions === 'string'
-            ? JSON.parse(initialData.permissions)
-            : (initialData.permissions || [])
+          status: (USER_STATUSES as readonly string[]).includes(normalizeUserStatus(initialData.status)) ? (normalizeUserStatus(initialData.status) as UserFormValues['status']) : 'active',
         });
         const section = Object.entries(roleCategories).find(([, roles]) => roles.includes(initialData.role))?.[0] || null;
         setSelectedSection(section);
-        
-        // Load existing section assignments for edit mode
-        if (initialData.id && initialData.sectionAssignments) {
-          const assignments = initialData.sectionAssignments.map(a => ({
-            id: a.id,
-            sectionId: a.section.id,
-            roleId: a.role.id,
-            sectionName: a.section.name,
-            roleName: a.role.name,
-            isPrimary: a.isPrimary
-          }));
-          setSectionAssignments(assignments);
-        } else {
-          setSectionAssignments([]);
-        }
-        setStep(1);
+        const picks: Record<string, string> = {};
+        for (const a of initialData.sectionAssignments ?? []) picks[a.section.id] = a.role.id;
+        setDesignationPicks(picks);
+        setPrimarySection(initialData.sectionAssignments?.find((a) => a.isPrimary)?.section.id ?? null);
       } else {
-        form.reset({
-          username: '',
-          email: '',
-          password: '',
-          name: '',
-          role: '',
-          employeeId: '',
-          opmcIds: [],
-          supervisorId: '',
-          assignedStoreId: 'none',
-          status: 'active',
-          permissions: []
-        });
+        form.reset(EMPTY);
         setSelectedSection(null);
-        setStep(1);
+        setDesignationPicks({});
+        setPrimarySection(null);
       }
+      setStep(1);
     }, 0);
     return () => clearTimeout(timer);
     // roleCategories in deps: re-resolve section for edit mode once async role options load
   }, [open, initialData, form, roleCategories]);
 
   const handleSelectAllOpmcs = (checked: boolean) => {
-    if (checked) {
-      form.setValue('opmcIds', opmcs.map(o => o.id));
-    } else {
-      form.setValue('opmcIds', []);
-    }
+    form.setValue('opmcIds', checked ? opmcs.map(o => o.id) : [], { shouldDirty: true });
+    form.clearErrors('opmcIds');
   };
 
+  // Supervisors are looked up on the server as the administrator types (the user list is paged, so it cannot be filtered here)
   const [supervisorSearch, setSupervisorSearch] = useState('');
-
-  // Supervisors list filter: Exclude self and external contractor users
-  const potentialSupervisors = useMemo(() => {
-    return users.filter(u => {
-      if (u.id === initialData?.id) return false;
-      if (u.contractorId) return false;
-      if (u.role && u.role.startsWith('CONTRACTOR')) return false;
-      return true;
-    });
-  }, [users, initialData]);
-
+  const [supervisorQuery, setSupervisorQuery] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setSupervisorQuery(supervisorSearch.trim()), 250);
+    return () => clearTimeout(t);
+  }, [supervisorSearch]);
+  const { data: supervisorData } = useQuery<{ users: Array<UserProp> }>({
+    queryKey: ['supervisor-search', supervisorQuery],
+    enabled: open && step === 2,
+    queryFn: async () => {
+      const qs = new URLSearchParams({ limit: '30', status: 'active' });
+      if (supervisorQuery) qs.set('search', supervisorQuery);
+      const res = await fetch(`/api/users?${qs.toString()}`);
+      if (!res.ok) return { users: [] };
+      return res.json();
+    },
+  });
   const filteredSupervisors = useMemo(() => {
-    if (!supervisorSearch.trim()) return potentialSupervisors;
-    const query = supervisorSearch.toLowerCase();
-    return potentialSupervisors.filter(u => 
-      (u.name && u.name.toLowerCase().includes(query)) ||
-      (u.username && u.username.toLowerCase().includes(query)) ||
-      (u.employeeId && u.employeeId.toLowerCase().includes(query)) ||
-      (u.role && u.role.toLowerCase().includes(query))
-    );
-  }, [potentialSupervisors, supervisorSearch]);
+    const list = (supervisorData?.users ?? []).filter((u) => u.id !== initialData?.id && !u.contractorId && !(u.role && u.role.startsWith('CONTRACTOR')));
+    const current = initialData?.supervisor;
+    if (current && !list.some((u) => u.id === current.id)) list.unshift({ id: current.id, name: current.name, username: current.username, role: '' });
+    return list;
+  }, [supervisorData, initialData]);
 
   const handleFormSubmit = (data: UserFormValues) => {
+    // the same checks the server makes, so the message shows next to the field
+    if (!isEdit && !data.password) {
+      form.setError('password', { message: 'A password is required for a new user' });
+      setStep(1);
+      return;
+    }
+    const hasStore = !!data.assignedStoreId && data.assignedStoreId !== 'none';
+    if (needsOpmc(data.role) && data.opmcIds.length === 0) {
+      form.setError('opmcIds', { message: `Select at least one OPMC / RTOM for ${data.role.replace(/_/g, ' ')}. Without a region this user would see no orders.` });
+      setStep(3);
+      return;
+    }
+    if (roleNeedsStoreOrOpmc(data.role) && data.opmcIds.length === 0 && !hasStore) {
+      form.setError('assignedStoreId', { message: 'Select the store this person works in, or at least one OPMC / RTOM.' });
+      setStep(3);
+      return;
+    }
+    const designations: DesignationPick[] | undefined = designationsTouched
+      ? Object.entries(designationPicks).filter(([, roleId]) => !!roleId).map(([sectionId, roleId], i) => ({ sectionId, roleId, isPrimary: primarySection ? sectionId === primarySection : i === 0 }))
+      : undefined;
     onSubmit({
       ...data,
       assignedStoreId: data.assignedStoreId === 'none' ? undefined : data.assignedStoreId,
-      supervisorId: data.supervisorId === 'none' ? undefined : data.supervisorId,
-      sectionAssignments: sectionAssignments.map(a => ({
-        sectionId: a.sectionId,
-        roleId: a.roleId,
-        isPrimary: a.isPrimary
-      }))
+      supervisorId: !data.supervisorId || data.supervisorId === 'none' ? undefined : data.supervisorId,
+      designations,
     });
   };
 
@@ -282,7 +255,11 @@ export function UserFormDrawer({
     e.preventDefault();
     e.stopPropagation();
     if (step === 1) {
-      const isValid = await form.trigger(['username', 'email', 'name', 'password']);
+      let isValid = await form.trigger(['username', 'email', 'name', 'password']);
+      if (isValid && !isEdit && !form.getValues('password')) {
+        form.setError('password', { message: 'A password is required for a new user' });
+        isValid = false;
+      }
       if (isValid) setStep(2);
     } else if (step === 2) {
       const isValid = await form.trigger(['role']);
@@ -302,28 +279,37 @@ export function UserFormDrawer({
     { num: 3, label: '3. Store & Access', desc: 'Inventory & RTOM Scopes' }
   ];
 
+  const pickDesignation = (sectionId: string, roleId: string) => {
+    setDesignationsTouched(true);
+    setDesignationPicks((prev) => {
+      const next = { ...prev };
+      if (roleId) next[sectionId] = roleId; else delete next[sectionId];
+      return next;
+    });
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-xl p-0 flex flex-col h-full bg-slate-50 border-l border-slate-200 overflow-hidden">
-        
+
         {/* Header */}
         <SheetHeader className="bg-slate-900 text-white p-6 pb-5 flex-none relative">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-600/30 border border-blue-400/40 flex items-center justify-center text-blue-400">
+            <div className="w-10 h-10 rounded-2xl bg-blue-600/30 border border-blue-400/40 flex items-center justify-center text-blue-300">
               <User className="w-5 h-5" />
             </div>
             <div>
               <SheetTitle className="text-lg font-bold text-white flex items-center gap-2">
-                {initialData?.id ? 'Edit User Details' : 'Create New System User'}
+                {isEdit ? 'Edit User Details' : 'Create New System User'}
               </SheetTitle>
-              <SheetDescription className="text-xs text-slate-400">
-                {initialData?.id ? `Updating credentials & permissions for ${initialData.name || initialData.username}` : 'Configure credentials, organizational roles, and warehouse access scopes.'}
+              <SheetDescription className="text-xs text-slate-300">
+                {isEdit ? `Updating credentials & permissions for ${initialData?.name || initialData?.username}` : 'Configure credentials, organizational roles, and warehouse access scopes.'}
               </SheetDescription>
             </div>
           </div>
 
           {/* Stepper Tabs */}
-          <div className="grid grid-cols-3 gap-2 mt-5 pt-4 border-t border-slate-800">
+          <div className="grid grid-cols-3 gap-2 mt-5 pt-4 border-t border-slate-700">
             {stepsList.map((st) => (
               <button
                 key={st.num}
@@ -333,13 +319,13 @@ export function UserFormDrawer({
                   step === st.num
                     ? 'bg-blue-600 border-blue-400 text-white shadow-md'
                     : step > st.num
-                    ? 'bg-emerald-950/60 border-emerald-700/60 text-emerald-300'
-                    : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                    ? 'bg-emerald-950/60 border-emerald-700/60 text-emerald-200'
+                    : 'bg-white/5 border-white/10 text-slate-200 hover:bg-white/10'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold uppercase tracking-wider">Step {st.num}</span>
-                  {step > st.num && <Check className="w-3 h-3 text-emerald-400" />}
+                  {step > st.num && <Check className="w-3 h-3 text-emerald-300" />}
                 </div>
                 <span className="text-xs font-bold truncate mt-0.5">{st.label.split('. ')[1]}</span>
               </button>
@@ -351,22 +337,22 @@ export function UserFormDrawer({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleFormSubmit)} className="flex-1 flex flex-col min-h-0">
             <ScrollArea className="flex-1 p-6">
-              
+
               {/* STEP 1: Personal Details & Security */}
               {step === 1 && (
                 <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
-                  <div className="bg-blue-50/60 border border-blue-100 p-3.5 rounded-2xl flex items-center gap-3">
-                    <Sparkles className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                    <p className="text-xs text-blue-900 leading-relaxed font-medium">
-                      Enter staff identity details and login credentials. User will use the username/email to log in.
+                  <div className="bg-blue-50 border border-blue-200 p-3.5 rounded-2xl flex items-center gap-3">
+                    <Sparkles className="w-4 h-4 text-blue-700 flex-shrink-0" />
+                    <p className="text-xs text-blue-950 leading-relaxed font-medium">
+                      Enter staff identity details and login credentials. The person signs in with the username and must choose their own password at the first sign-in.
                     </p>
                   </div>
 
                   <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-[11px] font-bold uppercase text-slate-600">Full Name</FormLabel>
+                      <FormLabel className="text-[11px] font-bold uppercase text-slate-700">Full Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Kasun Sanjeewa" className="h-10 text-sm bg-white" {...field} value={field.value || ''} />
+                        <Input placeholder="e.g. Kasun Sanjeewa" className="h-10 text-sm bg-white text-slate-900 placeholder:text-slate-500" {...field} value={field.value || ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -375,9 +361,9 @@ export function UserFormDrawer({
                   <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="username" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-[11px] font-bold uppercase text-slate-600">Username</FormLabel>
+                        <FormLabel className="text-[11px] font-bold uppercase text-slate-700">Username</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. 433 or kasun" className="h-10 text-sm bg-white" {...field} value={field.value || ''} />
+                          <Input placeholder="e.g. 433 or kasun" className="h-10 text-sm bg-white text-slate-900 placeholder:text-slate-500" {...field} value={field.value || ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -385,10 +371,11 @@ export function UserFormDrawer({
 
                     <FormField control={form.control} name="employeeId" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-[11px] font-bold uppercase text-slate-600">Employee / Staff ID</FormLabel>
+                        <FormLabel className="text-[11px] font-bold uppercase text-slate-700">Employee / Staff ID</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. EMP-1049" className="h-10 text-sm bg-white" {...field} value={field.value || ''} />
+                          <Input placeholder="e.g. EMP-1049" className="h-10 text-sm bg-white text-slate-900 placeholder:text-slate-500" {...field} value={field.value || ''} />
                         </FormControl>
+                        <p className="text-[10px] text-slate-600">Needed for the Forgot Password check.</p>
                         <FormMessage />
                       </FormItem>
                     )} />
@@ -397,9 +384,9 @@ export function UserFormDrawer({
                   <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="email" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-[11px] font-bold uppercase text-slate-600">Email Address</FormLabel>
+                        <FormLabel className="text-[11px] font-bold uppercase text-slate-700">Email Address</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="sanjeewa@slts.lk" className="h-10 text-sm bg-white" {...field} value={field.value || ''} />
+                          <Input type="email" placeholder="sanjeewa@slts.lk" className="h-10 text-sm bg-white text-slate-900 placeholder:text-slate-500" {...field} value={field.value || ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -407,17 +394,17 @@ export function UserFormDrawer({
 
                     <FormField control={form.control} name="status" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-[11px] font-bold uppercase text-slate-600">Account Status</FormLabel>
+                        <FormLabel className="text-[11px] font-bold uppercase text-slate-700">Account Status</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value || 'active'}>
                           <FormControl>
-                            <SelectTrigger className="h-10 text-sm bg-white">
+                            <SelectTrigger className="h-10 text-sm bg-white text-slate-900">
                               <SelectValue placeholder="Select Status" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="active">Active (Full Access)</SelectItem>
-                            <SelectItem value="inactive">Inactive (Disabled)</SelectItem>
-                            <SelectItem value="resigned">Resigned / Terminated</SelectItem>
+                            {USER_STATUSES.map((s) => (
+                              <SelectItem key={s} value={s}>{USER_STATUS_LABELS[s]}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -427,12 +414,18 @@ export function UserFormDrawer({
 
                   <FormField control={form.control} name="password" render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-[11px] font-bold uppercase text-slate-600">
-                        Password {initialData?.id && '(Leave blank to keep current)'}
+                      <FormLabel className="text-[11px] font-bold uppercase text-slate-700">
+                        {isEdit ? 'New temporary password (leave blank to keep the current one)' : 'Temporary password'}
                       </FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="••••••••" className="h-10 text-sm bg-white" {...field} value={field.value || ''} />
-                      </FormControl>
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input type={showPassword ? 'text' : 'password'} autoComplete="new-password" placeholder="••••••••" className="h-10 text-sm bg-white text-slate-900 placeholder:text-slate-500" {...field} value={field.value || ''} />
+                        </FormControl>
+                        <Button type="button" variant="outline" className="h-10 text-xs font-bold border-slate-300 text-slate-800" onClick={() => { form.setValue('password', generateTemporaryPassword(), { shouldDirty: true, shouldValidate: true }); setShowPassword(true); }}>
+                          Generate
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-slate-600">{PASSWORD_RULE_TEXT} Give it to the person yourself; it is not emailed. They must change it at the first sign-in.</p>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -444,15 +437,15 @@ export function UserFormDrawer({
                 const currentSection = selectedSection || (watchedRole ? Object.entries(roleCategories).find(([, roles]) => roles.includes(watchedRole))?.[0] || null : null);
                 return (
                   <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
-                    <div className="bg-indigo-50/60 border border-indigo-100 p-3.5 rounded-2xl flex items-center gap-3">
-                      <Shield className="w-4 h-4 text-indigo-600 flex-shrink-0" />
-                      <p className="text-xs text-indigo-900 leading-relaxed font-medium">
-                        Select the user&apos;s department and operational role. Roles define RBAC permissions and process gate approval authority.
+                    <div className="bg-indigo-50 border border-indigo-200 p-3.5 rounded-2xl flex items-center gap-3">
+                      <Shield className="w-4 h-4 text-indigo-700 flex-shrink-0" />
+                      <p className="text-xs text-indigo-950 leading-relaxed font-medium">
+                        The system role gives the base permissions. Module designations (below) add the module-specific level, for example Projects Engineer. Region and store limits are set in the next step.
                       </p>
                     </div>
 
                     <div className="space-y-2">
-                      <FormLabel className="text-[11px] font-bold uppercase text-slate-600">1. Department / Division</FormLabel>
+                      <FormLabel className="text-[11px] font-bold uppercase text-slate-700">1. Department / Division</FormLabel>
                       <Select
                         onValueChange={(val) => {
                           setSelectedSection(val);
@@ -460,7 +453,7 @@ export function UserFormDrawer({
                         }}
                         value={currentSection || ''}
                       >
-                        <SelectTrigger className="h-11 text-sm bg-white font-semibold">
+                        <SelectTrigger className="h-11 text-sm bg-white font-semibold text-slate-900">
                           <SelectValue placeholder="-- Select Department --" />
                         </SelectTrigger>
                         <SelectContent>
@@ -473,22 +466,25 @@ export function UserFormDrawer({
 
                     <FormField control={form.control} name="role" render={({ field }) => (
                       <FormItem className="space-y-2">
-                        <FormLabel className="text-[11px] font-bold uppercase text-slate-600">2. System Role</FormLabel>
+                        <FormLabel className="text-[11px] font-bold uppercase text-slate-700">2. System Role</FormLabel>
                         <FormControl>
                           <Select
                             disabled={!currentSection}
                             onValueChange={field.onChange}
                             value={field.value}
                           >
-                            <SelectTrigger className="h-11 text-sm bg-white font-bold text-indigo-900 border-indigo-200">
+                            <SelectTrigger className="h-11 text-sm bg-white font-bold text-indigo-900 border-indigo-300">
                               <SelectValue placeholder={currentSection ? "-- Select System Role --" : "First select a department above..."} />
                             </SelectTrigger>
                             <SelectContent>
-                              {currentSection && roleCategories[currentSection]?.map((role: string) => (
-                                <SelectItem key={role} value={role} className="font-medium">
-                                  {role.replace(/_/g, ' ')}
-                                </SelectItem>
-                              ))}
+                              {currentSection && roleCategories[currentSection]?.map((role: string) => {
+                                const defined = baseAvailable.has(role);
+                                return (
+                                  <SelectItem key={role} value={role} disabled={!defined} className="font-medium">
+                                    {role.replace(/_/g, ' ')}{defined ? '' : ' (no system role defined)'}
+                                  </SelectItem>
+                                );
+                              })}
                             </SelectContent>
                           </Select>
                         </FormControl>
@@ -496,74 +492,104 @@ export function UserFormDrawer({
                       </FormItem>
                     )} />
 
-                  <FormField control={form.control} name="supervisorId" render={({ field }) => (
-                    <FormItem className="space-y-2 pt-2">
-                      <FormLabel className="text-[11px] font-bold uppercase text-slate-600">Reporting Supervisor (Optional)</FormLabel>
-                      <div className="space-y-1.5">
-                        <Input
-                          type="text"
-                          placeholder="🔍 Type to search supervisor (Name, Employee ID, Role)..."
-                          value={supervisorSearch}
-                          onChange={(e) => setSupervisorSearch(e.target.value)}
-                          className="h-9 text-xs bg-white border-slate-200"
-                        />
-                        <Select onValueChange={field.onChange} value={field.value || 'none'}>
-                          <FormControl>
-                            <SelectTrigger className="h-10 text-sm bg-white font-semibold">
-                              <SelectValue placeholder="-- Select Supervisor --" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent className="max-h-60">
-                            <SelectItem value="none" className="text-slate-400 italic">None (Independent Officer)</SelectItem>
-                            {filteredSupervisors.map(u => (
-                              <SelectItem key={u.id} value={u.id!}>
-                                👤 {u.name || u.username} {u.employeeId ? `(#${u.employeeId})` : ''} • [{u.role.replace(/_/g, ' ')}]
-                              </SelectItem>
-                            ))}
-                            {filteredSupervisors.length === 0 && (
-                              <div className="p-2 text-xs text-slate-400 italic text-center">No internal supervisors found</div>
-                            )}
-                          </SelectContent>
-                        </Select>
+                    {/* Module designations: the module-specific levels (UserSectionAssignment) */}
+                    {(options?.designations.length ?? 0) > 0 && (
+                      <div className="space-y-2 pt-1">
+                        <FormLabel className="text-[11px] font-bold uppercase text-slate-700">3. Module designations (optional)</FormLabel>
+                        <p className="text-[11px] text-slate-600">
+                          {isEdit
+                            ? 'Change these only to give or take away a module level. Left alone, they stay as they are.'
+                            : 'Leave empty to add the usual designation for the chosen role automatically.'}
+                        </p>
+                        <div className="space-y-2 rounded-xl border border-slate-300 bg-white p-3">
+                          {options!.designations.map((d) => (
+                            <div key={d.section.id} className="flex items-center justify-between gap-3">
+                              <span className="text-xs font-semibold text-slate-800 w-40 truncate" title={d.section.name}>{d.section.name}</span>
+                              <select
+                                aria-label={`Designation in ${d.section.name}`}
+                                value={designationPicks[d.section.id] ?? ''}
+                                onChange={(e) => pickDesignation(d.section.id, e.target.value)}
+                                className="h-9 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-xs font-medium text-slate-900"
+                              >
+                                <option value="">None</option>
+                                {d.roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                              </select>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                    )}
 
-                  {watchedRole && (
-                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs text-emerald-800">
-                      <BadgeCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                      <span>Configured Role: <strong>{watchedRole.replace(/_/g, ' ')}</strong></span>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+                    <FormField control={form.control} name="supervisorId" render={({ field }) => (
+                      <FormItem className="space-y-2 pt-2">
+                        <FormLabel className="text-[11px] font-bold uppercase text-slate-700">Reporting Supervisor (Optional)</FormLabel>
+                        <div className="space-y-1.5">
+                          <Input
+                            type="text"
+                            placeholder="Type to search supervisor (name, username, employee ID)..."
+                            value={supervisorSearch}
+                            onChange={(e) => setSupervisorSearch(e.target.value)}
+                            className="h-9 text-xs bg-white border-slate-300 text-slate-900 placeholder:text-slate-500"
+                          />
+                          <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                            <FormControl>
+                              <SelectTrigger className="h-10 text-sm bg-white font-semibold text-slate-900">
+                                <SelectValue placeholder="-- Select Supervisor --" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="max-h-60">
+                              <SelectItem value="none" className="text-slate-600 italic">None (Independent Officer)</SelectItem>
+                              {filteredSupervisors.map(u => (
+                                <SelectItem key={u.id} value={u.id!}>
+                                  {u.name || u.username} {u.employeeId ? `(#${u.employeeId})` : ''}{u.role ? ` • [${u.role.replace(/_/g, ' ')}]` : ''}
+                                </SelectItem>
+                              ))}
+                              {filteredSupervisors.length === 0 && (
+                                <div className="p-2 text-xs text-slate-600 italic text-center">No internal supervisors found</div>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+
+                    {watchedRole && (
+                      <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center gap-2 text-xs text-emerald-900">
+                        <BadgeCheck className="w-4 h-4 text-emerald-700 flex-shrink-0" />
+                        <span>Configured Role: <strong>{watchedRole.replace(/_/g, ' ')}</strong></span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* STEP 3: Store & OPMC Scopes */}
               {step === 3 && (
                 <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
-                  <div className="bg-amber-50/60 border border-amber-100 p-3.5 rounded-2xl flex items-center gap-3">
-                    <StoreIcon className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                    <p className="text-xs text-amber-900 leading-relaxed font-medium">
-                      Assign warehouse stores and regional RTOM scopes. Users can manage materials and approvals within their assigned scopes.
+                  <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex items-center gap-3">
+                    <StoreIcon className="w-4 h-4 text-amber-700 flex-shrink-0" />
+                    <p className="text-xs text-amber-950 leading-relaxed font-medium">
+                      Assign warehouse stores and regional RTOM scopes. A permission never gives access to every region: the user sees and changes only the orders of the regions selected here.
                     </p>
                   </div>
 
                   <FormField control={form.control} name="assignedStoreId" render={({ field }) => (
                     <FormItem className="space-y-2">
-                      <FormLabel className="text-[11px] font-bold uppercase text-slate-600">Assigned Main / Regional Store</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                      <FormLabel className="text-[11px] font-bold uppercase text-slate-700">
+                        Assigned Main / Regional Store{roleNeedsStoreOrOpmc(watchedRole) && !(watchedOpmcIds?.length) ? ' (required: or select a region)' : ''}
+                      </FormLabel>
+                      <Select onValueChange={(v) => { field.onChange(v); form.clearErrors('assignedStoreId'); }} value={field.value || 'none'}>
                         <FormControl>
-                          <SelectTrigger className="h-11 text-sm bg-white font-semibold">
+                          <SelectTrigger className="h-11 text-sm bg-white font-semibold text-slate-900">
                             <SelectValue placeholder="-- Select Primary Store --" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="none" className="text-slate-400 italic">No Direct Store Assignment</SelectItem>
+                          <SelectItem value="none" className="text-slate-600 italic">No Direct Store Assignment</SelectItem>
                           {stores.map(st => (
                             <SelectItem key={st.id} value={st.id}>
-                              📦 {st.name}
+                              {st.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -572,106 +598,72 @@ export function UserFormDrawer({
                     </FormItem>
                   )} />
 
-                  <div className="space-y-3 pt-2">
-                    <div className="flex justify-between items-center">
-                      <FormLabel className="text-[11px] font-bold uppercase text-slate-600 flex items-center gap-1.5">
-                        <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                        Accessible OPMC / RTOM Regions
-                      </FormLabel>
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="select-all"
-                          checked={watchedOpmcIds?.length === opmcs.length && opmcs.length > 0}
-                          onCheckedChange={(checked) => handleSelectAllOpmcs(!!checked)}
-                        />
-                        <label htmlFor="select-all" className="text-xs text-slate-500 font-medium cursor-pointer">Select All ({opmcs.length})</label>
+                  <FormField control={form.control} name="opmcIds" render={() => (
+                    <FormItem className="space-y-3 pt-2">
+                      <div className="flex justify-between items-center">
+                        <FormLabel className="text-[11px] font-bold uppercase text-slate-700 flex items-center gap-1.5">
+                          <Building2 className="w-3.5 h-3.5 text-slate-600" />
+                          Accessible OPMC / RTOM Regions
+                          {needsOpmc(watchedRole) && <span className="text-rose-700 normal-case font-bold">required for this role</span>}
+                        </FormLabel>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="select-all"
+                            checked={watchedOpmcIds?.length === opmcs.length && opmcs.length > 0}
+                            onCheckedChange={(checked) => handleSelectAllOpmcs(!!checked)}
+                          />
+                          <label htmlFor="select-all" className="text-xs text-slate-700 font-medium cursor-pointer">Select All ({opmcs.length})</label>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-3 bg-white rounded-xl border border-slate-200">
-                      {opmcs.map((opmc) => {
-                        const isChecked = (watchedOpmcIds || []).includes(opmc.id);
-                        const toggleOpmc = (check: boolean) => {
-                          const current = form.getValues('opmcIds') || [];
-                          if (check) {
-                            if (!current.includes(opmc.id)) {
-                              form.setValue('opmcIds', [...current, opmc.id], { shouldDirty: true });
-                            }
-                          } else {
-                            form.setValue('opmcIds', current.filter(id => id !== opmc.id), { shouldDirty: true });
-                          }
-                        };
-
-                        return (
-                          <label
-                            key={opmc.id}
-                            className={`p-2.5 rounded-lg border text-xs cursor-pointer transition-all flex items-center gap-2 select-none ${
-                              isChecked
-                                ? 'bg-blue-50 border-blue-500 text-blue-950 font-bold'
-                                : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
-                            }`}
-                          >
-                            <Checkbox 
-                              checked={isChecked} 
-                              onCheckedChange={(checked) => toggleOpmc(!!checked)}
-                            />
-                            <div className="truncate">
-                              <div className="text-[11px]">{opmc.name}</div>
-                              <div className="text-[9px] text-slate-400 font-normal">RTOM: {opmc.rtom}</div>
-                            </div>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Permission Override Section */}
-                  <div className="pt-4 border-t border-slate-200">
-                    <div className="flex items-center justify-between mb-3">
-                      <FormLabel className="text-[11px] font-bold uppercase text-slate-600 flex items-center gap-1.5">
-                        <Shield className="w-3.5 h-3.5 text-slate-400" />
-                        Permission Override (Optional)
-                      </FormLabel>
-                      <span className="text-[10px] text-slate-400">Leave empty to use role defaults</span>
-                    </div>
-
-                    <div className="p-3 bg-purple-50/60 border border-purple-100 rounded-xl">
-                      <p className="text-[10px] text-purple-900 mb-3">
-                        Override default role permissions. Leave unchecked to use role-based permissions from admin/roles.
-                      </p>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        {AVAILABLE_PAGES.map((page) => {
-                          const isChecked = (watchedPermissions || []).includes(page.id);
-                          const togglePermission = (check: boolean) => {
-                            const current = form.getValues('permissions') || [];
+                      <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-3 bg-white rounded-xl border border-slate-300">
+                        {opmcs.map((opmc) => {
+                          const isChecked = (watchedOpmcIds || []).includes(opmc.id);
+                          const toggleOpmc = (check: boolean) => {
+                            const current = form.getValues('opmcIds') || [];
                             if (check) {
-                              if (!current.includes(page.id)) {
-                                form.setValue('permissions', [...current, page.id], { shouldDirty: true });
+                              if (!current.includes(opmc.id)) {
+                                form.setValue('opmcIds', [...current, opmc.id], { shouldDirty: true });
                               }
+                              form.clearErrors('opmcIds');
                             } else {
-                              form.setValue('permissions', current.filter(p => p !== page.id), { shouldDirty: true });
+                              form.setValue('opmcIds', current.filter(id => id !== opmc.id), { shouldDirty: true });
                             }
                           };
 
                           return (
                             <label
-                              key={page.id}
+                              key={opmc.id}
                               className={`p-2.5 rounded-lg border text-xs cursor-pointer transition-all flex items-center gap-2 select-none ${
                                 isChecked
-                                  ? 'bg-purple-50 border-purple-500 text-purple-950 font-bold'
-                                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                                  ? 'bg-blue-50 border-blue-500 text-blue-950 font-bold'
+                                  : 'bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-800'
                               }`}
                             >
-                              <Checkbox 
-                                checked={isChecked} 
-                                onCheckedChange={(checked) => togglePermission(!!checked)}
+                              <Checkbox
+                                checked={isChecked}
+                                onCheckedChange={(checked) => toggleOpmc(!!checked)}
                               />
-                              <span>{page.icon} {page.name}</span>
+                              <div className="truncate">
+                                <div className="text-[11px]">{opmc.name}</div>
+                                <div className="text-[9px] text-slate-600 font-normal">RTOM: {opmc.rtom}</div>
+                              </div>
                             </label>
                           );
                         })}
                       </div>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  {/* Manual grants have their own audited endpoint; the old page-name override is gone because it replaced every role grant */}
+                  <div className="pt-4 border-t border-slate-300">
+                    <div className="p-3 bg-slate-100 border border-slate-300 rounded-xl text-[11px] text-slate-800">
+                      <p className="font-bold mb-1 flex items-center gap-1.5"><Shield className="w-3.5 h-3.5" /> Permissions</p>
+                      <p>
+                        Permissions come from the system role and the module designations. Changing the role clears any manual permission list.
+                        {initialData?.hasCustomGrants && <strong className="block mt-1 text-purple-900">This user has a manual permission list that replaces their role grants.</strong>}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -686,7 +678,7 @@ export function UserFormDrawer({
                 variant="outline"
                 disabled={step === 1 || isSubmitting}
                 onClick={handleBack}
-                className="h-10 text-xs font-bold"
+                className="h-10 text-xs font-bold border-slate-300 text-slate-800"
               >
                 <ChevronLeft className="w-4 h-4 mr-1" /> Back
               </Button>
@@ -704,9 +696,9 @@ export function UserFormDrawer({
                   <Button
                     type="submit"
                     disabled={isSubmitting}
-                    className="h-10 px-6 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-200"
+                    className="h-10 px-6 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-200"
                   >
-                    {isSubmitting ? 'Saving User...' : 'Save & Activate User'}
+                    {isSubmitting ? 'Saving User...' : (isEdit ? 'Save Changes' : 'Save & Activate User')}
                   </Button>
                 )}
               </div>
