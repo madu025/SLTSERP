@@ -88,6 +88,11 @@ test('Stores: the Executive and the Manager adjust stock, the officers do not; t
     assert.ok(visible('STORES_EXECUTIVE').has('/inventory/admin/wastage') && visible('STORES_MANAGER').has('/inventory/admin/wastage'));
     assert.ok(!visible('STORES_ASSISTANT').has('/inventory/admin/wastage'), 'no adjustments page for the officers');
     for (const p of ['/inventory', '/inventory/requests', '/inventory/issues', '/inventory/admin/returns']) assert.ok(visible('STORES_EXECUTIVE').has(p) && visible('STORES_ASSISTANT').has(p), p);
+    // release from the main store and returns to the supplier: the Executive and the Manager; the officers do not
+    for (const r of ['STORES_EXECUTIVE', 'STORES_MANAGER', 'CEO']) assert.ok(g['inventory.release'].includes(r), `${r} releases`);
+    assert.ok(!g['inventory.release'].includes('STORES_ASSISTANT'));
+    assert.equal(getStockRequestActionPermission('RELEASE'), 'inventory.release');
+    assert.equal(getStockRequestActionPermission('RECEIVE'), 'inventory.write', 'the officers receive at their own store');
     // goods receipt (GRN): the Executive and the Manager only; the officers raise material requests
     assert.ok(visible('STORES_EXECUTIVE').has('/inventory/grn') && visible('STORES_MANAGER').has('/inventory/grn'));
     assert.ok(!visible('STORES_ASSISTANT').has('/inventory/grn'), 'the store officers do not receive goods');
@@ -125,4 +130,16 @@ test('the low-stock trigger has the cooldown table it writes to (its absence rol
     const all = fs.readdirSync('prisma/migrations').filter((d) => fs.existsSync(`prisma/migrations/${d}/migration.sql`));
     const creators = all.filter((d) => /CREATE TABLE IF NOT EXISTS "InventoryAlertCooldown"/.test(fs.readFileSync(`prisma/migrations/${d}/migration.sql`, 'utf8')));
     assert.ok(creators.length >= 2, 'the table is created again by a later migration, because the first one did not leave it in production');
+});
+
+test('contractor material: the store pages load their contractors through a store-scoped API, and the balance and issue are limited to the contractors of the own store', () => {
+    for (const p of ['issue', 'returns', 'balance-sheet', 'wastage']) {
+        const src = fs.readFileSync(`src/app/inventory/admin/${p}/page.tsx`, 'utf8');
+        assert.ok(src.includes('/api/inventory/contractors') && !src.includes('/api/admin/contractors'), `${p} page: not the administrator-only contractor API`);
+    }
+    const svc = fs.readFileSync('src/services/inventory/contractor-store.service.ts', 'utf8');
+    assert.ok(svc.includes('storeAssignments') && svc.includes('opmc: { is: { storeId'), 'a contractor belongs to a store by its OPMC or by a team assigned to the store');
+    for (const f of ['issue.service', 'wastage.service', 'transaction.service']) assert.ok(fs.readFileSync(`src/services/inventory/${f}.ts`, 'utf8').includes('ContractorStoreService.assertForStore'), f);
+    assert.ok(fs.readFileSync('src/app/api/inventory/in-hand-stock/route.ts', 'utf8').includes('assertCanSee'));
+    assert.ok(fs.readFileSync('src/app/api/inventory/contractors/route.ts', 'utf8').includes('INVENTORY_READ'));
 });

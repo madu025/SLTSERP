@@ -21,7 +21,7 @@ export const POST = apiHandler(async (_request, params, body) => {
     return result;
 }, {
     schema: mrnSchema,
-    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+    permissions: [RBAC_PERMISSIONS.INVENTORY_GRN],
     audit: { action: 'CREATE', entity: 'MRN' },
     rawResponse: true
 });

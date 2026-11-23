@@ -134,6 +134,7 @@ export const CANONICAL_BOOTSTRAP_ROLE_GRANTS = {
     ],
     // Stock adjustments (contractor wastage): the Stores Executive and the Stores Manager, and the CEO; not the store officers.
     // Goods receipt: the Stores Executive and the Stores Manager (and the CEO and admins); not the store officers.
+    [RBAC_PERMISSIONS.INVENTORY_RELEASE]: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'STORES_MANAGER', 'STORES_EXECUTIVE'],
     [RBAC_PERMISSIONS.INVENTORY_GRN]: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'STORES_MANAGER', 'STORES_EXECUTIVE'],
     [RBAC_PERMISSIONS.INVENTORY_ADJUST]: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'STORES_MANAGER', 'STORES_EXECUTIVE'],
     [RBAC_PERMISSIONS.PROCUREMENT_READ]: [

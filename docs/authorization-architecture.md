@@ -232,3 +232,18 @@ One service, `UserAdminService` (`src/services/hr/user-admin.service.ts`), is us
 - **Stores Executive** (`STORES_EXECUTIVE`, between the Officers and the Manager): the same, plus `inventory.review` (change the approved quantities of a pending request before the approval; action `ADJUST_QTY`, audited with a reason) and `inventory.adjust` (stock adjustments: contractor wastage). It has no `inventory.approve`, so it can neither approve nor reject a request.
 - **Stores Manager**: approves (`inventory.approve`), reviews and adjusts at any time, all stores. The **Procurement Officer** may stand in for the Stores Manager at the main store approval gate (eligible role added by migration) and can review/adjust.
 - `inventory.review` is held by every request approver (Area Manager, OSP Manager, Head of OSP, CEO, Stores Manager, Procurement Officer) and the Executive; `inventory.adjust` by the Executive, the Stores Manager and the CEO (and admins).
+
+### Stores: who does what (final)
+
+| Capability | Officer / Assistant | Executive | Manager | CEO / admins |
+|---|---|---|---|---|
+| Raise a material request to the Main Store, receive transfers at the own store (`inventory.write`) | yes | yes | yes | yes |
+| Issue material to contractors, take their returns, stock take count (`inventory.write`) | yes, **only the contractors of the own store** | yes, own store contractors | yes, any (runs every store) | yes |
+| Read the balance in hand of a contractor | only contractors of the own store | same | any | any |
+| Review a request: change quantities (`inventory.review`) | no | yes | yes | yes |
+| Release stock from the Main Store (`inventory.release`) | no | yes | yes | yes |
+| Goods receipt GRN and return to the supplier MRN (`inventory.grn`) | no | yes | yes | yes |
+| Stock adjustment / wastage (`inventory.adjust`) | no | yes | yes | yes |
+| Approve / reject a request, approve MRN, wastage, stock take (`inventory.approve`) | no | no | yes (Procurement Officer stands in) | yes |
+
+A contractor belongs to a store when its OPMC is served by the store or one of its teams is assigned to the store (`ContractorStoreService`); the stores pages use `/api/inventory/contractors` (the administrator-only contractor API gave store people an empty list).

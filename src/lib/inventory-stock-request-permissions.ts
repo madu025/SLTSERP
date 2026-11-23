@@ -17,7 +17,8 @@ export const STOCK_REQUEST_ACTION_PERMISSIONS: Readonly<Record<StockRequestActio
     // review: change the quantities before the approval. The Stores Executive holds this and not inventory.approve, so can neither approve nor reject.
     ADJUST_QTY: RBAC_PERMISSIONS.INVENTORY_REVIEW,
     RETURN: RBAC_PERMISSIONS.INVENTORY_APPROVE,
-    RELEASE: RBAC_PERMISSIONS.INVENTORY_WRITE,
+    // releasing stock from the main store: the Executive and the Manager (the officers raise requests and receive at their own store)
+    RELEASE: RBAC_PERMISSIONS.INVENTORY_RELEASE,
     RECEIVE: RBAC_PERMISSIONS.INVENTORY_WRITE,
     CREATE_PO: RBAC_PERMISSIONS.PROCUREMENT_WRITE,
     UPDATE_PROCUREMENT_STATUS: RBAC_PERMISSIONS.PROCUREMENT_WRITE,

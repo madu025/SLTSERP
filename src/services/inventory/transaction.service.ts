@@ -1,3 +1,4 @@
+import { ContractorStoreService } from '@/services/inventory/contractor-store.service';
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
@@ -86,6 +87,7 @@ export class TransactionService {
         userId: string;
     }) {
         const { contractorId, storeId, month, items, userId } = data;
+        await ContractorStoreService.assertForStore(userId, contractorId, storeId);
 
         if (!contractorId || !storeId || !month || !items) {
             throw AppError.badRequest('MISSING_FIELDS');

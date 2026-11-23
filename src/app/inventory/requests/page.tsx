@@ -96,6 +96,7 @@ export default function RequestsPage() {
     // enforces the operation and the selected-store checks below enforce scope.
     const isStoresOfficer = mounted && !!user?.permissions?.includes(RBAC_PERMISSIONS.INVENTORY_WRITE);
     const isAreaManager = mounted && !!user?.permissions?.includes(RBAC_PERMISSIONS.INVENTORY_APPROVE);
+    const canRelease = mounted && !!user?.permissions?.includes(RBAC_PERMISSIONS.INVENTORY_RELEASE);
     const canReview = mounted && !!user?.permissions?.includes(RBAC_PERMISSIONS.INVENTORY_REVIEW);
     const canProcurementWrite = mounted && !!user?.permissions?.includes(RBAC_PERMISSIONS.PROCUREMENT_WRITE);
     const isProcurementRole = mounted && (canProcurementWrite || isStoresOfficer);
@@ -395,7 +396,7 @@ export default function RequestsPage() {
                                                         </Badge>
                                                     </td>
                                                     <td className="px-4 py-1.5 text-right flex justify-end gap-1.5">
-                                                         {(r.workflowStage === 'MAIN_STORE_RELEASE' || r.workflowStage === 'PARTIALLY_ISSUED') && isStoresOfficer && (user?.assignedStoreId === r.toStoreId || !user?.assignedStoreId) ? (
+                                                         {(r.workflowStage === 'MAIN_STORE_RELEASE' || r.workflowStage === 'PARTIALLY_ISSUED') && isStoresOfficer && canRelease && (user?.assignedStoreId === r.toStoreId || !user?.assignedStoreId) ? (
                                                              <Button size="sm" className="h-7 px-2.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-md" onClick={() => { setSelectedRequest(r); setApprovalMode(true); }}>
                                                                  Release (MIN)
                                                              </Button>
@@ -928,7 +929,7 @@ export default function RequestsPage() {
                                             {approvalMutation.isPending ? 'Recalling...' : 'Recall Approval'}
                                         </Button>
                                     )}
-                                    {(selectedRequest.workflowStage === 'MAIN_STORE_RELEASE' || selectedRequest.workflowStage === 'PARTIALLY_ISSUED') && (user?.assignedStoreId === selectedRequest.toStoreId || !user?.assignedStoreId) ? (
+                                    {(selectedRequest.workflowStage === 'MAIN_STORE_RELEASE' || selectedRequest.workflowStage === 'PARTIALLY_ISSUED') && canRelease && (user?.assignedStoreId === selectedRequest.toStoreId || !user?.assignedStoreId) ? (
                                         isStoresOfficer ? (
                                             <Button
                                                 onClick={() => approvalMutation.mutate({ action: 'RELEASE' })}

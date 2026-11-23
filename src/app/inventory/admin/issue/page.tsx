@@ -33,7 +33,7 @@ export default function MaterialIssuePage() {
     // --- FETCH DATA ---
     const { data: contractorsData } = useQuery({
         queryKey: ['contractors'],
-        queryFn: async () => (await fetch('/api/admin/contractors?page=1&limit=1000')).json()
+        queryFn: async () => (await fetch('/api/inventory/contractors')).json()
     });
     // The API wraps its answer as { success, data: { contractors } }; reading only the top level left this list empty,
     // so no contractor could be chosen and no material could be issued from this page.

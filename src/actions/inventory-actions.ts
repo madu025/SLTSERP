@@ -120,7 +120,8 @@ export async function createGRN(data: any) {
 }
 
 export async function createMRN(data: any) {
-    const user = await requirePermission(RBAC_PERMISSIONS.INVENTORY_WRITE);
+    // a return to the supplier belongs with the goods receipt: the Stores Executive and the Stores Manager
+    const user = await requirePermission(RBAC_PERMISSIONS.INVENTORY_GRN);
     try {
         // Creator identity is session-derived — never trust client-supplied returnedById
         const result = await InventoryService.createMRN({ ...data, returnedById: user.id });

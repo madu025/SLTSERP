@@ -1,3 +1,4 @@
+import { ContractorStoreService } from '@/services/inventory/contractor-store.service';
 import { AppError } from '@/lib/error';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
@@ -41,6 +42,8 @@ export class IssueService {
 
         // Store-Scope Enforcement: caller must be authorized for the issuing store
         await StoreService.assertStoreWriteAccess(userId, storeId);
+        // and the contractor must be one that works with this store
+        await ContractorStoreService.assertForStore(userId, contractorId, storeId);
 
         const execute = async (transaction: TransactionClient) => {
             // Generate MIN issue number atomically
@@ -213,6 +216,7 @@ export class IssueService {
 
         // Store-Scope Enforcement: caller must be authorized for the receiving store
         await StoreService.assertStoreWriteAccess(userId, storeId);
+        await ContractorStoreService.assertForStore(userId, contractorId, storeId);
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
             // 1. Create Return Record with atomic MRN number

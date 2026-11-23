@@ -1,3 +1,4 @@
+import { ContractorStoreService } from '@/services/inventory/contractor-store.service';
 import { randomUUID } from 'crypto';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
@@ -36,6 +37,7 @@ export class WastageService {
         userId?: string;
     }) {
         const { storeId, contractorId, month, description, reason, items, userId } = data;
+        if (storeId && contractorId) await ContractorStoreService.assertForStore(userId, contractorId, storeId);
 
         // 1. Identify if approval is needed based on DB flags
         // flag: isWastageAllowed (if false, needs approval)

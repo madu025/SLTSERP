@@ -41,7 +41,7 @@ test('zero minimum does not create a false low-stock alert for positive availabl
 
 test('stock request actions use canonical capability boundaries', () => {
     assert.equal(getStockRequestActionPermission('ARM_APPROVE'), RBAC_PERMISSIONS.INVENTORY_APPROVE);
-    assert.equal(getStockRequestActionPermission('RELEASE'), RBAC_PERMISSIONS.INVENTORY_WRITE);
+    assert.equal(getStockRequestActionPermission('RELEASE'), RBAC_PERMISSIONS.INVENTORY_RELEASE);
     assert.equal(getStockRequestActionPermission('CREATE_PO'), RBAC_PERMISSIONS.PROCUREMENT_WRITE);
     assert.equal(getStockRequestActionPermission('UNKNOWN'), undefined);
 });
