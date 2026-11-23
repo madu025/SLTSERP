@@ -428,6 +428,12 @@ export class StockRequestService {
                 throw AppError.badRequest(`INVALID_STATE: Request is ${stockReq.status}; only pending requests can pass an approval gate.`);
             }
 
+            // Review and approval are two different people: whoever adjusted the quantities of this request cannot approve it
+            const reviewedByActor = await tx.auditLog.findFirst({ where: { entity: 'STOCK_REQUEST', entityId: requestId, action: 'ADJUST_QTY', userId }, select: { id: true } });
+            if (reviewedByActor) {
+                throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: You adjusted the quantities of this request, so someone else must approve it.');
+            }
+
             // The stage's eligible-role list applies to in-app approvals exactly as it does to email approvals
             const firstLevel = [...(policy.approvalLevels ?? [])].sort((a, b) => a.level - b.level)[0];
             await assertActorEligibleForGateLevel(tx as unknown as Prisma.TransactionClient, userId, firstLevel as never, effectiveStage);

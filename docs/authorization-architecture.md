@@ -232,6 +232,7 @@ One service, `UserAdminService` (`src/services/hr/user-admin.service.ts`), is us
 - **Stores Executive** (`STORES_EXECUTIVE`, between the Officers and the Manager): the same, plus `inventory.review` (change the approved quantities of a pending request before the approval; action `ADJUST_QTY`, audited with a reason) and `inventory.adjust` (stock adjustments: contractor wastage). It has no `inventory.approve`, so it can neither approve nor reject a request.
 - **Stores Manager**: approves (`inventory.approve`), reviews and adjusts at any time, all stores. The **Procurement Officer** may stand in for the Stores Manager at the main store approval gate (eligible role added by migration) and can review/adjust.
 - `inventory.review` is held by every request approver (Area Manager, OSP Manager, Head of OSP, CEO, Stores Manager, Procurement Officer) and the Executive; `inventory.adjust` by the Executive, the Stores Manager and the CEO (and admins).
+- **Review is not approval (same person):** whoever adjusted the quantities of a request (an `ADJUST_QTY` audit entry by that user) cannot pass the approval gate for that same request; another approver (the Manager, or another Executive) must. Enforced in `handleGatePassed` (`SEGREGATION_OF_DUTIES_VIOLATION`).
 
 ### Stores: who does what (final)
 
