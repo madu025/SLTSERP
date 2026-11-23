@@ -102,10 +102,8 @@ export async function deleteStore(id: string) {
 // --- GRN / MRN OPERATIONS ---
 
 export async function createGRN(data: any) {
-    const user = await requirePermission([
-        RBAC_PERMISSIONS.INVENTORY_WRITE,
-        RBAC_PERMISSIONS.PROCUREMENT_WRITE,
-    ]);
+    // goods receipt: the Stores Executive and the Stores Manager only
+    const user = await requirePermission(RBAC_PERMISSIONS.INVENTORY_GRN);
     try {
         const result = await InventoryService.createGRN({
             ...data,

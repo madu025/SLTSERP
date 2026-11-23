@@ -87,7 +87,11 @@ test('Stores: the Executive and the Manager adjust stock, the officers do not; t
     // pages
     assert.ok(visible('STORES_EXECUTIVE').has('/inventory/admin/wastage') && visible('STORES_MANAGER').has('/inventory/admin/wastage'));
     assert.ok(!visible('STORES_ASSISTANT').has('/inventory/admin/wastage'), 'no adjustments page for the officers');
-    for (const p of ['/inventory', '/inventory/requests', '/inventory/grn', '/inventory/issues', '/inventory/admin/returns']) assert.ok(visible('STORES_EXECUTIVE').has(p) && visible('STORES_ASSISTANT').has(p), p);
+    for (const p of ['/inventory', '/inventory/requests', '/inventory/issues', '/inventory/admin/returns']) assert.ok(visible('STORES_EXECUTIVE').has(p) && visible('STORES_ASSISTANT').has(p), p);
+    // goods receipt (GRN): the Executive and the Manager only; the officers raise material requests
+    assert.ok(visible('STORES_EXECUTIVE').has('/inventory/grn') && visible('STORES_MANAGER').has('/inventory/grn'));
+    assert.ok(!visible('STORES_ASSISTANT').has('/inventory/grn'), 'the store officers do not receive goods');
+    assert.ok(g['inventory.grn'].includes('STORES_EXECUTIVE') && g['inventory.grn'].includes('STORES_MANAGER') && !g['inventory.grn'].includes('STORES_ASSISTANT') && !g['inventory.grn'].includes('PROCUREMENT_OFFICER'));
 });
 
 test('the quantities typed on the request page reach the service, and a wastage entry needs the adjust capability', () => {

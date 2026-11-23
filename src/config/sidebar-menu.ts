@@ -380,7 +380,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 level: 'operate',
                 path: '/inventory/grn',
                 icon: Receipt,
-                permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
+                permissionId: RBAC_PERMISSIONS.INVENTORY_GRN, // store operations: shown to store staff, not to roles that only read or approve
             },
             {
                 // Single Unified Hub: Stock Requests + Material Requests + Approvals

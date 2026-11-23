@@ -62,6 +62,8 @@ export const RBAC_PERMISSIONS = {
     INVENTORY_REVIEW: 'inventory.review',
     /** Stock adjustments: record contractor wastage / write-offs. The Stores Executive and the Stores Manager (and above); not the store officers. */
     INVENTORY_ADJUST: 'inventory.adjust',
+    /** Goods receipt (GRN) into a store: the Stores Executive and the Stores Manager only. The store officers raise material requests and do the daily issue work; they do not receive goods. */
+    INVENTORY_GRN: 'inventory.grn',
     FLEET_READ: 'fleet.read',
     FLEET_WRITE: 'fleet.write',
     REPORTS_READ: 'reports.read',
@@ -145,6 +147,7 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.SCOPE_COMPANY_ALL, module: 'SCOPE', action: 'COMPANY_ALL', scope: 'GLOBAL', description: 'See every OPMC in every module, including procurement, contractors and the dashboard (data scope only)' },
     { code: RBAC_PERMISSIONS.INVENTORY_REVIEW, module: 'INVENTORY', action: 'REVIEW', scope: 'OPMC', description: 'Review a material request and adjust its approved quantities before the approval' },
     { code: RBAC_PERMISSIONS.INVENTORY_ADJUST, module: 'INVENTORY', action: 'ADJUST', scope: 'OPMC', description: 'Record stock adjustments (contractor wastage / write-offs)' },
+    { code: RBAC_PERMISSIONS.INVENTORY_GRN, module: 'INVENTORY', action: 'GRN', scope: 'OPMC', description: 'Receive goods into a store (goods receipt note)' },
     { code: RBAC_PERMISSIONS.FLEET_READ, module: 'FLEET', action: 'READ', scope: 'OPMC', description: 'Read fleet, vehicle, trip, and utilization data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.FLEET_WRITE, module: 'FLEET', action: 'WRITE', scope: 'OPMC', description: 'Modify fleet, vehicle, and trip records within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.REPORTS_READ, module: 'REPORTS', action: 'READ', scope: 'OPMC', description: 'Read operational reports within the assigned OPMC scope' },
