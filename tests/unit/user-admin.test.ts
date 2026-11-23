@@ -39,7 +39,7 @@ test('a generated temporary password always passes the policy and is not repeate
 
 test('regional roles need an OPMC; company-wide, contractor and admin roles do not', () => {
     for (const r of ['ENGINEER', 'AREA_MANAGER', 'QC_OFFICER', 'AREA_COORDINATOR', 'SA_MANAGER', 'MANAGER']) assert.ok(roleNeedsOpmc(r), r);
-    for (const r of ['SUPER_ADMIN', 'ADMIN', 'CEO', 'FINANCE_MANAGER', 'SF_AUDIT_OFFICER', 'CONTRACTOR_FINANCE', 'STORES_MANAGER']) assert.ok(!roleNeedsOpmc(r), r);
+    for (const r of ['SUPER_ADMIN', 'ADMIN', 'CEO', 'OSP_MANAGER', 'FINANCE_MANAGER', 'SF_AUDIT_OFFICER', 'CONTRACTOR_FINANCE', 'STORES_MANAGER']) assert.ok(!roleNeedsOpmc(r), r);
     assert.ok(roleNeedsStoreOrOpmc('STORES_ASSISTANT') && !roleNeedsStoreOrOpmc('ENGINEER'));
     const all = Object.values(ROLE_CATEGORIES).flat();
     for (const r of OPMC_REQUIRED_ROLES) assert.ok(all.includes(r), `${r} is a known role`);

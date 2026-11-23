@@ -33,7 +33,7 @@ export function isActiveStatus(value: string | null | undefined): boolean {
  * management, finance, invoice, SF audit, procurement) and contractor users are not listed.
  */
 export const OPMC_REQUIRED_ROLES: readonly string[] = [
-    'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 'OSP_ENGINEER',
+    'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 'OSP_ENGINEER',
     'CIVIL_SUPERVISOR', 'CABLE_SPLICER', 'MANAGER', 'SA_MANAGER', 'SA_ASSISTANT', 'FAULT_COORDINATOR', 'REPAIR_TECHNICIAN',
     'SITE_OFFICE_STAFF', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT',
 ];
