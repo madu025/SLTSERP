@@ -68,7 +68,7 @@ export interface StoreProp {
   name: string;
 }
 
-interface DesignationOption { section: { id: string; code: string; name: string }; roles: Array<{ id: string; code: string; name: string }> }
+interface DesignationOption { section: { id: string; code: string; name: string }; roles: Array<{ id: string; code: string; name: string; forRole: string | null }> }
 interface FormOptions { roles: string[]; baseAvailable: string[]; designations: DesignationOption[]; opmcRequiredRoles: string[]; categories: Record<string, string[]> }
 
 export type DesignationPick = { sectionId: string; roleId: string; isPrimary: boolean };
@@ -500,12 +500,13 @@ export function UserFormDrawer({
                           {isEdit
                             ? 'Change these only to give or take away a module level. Left alone, they stay as they are.'
                             : 'Leave empty to add the usual designation for the chosen role automatically.'}
+                          {' '}Only designations that fit the chosen role are listed.
                           {isEdit && watchedRole && initialData && watchedRole !== initialData.role && !designationsTouched && (
                             <strong className="block mt-1 text-amber-900">The role is changing: only the old role&apos;s usual designation is swapped for the new one. Every other designation below stays.</strong>
                           )}
                         </p>
                         <div className="space-y-2 rounded-xl border border-slate-300 bg-white p-3">
-                          {options!.designations.map((d) => (
+                          {options!.designations.map((d) => ({ ...d, roles: d.roles.filter((r) => !r.forRole || r.forRole === watchedRole) })).filter((d) => d.roles.length > 0).map((d) => (
                             <div key={d.section.id} className="flex items-center justify-between gap-3">
                               <span className="text-xs font-semibold text-slate-800 w-40 truncate" title={d.section.name}>{d.section.name}</span>
                               <select

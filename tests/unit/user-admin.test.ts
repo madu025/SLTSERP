@@ -102,3 +102,15 @@ test('a role change keeps the other designations, and an admin-capable designati
     assert.ok(!/if \(roleChanged\) designations = /.test(svc), 'a role change no longer wipes every designation');
     assert.ok(svc.includes('callerCanGrantAdmin') && svc.includes('RBAC_PERMISSIONS.ADMIN_RBAC'), 'an administrator designation is only assignable by a Super Admin');
 });
+
+test('a designation fits only its own base role (SECTION_ROLE), or no role at all', async () => {
+    const { designationRoleOf, designationFitsRole } = await import('../../src/config/user-admin');
+    const roles = Object.values(ROLE_CATEGORIES).flat();
+    assert.equal(designationRoleOf('PROJECTS_ENGINEER', 'PROJECTS', roles), 'ENGINEER');
+    assert.equal(designationRoleOf('PROJECTS_ASSISTANT_ENGINEER', 'PROJECTS', roles), 'ASSISTANT_ENGINEER');
+    assert.equal(designationRoleOf('REGIONAL_GENERAL_MANAGER', 'EXECUTIVE', roles), null);
+    assert.ok(designationFitsRole('PROJECTS_ENGINEER', 'PROJECTS', 'ENGINEER', roles));
+    assert.ok(!designationFitsRole('PROJECTS_ENGINEER', 'PROJECTS', 'FINANCE_ASSISTANT', roles));
+    assert.ok(!designationFitsRole('PROJECTS_ENGINEER', 'PROJECTS', 'ASSISTANT_ENGINEER', roles));
+    assert.ok(designationFitsRole('REGIONAL_GENERAL_MANAGER', 'EXECUTIVE', 'FINANCE_ASSISTANT', roles));
+});

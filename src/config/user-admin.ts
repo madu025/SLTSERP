@@ -91,6 +91,23 @@ export function generateTemporaryPassword(length = 12): string {
     return chars.join('');
 }
 
+/**
+ * The base role a module designation belongs to: its code is SECTION_ROLE (PROJECTS_ENGINEER belongs to ENGINEER, PROJECTS_ASSISTANT_ENGINEER to
+ * ASSISTANT_ENGINEER). A designation that is not of that form (REGIONAL_GENERAL_MANAGER) belongs to no role and suits anyone.
+ * A person may only hold the designations of their own base role, or those of no role: a Finance Assistant cannot be made a Projects Engineer.
+ */
+export function designationRoleOf(code: string, sectionCode: string, roles: readonly string[]): string | null {
+    const prefix = sectionCode + '_';
+    if (!code.startsWith(prefix)) return null;
+    const rest = code.slice(prefix.length);
+    return roles.includes(rest) ? rest : null;
+}
+
+export function designationFitsRole(code: string, sectionCode: string, baseRole: string, roles: readonly string[]): boolean {
+    const owner = designationRoleOf(code, sectionCode, roles);
+    return owner === null || owner === baseRole;
+}
+
 /** Section/designation roles (module designations) are the SystemRoles whose code is not a base Role value. */
 export function isQaLeftoverRole(code: string): boolean {
     return /^QA\d+_/.test(code);

@@ -12,7 +12,7 @@ import { SystemService } from '@/services/core/system.service';
 import { EmailService } from '@/services/notification/email.service';
 import { NotificationTemplateEngineService } from '@/services/notification/template-engine.service';
 import {
-    CONTRACTOR_LOGIN_ROLES, USER_STATUSES, USER_DEPARTMENTS, departmentRoles, normalizeUserStatus, passwordProblem, roleNeedsOpmc, roleNeedsStoreOrOpmc, isQaLeftoverRole,
+    CONTRACTOR_LOGIN_ROLES, designationFitsRole, designationRoleOf, USER_STATUSES, USER_DEPARTMENTS, departmentRoles, normalizeUserStatus, passwordProblem, roleNeedsOpmc, roleNeedsStoreOrOpmc, isQaLeftoverRole,
 } from '@/config/user-admin';
 
 /**
@@ -88,15 +88,19 @@ async function assertReferences(tx: Tx, data: { opmcIds?: string[]; supervisorId
 }
 
 /** Designations the administrator may pick: SystemRoles that belong to a section and are not a base role. */
-async function validatedDesignations(tx: Tx, input: DesignationInput[], callerId: string) {
+async function validatedDesignations(tx: Tx, input: DesignationInput[], callerId: string, baseRole: string) {
+    const enumRoles = (await prisma.$queryRawUnsafe<Array<{ role: string }>>('SELECT unnest(enum_range(NULL::"Role")) AS role')).map((r) => r.role);
     const callerCanGrantAdmin = (await getUserEffectivePermissions(callerId)).includes(RBAC_PERMISSIONS.ADMIN_SUPER);
     const out: Array<{ sectionId: string; roleId: string; isPrimary: boolean }> = [];
     const seen = new Set<string>();
     for (const d of input) {
         if (seen.has(d.sectionId)) throw AppError.badRequest('DUPLICATE_SECTION', { message: 'A user can hold one designation per section.' });
         seen.add(d.sectionId);
-        const role = await tx.systemRole.findUnique({ where: { id: d.roleId }, select: { id: true, code: true, sectionId: true, isActive: true, permissions: true, rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } } } });
+        const role = await tx.systemRole.findUnique({ where: { id: d.roleId }, select: { id: true, code: true, sectionId: true, isActive: true, permissions: true, section: { select: { code: true } }, rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } } } });
         if (!role || !role.isActive || role.sectionId !== d.sectionId) throw AppError.badRequest('INVALID_DESIGNATION', { message: 'A selected designation does not belong to the chosen section.' });
+        if (!designationFitsRole(role.code, role.section?.code ?? '', baseRole, enumRoles)) {
+            throw AppError.badRequest('DESIGNATION_ROLE_MISMATCH', { message: `The ${role.code.replace(/_/g, ' ')} designation belongs to ${designationRoleOf(role.code, role.section?.code ?? '', enumRoles)?.replace(/_/g, ' ')}, not ${baseRole.replace(/_/g, ' ')}. Change the role first, or pick a designation that fits it.` });
+        }
         // a designation that carries the administrator capability would turn any staff user into an administrator: only a Super Admin may hand it out
         const grants = deriveEffectivePermissions({ systemRole: role });
         if ((grants.includes(RBAC_PERMISSIONS.ADMIN_RBAC) || grants.includes(RBAC_PERMISSIONS.ADMIN_SUPER)) && !callerCanGrantAdmin) {
@@ -210,7 +214,7 @@ export class UserAdminService {
         const baseAvailable = enumRoles.filter((r) => codes.has(r) || codes.has(`${r}_GLOBAL`));
         const designations = sections.map((s) => ({
             section: s,
-            roles: systemRoles.filter((r) => r.sectionId === s.id && !enumRoles.includes(r.code) && !isQaLeftoverRole(r.code)).map((r) => ({ id: r.id, code: r.code, name: r.name })),
+            roles: systemRoles.filter((r) => r.sectionId === s.id && !enumRoles.includes(r.code) && !isQaLeftoverRole(r.code)).map((r) => ({ id: r.id, code: r.code, name: r.name, forRole: designationRoleOf(r.code, s.code, enumRoles) })),
         })).filter((s) => s.roles.length > 0);
         return { roles: enumRoles, baseAvailable, designations };
     }
@@ -237,7 +241,7 @@ export class UserAdminService {
         const result = await prisma.$transaction(async (tx) => {
             await assertReferences(tx, data);
             const base = await resolveBaseRole(tx, role);
-            const designations = data.designations ? await validatedDesignations(tx, data.designations, currentUserId) : await usualDesignations(tx, role);
+            const designations = data.designations ? await validatedDesignations(tx, data.designations, currentUserId, role) : await usualDesignations(tx, role);
 
             let staffId: string | undefined;
             if (employeeId) {
@@ -313,7 +317,7 @@ export class UserAdminService {
             // designations: replaced when the form sends them. A role change without a choice swaps only the OLD role's usual designations
             // for the new role's; every other designation the person holds (Fleet, Inventory, a second section...) is kept.
             if (data.designations) {
-                const designations = await validatedDesignations(tx, data.designations, currentUserId);
+                const designations = await validatedDesignations(tx, data.designations, currentUserId, role);
                 await tx.userSectionAssignment.deleteMany({ where: { userId: id } });
                 if (designations.length) await tx.userSectionAssignment.createMany({ data: designations.map((d) => ({ ...d, userId: id })) });
             } else if (roleChanged) {
