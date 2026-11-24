@@ -273,7 +273,7 @@ export default function DashboardPage() {
                 signal.removeEventListener('abort', abortFromQuery);
             }
         },
-        enabled: !!user?.id && !isOperationsStats,
+        enabled: !!user?.id && !isOperationsStats && canViewOperations, // the metadata route needs sod.read; the finance roles have none and got an error page instead of their dashboard
         staleTime: 15 * 60 * 1000,
         gcTime: 30 * 60 * 1000,
         retry: (failureCount, requestError) => {
