@@ -2,12 +2,14 @@ import type { TransactionClient } from '@/types/inventory/inventory-service.type
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
-import { assertAreaManagerApproves, assertSiteOfficeAccess, siteOfficeCode, siteOfficeScope } from '@/lib/site-office-access';
+import { assertAreaManagerApproves, assertSiteOfficeAccess, isCustodian, siteOfficeCode, siteOfficeScope } from '@/lib/site-office-access';
+import { userHasPermission } from '@/lib/user-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { NotificationService } from '@/services/notification';
 import { ACCOUNTS } from '@/services/finance/account-codes';
 import { LedgerService } from '@/services/finance/ledger.service';
 import {
-    FLOAT_TYPES, checkIssue, checkSettlement, daysOutstanding, floatAvailable, iouOutstanding, settlementPosting, settlementStatus,
+    FLOAT_TYPES, checkIssue, checkSettlement, checkSettlementSubmission, daysOutstanding, floatAvailable, iouOutstanding, settlementPosting, settlementStatus,
 } from '@/lib/osp-float-rules';
 import { checkDraw, checkRefundIntoBox } from '@/lib/petty-cash-rules';
 
@@ -174,7 +176,11 @@ export class OspFloatService {
             if (legacy !== undefined && (!header.opmcId || !legacy.includes(header.opmcId))) throw AppError.forbidden('OPMC_SCOPE_VIOLATION: this IOU is outside your area');
         }
 
-        return prisma.$transaction(async (tx) => {
+        return prisma.$transaction((tx) => this.applyInTx(tx, userId, iouId, input, amount, date, {}), { maxWait: 10_000, timeout: 30_000 });
+    }
+
+    /** One entry of a settlement, inside the caller's transaction. The maker is who handed the bills in, the user is who books it. */
+    private static async applyInTx(tx: TransactionClient, userId: string, iouId: string, input: SettlementInput, amount: number, date: Date, extra: { makerId?: string; receiptUrl?: string | null }) {
             // one settlement at a time per IOU: the outstanding amount is read under the lock
             await tx.$queryRaw`SELECT "id" FROM "OspPettyCashIou" WHERE "id" = ${iouId}::uuid FOR UPDATE`;
             const iou = await tx.ospPettyCashIou.findUniqueOrThrow({ where: { id: iouId } });
@@ -184,7 +190,7 @@ export class OspFloatService {
             const verdict = checkSettlement({ kind: input.kind, amount, outstanding, iouStatus: iou.status });
             if (!verdict.ok) throw AppError.badRequest(`${verdict.reason}: ${verdict.message}`);
 
-            const row = await tx.ospIouSettlement.create({ data: { iouId, kind: input.kind, amount, reference: input.reference?.trim() || null, settleDate: date, remarks: input.remarks?.trim() || null, recordedById: userId } });
+            const row = await tx.ospIouSettlement.create({ data: { iouId, kind: input.kind, amount, reference: input.reference?.trim() || null, settleDate: date, remarks: input.remarks?.trim() || null, recordedById: extra.makerId ?? userId } });
 
             if (input.kind === 'BILLS' || input.kind === 'REFUND') {
                 // an IOU drawn from a petty cash box settles through the box: bills become an approved bill of the box (the cash left when the IOU was issued),
@@ -203,7 +209,7 @@ export class OspFloatService {
                             data: {
                                 accountId: boxId, voucherNumber: `PCV-${code}-${date.getFullYear()}-I${row.id.replace(/-/g, '').slice(-8).toUpperCase()}`,
                                 date, title: `Bills of IOU ${iou.iouNumber} (${iou.staffName})`, description: input.reference?.trim() || null, amount, category: 'IOU settlement',
-                                status: 'APPROVED', recipientName: iou.staffName, iouId: iou.id, createdById: userId, approvedAt: new Date(),
+                                status: 'APPROVED', recipientName: iou.staffName, iouId: iou.id, createdById: extra.makerId ?? userId, approvedAt: new Date(), receiptUrl: extra.receiptUrl ?? null,
                             },
                         });
                     }
@@ -224,6 +230,66 @@ export class OspFloatService {
                 await tx.ospPettyCashIou.update({ where: { id: iouId }, data: { settledAmount: Math.round((num(iou.amount) - now) * 100) / 100, settlementStatus: status, settledAt: status === 'SETTLED' ? new Date() : null } });
             }
             return row;
-        }, { maxWait: 10_000, timeout: 30_000 });
+    }
+
+    /** What a person with the IOU still has to settle, and the settlement waiting for the Area Manager. */
+    private static async openSubmission(iouId: string) {
+        return prisma.ospIouSettlementSubmission.findFirst({ where: { iouId, status: 'SUBMITTED' } });
+    }
+
+    /**
+     * The custodian settles an issued IOU of the box: the bills handed in and the cash returned. Nothing is booked yet; the Area Manager of the site office
+     * verifies it (against the bills), and only then do the balance and the ledger change.
+     */
+    static async submitSettlement(userId: string, iouId: string, input: { bills?: number; refund?: number; reference?: string | null; receiptUrl?: string | null; remarks?: string | null }) {
+        const iou = await prisma.ospPettyCashIou.findUnique({ where: { id: iouId } });
+        if (!iou) throw AppError.notFound('IOU_NOT_FOUND');
+        if (!iou.pettyCashAccountId) throw AppError.badRequest('NOT_A_BOX_IOU: this IOU did not come from a site office box; the finance people settle it');
+        const box = await prisma.pettyCashAccount.findUnique({ where: { id: iou.pettyCashAccountId }, select: { id: true, siteOfficeId: true } });
+        if (!box?.siteOfficeId) throw AppError.badRequest('NOT_A_BOX_IOU');
+        await assertSiteOfficeAccess(userId, box.siteOfficeId);
+        const custodian = await isCustodian(userId, box.id);
+        if (!custodian && !(await userHasPermission(userId, RBAC_PERMISSIONS.FINANCE_WRITE))) throw AppError.forbidden('NOT_A_CUSTODIAN: you do not look after the petty cash of this site office');
+        const bills = Math.round((input.bills ?? 0) * 100) / 100;
+        const refund = Math.round((input.refund ?? 0) * 100) / 100;
+        const settled = (await prisma.ospIouSettlement.findMany({ where: { iouId } })).map((r) => ({ kind: r.kind, amount: num(r.amount) }));
+        const verdict = checkSettlementSubmission({ iouStatus: iou.status, outstanding: iouOutstanding(num(iou.amount), settled), bills, refund, hasWaiting: !!(await this.openSubmission(iouId)) });
+        if (!verdict.ok) throw AppError.badRequest(`${verdict.reason}: ${verdict.message}`);
+        const row = await prisma.ospIouSettlementSubmission.create({ data: { iouId, billsAmount: bills, refundAmount: refund, reference: input.reference?.trim() || null, receiptUrl: input.receiptUrl || null, remarks: input.remarks?.trim() || null, submittedById: userId } });
+        try {
+            const store = await prisma.inventoryStore.findUnique({ where: { id: box.siteOfficeId }, select: { areaManagerId: true, name: true } });
+            if (store?.areaManagerId) await NotificationService.send({ userId: store.areaManagerId, title: 'Petty cash settlement waiting for your verification', message: `IOU ${iou.iouNumber} (${iou.staffName}): bills Rs. ${bills.toFixed(2)}, cash returned Rs. ${refund.toFixed(2)} (${store.name})`, type: 'FINANCE', priority: 'MEDIUM', link: '/petty-cash' });
+        } catch { /* a missed notice never undoes the work */ }
+        return row;
+    }
+
+    /** The Area Manager of the site office verifies the settlement (the bills and the cash returned are booked together), or sends it back with a reason. */
+    static async decideSettlement(userId: string, submissionId: string, action: 'VERIFY' | 'REJECT', reason?: string | null) {
+        const sub = await prisma.ospIouSettlementSubmission.findUnique({ where: { id: submissionId } });
+        if (!sub) throw AppError.notFound('SETTLEMENT_NOT_FOUND');
+        if (sub.status !== 'SUBMITTED') throw AppError.badRequest(`INVALID_STATE: this settlement is already ${sub.status.toLowerCase()}`);
+        const iou = await prisma.ospPettyCashIou.findUniqueOrThrow({ where: { id: sub.iouId } });
+        const box = iou.pettyCashAccountId ? await prisma.pettyCashAccount.findUnique({ where: { id: iou.pettyCashAccountId }, select: { siteOfficeId: true } }) : null;
+        if (!box?.siteOfficeId) throw AppError.badRequest('NOT_A_BOX_IOU');
+        // who may decide is settled before the transaction opens; the person who handed the bills in never verifies them
+        await assertAreaManagerApproves(userId, box.siteOfficeId, sub.submittedById);
+        if (action === 'REJECT') {
+            if (!reason || reason.trim().length < 3) throw AppError.badRequest('A reason is required to send the settlement back');
+            const claimed = await prisma.ospIouSettlementSubmission.updateMany({ where: { id: submissionId, status: 'SUBMITTED' }, data: { status: 'REJECTED', decidedById: userId, decidedAt: new Date(), rejectionReason: reason.trim() } });
+            if (claimed.count !== 1) throw AppError.conflict('SETTLEMENT_ALREADY_DECIDED');
+        } else {
+            const date = new Date();
+            await prisma.$transaction(async (tx) => {
+                const claimed = await tx.ospIouSettlementSubmission.updateMany({ where: { id: submissionId, status: 'SUBMITTED' }, data: { status: 'VERIFIED', decidedById: userId, decidedAt: date } });
+                if (claimed.count !== 1) throw AppError.conflict('SETTLEMENT_ALREADY_DECIDED');
+                const maker = sub.submittedById ?? undefined;
+                if (num(sub.billsAmount) > 0) await this.applyInTx(tx, userId, sub.iouId, { kind: 'BILLS', amount: num(sub.billsAmount), reference: sub.reference, remarks: sub.remarks, settleDate: date }, num(sub.billsAmount), date, { makerId: maker, receiptUrl: sub.receiptUrl });
+                if (num(sub.refundAmount) > 0) await this.applyInTx(tx, userId, sub.iouId, { kind: 'REFUND', amount: num(sub.refundAmount), reference: sub.reference, remarks: sub.remarks, settleDate: date }, num(sub.refundAmount), date, { makerId: maker });
+            }, { maxWait: 10_000, timeout: 60_000 });
+        }
+        try {
+            if (sub.submittedById) await NotificationService.send({ userId: sub.submittedById, title: action === 'VERIFY' ? 'Petty cash settlement verified' : 'Petty cash settlement sent back', message: action === 'VERIFY' ? `IOU ${iou.iouNumber}: bills Rs. ${num(sub.billsAmount).toFixed(2)} and cash returned Rs. ${num(sub.refundAmount).toFixed(2)} were verified.` : `IOU ${iou.iouNumber}: ${reason?.trim()}`, type: 'FINANCE', priority: 'MEDIUM', link: '/petty-cash' });
+        } catch { /* a missed notice never undoes the work */ }
+        return prisma.ospIouSettlementSubmission.findUniqueOrThrow({ where: { id: submissionId } });
     }
 }

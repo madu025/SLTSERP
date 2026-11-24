@@ -150,6 +150,36 @@ async function main() {
         await prisma.pettyCashCustodian.deleteMany({ where: { accountId: box2.id } }).catch(() => undefined);
         await prisma.pettyCashAccount.delete({ where: { id: box2.id } }).catch(() => undefined);
         await prisma.inventoryStore.delete({ where: { id: office2.id } }).catch(() => undefined);
+
+        // ---------- 8. the custodian releases cash to a person and settles it; the Area Manager verifies ----------
+        const r1: any = await PettyCashService.requestRelease(boxId, custodian, { staffName: 'ZZTEST Person C', amount: 5000, reason: 'Site visit', iouNumber: `${TAG}-R1` });
+        iouIds.push(r1.id);
+        check('8 the custodian asks for Rs. 5,000; it waits for the Area Manager', r1.status === 'PENDING');
+        check('8 a person outside the box cannot ask for cash', !!(await refused(() => PettyCashService.requestRelease(boxId, outsider, { staffName: 'x', amount: 10, reason: 'x' }))));
+        { const m = await refused(() => OSPAccountCrudService.approveIOU(r1.id, custodian)); check('8 the custodian cannot approve their own request', /NOT_THE_AREA_MANAGER|MAKER_CANNOT|SEGREGATION_OF_DUTIES/.test(m), m); }
+        check('8 the Finance Manager has no step in it', /NOT_THE_AREA_MANAGER/.test(await refused(() => OSPAccountCrudService.approveIOU(r1.id, fm))));
+        await OSPAccountCrudService.approveIOU(r1.id, arm);
+        s = await summary();
+        check('8 Rs. 5,000 leaves the box: Rs. 95,000 in hand, Rs. 5,000 out, adds up', s.cashInHand === 95000 && s.iouOut === 5000 && s.unaccounted === 0, JSON.stringify({ c: s.cashInHand, o: s.iouOut, u: s.unaccounted }));
+        check('8 settling nothing is refused', /NOTHING_TO_SETTLE/.test(await refused(() => OspFloatService.submitSettlement(custodian, r1.id, {}))));
+        check('8 bills and cash together above Rs. 5,000 are refused (extra spend is a separate bill)', /EXCEEDS_OUTSTANDING/.test(await refused(() => OspFloatService.submitSettlement(custodian, r1.id, { bills: 4000, refund: 2000 }))));
+        check('8 a person outside the box cannot settle', !!(await refused(() => OspFloatService.submitSettlement(outsider, r1.id, { bills: 3000, refund: 2000 }))));
+        const sub: any = await OspFloatService.submitSettlement(custodian, r1.id, { bills: 3000, refund: 2000, reference: 'BILL-R1', receiptUrl: '/api/storage/documents/zztest-r1.jpg' });
+        s = await summary();
+        check('8 nothing is booked until the Area Manager verifies: still Rs. 95,000 in hand and Rs. 5,000 out', s.cashInHand === 95000 && s.iouOut === 5000 && s.unaccounted === 0, JSON.stringify({ c: s.cashInHand, o: s.iouOut }));
+        check('8 a second settlement while one waits is refused', /ALREADY_WAITING/.test(await refused(() => OspFloatService.submitSettlement(custodian, r1.id, { bills: 100 }))));
+        const waiting = (await PettyCashService.getBoxIous(boxId, custodian) as any[]).find((x) => x.id === r1.id);
+        check('8 the box list shows the settlement that waits', waiting?.pendingSettlement?.bills === 3000 && waiting?.pendingSettlement?.refund === 2000);
+        check('8 the custodian cannot verify their own settlement', /NOT_THE_AREA_MANAGER|MAKER_CANNOT/.test(await refused(() => OspFloatService.decideSettlement(custodian, sub.id, 'VERIFY'))));
+        check('8 the Finance Manager does not verify it', /NOT_THE_AREA_MANAGER/.test(await refused(() => OspFloatService.decideSettlement(fm, sub.id, 'VERIFY'))));
+        await OspFloatService.decideSettlement(arm, sub.id, 'REJECT', 'Bill is not readable');
+        check('8 sent back with a reason: still nothing booked', (await summary()).iouOut === 5000 && (await prisma.ospIouSettlementSubmission.findUniqueOrThrow({ where: { id: sub.id } })).status === 'REJECTED');
+        const sub2: any = await OspFloatService.submitSettlement(custodian, r1.id, { bills: 3000, refund: 2000, reference: 'BILL-R1' });
+        await OspFloatService.decideSettlement(arm, sub2.id, 'VERIFY');
+        s = await summary();
+        check('8 verified: bill Rs. 3,000 waits, Rs. 2,000 back in hand (97,000), nothing out, adds up', s.cashInHand === 97000 && s.billsWaiting === 3000 && s.iouOut === 0 && s.unaccounted === 0, JSON.stringify({ c: s.cashInHand, b: s.billsWaiting, o: s.iouOut, u: s.unaccounted }));
+        check('8 a verified settlement cannot be decided twice', /INVALID_STATE/.test(await refused(() => OspFloatService.decideSettlement(arm, sub2.id, 'VERIFY'))));
+        check('8 the IOU is settled', (await prisma.ospPettyCashIou.findUniqueOrThrow({ where: { id: r1.id } })).settlementStatus === 'SETTLED');
     } finally {
         // ---------- cleanup ----------
         if (boxId) {
@@ -158,7 +188,7 @@ async function main() {
             await prisma.hoFundingRequest.deleteMany({ where: { OR: [{ id: { in: fundingIds } }, { pettyCashAccountId: boxId }] } }).catch(() => undefined);
             await prisma.pettyCashReimbursement.deleteMany({ where: { accountId: boxId } }).catch(() => undefined);
         }
-        if (iouIds.length) { await prisma.ospIouSettlement.deleteMany({ where: { iouId: { in: iouIds } } }).catch(() => undefined); await prisma.ospPettyCashIou.deleteMany({ where: { id: { in: iouIds } } }).catch(() => undefined); }
+        if (iouIds.length) { await prisma.ospIouSettlementSubmission.deleteMany({ where: { iouId: { in: iouIds } } }).catch(() => undefined); await prisma.ospIouSettlement.deleteMany({ where: { iouId: { in: iouIds } } }).catch(() => undefined); await prisma.ospPettyCashIou.deleteMany({ where: { id: { in: iouIds } } }).catch(() => undefined); }
         if (floatId) await prisma.ospFloat.delete({ where: { id: floatId } }).catch(() => undefined);
         if (boxId) await prisma.pettyCashAccount.delete({ where: { id: boxId } }).catch((e) => console.log('box not deleted:', String(e).slice(0, 120)));
         for (const sid of [office.id, transitId].filter(Boolean)) await prisma.inventoryStore.delete({ where: { id: sid } }).catch(() => prisma.inventoryStore.update({ where: { id: sid }, data: { type: 'SUB', name: `ZZTEST (closed) ${sid.slice(-6)}` } }).catch(() => undefined));

@@ -82,3 +82,21 @@ export function settlementPosting(kind: 'BILLS' | 'REFUND', floatType: string, f
     if (kind === 'REFUND') return { debit: fromBox ? 'PETTY_CASH' : 'BANK', credit: 'ADVANCES' };
     return { debit: floatType === 'PETTY_CASH' ? 'EXPENSE_PETTY' : 'EXPENSE_OSP', credit: 'ADVANCES' };
 }
+
+export type SubmissionCheck = { ok: true } | { ok: false; reason: 'NOTHING_TO_SETTLE' | 'INVALID_AMOUNT' | 'EXCEEDS_OUTSTANDING' | 'ALREADY_WAITING' | 'IOU_NOT_ISSUED'; message: string };
+
+/**
+ * The custodian settles an issued IOU with the bills handed in and the cash returned. Together they cannot be more than what is outstanding: if the person
+ * spent more than they were given, the extra is a separate bill (approved by the Area Manager), not part of the settlement.
+ */
+export function checkSettlementSubmission(input: { iouStatus: string; outstanding: number; bills: number; refund: number; hasWaiting: boolean }): SubmissionCheck {
+    if (input.iouStatus !== 'APPROVED') return { ok: false, reason: 'IOU_NOT_ISSUED', message: 'Only an issued IOU can be settled' };
+    if (!(input.bills >= 0) || !(input.refund >= 0)) return { ok: false, reason: 'INVALID_AMOUNT', message: 'The amounts cannot be negative' };
+    if (!(input.bills + input.refund > 0)) return { ok: false, reason: 'NOTHING_TO_SETTLE', message: 'Enter the bills handed in, the cash returned, or both' };
+    if (input.hasWaiting) return { ok: false, reason: 'ALREADY_WAITING', message: 'A settlement of this IOU is already waiting for the Area Manager' };
+    const total = Math.round((input.bills + input.refund) * 100) / 100;
+    if (total > input.outstanding + 0.005) {
+        return { ok: false, reason: 'EXCEEDS_OUTSTANDING', message: `Bills and cash returned come to Rs. ${total.toFixed(2)}, but only Rs. ${input.outstanding.toFixed(2)} is outstanding. If more was spent than was given, record the extra as a separate bill` };
+    }
+    return { ok: true };
+}

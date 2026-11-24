@@ -64,3 +64,19 @@ test('bills are an expense by float type, a refund returns the cash', () => {
     assert.deepEqual(settlementPosting('REFUND', 'PETTY_CASH'), { debit: 'BANK', credit: 'ADVANCES' });
     assert.deepEqual(settlementPosting('REFUND', 'PETTY_CASH', true), { debit: 'PETTY_CASH', credit: 'ADVANCES' });
 });
+
+test('the settlement of 5,000 given: bills 3,000 and 2,000 returned settle it; more than the outstanding is refused; an extra spend is a separate bill', async () => {
+    const { checkSettlementSubmission } = await import('../../src/lib/osp-float-rules');
+    const base = { iouStatus: 'APPROVED', outstanding: 5000, hasWaiting: false };
+    assert.equal(checkSettlementSubmission({ ...base, bills: 3000, refund: 2000 }).ok, true);
+    assert.equal(checkSettlementSubmission({ ...base, bills: 3000, refund: 0 }).ok, true, 'part now, the rest later');
+    const over = checkSettlementSubmission({ ...base, bills: 6000, refund: 0 });
+    assert.equal(!over.ok && over.reason, 'EXCEEDS_OUTSTANDING');
+    assert.match(!over.ok ? over.message : '', /separate bill/);
+    assert.equal(!checkSettlementSubmission({ ...base, bills: 3000, refund: 2500 }).ok, true);
+    assert.equal(!checkSettlementSubmission({ ...base, bills: 0, refund: 0 }).ok, true);
+    assert.equal(!checkSettlementSubmission({ ...base, bills: -1, refund: 2 }).ok, true);
+    const waiting = checkSettlementSubmission({ ...base, bills: 1000, refund: 0, hasWaiting: true });
+    assert.equal(!waiting.ok && waiting.reason, 'ALREADY_WAITING');
+    assert.equal(!checkSettlementSubmission({ ...base, iouStatus: 'PENDING', bills: 1, refund: 0 }).ok, true);
+});

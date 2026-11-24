@@ -8,6 +8,7 @@ import { assertAreaManagerApproves, assertSiteOfficeAccess, isCustodian, siteOff
 import { userHasPermission } from '@/lib/user-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { NotificationService } from '@/services/notification';
+import { OSPAccountCrudService } from '@/services/finance/osp-account-crud.service';
 
 /** Petty cash belongs to a site office; a box made before site offices still belongs to its OPMC. */
 async function assertPettyCashOpmcAccess(actorId: string | null | undefined, opmcId: string | null | undefined) {
@@ -227,6 +228,31 @@ export class PettyCashService {
     });
   }
 
+  /**
+   * Cash for a person (an IOU): the custodian asks for it, with the person and the reason; the Area Manager of the site office approves, and then the cash
+   * leaves the box. A site office's petty cash float (the limit IOUs are issued against) is made with the box when it is not there yet.
+   */
+  static async requestRelease(accountId: string, actorId: string, input: { staffName: string; amount: number; reason?: string | null; iouNumber?: string | null }) {
+    const account = await prisma.pettyCashAccount.findUnique({ where: { id: accountId }, select: { id: true, name: true, siteOfficeId: true, opmcId: true, status: true, imprestLimit: true } });
+    if (!account || !account.siteOfficeId) throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_FOUND');
+    await assertBoxAccess(actorId, account);
+    await assertCanOperateBox(actorId, account);
+    if (account.status !== 'ACTIVE') throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_ACTIVE');
+    const staffName = input.staffName.trim();
+    if (staffName.length < 2) throw AppError.badRequest('PERSON_REQUIRED: name the person the cash is for');
+    if (!(input.amount > 0)) throw AppError.badRequest('INVALID_AMOUNT');
+    let float = await prisma.ospFloat.findFirst({ where: { siteOfficeId: account.siteOfficeId, type: 'PETTY_CASH' } });
+    if (!float) float = await prisma.ospFloat.create({ data: { siteOfficeId: account.siteOfficeId, type: 'PETTY_CASH', name: account.name, limitAmount: account.imprestLimit, maxDaysOutstanding: 30, createdById: actorId } });
+    const store = await prisma.inventoryStore.findUnique({ where: { id: account.siteOfficeId }, select: { name: true } });
+    const year = new Date().getFullYear();
+    let iouNumber = input.iouNumber?.trim();
+    if (!iouNumber) {
+      const count = await prisma.ospPettyCashIou.count({ where: { siteOfficeId: account.siteOfficeId, createdAt: { gte: new Date(`${year}-01-01`), lt: new Date(`${year + 1}-01-01`) } } });
+      iouNumber = `IOU-${siteOfficeCode(store?.name ?? 'SITE')}-${year}-${String(count + 1).padStart(4, '0')}`;
+    }
+    return OSPAccountCrudService.createIOU({ iouNumber, staffName, amount: input.amount, siteOfficeId: account.siteOfficeId, floatId: float.id, issuedDate: new Date(), reason: input.reason?.trim() || undefined }, actorId);
+  }
+
   /** The IOUs of a site office box: what was asked, what is out, what is settled. */
   static async getBoxIous(accountId: string, actorId: string) {
     const account = await prisma.pettyCashAccount.findUnique({ where: { id: accountId }, select: { id: true, siteOfficeId: true, opmcId: true } });
@@ -235,7 +261,18 @@ export class PettyCashService {
     if (!account.siteOfficeId) return [];
     const floats = await prisma.ospFloat.findMany({ where: { siteOfficeId: account.siteOfficeId, type: 'PETTY_CASH' }, select: { id: true } });
     const ious = await prisma.ospPettyCashIou.findMany({ where: { floatId: { in: floats.map((f) => f.id) } }, orderBy: { createdAt: 'desc' }, take: 200 });
-    return ious.map((i) => ({ id: i.id, iouNumber: i.iouNumber, staffName: i.staffName, amount: Number(i.amount), reason: i.reason, status: i.status, settledAmount: Number(i.settledAmount), outstanding: i.status === 'APPROVED' ? Math.max(0, Number(i.amount) - Number(i.settledAmount)) : 0, createdById: i.createdById, createdAt: i.createdAt }));
+    const subs = ious.length ? await prisma.ospIouSettlementSubmission.findMany({ where: { iouId: { in: ious.map((i) => i.id) } }, orderBy: { createdAt: 'desc' } }) : [];
+    return ious.map((i) => {
+      const mine = subs.filter((x) => x.iouId === i.id);
+      const waiting = mine.find((x) => x.status === 'SUBMITTED');
+      const sentBack = !waiting ? mine.find((x) => x.status === 'REJECTED') : undefined;
+      return {
+        id: i.id, iouNumber: i.iouNumber, staffName: i.staffName, amount: Number(i.amount), reason: i.reason, status: i.status, settledAmount: Number(i.settledAmount),
+        outstanding: i.status === 'APPROVED' ? Math.max(0, Number(i.amount) - Number(i.settledAmount)) : 0, createdById: i.createdById, createdAt: i.createdAt,
+        pendingSettlement: waiting ? { id: waiting.id, bills: Number(waiting.billsAmount), refund: Number(waiting.refundAmount), reference: waiting.reference, receiptUrl: waiting.receiptUrl, remarks: waiting.remarks, submittedById: waiting.submittedById } : null,
+        sentBackReason: sentBack?.rejectionReason ?? null,
+      };
+    });
   }
 
   /** The people who look after the petty cash of a box. */

@@ -18,7 +18,8 @@ interface Bill {
   id: string; voucherNumber: string; date: string; title: string; category: string; amount: number | string; status: string; recipientName?: string | null;
   description?: string | null; receiptUrl?: string | null; createdById?: string | null; iouId?: string | null; rejectionReason?: string | null; cancelledReason?: string | null; carriedToNumber?: string | null;
 }
-interface BoxIou { id: string; iouNumber: string; staffName: string; amount: number; reason?: string | null; status: string; outstanding: number; createdById?: string | null }
+interface PendingSettlement { id: string; bills: number; refund: number; reference?: string | null; receiptUrl?: string | null; remarks?: string | null; submittedById?: string | null }
+interface BoxIou { id: string; iouNumber: string; staffName: string; amount: number; reason?: string | null; status: string; outstanding: number; createdById?: string | null; pendingSettlement: PendingSettlement | null; sentBackReason: string | null }
 interface SiteOffice { id: string; name: string; type?: string }
 interface Candidate { id: string; name: string; role: string; hasAccess: boolean }
 
@@ -31,7 +32,7 @@ const STATUS: Record<string, [string, string]> = {
   REIMBURSED: ['Reimbursed', 'bg-emerald-100 text-emerald-900'], REJECTED: ['Rejected', 'bg-red-100 text-red-900'], CANCELLED: ['Cancelled', 'bg-slate-300 text-slate-900'],
 };
 const IOU_STATUS: Record<string, [string, string]> = {
-  PENDING: ['Waiting for the Area Manager', 'bg-slate-200 text-slate-900'], APPROVED: ['Released', 'bg-amber-100 text-amber-900'], REJECTED: ['Rejected', 'bg-red-100 text-red-900'],
+  PENDING: ['Waiting for the Area Manager', 'bg-slate-200 text-slate-900'], APPROVED: ['Released, to be settled', 'bg-amber-100 text-amber-900'], REJECTED: ['Rejected', 'bg-red-100 text-red-900'],
 };
 const REFRESH_MS = 15_000;
 
@@ -53,8 +54,11 @@ export default function PettyCashPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [me, setMe] = useState<{ id: string; permissions: string[] }>({ id: '', permissions: [] });
-  const [dialog, setDialog] = useState<'' | 'bill' | 'box' | 'float' | 'reject' | 'cancel' | 'custodians'>('');
-  const [target, setTarget] = useState<{ kind: 'bill' | 'iou'; id: string; label: string } | null>(null);
+  const [dialog, setDialog] = useState<'' | 'bill' | 'box' | 'float' | 'reject' | 'cancel' | 'custodians' | 'release' | 'settle'>('');
+  const [target, setTarget] = useState<{ kind: 'bill' | 'iou' | 'settlement'; id: string; label: string } | null>(null);
+  const [releaseForm, setReleaseForm] = useState({ staffName: '', amount: '', reason: '', iouNumber: '' });
+  const [settleIou, setSettleIou] = useState<BoxIou | null>(null);
+  const [settleForm, setSettleForm] = useState({ bills: '', refund: '', reference: '', receiptUrl: '', receiptName: '', remarks: '' });
   const [billForm, setBillForm] = useState({ title: '', amount: '', category: CATEGORIES[0], recipientName: '', description: '', receiptUrl: '', receiptName: '' });
   const [uploading, setUploading] = useState(false);
   const [boxForm, setBoxForm] = useState({ siteOfficeId: '', name: '', imprestLimit: '', openingBalance: '0' });
@@ -117,8 +121,8 @@ export default function PettyCashPage() {
   // a release at a site office is the Area Manager's; a box made before site offices keeps the finance approval
   const canDecide = (maker?: string | null) => !!box && (box.siteOfficeId ? box.me.isAreaManager : canApprove) && !(maker && maker === me.id);
 
-  const uploadReceipt = async (file: File | null) => {
-    if (!file) return;
+  const uploadFile = async (file: File | null): Promise<string | null> => {
+    if (!file) return null;
     setUploading(true);
     try {
       const fd = new FormData(); fd.append('file', file); fd.append('bucket', 'documents');
@@ -127,10 +131,12 @@ export default function PettyCashPage() {
       const j = await res.json();
       const url = j?.url ?? j?.data?.url;
       if (!url) throw new Error('The receipt was not uploaded');
-      setBillForm((f) => ({ ...f, receiptUrl: url, receiptName: file.name }));
       toast.success('Receipt uploaded');
-    } catch (err) { toast.error(err instanceof Error ? err.message : 'The receipt was not uploaded'); } finally { setUploading(false); }
+      return url;
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'The receipt was not uploaded'); return null; } finally { setUploading(false); }
   };
+  const uploadReceipt = async (file: File | null) => { const url = await uploadFile(file); if (url && file) setBillForm((f) => ({ ...f, receiptUrl: url, receiptName: file.name })); };
+  const uploadSettleReceipt = async (file: File | null) => { const url = await uploadFile(file); if (url && file) setSettleForm((f) => ({ ...f, receiptUrl: url, receiptName: file.name })); };
 
   const addBill = (e: React.FormEvent) => { e.preventDefault(); if (!box) return; call('bill', () => post('/api/finance/petty-cash/vouchers', { accountId: box.id, title: billForm.title.trim(), amount: Number(billForm.amount), category: billForm.category, recipientName: billForm.recipientName.trim() || null, description: billForm.description.trim() || null, receiptUrl: billForm.receiptUrl || null }), 'Bill recorded. It waits for the Area Manager.', 'The bill was not saved', () => { setDialog(''); setBillForm({ title: '', amount: '', category: CATEGORIES[0], recipientName: '', description: '', receiptUrl: '', receiptName: '' }); }); };
   const approveBill = (b: Bill) => call(`a${b.id}`, () => post('/api/finance/petty-cash/vouchers', { id: b.id, action: 'APPROVE' }, 'PATCH'), 'Bill approved', 'The approval failed');
@@ -138,7 +144,17 @@ export default function PettyCashPage() {
   const reject = (e: React.FormEvent) => {
     e.preventDefault(); if (!target) return;
     const t = target;
-    call('reject', () => (t.kind === 'bill' ? post('/api/finance/petty-cash/vouchers', { id: t.id, action: 'REJECT', rejectionReason: reason.trim() }, 'PATCH') : post('/api/finance/petty-cash/ious', { id: t.id, action: 'REJECT', reason: reason.trim() }, 'PATCH')), 'Rejected', 'The rejection failed', () => { setDialog(''); setReason(''); });
+    call('reject', () => (t.kind === 'bill' ? post('/api/finance/petty-cash/vouchers', { id: t.id, action: 'REJECT', rejectionReason: reason.trim() }, 'PATCH') : t.kind === 'iou' ? post('/api/finance/petty-cash/ious', { id: t.id, action: 'REJECT', reason: reason.trim() }, 'PATCH') : post('/api/finance/petty-cash/ious/settlement', { id: t.id, action: 'REJECT', reason: reason.trim() }, 'PATCH')), t.kind === 'settlement' ? 'Settlement sent back' : 'Rejected', 'The rejection failed', () => { setDialog(''); setReason(''); });
+  };
+  const verifySettlement = (i: BoxIou) => i.pendingSettlement && call(`v${i.id}`, () => post('/api/finance/petty-cash/ious/settlement', { id: i.pendingSettlement!.id, action: 'VERIFY' }, 'PATCH'), 'Settlement verified. The bills and the cash returned are booked.', 'The verification failed');
+  const askRelease = (e: React.FormEvent) => {
+    e.preventDefault(); if (!box) return;
+    call('release', () => post('/api/finance/petty-cash/ious', { accountId: box.id, staffName: releaseForm.staffName.trim(), amount: Number(releaseForm.amount), reason: releaseForm.reason.trim() || undefined, iouNumber: releaseForm.iouNumber.trim() || undefined }), 'Cash asked for. It waits for the Area Manager.', 'The request was not saved', () => { setDialog(''); setReleaseForm({ staffName: '', amount: '', reason: '', iouNumber: '' }); });
+  };
+  const openSettle = (i: BoxIou) => { setSettleIou(i); setSettleForm({ bills: '', refund: '', reference: '', receiptUrl: '', receiptName: '', remarks: '' }); setDialog('settle'); };
+  const submitSettle = (e: React.FormEvent) => {
+    e.preventDefault(); if (!settleIou) return;
+    call('settle', () => post('/api/finance/petty-cash/ious/settlement', { iouId: settleIou.id, bills: Number(settleForm.bills || 0), refund: Number(settleForm.refund || 0), reference: settleForm.reference.trim() || undefined, receiptUrl: settleForm.receiptUrl || undefined, remarks: settleForm.remarks.trim() || undefined }), 'Settlement sent to the Area Manager', 'The settlement was not saved', () => setDialog(''));
   };
   const cancel = (e: React.FormEvent) => { e.preventDefault(); if (!target) return; call('cancel', () => post('/api/finance/petty-cash/vouchers/cancel', { id: target.id, reason: reason.trim(), carriedToNumber: carried.trim() || undefined }), 'Bill cancelled', 'The cancel failed', () => { setDialog(''); setReason(''); setCarried(''); }); };
   const replenish = () => box && call('rep', () => post('/api/finance/petty-cash/reimbursements', { accountId: box.id }), 'Replenishment asked of Head Office', 'The request failed');
@@ -221,7 +237,8 @@ export default function PettyCashPage() {
                       {stat('Not accounted', money(box.unaccounted), box.unaccounted === 0 ? 'the imprest adds up' : box.unaccounted > 0 ? 'the float can still be filled up to this' : 'more has gone out than the limit: check it', box.unaccounted < 0)}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {canOperate && <button onClick={() => setDialog('bill')} className={`${btn} bg-indigo-700 text-white hover:bg-indigo-800`}>+ Add a bill</button>}
+                      {canOperate && <button onClick={() => setDialog('release')} className={`${btn} bg-indigo-700 text-white hover:bg-indigo-800`}>Release cash to a person</button>}
+                      {canOperate && <button onClick={() => setDialog('bill')} className={`${btn} border border-slate-500 bg-white text-slate-900 hover:bg-slate-100`}>+ Add a bill</button>}
                       {canAskHo && box.floatRoom > 0 && <button onClick={() => { setFloatAmount(String(box.floatRoom)); setDialog('float'); }} className={`${btn} border border-slate-500 bg-white text-slate-900 hover:bg-slate-100`}>Ask Head Office for the float</button>}
                       {canOperate && box.billsWaiting > 0 && !box.pendingReimbursement && <button onClick={replenish} disabled={!!busy} className={`${btn} border border-slate-500 bg-white text-slate-900 hover:bg-slate-100`}>{busy === 'rep' ? 'Sending...' : `Ask Head Office to replenish ${money(box.replenishAmount)}`}</button>}
                     </div>
@@ -250,6 +267,17 @@ export default function PettyCashPage() {
                                     <button onClick={() => { setTarget({ kind: 'iou', id: i.id, label: `IOU ${i.iouNumber}` }); setReason(''); setDialog('reject'); }} className="rounded border border-slate-600 bg-white px-3 py-1 text-xs font-semibold text-slate-900 hover:bg-slate-100">Reject</button>
                                   </>}
                                   {i.status === 'PENDING' && !canDecide(i.createdById) && <span className="text-xs text-slate-800">Waiting for the Area Manager</span>}
+                                  {i.status === 'APPROVED' && i.outstanding > 0 && !i.pendingSettlement && canOperate && <button onClick={() => openSettle(i)} className="rounded border border-slate-600 bg-white px-3 py-1 text-xs font-semibold text-slate-900 hover:bg-slate-100">Settle</button>}
+                                  {i.pendingSettlement && (
+                                    <span className="inline-flex flex-wrap items-center gap-2">
+                                      <span className="text-xs font-semibold text-slate-900">Settlement waiting: bills {money(i.pendingSettlement.bills)}, returned {money(i.pendingSettlement.refund)}{i.pendingSettlement.receiptUrl ? <> · <a href={i.pendingSettlement.receiptUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-800 underline">receipt</a></> : null}</span>
+                                      {canDecide(i.pendingSettlement.submittedById) ? <>
+                                        <button onClick={() => verifySettlement(i)} disabled={!!busy} className="rounded bg-indigo-700 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-800 disabled:opacity-50">{busy === `v${i.id}` ? 'Verifying...' : 'Verify'}</button>
+                                        <button onClick={() => { setTarget({ kind: 'settlement', id: i.pendingSettlement!.id, label: `the settlement of IOU ${i.iouNumber}` }); setReason(''); setDialog('reject'); }} className="rounded border border-slate-600 bg-white px-3 py-1 text-xs font-semibold text-slate-900 hover:bg-slate-100">Send back</button>
+                                      </> : <span className="text-xs text-slate-800">Waiting for the Area Manager</span>}
+                                    </span>
+                                  )}
+                                  {i.sentBackReason && !i.pendingSettlement && <span className="block whitespace-normal text-xs font-semibold text-red-800">Settlement sent back: {i.sentBackReason}</span>}
                                 </td>
                               </tr>
                             );
@@ -325,6 +353,41 @@ export default function PettyCashPage() {
             <div><label className={lbl}>Imprest limit (LKR)</label><input required type="number" min="1" step="0.01" className={field} value={boxForm.imprestLimit} onChange={(e) => setBoxForm({ ...boxForm, imprestLimit: e.target.value })} /></div>
             <div><label className={lbl}>Cash in the box now (LKR)</label><input required type="number" min="0" step="0.01" className={field} value={boxForm.openingBalance} onChange={(e) => setBoxForm({ ...boxForm, openingBalance: e.target.value })} /></div>
             <div className="flex justify-end gap-2 border-t border-slate-200 pt-3"><button type="button" onClick={() => setDialog('')} className={`${btn} text-slate-900 hover:bg-slate-100`}>Cancel</button><button type="submit" disabled={!!busy} className={`${btn} bg-indigo-700 text-white hover:bg-indigo-800`}>{busy === 'box' ? 'Saving...' : 'Create box'}</button></div>
+          </form>
+        </div>
+      )}
+
+      {dialog === 'release' && box && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-label="Release cash">
+          <form onSubmit={askRelease} className="w-full max-w-md space-y-3 rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-bold text-slate-900">Release cash to a person</h2>
+            <p className="text-xs text-slate-700">The Area Manager of the site office approves it; then the cash leaves the box ({money(box.cashInHand)} in hand). The person settles it later with bills and the cash they return.</p>
+            <div><label className={lbl}>Person</label><input required className={field} value={releaseForm.staffName} onChange={(e) => setReleaseForm({ ...releaseForm, staffName: e.target.value })} placeholder="e.g. Nuwan Perera" /></div>
+            <div><label className={lbl}>Amount (LKR)</label><input required type="number" min="0.01" step="0.01" className={field} value={releaseForm.amount} onChange={(e) => setReleaseForm({ ...releaseForm, amount: e.target.value })} /></div>
+            <div><label className={lbl}>What it is for</label><textarea required rows={2} className={field} value={releaseForm.reason} onChange={(e) => setReleaseForm({ ...releaseForm, reason: e.target.value })} /></div>
+            <div><label className={lbl}>IOU number (if you have one)</label><input className={field} value={releaseForm.iouNumber} onChange={(e) => setReleaseForm({ ...releaseForm, iouNumber: e.target.value })} placeholder="left empty, the system numbers it" /></div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 pt-3"><button type="button" onClick={() => setDialog('')} className={`${btn} text-slate-900 hover:bg-slate-100`}>Cancel</button><button type="submit" disabled={!!busy} className={`${btn} bg-indigo-700 text-white hover:bg-indigo-800`}>{busy === 'release' ? 'Sending...' : 'Ask for the cash'}</button></div>
+          </form>
+        </div>
+      )}
+
+      {dialog === 'settle' && settleIou && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-label="Settle the IOU">
+          <form onSubmit={submitSettle} className="max-h-[90vh] w-full max-w-md space-y-3 overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-bold text-slate-900">Settle {settleIou.iouNumber}, {settleIou.staffName}</h2>
+            <p className="text-sm text-slate-900">Given {money(settleIou.amount)}. Still to settle <strong>{money(settleIou.outstanding)}</strong>.</p>
+            <p className="text-xs text-slate-700">Enter the bills the person handed in and the cash they returned. Together they cannot be more than what is to settle. If more was spent than was given, record the extra as a separate bill. The Area Manager verifies the settlement before it is booked.</p>
+            <div><label className={lbl}>Bills handed in (LKR)</label><input type="number" min="0" step="0.01" className={field} value={settleForm.bills} onChange={(e) => { const b = e.target.value; setSettleForm({ ...settleForm, bills: b, refund: String(Math.max(0, Math.round((settleIou.outstanding - Number(b || 0)) * 100) / 100)) }); }} /></div>
+            <div><label className={lbl}>Cash returned (LKR)</label><input type="number" min="0" step="0.01" className={field} value={settleForm.refund} onChange={(e) => setSettleForm({ ...settleForm, refund: e.target.value })} /></div>
+            <div><label className={lbl}>Bill number</label><input className={field} value={settleForm.reference} onChange={(e) => setSettleForm({ ...settleForm, reference: e.target.value })} /></div>
+            <div>
+              <label className={lbl}>Receipt (photo or PDF)</label>
+              <input type="file" accept="image/*,.pdf" className={field} onChange={(e) => uploadSettleReceipt(e.target.files?.[0] ?? null)} />
+              {uploading && <p className="mt-1 text-xs font-medium text-slate-800">Uploading...</p>}
+              {settleForm.receiptUrl && !uploading && <p className="mt-1 text-xs font-semibold text-emerald-900">Attached: {settleForm.receiptName}</p>}
+            </div>
+            <div><label className={lbl}>Remarks</label><textarea rows={2} className={field} value={settleForm.remarks} onChange={(e) => setSettleForm({ ...settleForm, remarks: e.target.value })} /></div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 pt-3"><button type="button" onClick={() => setDialog('')} className={`${btn} text-slate-900 hover:bg-slate-100`}>Cancel</button><button type="submit" disabled={!!busy || uploading} className={`${btn} bg-indigo-700 text-white hover:bg-indigo-800`}>{busy === 'settle' ? 'Sending...' : 'Send to the Area Manager'}</button></div>
           </form>
         </div>
       )}

@@ -16,6 +16,14 @@ export const GET = apiHandler(async (req, params) => {
     return { data: await PettyCashService.getBoxIous(accountId, params._userId) };
 }, { permissions: [RBAC_PERMISSIONS.FINANCE_READ, RBAC_PERMISSIONS.PETTY_CASH_SITE] });
 
+const release = z.object({ accountId: databaseUuidSchema, staffName: z.string().trim().min(2).max(120), amount: z.number().finite().positive(), reason: z.string().trim().max(500).optional(), iouNumber: z.string().trim().max(60).optional() }).strict();
+
+// POST /api/finance/petty-cash/ious: the custodian asks for cash for a person (the Area Manager of the site office approves it)
+export const POST = apiHandler(async (_req, params, body) => {
+    if (!params._userId) throw AppError.unauthorized('Authentication required');
+    return { message: 'Cash asked for. It waits for the Area Manager.', data: await PettyCashService.requestRelease(body.accountId, params._userId, body) };
+}, { schema: release, permissions: [RBAC_PERMISSIONS.FINANCE_WRITE, RBAC_PERMISSIONS.PETTY_CASH_SITE], audit: { action: 'REQUEST_RELEASE', entity: 'OSP_IOU' } });
+
 const decide = z.object({ id: databaseUuidSchema, action: z.enum(['APPROVE', 'REJECT']), reason: z.string().trim().min(3).max(500).optional() }).strict();
 
 // PATCH /api/finance/petty-cash/ious: the Area Manager of the site office approves or rejects the release of cash (the service checks it is that person)

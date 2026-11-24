@@ -155,3 +155,25 @@ model OspIouSettlement {
 
   @@index([iouId])
 }
+
+/// The custodian's settlement of an issued IOU (bills handed in, cash returned) waits here until the Area Manager of the site office verifies it.
+/// Nothing is booked before that: only a verified settlement changes the balance and the ledger.
+model OspIouSettlementSubmission {
+  id              String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  iouId           String    @db.Uuid
+  billsAmount     Decimal   @default(0) @db.Decimal(14, 2)
+  refundAmount    Decimal   @default(0) @db.Decimal(14, 2)
+  reference       String?
+  receiptUrl      String?
+  remarks         String?
+  /// SUBMITTED | VERIFIED | REJECTED
+  status          String    @default("SUBMITTED")
+  submittedById   String?   @db.Uuid
+  decidedById     String?   @db.Uuid
+  decidedAt       DateTime?
+  rejectionReason String?
+  createdAt       DateTime  @default(now())
+
+  @@index([iouId])
+  @@index([status])
+}
