@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
+import { assertNotMaker } from '@/lib/maker-checker';
 import { OSPLedgerService } from './osp-ledger.service';
 import { AccountingPostingRegistry } from './accounting-posting-registry.service';
 
@@ -19,7 +20,7 @@ export class OSPAccountCrudService {
     reason?: string;
     noOfDays?: number;
     remarks?: string;
-  }) {
+  }, actorId?: string | null) {
     if (data.amount <= 0) throw AppError.badRequest('AMOUNT_MUST_BE_GREATER_THAN_ZERO');
 
     const existing = await prisma.ospPettyCashIou.findUnique({
@@ -38,20 +39,22 @@ export class OSPAccountCrudService {
     return await prisma.ospPettyCashIou.create({
       data: {
         ...data,
+        createdById: actorId ?? null,
         status: 'PENDING'
       }
     });
   }
 
-  static async approveIOU(id: string) {
+  static async approveIOU(id: string, actorId?: string | null) {
     return await prisma.$transaction(async (tx) => {
       const iou = await tx.ospPettyCashIou.findUnique({ where: { id } });
       if (!iou) throw AppError.notFound('IOU_NOT_FOUND');
       if (iou.status === 'APPROVED') throw AppError.badRequest('ALREADY_APPROVED');
+      assertNotMaker(iou.createdById, actorId);
 
       const updated = await tx.ospPettyCashIou.update({
         where: { id },
-        data: { status: 'APPROVED', approvedAt: new Date() }
+        data: { status: 'APPROVED', approvedAt: new Date(), approvedById: actorId ?? null }
       });
 
       await OSPLedgerService.postAutomatedTransaction(tx, {
@@ -105,7 +108,7 @@ export class OSPAccountCrudService {
     amount: number;
     vatAmount?: number;
     opmcId?: string;
-  }) {
+  }, actorId?: string | null) {
     if (data.amount <= 0) throw AppError.badRequest('AMOUNT_MUST_BE_GREATER_THAN_ZERO');
 
     const existing = await prisma.ospProjectAdvance.findUnique({
@@ -121,21 +124,23 @@ export class OSPAccountCrudService {
     return await prisma.ospProjectAdvance.create({
       data: {
         ...data,
+        createdById: actorId ?? null,
         totalAmount,
         status: 'PENDING'
       }
     });
   }
 
-  static async approveAdvance(id: string) {
+  static async approveAdvance(id: string, actorId?: string | null) {
     return await prisma.$transaction(async (tx) => {
       const adv = await tx.ospProjectAdvance.findUnique({ where: { id } });
       if (!adv) throw AppError.notFound('ADVANCE_NOT_FOUND');
       if (adv.status === 'APPROVED') throw AppError.badRequest('ALREADY_APPROVED');
+      assertNotMaker(adv.createdById, actorId);
 
       const updated = await tx.ospProjectAdvance.update({
         where: { id },
-        data: { status: 'APPROVED', approvedAt: new Date() }
+        data: { status: 'APPROVED', approvedAt: new Date(), approvedById: actorId ?? null }
       });
 
       await OSPLedgerService.postAutomatedTransaction(tx, {
@@ -173,7 +178,7 @@ export class OSPAccountCrudService {
     slipNo: string;
     slipDate?: Date;
     opmcId?: string;
-  }) {
+  }, actorId?: string | null) {
     if (data.amount <= 0) throw AppError.badRequest('AMOUNT_MUST_BE_GREATER_THAN_ZERO');
 
     const existing = await prisma.ospPropertyRentPayment.findUnique({
@@ -192,22 +197,24 @@ export class OSPAccountCrudService {
     return await prisma.ospPropertyRentPayment.create({
       data: {
         ...data,
+        createdById: actorId ?? null,
         status: 'PENDING'
       }
     });
   }
 
-  static async approveRentPayment(id: string) {
+  static async approveRentPayment(id: string, actorId?: string | null) {
     return await prisma.$transaction(async (tx) => {
       const rent = await tx.ospPropertyRentPayment.findUnique({ where: { id } });
       if (!rent) throw AppError.notFound('RENT_PAYMENT_NOT_FOUND');
       if (rent.status === 'APPROVED') throw AppError.badRequest('ALREADY_APPROVED');
+      assertNotMaker(rent.createdById, actorId);
 
       const updated = await tx.ospPropertyRentPayment.update({
         where: { id },
         data: { 
           status: 'APPROVED',
-          approvedAt: new Date()
+          approvedAt: new Date(), approvedById: actorId ?? null
         }
       });
 
@@ -249,7 +256,7 @@ export class OSPAccountCrudService {
     stationName: string;
     actualDeposit: number;
     opmcId?: string;
-  }) {
+  }, actorId?: string | null) {
     if (data.actualDeposit <= 0) throw AppError.badRequest('DEPOSIT_MUST_BE_GREATER_THAN_ZERO');
 
     const existing = await prisma.ospFuelDepositLedger.findUnique({
@@ -269,22 +276,24 @@ export class OSPAccountCrudService {
     return await prisma.ospFuelDepositLedger.create({
       data: {
         ...data,
+        createdById: actorId ?? null,
         status: 'PENDING'
       }
     });
   }
 
-  static async approveFuelDeposit(id: string) {
+  static async approveFuelDeposit(id: string, actorId?: string | null) {
     return await prisma.$transaction(async (tx) => {
       const deposit = await tx.ospFuelDepositLedger.findUnique({ where: { id } });
       if (!deposit) throw AppError.notFound('FUEL_DEPOSIT_NOT_FOUND');
       if (deposit.status === 'APPROVED') throw AppError.badRequest('ALREADY_APPROVED');
+      assertNotMaker(deposit.createdById, actorId);
 
       const updated = await tx.ospFuelDepositLedger.update({
         where: { id },
         data: {
           status: 'APPROVED',
-          approvedAt: new Date()
+          approvedAt: new Date(), approvedById: actorId ?? null
         }
       });
 
@@ -332,7 +341,7 @@ export class OSPAccountCrudService {
     slipDate?: Date;
     paidDate?: Date;
     opmcId?: string;
-  }) {
+  }, actorId?: string | null) {
     if (data.amount <= 0) throw AppError.badRequest('AMOUNT_MUST_BE_GREATER_THAN_ZERO');
 
     const existing = await prisma.ospVehicleHiringPayment.findUnique({
@@ -351,22 +360,24 @@ export class OSPAccountCrudService {
     return await prisma.ospVehicleHiringPayment.create({
       data: {
         ...data,
+        createdById: actorId ?? null,
         status: 'PENDING'
       }
     });
   }
 
-  static async approveHiringPayment(id: string) {
+  static async approveHiringPayment(id: string, actorId?: string | null) {
     return await prisma.$transaction(async (tx) => {
       const payment = await tx.ospVehicleHiringPayment.findUnique({ where: { id } });
       if (!payment) throw AppError.notFound('HIRING_PAYMENT_NOT_FOUND');
       if (payment.status === 'APPROVED') throw AppError.badRequest('ALREADY_APPROVED');
+      assertNotMaker(payment.createdById, actorId);
 
       const updated = await tx.ospVehicleHiringPayment.update({
         where: { id },
         data: {
           status: 'APPROVED',
-          approvedAt: new Date()
+          approvedAt: new Date(), approvedById: actorId ?? null
         }
       });
 

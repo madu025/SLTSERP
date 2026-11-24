@@ -12,6 +12,8 @@ model OspPettyCashIou {
   status         String    @default("PENDING")
   approvedAt     DateTime?
   remarks        String?
+  createdById  String?   @db.Uuid
+  approvedById String?   @db.Uuid
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -34,6 +36,8 @@ model OspProjectAdvance {
   status       String    @default("PENDING")
   approvedAt   DateTime?
   opmcId       String?   @db.Uuid
+  createdById  String?   @db.Uuid
+  approvedById String?   @db.Uuid
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -52,6 +56,8 @@ model OspPropertyRentPayment {
   status       String    @default("PENDING")
   approvedAt   DateTime?
   opmcId       String?   @db.Uuid
+  createdById  String?   @db.Uuid
+  approvedById String?   @db.Uuid
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -69,6 +75,8 @@ model OspFuelDepositLedger {
   actualDeposit  Decimal   @db.Decimal(14, 2)
   status         String    @default("PENDING")
   approvedAt     DateTime?
+  createdById  String?   @db.Uuid
+  approvedById String?   @db.Uuid
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -90,6 +98,8 @@ model OspVehicleHiringPayment {
   status      String    @default("PENDING")
   approvedAt  DateTime?
   opmcId      String?   @db.Uuid
+  createdById  String?   @db.Uuid
+  approvedById String?   @db.Uuid
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

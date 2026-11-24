@@ -13,10 +13,10 @@ export const GET = apiHandler(async () => {
   return { data: deposits };
 }, {
 });
-export const POST = apiHandler(async (request) => {
+export const POST = apiHandler(async (request, params) => {
   const body = await request.json();
   const data = createSchema.parse(body);
-  const result = await OSPAccountCrudService.createFuelDeposit(data);
+  const result = await OSPAccountCrudService.createFuelDeposit(data, params._userId);
   return { message: 'Fuel Deposit created successfully', data: result };
 }, {
   audit: { action: 'CREATE', entity: 'OSP_FUEL_DEPOSIT' }

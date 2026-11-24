@@ -8,7 +8,7 @@ const actionSchema = z.object({
 export const PATCH = apiHandler(async (_request, params, body) => {
   const { action } = body;
   const result = action === 'APPROVE'
-    ? await OSPAccountCrudService.approveAdvance(params.id)
+    ? await OSPAccountCrudService.approveAdvance(params.id, params._userId)
     : await OSPAccountCrudService.rejectAdvance(params.id);
   return { message: `Project Advance ${action.toLowerCase()}d successfully`, data: result };
 }, {

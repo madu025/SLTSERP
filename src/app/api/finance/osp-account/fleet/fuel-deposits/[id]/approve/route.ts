@@ -8,7 +8,7 @@ const actionSchema = z.object({
 export const PATCH = apiHandler(async (_request, params, body) => {
   const { action } = body;
   const result = action === 'APPROVE'
-    ? await OSPAccountCrudService.approveFuelDeposit(params.id)
+    ? await OSPAccountCrudService.approveFuelDeposit(params.id, params._userId)
     : await OSPAccountCrudService.rejectFuelDeposit(params.id);
   return { message: `Fuel Deposit ${action.toLowerCase()}d successfully`, data: result };
 }, {

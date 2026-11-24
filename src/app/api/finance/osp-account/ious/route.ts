@@ -19,14 +19,14 @@ export const GET = apiHandler(async () => {
   return { data: ious };
 }, {
 });
-export const POST = apiHandler(async (request) => {
+export const POST = apiHandler(async (request, params) => {
   const body = await request.json();
   const data = createSchema.parse(body);
   const parsedDate = data.issuedDate ? new Date(data.issuedDate) : new Date();
   const result = await OSPAccountCrudService.createIOU({
     ...data,
     issuedDate: parsedDate,
-  });
+  }, params._userId);
   return { message: 'IOU created successfully', data: result };
 }, {
   audit: { action: 'CREATE', entity: 'OSP_IOU' }

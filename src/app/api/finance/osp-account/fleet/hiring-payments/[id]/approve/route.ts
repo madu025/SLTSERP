@@ -11,7 +11,7 @@ const actionSchema = z.object({
 export const PATCH = apiHandler(async (_request, params, body) => {
   const { action } = body;
   const result = action === 'APPROVE'
-    ? await OSPAccountCrudService.approveHiringPayment(params.id)
+    ? await OSPAccountCrudService.approveHiringPayment(params.id, params._userId)
     : await OSPAccountCrudService.rejectHiringPayment(params.id);
   return { message: `Hiring Payment ${action.toLowerCase()}d successfully`, data: result };
 }, {

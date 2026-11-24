@@ -21,7 +21,7 @@ export const GET = apiHandler(async () => {
 }, {
 });
 
-export const POST = apiHandler(async (request) => {
+export const POST = apiHandler(async (request, params) => {
   const body = await request.json();
   const data = createSchema.parse(body);
 
@@ -30,7 +30,7 @@ export const POST = apiHandler(async (request) => {
   const result = await OSPAccountCrudService.createRentPayment({
     ...data,
     slipDate: parsedDate,
-  });
+  }, params._userId);
 
   return { message: 'Rent Payment created successfully', data: result };
 }, {

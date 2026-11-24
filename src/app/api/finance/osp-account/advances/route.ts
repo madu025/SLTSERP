@@ -17,10 +17,10 @@ export const GET = apiHandler(async () => {
   return { data: advances };
 }, {
 });
-export const POST = apiHandler(async (request) => {
+export const POST = apiHandler(async (request, params) => {
   const body = await request.json();
   const data = createSchema.parse(body);
-  const result = await OSPAccountCrudService.createAdvance(data);
+  const result = await OSPAccountCrudService.createAdvance(data, params._userId);
   return { message: 'Project Advance created successfully', data: result };
 }, {
   audit: { action: 'CREATE', entity: 'OSP_ADVANCE' }

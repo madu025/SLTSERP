@@ -12,7 +12,7 @@ const actionSchema = z.object({
 export const PATCH = apiHandler(async (_request, params, body) => {
   const { action, reason } = body;
   const result = action === 'APPROVE'
-    ? await OSPAccountCrudService.approveIOU(params.id)
+    ? await OSPAccountCrudService.approveIOU(params.id, params._userId)
     : await OSPAccountCrudService.rejectIOU(params.id, reason as string | undefined);
   return { message: `IOU ${action.toLowerCase()}d successfully`, data: result };
 }, {

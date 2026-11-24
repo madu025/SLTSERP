@@ -18,7 +18,7 @@ export const GET = apiHandler(async () => {
   return { data: payments };
 }, {
 });
-export const POST = apiHandler(async (request) => {
+export const POST = apiHandler(async (request, params) => {
   const body = await request.json();
   const data = createSchema.parse(body);
   const sDate = data.slipDate ? new Date(data.slipDate) : new Date();
@@ -27,7 +27,7 @@ export const POST = apiHandler(async (request) => {
     ...data,
     slipDate: sDate,
     paidDate: pDate,
-  });
+  }, params._userId);
   return { message: 'Hiring Payment created successfully', data: result };
 }, {
   audit: { action: 'CREATE', entity: 'OSP_HIRING_PAYMENT' }
