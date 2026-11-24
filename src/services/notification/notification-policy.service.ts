@@ -115,7 +115,7 @@ export class NotificationPolicyService {
                 type: 'CONTRACTOR',
                 priority: 'HIGH',
                 opmcId: contractor.opmcId || undefined,
-                link: '/admin/contractors/approvals'
+                link: '/contractors/management/approvals'
             });
         } else if (status === 'ACTIVE') {
             await NotificationService.send({

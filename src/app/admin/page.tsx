@@ -7,7 +7,7 @@ import Link from 'next/link';
 import {
     Users, Briefcase, Settings, Building2, HardHat, ChevronRight,
     Warehouse, Receipt, Shield, HistoryIcon, UserCog, Upload, Terminal,
-    Network, Layers, FileText, Activity
+    Network, FileText, Activity
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -42,21 +42,21 @@ const modules = [
     {
         title: 'RTOM Management',
         description: 'Manage Regional Telecom Offices and store assignments',
-        href: '/admin/opmcs',
+        href: '/projects/opmcs',
         icon: Building2,
         color: 'text-emerald-600', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-100'
     },
     {
         title: 'Contractor Management',
         description: 'Register contractors, teams and agreements',
-        href: '/admin/contractors',
+        href: '/contractors/management',
         icon: HardHat,
         color: 'text-amber-600', bgColor: 'bg-amber-50', borderColor: 'border-amber-100'
     },
     {
         title: 'Store Management',
         description: 'Manage inventory stores and branch locations',
-        href: '/admin/stores',
+        href: '/inventory/stores',
         icon: Warehouse,
         color: 'text-violet-600', bgColor: 'bg-violet-50', borderColor: 'border-violet-100'
     },
@@ -84,14 +84,14 @@ const modules = [
     {
         title: 'SOD Revenue Config',
         description: 'Configure revenue amounts per service order type',
-        href: '/admin/sod-revenue',
+        href: '/finance/sod-revenue',
         icon: Receipt,
         color: 'text-teal-600', bgColor: 'bg-teal-50', borderColor: 'border-teal-100'
     },
     {
         title: 'Contractor Pricing',
         description: 'Set contractor payment rates and billing schedules',
-        href: '/admin/contractor-payment',
+        href: '/finance/contractor-payments',
         icon: Briefcase,
         color: 'text-orange-600', bgColor: 'bg-orange-50', borderColor: 'border-orange-100'
     },
@@ -105,16 +105,9 @@ const modules = [
     {
         title: 'SOD Bulk Import',
         description: 'Import historical service order data from spreadsheets',
-        href: '/admin/sod-import',
+        href: '/service-orders/import',
         icon: Upload,
         color: 'text-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-100'
-    },
-    {
-        title: 'Sections & Roles',
-        description: 'Configure system sections and role definitions',
-        href: '/admin/sections',
-        icon: Layers,
-        color: 'text-purple-600', bgColor: 'bg-purple-50', borderColor: 'border-purple-100'
     },
     {
         title: 'SLT Bridge',

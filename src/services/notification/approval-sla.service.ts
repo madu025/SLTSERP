@@ -12,6 +12,13 @@ export interface SlaBreach { instanceId: string; entityType: string; entityId: s
  * and, once a day, tells the assigned approver, and tells administrators about the escalated ones.
  * Notification only: it never approves, rejects or reassigns anything.
  */
+/** Where the person opens the approval that is overdue; every other kind opens the dashboard (there is no page that lists all approvals). */
+const APPROVAL_PAGES: Record<string, string> = {
+    MATERIAL_REQUEST: '/inventory/approvals',
+    INVOICE: '/invoices/confirmations',
+    PAYMENT_VOUCHER: '/finance/payments',
+};
+
 export class ApprovalSlaService {
     static async findBreaches(now = new Date()): Promise<SlaBreach[]> {
         const pending = await prisma.universalApprovalInstance.findMany({
@@ -44,7 +51,7 @@ export class ApprovalSlaService {
                 userId: b.assignedUserId,
                 title: `Approval overdue: ${b.entityType.replace(/_/g, ' ').toLowerCase()}`,
                 message: `This approval has been waiting ${b.waitedHours} hours (target ${b.slaHours} hours).`,
-                type: 'SYSTEM', priority: b.state === 'ESCALATE' ? 'HIGH' : 'MEDIUM', link: '/approvals',
+                type: 'SYSTEM', priority: b.state === 'ESCALATE' ? 'HIGH' : 'MEDIUM', link: APPROVAL_PAGES[b.entityType] ?? '/dashboard',
                 metadata: { source: 'approval-sla', instanceId: b.instanceId },
                 dedupKey: `approval-sla:${b.instanceId}:${day(now)}`,
             });

@@ -54,7 +54,7 @@ export class NexusAlertsService {
         message: `Store "${s.store.name}" holds only ${s.quantity} units of ${s.item.name} (Min Level: ${s.minLevel || 10}).`,
         type: 'LOW_STOCK',
         priority: 'HIGH',
-        link: '/inventory/dashboard'
+        link: '/inventory'
       });
     });
 
@@ -76,7 +76,7 @@ export class NexusAlertsService {
         message: `Batch containing ${b.item.name} is expiring on ${b.expiryDate?.toLocaleDateString()}.`,
         type: 'EXPIRY',
         priority: 'HIGH',
-        link: '/inventory/dashboard'
+        link: '/inventory'
       });
     });
 

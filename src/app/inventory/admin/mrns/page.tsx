@@ -209,7 +209,7 @@ export default function MRNDashboardPage() {
                                 <p className="text-xs text-slate-500">Track and approve returns from stores to central stock/suppliers</p>
                             </div>
                             <Button
-                                onClick={() => router.push("/admin/inventory/mrn/create")}
+                                onClick={() => router.push("/inventory/admin/mrn/create")}
                                 size="sm"
                                 className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm h-8 self-start md:self-auto"
                             >

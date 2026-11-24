@@ -432,7 +432,7 @@ export class DomainNotificationPolicies {
             message: `${expense.submittedByName} submitted ${expense.category} expense of ${expense.amount.toLocaleString()} LKR${projectRef} (Ref: ${expense.expenseNumber}).`,
             type: 'FINANCE',
             priority: 'HIGH',
-            link: '/finance/expenses',
+            link: '/finance',
             metadata: { expenseId: expense.id, expenseNumber: expense.expenseNumber },
         });
     }

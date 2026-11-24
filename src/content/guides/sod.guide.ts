@@ -58,7 +58,7 @@ export const SOD_GUIDE: ModuleGuide = {
                 'An office user assigns a contractor team to the order and, if needed, sets an appointment date.',
                 'When the work is done, the order is completed with Confirm Completion: date, team, DP, device serial numbers and the material used.',
                 'Finished orders move to Install Closed SOD or Completed SOD. The three PAT approvals (SLTS, OPMC, HO) are tracked on PAT Status Monitor.',
-                'Finished orders are checked on Completed SOD by the QC Officer or the Area Coordinator of their area, who do the same job and cover for each other: the connection is completed, the material used is entered, the photos were received and checked. Then the order is ready for the Engineer to invoice (Service Orders → Invoicing). At month end the Engineer creates the invoices: one for each contractor, area and month. The contractor then accepts the invoice and the Area Manager approves it (Invoices → Invoice Approvals (Area)).',
+                'Finished orders are checked on Completed SOD by the QC Officer or the Area Coordinator of their area, who do the same job and cover for each other: the connection is completed, the material used is entered, the photos were received and checked. Then the order is ready for the Engineer to invoice (Service Orders → Invoicing). At month end the Engineer creates the invoices: one for each contractor, area and month. The contractor then accepts the invoice and the Area Manager approves it (Service Orders → Invoice Approvals).',
                 'An order the customer or SLT cancels is a Return (Return SOD). An order that disappears from the portal is shown on Disappeared SODs.',
             ],
             tips: [
@@ -448,7 +448,7 @@ export const SOD_GUIDE: ModuleGuide = {
             requires: RBAC_PERMISSIONS.INVOICE_CONFIRM_MANAGER,
             steps: [
                 'The contractor opens the contractor portal, Invoices & Claims. The invoice is marked "Confirm needed". Opening it shows the invoice with "Confirm invoice" and "Dispute", and any service orders that were taken out with the reason. A dispute needs a reason and sends the orders back to the Area Coordinator / QC Officer check.',
-                'The Area Manager opens Invoices → Invoice Approvals (Area). It lists the invoices waiting at the step you hold, in your own area, with the contractor, the RTOM, the number of orders and the total.',
+                'The Area Manager opens Service Orders → Invoice Approvals. It lists the invoices waiting at the step you hold, in your own area, with the contractor, the RTOM, the number of orders and the total.',
                 'To check what is in an invoice click "View service orders" (late SODs are marked). Tick one invoice or many and click "Approve selected", or use Approve on a row. An approved invoice goes to OSP Quality.',
                 'If an order has a quality problem, tick it, give the reason and click "Take out of invoice". It goes back to the Area Coordinator / QC Officer check, the invoice total is recalculated, and the contractor sees which orders were taken out and why. An invoice left with no orders is cancelled.',
                 'To reject invoices, tick them, type a reason in "Reason to return" and click "Return selected". Their orders go back to the Area Coordinator / QC Officer check.',

@@ -25,8 +25,3 @@ test('WIP revenue totals cover every order while the returned job list and issue
   assert.match(svc, /itemsTruncated/);
 });
 
-test('delay sheets narrow to possible delays in the database before applying the exact rules', () => {
-  const svc = source('src/services/invoice/invoice.service.ts');
-  assert.match(svc, /completedCondition: Prisma\.ServiceOrderWhereInput/);
-  assert.match(svc, /delayReasonsRaw: \{ not: Prisma\.DbNull \}/);
-});

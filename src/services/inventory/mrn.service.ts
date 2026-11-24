@@ -71,7 +71,7 @@ export class MRNService {
             message: `New Material Return Note ${mrn.mrnNumber} has been created and requires approval.`,
             type: 'INVENTORY',
             priority: 'MEDIUM',
-            link: '/admin/inventory/mrns'
+            link: '/inventory/admin/mrns'
         }));
         if (nErr) {
             console.error("Failed to notify for MRN:", nErr);
@@ -161,7 +161,7 @@ export class MRNService {
                 message: `Your Material Return Note ${updated.mrnNumber} has been rejected.`,
                 type: 'INVENTORY',
                 priority: 'HIGH',
-                link: '/admin/inventory/mrns'
+                link: '/inventory/admin/mrns'
             }));
             
             if (nErr) {
@@ -267,7 +267,7 @@ export class MRNService {
                     message: `Your Material Return Note ${mrn.mrnNumber} has been approved and stock updated.`,
                     type: 'INVENTORY',
                     priority: 'MEDIUM',
-                    link: '/admin/inventory/mrns'
+                    link: '/inventory/admin/mrns'
                 }));
                 
                 if (nErr) {

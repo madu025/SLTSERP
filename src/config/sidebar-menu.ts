@@ -542,18 +542,8 @@ export const SIDEBAR_MENU: MenuItem[] = [
         permissionId: 'restore_requests',
         submenu: [
             {
-                title: 'Material Requests & Approvals',
-                path: '/inventory/requests',
-                icon: ClipboardList,
-            },
-            {
                 title: 'Procurement Approvals',
                 path: '/procurement/approvals',
-                icon: FileSignature,
-            },
-            {
-                title: 'Contractor Registration Approvals',
-                path: '/contractors/management/approvals',
                 icon: FileSignature,
             }
         ]
@@ -1012,6 +1002,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/reports',
                 icon: FileText,
             },
+            
             {
                 title: 'Contractor Scorecard',
                 level: 'area',

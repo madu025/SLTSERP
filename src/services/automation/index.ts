@@ -42,7 +42,7 @@ export class AutomationService {
                     message: `Store "${storeName}" has ${(items as string[]).length} items below minimum level: ${(items as string[]).slice(0, 3).join(', ')}...`,
                     type: 'INVENTORY',
                     priority: 'HIGH',
-                    link: '/admin/inventory/stocks'
+                    link: '/inventory/stock'
                 });
             }
         }
@@ -71,7 +71,7 @@ export class AutomationService {
                 message: `There are ${stalledContractors} contractor registrations pending for more than 24 hours.`,
                 type: 'CONTRACTOR',
                 priority: 'MEDIUM',
-                link: '/admin/contractors/approvals'
+                link: '/contractors/management/approvals'
             });
         }
 
