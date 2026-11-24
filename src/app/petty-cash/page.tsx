@@ -253,7 +253,7 @@ export default function PettyCashPage() {
                         <thead className="border-b border-slate-300 bg-slate-100"><tr>{['IOU', 'Person', 'Amount (LKR)', 'Still out', 'Status', 'Actions'].map((h) => <th key={h} className="p-3 text-xs font-bold uppercase tracking-wide text-slate-900">{h}</th>)}</tr></thead>
                         <tbody className="divide-y divide-slate-200">
                           {ious.length === 0 ? <tr><td colSpan={6} className="p-4 text-center text-slate-800">No cash has been asked for</td></tr> : ious.map((i) => {
-                            const [text, cls] = IOU_STATUS[i.status] ?? [i.status, 'bg-slate-200 text-slate-900'];
+                            const [text, cls] = (i.status === 'APPROVED' && i.outstanding <= 0 ? ['Settled', 'bg-emerald-100 text-emerald-900'] : IOU_STATUS[i.status]) ?? [i.status, 'bg-slate-200 text-slate-900'];
                             return (
                               <tr key={i.id}>
                                 <td className="p-3 font-semibold text-slate-900">{i.iouNumber}</td>
