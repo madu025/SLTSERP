@@ -99,3 +99,30 @@ When the last installment closes the voucher (FINAL_PAID) an event is raised. Wh
 - Part payments today are separate vouchers (`allowPartial`); `PAID` is all or nothing and posts the whole amount to the ledger and to the supplier / project invoice. Installments must post to the ledger and the invoice **per installment**; this is the most sensitive change and needs a database for the lifecycle test.
 - An OSP invoice chain already exists for contractor invoices (`Invoice.approvalFlow = OSP_CHAIN`, dispatch to the OSP managers, then the Head Office run). The new payment gate must sit after it and must not duplicate it.
 - The database used for testing is reached through a local tunnel (port 55433) that is not running now, so the service-level and GUI tests of phases 1 to 5 wait for it.
+
+## 9. What the OSP Account working formats show (read 2026-11-24, folder `OSP-Account`)
+
+The source files are the finance section's own working files and stay outside the repository. This section records only the structure of each format, no names, accounts or amounts. `Final - OSP & SI Fixed Assets Verification.xlsx` could not be opened (access denied) and is not covered.
+
+| Format | The process it shows | What the system lacks today |
+|---|---|---|
+| IOU register | Two floats per site office (petty cash, project advance; also fuel and CCTV advances). An IOU is issued against a float, settled with bills, the balance refunded or recovered from salary. Tracks total IOU, bills, balance in hand, days outstanding and a remark per IOU (settlement form pending, refund from salary, reminders sent) | No float, no settlement (bills, refund, recovery), no days outstanding, no balance in hand, no remarks trail, no block on a new IOU while one is unsettled. `OspPettyCashIou` is only issue and approve |
+| Petty cash reimbursement analysis | A reimbursement claim per voucher batch: date, description, voucher no, receipts, and the expense analysed over GL account columns | `PettyCashAccount / Voucher / Reimbursement` is a second petty cash model, not linked to the OSP IOUs; the reimbursement is not analysed by GL account |
+| Project advance payment register | Ref, type, supplier, description, invoice no, amount, VAT 18 %, total, date submitted to Head Office, Head Office proceed date, invoice date, payment method | `OspProjectAdvance` has no submitted date, proceed date, payment method or paid state: this is the Head Office flow of this plan |
+| Petty cash cancelled vouchers | A cancelled voucher is listed with the reason (insufficient float, carried to another voucher, attached by mistake) | No cancel with a required reason and a "carried to voucher" link |
+| Site office rent payments | Monthly rent per site office: account detail, supplier, category, slip no, slip date, payment status, description (office and month) | Rent record has no period, no paid status, no link to the site office agreement |
+| Fuel deposit list | Per office, the fuel station and the deposit | Only the deposit: no top-ups, usage or balance per station |
+| Hiring vehicle payments, vehicle list, fleet list | Monthly payment per vehicle owner (bank, account, slip, paid date); the vehicle list holds agreement rate, driver portion and bank details; the fleet list marks own or rented and answers an audit | The rental vehicle master exists (`VMRentalVehicle`: rate, driver portion, bank) but `OspVehicleHiringPayment` is not linked to it |
+| Audit query on staff-owned three-wheelers | Staff-owned vehicles are hired at standard rates; the payee is a relative, the agreement carries the wrong NIC, the registered owner differs from the payee, and there is no written policy | No control that the payee equals the registered owner or account holder; no flag when the payee is a staff member or staff relative; no policy record |
+
+### Gaps to design (new, from the formats)
+1. **Float and settlement model** for IOUs: float per site office and type, issue, settlement with bills, refund or recovery, balance in hand, days outstanding, reminders, block on a new IOU while one is unsettled.
+2. **One petty cash model**: join the OSP IOUs with `PettyCashAccount`; analyse the reimbursement by GL account with a printable claim in the current layout.
+3. **Head Office dates on the project advance register** (submitted, proceed, paid, method): comes with the HO stages and installments (phase 1 and 3).
+4. **Voucher cancellation register** with a required reason and a link to the voucher it was carried to.
+5. **Rent**: period, paid status, link to the agreement, generation of the monthly request.
+6. **Fuel**: top-ups, usage and balance per station.
+7. **Hiring**: link the payment to the rental vehicle and its monthly summary; check that the payee is the registered owner or account holder; flag staff or staff-relative payees until a policy exists.
+8. **Import** of the existing registers (project advance, IOUs, rent, fuel, hiring) into the new structure.
+
+Suggested order: gap 3 together with the Head Office flow; gaps 1 and 2 (IOU float, one petty cash model) as their own phase; 4 to 7 after that; 8 last.
