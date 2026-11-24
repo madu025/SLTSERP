@@ -12,6 +12,13 @@ model OspPettyCashIou {
   status         String    @default("PENDING")
   approvedAt     DateTime?
   remarks        String?
+  /// the float this IOU is issued against (null for IOUs recorded before floats)
+  floatId         String?   @db.Uuid
+  /// bills handed in plus cash returned
+  settledAmount   Decimal   @default(0) @db.Decimal(14, 2)
+  /// OPEN | PARTIALLY_SETTLED | SETTLED
+  settlementStatus String   @default("OPEN")
+  settledAt       DateTime?
   createdById  String?   @db.Uuid
   approvedById String?   @db.Uuid
   createdAt      DateTime  @default(now())
@@ -106,4 +113,39 @@ model OspVehicleHiringPayment {
   @@unique([accountName, slipNo])
   @@index([opmcId])
   @@index([status])
+}
+
+/// A float kept at a site office (petty cash, project advance, fuel...): the limit IOUs are issued against.
+model OspFloat {
+  id                 String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  opmcId             String   @db.Uuid
+  /// PETTY_CASH | PROJECT_ADVANCE | FUEL | OTHER
+  type               String
+  name               String
+  limitAmount        Decimal  @db.Decimal(14, 2)
+  /// days an IOU may stay open before the same person gets no new one (0 = no limit)
+  maxDaysOutstanding Int      @default(30)
+  status             String   @default("ACTIVE")
+  createdById        String?  @db.Uuid
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([opmcId, type])
+  @@index([status])
+}
+
+/// What happened to an issued IOU: bills handed in, cash returned, or a follow-up reminder. Rows are never edited.
+model OspIouSettlement {
+  id           String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  iouId        String   @db.Uuid
+  /// BILLS | REFUND | REMINDER
+  kind         String
+  amount       Decimal  @default(0) @db.Decimal(14, 2)
+  reference    String?
+  settleDate   DateTime @default(now())
+  remarks      String?
+  recordedById String?  @db.Uuid
+  createdAt    DateTime @default(now())
+
+  @@index([iouId])
 }

@@ -1,6 +1,8 @@
 import { apiHandler } from '@/lib/api-handler';
 import { OSPAccountCrudService } from '@/services/finance/osp-account-crud.service';
+import { OspFloatService } from '@/services/finance/osp-float.service';
 import { z } from 'zod';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 export const dynamic = 'force-dynamic';
 const createSchema = z.object({
   iouNumber: z.string().min(1, 'IOU Number is required'),
@@ -13,15 +15,17 @@ const createSchema = z.object({
   noOfDays: z.number().nonnegative().optional(),
   remarks: z.string().optional(),
   opmcId: z.string().optional(),
+  floatId: databaseUuidSchema.optional(),
 });
-export const GET = apiHandler(async () => {
-  const ious = await OSPAccountCrudService.getIOUs();
+export const GET = apiHandler(async (_request, params) => {
+  const ious = await OspFloatService.listIous(params._userId as string);
   return { data: ious };
 }, {
 });
 export const POST = apiHandler(async (request, params) => {
   const body = await request.json();
   const data = createSchema.parse(body);
+  if (data.opmcId) await OspFloatService.assertOpmcInScope(params._userId as string, data.opmcId);
   const parsedDate = data.issuedDate ? new Date(data.issuedDate) : new Date();
   const result = await OSPAccountCrudService.createIOU({
     ...data,

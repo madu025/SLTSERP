@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { assertNotMaker } from '@/lib/maker-checker';
 import { OSPLedgerService } from './osp-ledger.service';
+import { OspFloatService } from './osp-float.service';
 import { AccountingPostingRegistry } from './accounting-posting-registry.service';
 
 export class OSPAccountCrudService {
@@ -11,6 +12,7 @@ export class OSPAccountCrudService {
 
   static async createIOU(data: {
     iouNumber: string;
+    floatId?: string;
     opmcId?: string;
     staffName: string;
     staffServiceNo?: string;
@@ -22,6 +24,10 @@ export class OSPAccountCrudService {
     remarks?: string;
   }, actorId?: string | null) {
     if (data.amount <= 0) throw AppError.badRequest('AMOUNT_MUST_BE_GREATER_THAN_ZERO');
+    if (data.floatId) {
+      const f = await OspFloatService.assertFloatForNewIou(data.floatId, data.opmcId);
+      data = { ...data, opmcId: data.opmcId ?? f.opmcId };
+    }
 
     const existing = await prisma.ospPettyCashIou.findUnique({
       where: {
@@ -51,6 +57,7 @@ export class OSPAccountCrudService {
       if (!iou) throw AppError.notFound('IOU_NOT_FOUND');
       if (iou.status === 'APPROVED') throw AppError.badRequest('ALREADY_APPROVED');
       assertNotMaker(iou.createdById, actorId);
+      await OspFloatService.assertCanIssue(tx, iou);
 
       const updated = await tx.ospPettyCashIou.update({
         where: { id },
