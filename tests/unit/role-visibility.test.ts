@@ -49,7 +49,7 @@ test('the finance people open Invoice Status and every money page, but no servic
     for (const r of ['FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER', 'AR_OFFICER', 'INVOICE_MANAGER', 'INVOICE_ASSISTANT', 'SF_AUDIT_MANAGER', 'SF_AUDIT_OFFICER']) {
         const v = visible(r);
         for (const p of ['/service-orders/invoice-status', '/finance/general-ledger', '/projects/dashboards/financials']) assert.ok(v.has(p), `${r} should open ${p}`);
-        // the group Finance Setup & Ops (payment vouchers, head office payments...) needs finance.write: the read-only finance roles do not have it
+        // the groups Head Office Payments and Finance Setup & Registers need finance.write: the read-only finance roles do not have it
         if (['FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER'].includes(r)) assert.ok(v.has('/finance/payments'), `${r} should open /finance/payments`);
         for (const p of ['/service-orders/work-order', '/service-orders/work-order/completed', '/reports/arm', '/reports/manager']) assert.ok(!v.has(p), `${r} must not open ${p}`);
     }

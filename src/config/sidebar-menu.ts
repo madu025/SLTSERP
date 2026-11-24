@@ -3,6 +3,7 @@ import {
     Activity,
     Mail,
     LayoutDashboard,
+    Send,
     FileText,
     Users,
     HardHat,
@@ -616,26 +617,16 @@ export const SIDEBAR_MENU: MenuItem[] = [
         permissionId: 'corporate-finance',
         submenu: [
             {
-                title: 'Finance Setup & Ops',
+                        title: 'Finance Control Center',
+                        path: '/finance',
+                        icon: LayoutDashboard,
+                    },
+            {
+                title: 'Head Office Payments',
                 path: '#',
-                icon: Banknote,
+                icon: Send,
                 permissionId: 'finance-ops',
                 submenu: [
-                    {
-                        title: 'SLT SLA Agreements',
-                        path: '/finance/slt-contracts',
-                        icon: FileCheck2,
-                    },
-                    {
-                        title: 'Vendor Registry',
-                        path: '/finance/vendors',
-                        icon: Building,
-                    },
-                    {
-                        title: 'Bank Registry',
-                        path: '/finance/banks',
-                        icon: Landmark,
-                    },
                     {
                         title: 'Payment Vouchers',
                         path: '/finance/payments',
@@ -662,11 +653,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
                         icon: Receipt,
                     },
                     {
-                        title: 'Project Head Office Position',
-                        path: '/finance/ho-projects',
-                        icon: Landmark,
-                    },
-                    {
                         title: 'Head Office Funding',
                         path: '/finance/ho-funding',
                         icon: Landmark,
@@ -677,9 +663,118 @@ export const SIDEBAR_MENU: MenuItem[] = [
                         icon: Landmark,
                     },
                     {
+                        title: 'Project Head Office Position',
+                        path: '/finance/ho-projects',
+                        icon: Landmark,
+                    }
+                ]
+            },
+            {
+                title: 'Petty Cash & OSP Accounts',
+                path: '#',
+                icon: Landmark,
+                permissionId: 'osp-account',
+                submenu: [
+                    {
+                        title: 'OSP Dashboard',
+                        path: '/finance/osp-account-reports',
+                        icon: Receipt,
+                    },
+                    {
                         title: 'Petty Cash',
                         path: '/finance/petty-cash',
                         icon: Banknote,
+                    },
+                    {
+                        title: 'Petty Cash IOUs',
+                        path: '/finance/osp-account/ious',
+                        icon: Receipt,
+                    },
+                    {
+                        title: 'Project Advances',
+                        path: '/finance/osp-account/advances',
+                        icon: Receipt,
+                    },
+                    {
+                        title: 'Property Rents',
+                        path: '/finance/osp-account/rents',
+                        icon: Receipt,
+                    },
+                    {
+                        title: 'Fleet Ledger',
+                        path: '/finance/osp-account/fleet',
+                        icon: Receipt,
+                    }
+                ]
+            },
+            {
+                title: 'Billing & Invoices',
+                path: '#',
+                icon: FileSignature,
+                permissionId: 'billing',
+                submenu: [
+                    {
+                        title: 'Submit Invoices (SLT)',
+                        path: '/invoices',
+                        icon: Receipt,
+                    },
+                    {
+                        title: 'OSP Manager Approvals',
+                        path: '/invoices/osp-approvals',
+                        icon: Receipt,
+                    },
+                    {
+                        title: 'BOM Sheets (Imports)',
+                        path: '/invoices/bom-sheets',
+                        icon: Upload,
+                    },
+                    {
+                        title: 'Cost Allocation',
+                        path: '/finance/cost-allocation',
+                        icon: FileSignature,
+                    },
+                    {
+                        title: 'SOD Revenue Config',
+                        path: '/finance/sod-revenue',
+                        icon: Receipt,
+                    },
+                    {
+                title: 'Contractor Billing',
+                path: '/finance/billing',
+                icon: FileText,
+            },
+                    {
+                title: 'Send Invoices to OSP Managers',
+                path: '/finance/invoice-dispatch',
+                icon: CheckCircle2,
+            },
+                    {
+                title: 'Finance Invoice Approvals',
+                path: '/finance/invoices',
+                icon: CheckCircle2,
+                }
+                ]
+            },
+            {
+                title: 'Finance Setup & Registers',
+                path: '#',
+                icon: Banknote,
+                permissionId: 'finance-ops',
+                submenu: [
+                    {
+                        title: 'SLT SLA Agreements',
+                        path: '/finance/slt-contracts',
+                        icon: FileCheck2,
+                    },
+                    {
+                        title: 'Vendor Registry',
+                        path: '/finance/vendors',
+                        icon: Building,
+                    },
+                    {
+                        title: 'Bank Registry',
+                        path: '/finance/banks',
+                        icon: Landmark,
                     },
                     {
                         title: 'Retention Management',
@@ -690,6 +785,13 @@ export const SIDEBAR_MENU: MenuItem[] = [
                         title: 'LD Penalties',
                         path: '/finance/ld-penalties',
                         icon: ShieldAlert,
+                    },
+                    {
+                        title: 'Contractor Payment Tiers',
+                        path: '/finance/contractor-payments',
+                        icon: Calculator,
+                        // the tiers are saved through an administrator route
+                        permissionId: RBAC_PERMISSIONS.ADMIN_RBAC,
                     },
                     {
                         title: 'Rate Matrix Config',
@@ -720,77 +822,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
                         title: 'Bank Upload (HO)',
                         path: '/finance/banks/import',
                         icon: Upload,
-                    }
-                ]
-            },
-            {
-                title: 'Billing & Invoices',
-                path: '#',
-                icon: FileSignature,
-                permissionId: 'billing',
-                submenu: [
-                    {
-                        title: 'Submit Invoices (SLT)',
-                        path: '/invoices',
-                        icon: Receipt,
-                    },
-                    {
-                        title: 'Invoice Approvals (Area)',
-                        path: '/invoices/confirmations',
-                        icon: Receipt,
-                    },
-                    {
-                        title: 'OSP Manager Approvals',
-                        path: '/invoices/osp-approvals',
-                        icon: Receipt,
-                    },
-                    {
-                        title: 'BOM Sheets (Imports)',
-                        path: '/invoices/bom-sheets',
-                        icon: Upload,
-                    },
-                    {
-                        title: 'Cost Allocation',
-                        path: '/finance/cost-allocation',
-                        icon: FileSignature,
-                    },
-                    {
-                        title: 'SOD Revenue Config',
-                        path: '/finance/sod-revenue',
-                        icon: Receipt,
-                    }
-                ]
-            },
-            {
-                title: 'OSP Accounts',
-                path: '#',
-                icon: Landmark,
-                permissionId: 'osp-account',
-                submenu: [
-                    {
-                        title: 'OSP Dashboard',
-                        path: '/finance/osp-account-reports',
-                        icon: Receipt,
-                    },
-                    {
-                        title: 'Petty Cash IOUs',
-                        path: '/finance/osp-account/ious',
-                        icon: Receipt,
-                    },
-                    {
-                        title: 'Project Advances',
-                        path: '/finance/osp-account/advances',
-                        icon: Receipt,
-                    },
-                    {
-                        title: 'Property Rents',
-                        path: '/finance/osp-account/rents',
-                        icon: Receipt,
-                    },
-                    {
-                        title: 'Fleet Ledger',
-                        path: '/finance/osp-account/fleet',
-                        icon: Receipt,
                     }
                 ]
             },
@@ -913,22 +944,26 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '#',
                 icon: Landmark,
                 submenu: [
-            {
+                    {
                 title: 'Bank Reconciliation',
                 path: '/finance/bank/reconciliation',
                 icon: CheckCircle2,
             },
-            {
+                    {
+                        title: 'Bank Statement Auto-Match',
+                        path: '/finance/bank-reconciliation',
+                        icon: CheckCircle2,
+                    },
+                    {
                 title: 'Cash Book & Bank Ledger',
                 path: '/finance/bank/cash-book',
                 icon: Landmark,
             },
-            {
+                    {
                 title: 'Multi-Currency FX Rates',
                 path: '/finance/exchange-rates',
                 icon: Globe,
-            },
-            // — Assets & Payroll —
+            }
                 ]
             },
             {
@@ -950,30 +985,15 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 ]
             },
             {
-                title: 'Billing & Period Controls',
+                title: 'Period Close',
                 path: '#',
                 icon: Lock,
                 submenu: [
-            {
+                    {
                 title: 'Financial Period Close & Year-End',
                 path: '/finance/period-close',
                 icon: Lock,
-            },
-            {
-                title: 'Contractor Billing',
-                path: '/finance/billing',
-                icon: FileText,
-            },
-            {
-                title: 'Send Invoices to OSP Managers',
-                path: '/finance/invoice-dispatch',
-                icon: CheckCircle2,
-            },
-            {
-                title: 'Invoice Approvals',
-                path: '/finance/invoices',
-                icon: CheckCircle2,
-                }
+            }
                 ]
             }
         ]

@@ -22,7 +22,7 @@ export interface ReconciliationResult {
 
 export class BankReconciliationService {
     /**
-     * Auto-match bank statement rows against General Ledger Bank Account (1001).
+     * Auto-match bank statement rows against the General Ledger bank account.
      * Compares the amounts and dates (with a tolerance of +/- 3 days).
      */
     static async autoReconcileStatement(rows: BankStatementRow[]): Promise<ReconciliationResult> {

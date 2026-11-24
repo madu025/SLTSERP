@@ -81,7 +81,7 @@ export default function BankReconciliationPage() {
           <main className="flex-1 overflow-y-auto p-6">
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Auto Bank Reconciliation</h1>
-              <p className="text-slate-500 mt-1">Upload standard Bank CSV to match with General Ledger (Account 1001).</p>
+              <p className="text-slate-500 mt-1">Upload a bank statement CSV to match its lines with the bank account in the General Ledger.</p>
             </div>
 
             <Card className="mb-8 border-slate-200 shadow-sm">
