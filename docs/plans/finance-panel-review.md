@@ -132,7 +132,36 @@ Result: 60 questions: **OK 17, PART 15, GAP 23, DECIDE 5** (DECIDE: 18, 31, 33, 
 | Receipts and AR roles | 20, 22 | C |
 | Audit controls | 57, 58, 60 | E |
 
-Decisions still open (4 after 18, which the owner settled: the Cashier marks nothing as paid): 31 (does the Head of Section approve every payment or only above an amount), 33 (where a rejection goes), 49 (do site staff ask for IOUs themselves), 53 (salary recovery and its account). Default used until the owner decides: Head of Section approves every payment; a rejection goes back to the maker; only the finance people record IOUs; no salary recovery.
+Decisions: 18 (the Cashier marks nothing as paid), 31, 33 and 53 are settled (section 3a); only 49 (do site staff ask for IOUs themselves) stays open and keeps its default: only the finance people record IOUs.
+
+## 3a. Owner's decisions on the open questions (2026-11-24)
+
+| # | Decision |
+|---|---|
+| 31 | The OSP Manager and the Head of Section approve **every** payment (after the Finance Manager). |
+| 33 | An approver who does not approve either **holds** the request or **rejects** it. *Hold*: it goes back to the person who raised it, who reviews it and sends it again. *Reject*: a reason is required and the request is closed. |
+| 53 | No recovery from salary for now. An IOU that is not settled raises a **salary hold request**: a message to the roles that handle salary. When the IOU is settled the hold lifts by itself. |
+| 49 | Not answered: stays as it is (only the finance people record IOUs). |
+
+### Payment approval states (decision 33, thought through)
+`DRAFT -> PENDING_APPROVAL (step 1 Finance Manager -> step 2 OSP Manager -> step 3 Head of Section) -> APPROVED -> submitted to HO -> HO stages -> PAID`
+- **ON_HOLD**: any approver at their step may hold, with a note. The request returns to its maker; the approvals given so far are kept in the history but no longer count.
+- The maker reviews, edits and **sends it again**; the chain starts again from step 1 (the contents may have changed, so every step must see the new version). The same person cannot approve two steps.
+- **REJECTED**: any approver may reject, with a required reason; it is closed for good. The maker, if the payment is still owed, raises a new request.
+- A request on hold longer than a number of days (set by the Admin) is shown to its maker and to the Finance Manager as stale.
+- Every hold, resend and rejection is a row in the history with who, when and why.
+
+### Salary hold for an unsettled IOU (decision 53, thought through)
+Nothing is deducted: the system only **raises, shows and lifts a hold request**.
+1. **Overdue**: an issued IOU with an outstanding amount and more days open than its float allows (default 30) is flagged overdue. The holder, the Cashier and the Finance Manager are told.
+2. **Request**: the Finance Manager presses *Request salary hold* (a float setting may also raise it automatically some days after the overdue date; 0 = manual only). The request keeps the outstanding amount, the reason and who asked.
+3. **Who is told**: everyone who holds the new capability `finance.salary-hold.read` (the owner picks the roles on the permissions screen; default the Finance Manager, the Finance Assistant, the Cashier and the Office Admin) gets a message "hold Rs. X of <person> until IOU <no> is settled" and sees a *Salary hold* list. The person concerned sees a notice on their own IOU.
+4. **Acknowledge**: a person who processes salary marks the hold as *applied*; this is only a record.
+5. **Lift by itself**: every settlement updates the amount on hold; when the outstanding amount reaches zero the hold is released at once and the same people get "release the hold of <person>". No one has to remember.
+6. **Other ways out**: the Finance Manager may extend the days once with a reason, or cancel the hold with a reason; an IOU that is rejected or cancelled never raises one.
+7. **Link to a user**: an IOU is recorded with a free-text name today. An optional link to a system user is added so the person gets the messages and can see "my IOUs"; without a link the message goes to the finance roles only.
+8. **History** of the hold (requested, applied, amount changed, released, cancelled) is kept as immutable rows.
+9. **Policy**: holding pay can be disputed without a written company rule or the person's consent. HR or legal should confirm the rule and the wording before the first hold is used. The system keeps the rule text in one place (a setting), so it can be shown on the notice.
 
 ## 4. Target design
 
