@@ -1271,7 +1271,6 @@ export interface MenuAccessOptions {
  * Role labels and menu metadata are deliberately not part of this decision.
  */
 export const canAccessMenuItem = ({
-    designations,
     module,
     level,
     isLoggedIn = true,
@@ -1280,7 +1279,7 @@ export const canAccessMenuItem = ({
     userPermissions,
     pathname,
 }: MenuAccessOptions) => {
-    if (isLoggedIn && !levelAllowsItem(module, level, designations)) return false;
+    if (isLoggedIn && !levelAllowsItem(module, level, userPermissions)) return false;
     if (!isLoggedIn) {
         // Only allow public Guest items in sidebar/navigation
         return !!itemTitle && ['IT Help Desk', 'ITMS & IT Help Desk', 'User Dashboard', 'Create Ticket'].includes(itemTitle);

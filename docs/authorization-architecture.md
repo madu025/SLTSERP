@@ -259,3 +259,17 @@ A contractor belongs to a store when its OPMC is served by the store or one of i
 - **Area Manager of a site office** (`InventoryStore.areaManagerId`): set when the Area Manager is registered (the site offices the person covers). A site office has one ARM; a person who is no longer an active Area Manager covers nothing.
 - **Release of cash** (a bill, or cash for an IOU on a petty cash float of a site office that keeps a box) is approved or rejected only by that site office's ARM, never by the person who asked, and there is **no Finance Manager step**. A site office without an ARM releases nothing. A box made before site offices keeps the finance approval. Replenishment and the float stay with Head Office funding.
 - Visibility: people with company-wide finance scope see every box; a custodian or an ARM without a finance reading capability sees only the boxes they look after or are the ARM of.
+
+## How to add a page, an approval or a menu entry (checklist for developers and AI assistants)
+
+One rule: **the menu, the page and the API decide by the same capability code. A role name is never written in runtime code.**
+The tests in `tests/unit/authorization-rules.test.ts` and `tests/unit/menu-page-reach.test.ts` fail when this is broken.
+
+1. **Pick or add the capability** in `src/config/rbac-permissions.ts` (the key in `RBAC_PERMISSIONS` and a line in `RBAC_PERMISSION_DEFINITIONS`). Reuse a capability when the same people do the same thing.
+2. **Give the starting grants** in `src/config/rbac-bootstrap.ts` (`CANONICAL_BOOTSTRAP_ROLE_GRANTS` by post, `MODULE_DESIGNATION_GRANTS` by designation). The deploy seed (`pnpm run rbac:seed`) writes them to the database. From then on the database is the truth: an administrator changes a grant on the Permissions page, and the next deploy seed resets the capabilities listed in the catalog to the bootstrap, so a lasting change belongs in the bootstrap file too.
+3. **Guard the API**: `apiHandler({ permissions: [...] })` (any of the listed). Add the data scope (`resolveOpmcScope` and the like): a capability never grants all the data.
+4. **Guard the page**: a rule in `src/config/page-capabilities.ts` (the longest prefix wins) and `RoleGuard`.
+5. **Add the menu entry** in `src/config/sidebar-menu.ts` with `permissionId` set to a canonical capability. A leaf with no `permissionId` inherits its group's, which can hide a page from the people who may open it: set it on the leaf when the group's capability is broader or narrower.
+6. **Menu levels** (what the person does in a module: view, operate, approve ...): the capability `menu.<module>.<level>`; an item says `module` and `level`. The starting levels per role are `BOOTSTRAP_MENU_LEVELS` in the bootstrap file; the menu reads only the capabilities.
+7. **First page after sign-in** is `landingPath()` (`src/config/landing.ts`), from capabilities.
+8. **Run**: `pnpm exec tsc --noEmit`, `pnpm run test:unit`, `pnpm run rbac:check`, and `pnpm exec tsx scripts/zz-audit-pages.ts` (every menu entry against its page rule, per role). Update the system guide when a screen or rule of a guided module changes.

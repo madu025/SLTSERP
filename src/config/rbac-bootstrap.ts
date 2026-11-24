@@ -1,5 +1,6 @@
 import { Role } from '@prisma/client';
 import { RBAC_PERMISSIONS, type RbacPermission } from './rbac-permissions';
+import { menuLevelPermission, type AccessLevel, type MenuModule } from './menu-access';
 
 /**
  * Initial capability grants for a fresh or upgraded database.
@@ -9,7 +10,7 @@ import { RBAC_PERMISSIONS, type RbacPermission } from './rbac-permissions';
  * Keep this catalog explicit so a future role/group rename cannot silently
  * change live access without a deliberate seed review.
  */
-export const CANONICAL_BOOTSTRAP_ROLE_GRANTS = {
+const BASE_BOOTSTRAP_ROLE_GRANTS = {
     [RBAC_PERMISSIONS.DASHBOARD_READ]: Object.values(Role),
     [RBAC_PERMISSIONS.SOD_READ]: [
         'SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'AREA_MANAGER',
@@ -248,12 +249,79 @@ export const CANONICAL_BOOTSTRAP_ROLE_GRANTS = {
 } as const satisfies Partial<Record<RbacPermission, readonly Role[]>>;
 
 /**
+ * The starting menu level of each role (a post) and module designation, per module. A role with no entry for a module holds no level
+ * for it, and the page capability alone decides. This is the only place the levels are written as role names: they are turned into the
+ * capabilities menu.<module>.<level> below, and from the seed on the database decides (an administrator changes them like any grant).
+ */
+export const BOOTSTRAP_MENU_LEVELS: Readonly<Record<MenuModule, Readonly<Record<string, AccessLevel>>>> = {
+    // Service orders. Coordinators and QC check the finished orders; engineers also invoice; the Area Manager also approves.
+    SOD: {
+        SUPER_ADMIN: 'admin', ADMIN: 'admin',
+        AREA_MANAGER: 'approve',
+        ENGINEER: 'invoice', ASSISTANT_ENGINEER: 'invoice', OSP_MANAGER: 'invoice', HEAD_OF_OSP: 'invoice', CEO: 'invoice',
+        AREA_COORDINATOR: 'operate', QC_OFFICER: 'operate',
+        OSP_ENGINEER: 'operate', CIVIL_SUPERVISOR: 'operate', CABLE_SPLICER: 'operate',
+        SA_MANAGER: 'operate', SA_ASSISTANT: 'operate', FAULT_COORDINATOR: 'operate', REPAIR_TECHNICIAN: 'operate',
+    },
+    // Inventory. The stores run the store; the managers approve requests and read balances; the project engineers draw project material.
+    INVENTORY: {
+        SUPER_ADMIN: 'admin', ADMIN: 'admin',
+        CEO: 'operate', STORES_MANAGER: 'operate', STORES_EXECUTIVE: 'operate', STORES_ASSISTANT: 'operate',
+        AREA_MANAGER: 'approve', OSP_MANAGER: 'approve', HEAD_OF_OSP: 'approve', HEAD_OF_SECTION: 'approve',
+        MANAGER: 'view', REGIONAL_GENERAL_MANAGER: 'view',
+        PROJECTS_ENGINEER: 'view', PROJECTS_ASSISTANT_ENGINEER: 'view',
+    },
+    // Projects. The project engineers and the managers run and approve projects; the finance, stores, audit and service assurance people read them.
+    PROJECTS: {
+        SUPER_ADMIN: 'admin', ADMIN: 'admin',
+        CEO: 'approve', HEAD_OF_OSP: 'approve', MANAGER: 'approve', OSP_MANAGER: 'approve', AREA_MANAGER: 'approve',
+        PROJECTS_ENGINEER: 'approve', PROJECTS_AREA_MANAGER: 'approve', PROJECTS_OSP_MANAGER: 'approve', OSP_ENGINEER: 'approve', CIVIL_SUPERVISOR: 'approve',
+        PROJECTS_ASSISTANT_ENGINEER: 'operate', PROJECTS_AREA_COORDINATOR: 'operate', PROJECTS_QC_OFFICER: 'operate', CABLE_SPLICER: 'operate',
+        FINANCE_MANAGER: 'view', FINANCE_ASSISTANT: 'view', CASHIER: 'view', INVOICE_MANAGER: 'view', INVOICE_ASSISTANT: 'view', AR_OFFICER: 'view',
+        SF_AUDIT_MANAGER: 'view', SF_AUDIT_OFFICER: 'view', RATE_AUDITOR: 'view', STORES_MANAGER: 'view', STORES_EXECUTIVE: 'view', STORES_ASSISTANT: 'view', PROCUREMENT_OFFICER: 'view',
+        SA_MANAGER: 'view', SA_ASSISTANT: 'view', FAULT_COORDINATOR: 'view', REPAIR_TECHNICIAN: 'view', REGIONAL_GENERAL_MANAGER: 'view', HEAD_OF_SECTION: 'view',
+    },
+    // Reports. The Area Manager reads the reports of the own areas; the company managers read the company reports too.
+    REPORTS: {
+        SUPER_ADMIN: 'admin', ADMIN: 'admin',
+        CEO: 'company', HEAD_OF_OSP: 'company', OSP_MANAGER: 'company', MANAGER: 'company', HEAD_OF_SECTION: 'company', REGIONAL_GENERAL_MANAGER: 'company',
+        AREA_MANAGER: 'area',
+    },
+    // IT help desk. Everyone who works in the field or an area raises tickets; the office staff are the IT staff; the asset audits need an approver.
+    ITMS: {
+        SUPER_ADMIN: 'admin', ADMIN: 'admin',
+        CEO: 'approve', OFFICE_ADMIN: 'approve',
+        OFFICE_ADMIN_ASSISTANT: 'operate', SITE_OFFICE_STAFF: 'operate',
+        MANAGER: 'view', OSP_MANAGER: 'view', AREA_MANAGER: 'view', ENGINEER: 'view', ASSISTANT_ENGINEER: 'view', AREA_COORDINATOR: 'view', QC_OFFICER: 'view',
+    },
+    // Vehicles and fleet. The office staff run the fleet and its payments; the managers see vehicles, drivers, trips and the fleet report.
+    FLEET: {
+        SUPER_ADMIN: 'admin', ADMIN: 'admin',
+        CEO: 'operate', OFFICE_ADMIN: 'operate', OFFICE_ADMIN_ASSISTANT: 'operate', SITE_OFFICE_STAFF: 'operate',
+        MANAGER: 'view', OSP_MANAGER: 'view', AREA_MANAGER: 'view', REGIONAL_GENERAL_MANAGER: 'view',
+    },
+};
+
+const roleCodes = new Set<string>(Object.values(Role));
+const menuBase: Partial<Record<RbacPermission, Role[]>> = {};
+const menuDesignations: Record<string, string[]> = {};
+for (const [module, byCode] of Object.entries(BOOTSTRAP_MENU_LEVELS) as Array<[MenuModule, Readonly<Record<string, AccessLevel>>]>) {
+    for (const [code, level] of Object.entries(byCode)) {
+        const permission = menuLevelPermission(module, level) as RbacPermission;
+        if (roleCodes.has(code)) (menuBase[permission] ??= []).push(code as Role);
+        else (menuDesignations[permission] ??= []).push(code);
+    }
+}
+
+export const CANONICAL_BOOTSTRAP_ROLE_GRANTS: Readonly<Partial<Record<RbacPermission, readonly Role[]>>> = { ...BASE_BOOTSTRAP_ROLE_GRANTS, ...menuBase };
+
+/**
  * Grants of a module designation, by its own role code. A person has a base role (ENGINEER: service-order work) and, per module, a
  * designation through a section assignment (PROJECTS_ENGINEER: project work). A designation takes the grants of its base role (the
  * seed matches it by its suffix) and, in addition, the grants listed here for its own code. The SOD Engineer therefore has no project
  * capability, and the Project Engineer has it.
  */
-export const MODULE_DESIGNATION_GRANTS: Readonly<Record<string, readonly string[]>> = {
+const BASE_MODULE_DESIGNATION_GRANTS: Readonly<Record<string, readonly string[]>> = {
     [RBAC_PERMISSIONS.PROJECT_READ]: ['PROJECTS_ENGINEER', 'PROJECTS_ASSISTANT_ENGINEER'],
     [RBAC_PERMISSIONS.PROJECT_WRITE]: ['PROJECTS_ENGINEER', 'PROJECTS_ASSISTANT_ENGINEER'],
     [RBAC_PERMISSIONS.PROJECT_APPROVE]: ['PROJECTS_ENGINEER'],
@@ -266,6 +334,8 @@ export const MODULE_DESIGNATION_GRANTS: Readonly<Record<string, readonly string[
     [RBAC_PERMISSIONS.INVENTORY_READ]: ['PROJECTS_ENGINEER', 'PROJECTS_ASSISTANT_ENGINEER'],
     [RBAC_PERMISSIONS.NOTIFICATION_PROJECT_MANAGERS]: ['PROJECTS_ENGINEER', 'PROJECTS_ASSISTANT_ENGINEER'],
 };
+
+export const MODULE_DESIGNATION_GRANTS: Readonly<Record<string, readonly string[]>> = { ...BASE_MODULE_DESIGNATION_GRANTS, ...menuDesignations };
 
 /** Validate the bootstrap catalog before it can write any grants. */
 export function getCanonicalBootstrapRoles(permission: RbacPermission): readonly Role[] {

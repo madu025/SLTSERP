@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { verifyJWTWithResult } from '@/lib/auth';
-import { isContractorRole, isStoresRole } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,9 +14,7 @@ export default async function Home() {
     const result = token ? await verifyJWTWithResult(token) : null;
 
     if (result?.valid) {
-        const role = result.payload.role as string;
-        if (isContractorRole(role)) redirect('/contractor/dashboard');
-        if (isStoresRole(role)) redirect('/inventory');
+        // the dashboard sends contractors and store people to their own first page by their capabilities
         redirect('/dashboard');
     }
 

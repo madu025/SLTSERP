@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SIDEBAR_MENU, canAccessMenuItem } from '../../src/config/sidebar-menu';
-import { CANONICAL_BOOTSTRAP_ROLE_GRANTS, MODULE_DESIGNATION_GRANTS } from '../../src/config/rbac-bootstrap';
-import { designationLevel, levelAllowsItem, MODULE_DESIGNATION_LEVELS } from '../../src/config/menu-access';
+import { BOOTSTRAP_MENU_LEVELS, CANONICAL_BOOTSTRAP_ROLE_GRANTS, MODULE_DESIGNATION_GRANTS } from '../../src/config/rbac-bootstrap';
+import { levelFromPermissions, levelAllowsItem } from '../../src/config/menu-access';
 
 /**
  * The menu matrix: for each designation of the Service Orders module, the items of that module its menu shows, from the bootstrap grants.
@@ -12,6 +12,10 @@ const grantsOf = (code: string): string[] => Object.entries({ ...CANONICAL_BOOTS
     .filter(([, roles]) => roles.includes(code))
     .map(([perm]) => perm)
     .concat(Object.entries(MODULE_DESIGNATION_GRANTS).filter(([, roles]) => roles.includes(code)).map(([perm]) => perm));
+
+/** What a person holds through these roles (a post and its module designations). */
+const permsOf = (designations: string[]): string[] => [...new Set(designations.flatMap(grantsOf))];
+const designationLevel = (module: Parameters<typeof levelFromPermissions>[0], d: string[]) => levelFromPermissions(module, permsOf(d));
 
 const sectionItems = (title: string, designations: string[], base = designations[0]): string[] => {
     const perms = [...new Set(designations.flatMap(grantsOf))];
@@ -55,11 +59,11 @@ test('OSP Manager sees the money steps but not the Area Manager approvals; an ad
 test('levels: the highest designation of a person counts, an unlisted designation leaves the capability check alone', () => {
     assert.equal(designationLevel('SOD', ['ENGINEER', 'PROJECTS_ENGINEER']), 'invoice');
     assert.equal(designationLevel('SOD', ['PROJECTS_ENGINEER']), null);
-    assert.equal(levelAllowsItem('SOD', 'approve', ['PROJECTS_ENGINEER']), true, 'no SOD designation: capability decides');
-    assert.equal(levelAllowsItem('SOD', 'approve', ['QC_OFFICER']), false);
+    assert.equal(levelAllowsItem('SOD', 'approve', permsOf(['PROJECTS_ENGINEER'])), true, 'no SOD designation: capability decides');
+    assert.equal(levelAllowsItem('SOD', 'approve', permsOf(['QC_OFFICER'])), false);
     assert.equal(levelAllowsItem('SOD', 'approve', undefined), true, 'an old session without designations keeps working');
-    assert.equal(levelAllowsItem(undefined, undefined, ['QC_OFFICER']), true);
-    assert.ok(Object.keys(MODULE_DESIGNATION_LEVELS.SOD).includes('AREA_COORDINATOR'));
+    assert.equal(levelAllowsItem(undefined, undefined, permsOf(['QC_OFFICER'])), true);
+    assert.ok(Object.keys(BOOTSTRAP_MENU_LEVELS.SOD).includes('AREA_COORDINATOR'));
 });
 
 test('login and refresh carry the designations the menu needs', async () => {
@@ -98,10 +102,10 @@ test('one person, two modules: an Engineer who is also a Project Engineer gets t
 });
 
 test('Inventory level order: the Area Manager approves but does not operate the store', () => {
-    assert.equal(levelAllowsItem('INVENTORY', 'view', ['AREA_MANAGER']), true);
-    assert.equal(levelAllowsItem('INVENTORY', 'operate', ['AREA_MANAGER']), false);
-    assert.equal(levelAllowsItem('INVENTORY', 'operate', ['STORES_MANAGER']), true);
-    assert.equal(levelAllowsItem('INVENTORY', 'invoice' as never, ['STORES_MANAGER']), false, 'a level the module does not have hides the item');
+    assert.equal(levelAllowsItem('INVENTORY', 'view', permsOf(['AREA_MANAGER'])), true);
+    assert.equal(levelAllowsItem('INVENTORY', 'operate', permsOf(['AREA_MANAGER'])), false);
+    assert.equal(levelAllowsItem('INVENTORY', 'operate', permsOf(['STORES_MANAGER'])), true);
+    assert.equal(levelAllowsItem('INVENTORY', 'invoice' as never, permsOf(['STORES_MANAGER'])), false, 'a level the module does not have hides the item');
 });
 
 const PRJ_VIEW = ['All Projects', 'PM Dashboard', 'QA/QC Dashboard', 'Logistics Dashboard', 'National GIS Map'];

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { isContractorRole } from '@/config/roles';
+import { landingPath } from '@/config/landing';
 import { resolvePageCapability } from '@/config/page-capabilities';
 import type { RbacPermission } from '@/config/rbac-permissions';
 import { ShieldAlert } from 'lucide-react';
@@ -65,8 +65,7 @@ export default function RoleGuard({ children, permissionId, fallbackLoginPath = 
     const isAuthorized = !!user && !!pagePermission && !!user.permissions?.includes(pagePermission);
 
     if (!isAuthorized) {
-        const contractorRedirect = isContractorRole(user?.role);
-        const dashboardPath = contractorRedirect ? '/contractor/dashboard' : '/dashboard';
+        const dashboardPath = landingPath(user?.permissions) === '/contractor/dashboard' ? '/contractor/dashboard' : '/dashboard';
 
         return (
             <div className="h-screen w-full flex items-center justify-center bg-slate-900/5 dark:bg-background text-foreground p-6">

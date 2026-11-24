@@ -7,7 +7,7 @@ import "./login.css";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { isContractorRole, isStoresRole } from "@/config/roles";
+import { landingPath } from "@/config/landing";
 import * as z from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -149,13 +149,7 @@ function LoginContent() {
             return;
           }
 
-          const contractorLogin = isContractorRole(data.user?.role);
-          const storesLogin = isStoresRole(data.user?.role);
-
-          const targetUrl = callbackUrl
-            || (contractorLogin ? "/contractor/dashboard" : null)
-            || (storesLogin ? "/inventory" : null)
-            || "/dashboard";
+          const targetUrl = callbackUrl || landingPath(data.user?.permissions);
 
           console.log(`[LOGIN] Success, redirecting to: ${targetUrl}`);
           window.location.assign(targetUrl);

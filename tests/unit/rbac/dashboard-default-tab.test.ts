@@ -16,9 +16,8 @@ test('dashboard default tab is selected from canonical permissions, not legacy r
   assert.doesNotMatch(page, /ROLE_GROUPS|hasRole\(|getDefaultTabForRole/);
 });
 
-test('contractor and stores redirects remain role-scoped outside default-tab selection', () => {
-  assert.match(page, /isContractorRole\(user\.role\)/);
-  assert.match(page, /STORES_MANAGER.*STORES_ASSISTANT/);
-  assert.match(page, /router\.push\("\/contractor\/dashboard"\)/);
-  assert.match(page, /router\.push\("\/inventory"\)/);
+test('contractor and stores redirects follow capabilities (landingPath), not role names', () => {
+  assert.ok(page.includes('landingPath(user.permissions)'));
+  assert.doesNotMatch(page, /isContractorRole|STORES_MANAGER/);
+  assert.ok(page.includes('router.push(landing)'));
 });

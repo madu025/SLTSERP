@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardFilters, StatsCardGrid, DashboardError, FinanceSection, InventorySection, ProjectsSection, ProcurementSection } from './components';
 import type { DashboardFilterMetadata, Stats } from './components';
 import RoleGuard from '@/components/RoleGuard';
-import { isContractorRole } from '@/config/roles';
+import { landingPath } from '@/config/landing';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import ExecutiveControlTower from './components/ExecutiveControlTower';
 import CompanyHealthSection from './components/CompanyHealthSection';
@@ -113,15 +113,10 @@ export default function DashboardPage() {
             return;
         }
 
-        const contractorRedirect = isContractorRole(user.role);
-        if (contractorRedirect) {
-            router.push("/contractor/dashboard");
-            return;
-        }
-
-        const isStoresRole = ['STORES_MANAGER', 'STORES_EXECUTIVE', 'STORES_ASSISTANT'].includes(user.role);
-        if (isStoresRole) {
-            router.push("/inventory");
+        // the first page of the person is decided by capabilities (contractor portal, stores), not by a role name
+        const landing = landingPath(user.permissions);
+        if (landing !== '/dashboard') {
+            router.push(landing);
             return;
         }
     }, [user, router]);
