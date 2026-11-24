@@ -273,3 +273,11 @@ The tests in `tests/unit/authorization-rules.test.ts` and `tests/unit/menu-page-
 6. **Menu levels** (what the person does in a module: view, operate, approve ...): the capability `menu.<module>.<level>`; an item says `module` and `level`. The starting levels per role are `BOOTSTRAP_MENU_LEVELS` in the bootstrap file; the menu reads only the capabilities.
 7. **First page after sign-in** is `landingPath()` (`src/config/landing.ts`), from capabilities.
 8. **Run**: `pnpm exec tsc --noEmit`, `pnpm run test:unit`, `pnpm run rbac:check`, and `pnpm exec tsx scripts/zz-audit-pages.ts` (every menu entry against its page rule, per role). Update the system guide when a screen or rule of a guided module changes.
+
+### Petty cash settlement (24 Nov 2026)
+
+- The custodian asks for cash for a person (`POST /api/finance/petty-cash/ious`); the site office ARM approves; the cash leaves the box.
+- The custodian settles an issued IOU with the bills handed in and the cash returned (`POST /api/finance/petty-cash/ious/settlement`). It is stored as
+  `OspIouSettlementSubmission` (SUBMITTED); nothing is booked. The ARM verifies (`PATCH`, `VERIFY`): the bills become an approved bill of the box and the
+  returned cash goes back into the box, in one transaction. `REJECT` needs a reason and sends it back. The person who submitted never verifies.
+  Bills plus cash returned cannot exceed what is outstanding; extra spend is a separate bill.

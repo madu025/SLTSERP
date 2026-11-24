@@ -126,3 +126,16 @@ All-island there are hundreds of contractors, so the status page now filters by 
 
 Contractor-side gaps found and fixed: (1) the penalty notice was addressed to the contractor id, which is not a user, so it never arrived; notices now go to the active users of the contractor; (2) the contractor was told nothing after confirming: now it gets one notice when the area approves, when the OSP managers approve and when Head Office pays; (3) the claims list had no "where it is" column and no filter (all / not yet paid / paid, search); (4) the contractor could not see the orders on an invoice before confirming it, nor the paid date and Head Office reference.
 Not done: expected payment dates (no step has a target duration in the system) and e-mail notices (in-app only).
+
+## 9. Status after 24 Nov 2026: levels are capabilities
+
+The matrix of section 8 now lives in the database as capabilities. `MODULE_DESIGNATION_LEVELS` moved to `BOOTSTRAP_MENU_LEVELS`
+(`src/config/rbac-bootstrap.ts`, starting grants only); `src/config/menu-access.ts` reads the capabilities `menu.<module>.<level>` held by the
+person (the highest held in a module counts; none held means the page capability alone decides). The login and refresh no longer need to pass
+`designations` to the menu check (the parameter is kept for old callers and ignored). A role built in the administration screen gets a menu level by
+being granted `menu.<module>.<level>` like any capability.
+
+Audit of 24 Nov (every menu leaf against its page rule, per role, `scripts/zz-audit-pages.ts`): no dead links remain (`menu-page-reach.test.ts`).
+Fixed: OSP Manager approvals and contractor registrations under Approvals; Area Manager's Contractor Approvals page; CEO and the contractor field
+portal; Contractors group for managers; project dashboards by level; store request approvals by `inventory.approve`. Open questions are in
+`docs/ai-handover.md` (known gaps).

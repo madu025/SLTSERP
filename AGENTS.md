@@ -22,6 +22,10 @@ Do not manually reread startup files unless:
 2. The provided context is missing something you need
 3. You need a deeper follow-up read beyond the provided startup context
 
+## Start of any SLTSERP task
+
+Read [docs/ai-handover.md](docs/ai-handover.md) (concepts, rules, how to test, known gaps) and [docs/CHANGELOG.md](docs/CHANGELOG.md) (what changed lately). When a concept changes, update both in the same change (project skill `sltserp-handover`).
+
 ## Package Manager Rule
 
 - This repository uses **pnpm only**. The lockfile of record is `pnpm-lock.yaml` and the required package manager is `pnpm@12.3.4`.
