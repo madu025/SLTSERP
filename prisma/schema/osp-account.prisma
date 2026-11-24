@@ -14,6 +14,8 @@ model OspPettyCashIou {
   remarks        String?
   /// the float this IOU is issued against (null for IOUs recorded before floats)
   floatId         String?   @db.Uuid
+  /// the petty cash box the cash was drawn from when the IOU was issued (null: not from a box)
+  pettyCashAccountId String? @db.Uuid
   /// bills handed in plus cash returned
   settledAmount   Decimal   @default(0) @db.Decimal(14, 2)
   /// OPEN | PARTIALLY_SETTLED | SETTLED

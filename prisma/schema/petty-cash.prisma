@@ -31,6 +31,12 @@ model PettyCashVoucher {
   approvedById    String?                 @db.Uuid
   approvedAt      DateTime?
   rejectionReason String?
+  /// the IOU whose bills this voucher records (cash already left the box when the IOU was issued)
+  iouId           String?                 @db.Uuid
+  cancelledReason String?
+  cancelledAt     DateTime?
+  /// the number of the voucher this one was carried to
+  carriedToNumber String?
   reimbursementId String?                 @db.Uuid
   createdById     String?                 @db.Uuid
   createdAt       DateTime                @default(now())

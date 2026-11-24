@@ -56,22 +56,27 @@ export class OSPAccountCrudService {
       const iou = await tx.ospPettyCashIou.findUnique({ where: { id } });
       if (!iou) throw AppError.notFound('IOU_NOT_FOUND');
       if (iou.status === 'APPROVED') throw AppError.badRequest('ALREADY_APPROVED');
+      if (iou.status !== 'PENDING') throw AppError.badRequest(`INVALID_STATE: only a pending IOU can be approved (it is ${iou.status})`);
       assertNotMaker(iou.createdById, actorId);
       await OspFloatService.assertCanIssue(tx, iou);
+      // an IOU against a petty cash float takes its cash from the site office box (checked and booked there)
+      const boxId = await OspFloatService.drawFromBox(tx, iou);
 
       const updated = await tx.ospPettyCashIou.update({
         where: { id },
-        data: { status: 'APPROVED', approvedAt: new Date(), approvedById: actorId ?? null }
+        data: { status: 'APPROVED', approvedAt: new Date(), approvedById: actorId ?? null, pettyCashAccountId: boxId }
       });
 
-      await OSPLedgerService.postAutomatedTransaction(tx, {
-        sourceModule: 'OSP_IOU',
-        transactionType: 'ISSUE_ADVANCE',
-        referenceId: iou.id,
-        description: `Petty Cash IOU for ${iou.staffName} (${iou.iouNumber})`,
-        amount: Number(iou.amount),
-        transactionDate: new Date(),
-      });
+      if (!boxId) {
+        await OSPLedgerService.postAutomatedTransaction(tx, {
+          sourceModule: 'OSP_IOU',
+          transactionType: 'ISSUE_ADVANCE',
+          referenceId: iou.id,
+          description: `Petty Cash IOU for ${iou.staffName} (${iou.iouNumber})`,
+          amount: Number(iou.amount),
+          transactionDate: new Date(),
+        });
+      }
 
       return updated;
     });

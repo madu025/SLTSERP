@@ -74,8 +74,11 @@ export function checkSettlement(input: { kind: string; amount: number; outstandi
     return { ok: true };
 }
 
-/** The GL side of a settlement: bills become an expense, a refund returns the cash. Both clear the advance. */
-export function settlementPosting(kind: 'BILLS' | 'REFUND', floatType: string): { debit: 'EXPENSE_PETTY' | 'EXPENSE_OSP' | 'BANK'; credit: 'ADVANCES' } {
-    if (kind === 'REFUND') return { debit: 'BANK', credit: 'ADVANCES' };
+/**
+ * The GL side of a settlement: bills become an expense, a refund returns the cash. Both clear the advance.
+ * An IOU drawn from a petty cash box returns its cash to the box (the petty cash account), not to the bank.
+ */
+export function settlementPosting(kind: 'BILLS' | 'REFUND', floatType: string, fromBox = false): { debit: 'EXPENSE_PETTY' | 'EXPENSE_OSP' | 'BANK' | 'PETTY_CASH'; credit: 'ADVANCES' } {
+    if (kind === 'REFUND') return { debit: fromBox ? 'PETTY_CASH' : 'BANK', credit: 'ADVANCES' };
     return { debit: floatType === 'PETTY_CASH' ? 'EXPENSE_PETTY' : 'EXPENSE_OSP', credit: 'ADVANCES' };
 }

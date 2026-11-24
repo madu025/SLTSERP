@@ -62,4 +62,5 @@ test('bills are an expense by float type, a refund returns the cash', () => {
     assert.deepEqual(settlementPosting('BILLS', 'PETTY_CASH'), { debit: 'EXPENSE_PETTY', credit: 'ADVANCES' });
     assert.deepEqual(settlementPosting('BILLS', 'PROJECT_ADVANCE'), { debit: 'EXPENSE_OSP', credit: 'ADVANCES' });
     assert.deepEqual(settlementPosting('REFUND', 'PETTY_CASH'), { debit: 'BANK', credit: 'ADVANCES' });
+    assert.deepEqual(settlementPosting('REFUND', 'PETTY_CASH', true), { debit: 'PETTY_CASH', credit: 'ADVANCES' });
 });

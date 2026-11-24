@@ -42,7 +42,11 @@ export class HoFundingService {
             if (!input.pettyCashAccountId) throw AppError.badRequest('PETTY_CASH_ACCOUNT_REQUIRED');
             account = await prisma.pettyCashAccount.findUnique({ where: { id: input.pettyCashAccountId }, select: { id: true, name: true, imprestLimit: true, currentBalance: true } });
             if (!account) throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_FOUND');
-            if (input.requestedAmount > Number(account.imprestLimit) - Number(account.currentBalance) + 0.005) throw AppError.badRequest('FLOAT_EXCEEDS_IMPREST_LIMIT: the float cannot take the balance above the imprest limit');
+            // the float may only fill what the imprest is short of: the limit less the cash in hand, the cash out on IOUs and the bills still to be reimbursed
+            const { PettyCashService } = await import('@/services/finance/petty-cash.service');
+            const box = (await PettyCashService.getSummaries(userId)).find((b) => b.id === account!.id);
+            const room = box ? box.floatRoom : Number(account.imprestLimit) - Number(account.currentBalance);
+            if (input.requestedAmount > room + 0.005) throw AppError.badRequest(`FLOAT_EXCEEDS_IMPREST_LIMIT: the float can only fill Rs. ${Math.max(0, room).toFixed(2)} (the imprest limit less cash in hand, cash on IOUs, bills waiting and floats already asked)`);
         }
         return prisma.$transaction(async (tx) => {
             const requestNumber = await AuditLedgerService.getNextDocumentNumber('HFR', tx);

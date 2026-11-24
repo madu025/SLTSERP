@@ -3,6 +3,7 @@ import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { LedgerService } from './ledger.service';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { boxSummary, canCancelVoucher, checkOpening } from '@/lib/petty-cash-rules';
 
 /** Petty cash is per OPMC: the actor must be global or have the account's OPMC in scope. */
 async function assertPettyCashOpmcAccess(actorId: string | null | undefined, opmcId: string) {
@@ -20,11 +21,16 @@ export class PettyCashService {
     name: string;
     opmcId: string;
     imprestLimit: number;
+    /** what is really in the box now (default 0: Head Office funds the float with a funding request) */
+    openingBalance?: number;
     createdById: string;
   }) {
     if (data.imprestLimit <= 0) {
       throw AppError.badRequest('INVALID_IMPREST_LIMIT');
     }
+    const opening = data.openingBalance ?? 0;
+    const openingCheck = checkOpening(data.imprestLimit, opening);
+    if (!openingCheck.ok) throw AppError.badRequest(`INVALID_OPENING_BALANCE: ${openingCheck.message}`);
 
     await assertPettyCashOpmcAccess(data.createdById, data.opmcId);
 
@@ -41,7 +47,7 @@ export class PettyCashService {
         name: data.name,
         opmcId: data.opmcId,
         imprestLimit: data.imprestLimit,
-        currentBalance: data.imprestLimit, // initially full limit
+        currentBalance: opening, // what is in the box; the float comes from Head Office as a funding request, not from nowhere
         createdById: data.createdById,
         status: 'ACTIVE'
       }
@@ -137,6 +143,48 @@ export class PettyCashService {
         status: 'DRAFT'
       }
     });
+  }
+
+  /**
+   * Every box in the caller's scope with its figures: cash in hand, cash out on open IOUs, bills waiting to be reimbursed, and the replenishment they ask for.
+   */
+  static async getSummaries(actorId?: string | null) {
+    const accounts = await this.getPettyCashAccounts(actorId);
+    if (accounts.length === 0) return [];
+    const ids = accounts.map((a) => a.id);
+    const [ious, bills, drafts, pending, floats] = await Promise.all([
+      prisma.ospPettyCashIou.findMany({ where: { pettyCashAccountId: { in: ids }, status: 'APPROVED' }, select: { pettyCashAccountId: true, amount: true, settledAmount: true } }),
+      prisma.pettyCashVoucher.groupBy({ by: ['accountId'], where: { accountId: { in: ids }, status: 'APPROVED' }, _sum: { amount: true } }),
+      prisma.pettyCashVoucher.groupBy({ by: ['accountId'], where: { accountId: { in: ids }, status: 'DRAFT' }, _count: { _all: true } }),
+      prisma.pettyCashReimbursement.findMany({ where: { accountId: { in: ids }, status: 'PENDING' }, select: { accountId: true, reimbursementNumber: true, totalAmount: true } }),
+      // a float already asked of Head Office and not yet funded: it must not be asked for twice
+      prisma.hoFundingRequest.findMany({ where: { pettyCashAccountId: { in: ids }, purpose: 'PETTY_CASH_FLOAT', status: { in: ['DRAFT', 'SUBMITTED', 'APPROVED'] } }, select: { pettyCashAccountId: true, requestedAmount: true, approvedAmount: true, status: true } }),
+    ]);
+    return accounts.map((a) => {
+      const iouOut = ious.filter((i) => i.pettyCashAccountId === a.id).reduce((x, i) => x + Math.max(0, Number(i.amount) - Number(i.settledAmount)), 0);
+      const billsWaiting = Number(bills.find((b) => b.accountId === a.id)?._sum.amount ?? 0);
+      const figures = boxSummary({ limit: Number(a.imprestLimit), balance: Number(a.currentBalance), iouOut: Math.round(iouOut * 100) / 100, billsWaiting });
+      const floatPending = Math.round(floats.filter((f) => f.pettyCashAccountId === a.id).reduce((x, f) => x + Number(f.status === 'APPROVED' ? f.approvedAmount : f.requestedAmount), 0) * 100) / 100;
+      return {
+        id: a.id, name: a.name, opmcId: a.opmcId, site: a.opmc?.name ?? a.opmc?.rtom ?? '', status: a.status, ...figures,
+        floatPending, floatRoom: Math.max(0, Math.round((figures.unaccounted - floatPending) * 100) / 100),
+        draftBills: drafts.find((d) => d.accountId === a.id)?._count._all ?? 0,
+        pendingReimbursement: pending.find((r) => r.accountId === a.id) ?? null,
+      };
+    });
+  }
+
+  /** Cancel a draft bill with a reason, and the number of the bill it was carried to when there is one. */
+  static async cancelVoucher(voucherId: string, reason: string, carriedToNumber: string | null | undefined, actorId: string) {
+    if (!reason || reason.trim().length < 3) throw AppError.badRequest('CANCEL_REASON_REQUIRED');
+    const voucher = await prisma.pettyCashVoucher.findUnique({ where: { id: voucherId }, include: { account: { select: { opmcId: true } } } });
+    if (!voucher) throw AppError.badRequest('VOUCHER_NOT_FOUND');
+    await assertPettyCashOpmcAccess(actorId, voucher.account.opmcId);
+    if (!canCancelVoucher(voucher.status)) throw AppError.badRequest(`VOUCHER_CANNOT_BE_CANCELLED: a ${voucher.status.toLowerCase()} bill is already in the books`);
+    const cancelled = await prisma.pettyCashVoucher.updateMany({ where: { id: voucherId, status: 'DRAFT' }, data: { status: 'CANCELLED', cancelledReason: reason.trim(), cancelledAt: new Date(), carriedToNumber: carriedToNumber?.trim() || null } });
+    if (cancelled.count !== 1) throw AppError.conflict('VOUCHER_ALREADY_PROCESSED');
+    await prisma.auditLog.create({ data: { action: 'CANCEL_VOUCHER', entity: 'PETTY_CASH_VOUCHER', entityId: voucherId, userId: actorId, newValue: { reason: reason.trim(), carriedToNumber: carriedToNumber?.trim() || null }, ipAddress: 'SYSTEM', userAgent: 'SYSTEM' } });
+    return prisma.pettyCashVoucher.findUniqueOrThrow({ where: { id: voucherId } });
   }
 
   /**
