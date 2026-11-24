@@ -12,6 +12,7 @@ export const GET = apiHandler(async (req) => {
     if (new URL(req.url).searchParams.get('summary')) return await PettyCashService.getSummaries(getAuthenticatedUserId());
     return await PettyCashService.getPettyCashAccounts(getAuthenticatedUserId());
 }, {
+    permissions: [RBAC_PERMISSIONS.FINANCE_READ, RBAC_PERMISSIONS.PETTY_CASH_SITE],
     rawResponse: true
 });
 

@@ -22,6 +22,7 @@ export const GET = apiHandler(async (req) => {
 
     return account.vouchers;
 }, {
+    permissions: [RBAC_PERMISSIONS.FINANCE_READ, RBAC_PERMISSIONS.PETTY_CASH_SITE],
     rawResponse: true
 });
 
@@ -51,6 +52,7 @@ export const POST = apiHandler(async (req, _params, body) => {
         createdById: userId
     });
 }, {
+    permissions: [RBAC_PERMISSIONS.FINANCE_WRITE, RBAC_PERMISSIONS.PETTY_CASH_SITE],
     audit: { action: 'CREATE', entity: 'PETTY_CASH_VOUCHER' },
     rawResponse: true
 });
@@ -74,7 +76,8 @@ export const PATCH = apiHandler(async (req, _params, body) => {
         throw AppError.badRequest('Invalid action. Must be APPROVE or REJECT');
     }
 }, {
-    permissions: [RBAC_PERMISSIONS.FINANCE_APPROVE],
+    // the Area Manager of the site office approves the bills of its box; a box made before site offices keeps the finance approval (the service decides)
+    permissions: [RBAC_PERMISSIONS.FINANCE_APPROVE, RBAC_PERMISSIONS.PETTY_CASH_SITE],
     audit: { action: 'UPDATE_STATUS', entity: 'PETTY_CASH_VOUCHER' },
     rawResponse: true
 });

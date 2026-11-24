@@ -49,6 +49,7 @@ interface UserData {
   hasCustomGrants?: boolean;
   systemRole?: { id: string; code: string; name: string } | null;
   accessibleOpmcs: { id: string; rtom: string }[];
+  areaManagerStores?: { id: string; name: string }[];
   supervisor?: { id: string; name: string | null; username: string };
   sectionAssignments?: Array<{
     id: string;
@@ -211,6 +212,7 @@ export default function UserRegistrationPage() {
     supervisorId: selectedUser.supervisor?.id || '',
     assignedStoreId: selectedUser.assignedStoreId || 'none',
     opmcIds: selectedUser.accessibleOpmcs.map(o => o.id),
+    siteOfficeIds: (selectedUser.areaManagerStores ?? []).map(st => st.id),
     status: selectedUser.status || 'active',
     sectionAssignments: selectedUser.sectionAssignments,
     hasCustomGrants: selectedUser.hasCustomGrants,

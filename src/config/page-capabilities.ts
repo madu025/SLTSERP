@@ -26,6 +26,7 @@ const PAGE_RULES: ReadonlyArray<{ prefix: string; permission: RbacPermission }> 
     { prefix: '/invoices', permission: RBAC_PERMISSIONS.SOD_INVOICE },
     { prefix: '/projects', permission: RBAC_PERMISSIONS.PROJECT_READ },
     { prefix: '/inventory/approvals', permission: RBAC_PERMISSIONS.INVENTORY_APPROVE },
+    { prefix: '/petty-cash', permission: RBAC_PERMISSIONS.PETTY_CASH_SITE },
     { prefix: '/inventory/items', permission: RBAC_PERMISSIONS.INVENTORY_MASTER },
     { prefix: '/inventory/grn', permission: RBAC_PERMISSIONS.INVENTORY_GRN },
     { prefix: '/inventory/admin/wastage', permission: RBAC_PERMISSIONS.INVENTORY_ADJUST },

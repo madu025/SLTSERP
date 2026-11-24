@@ -30,10 +30,11 @@ test('the area invoice approval is one page, listed in Service Orders and not ag
     assert.ok(!leaves(finance.submenu ?? []).some((l) => l.path === '/invoices/confirmations'));
 });
 
-test('petty cash and the IOUs sit together', () => {
-    const pc = leaves(finance.submenu ?? []).filter((l) => l.path === '/finance/petty-cash' || l.path === '/finance/osp-account/ious');
-    assert.equal(pc.length, 2);
-    assert.equal(pc[0].group, pc[1].group);
+test('petty cash has its own menu entry, opened by the petty cash capability and not by the Finance menu', () => {
+    const top = (SIDEBAR_MENU as unknown as Array<Item & { permissionId?: string }>).find((m) => m.path === '/petty-cash');
+    assert.ok(top, 'a top-level Petty Cash entry');
+    assert.equal(top!.permissionId, 'petty-cash.site');
+    assert.ok(!leaves(finance.submenu ?? []).some((l) => l.path === '/finance/petty-cash' || l.path === '/petty-cash'), 'not repeated under Finance');
 });
 
 test('every finance page can be opened from the menu (a redirect page is the only exception)', () => {

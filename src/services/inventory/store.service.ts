@@ -103,10 +103,14 @@ export class StoreService {
 
     static async getStores(where: Prisma.InventoryStoreWhereInput = {}): Promise<StoreWithDetails[]> {
         return await InventoryRepository.findStores({
-            where,
+            // a closed store (test data that holds history and cannot be deleted) is not listed anywhere
+            where: { AND: [where, { type: { not: 'CLOSED' } }] },
             include: {
                 manager: {
                     select: { id: true, name: true, email: true }
+                },
+                areaManager: {
+                    select: { id: true, name: true }
                 },
                 opmcs: {
                     select: { id: true, name: true, rtom: true }

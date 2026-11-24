@@ -9,6 +9,8 @@ model InventoryStore {
   coveringRt               String?
   gpsLocation              String?
   officeAdminId            String?                          @db.Uuid
+  /// the Area Manager (ARM) of this site office: approves its petty cash releases
+  areaManagerId            String?                          @db.Uuid
   balanceSheets            ContractorMaterialBalanceSheet[] @relation("BalanceSheets")
   materialIssues           ContractorMaterialIssue[]        @relation("MaterialIssues")
   materialReturns          ContractorMaterialReturn[]       @relation("MaterialReturns")
@@ -23,6 +25,7 @@ model InventoryStore {
   stocks                   InventoryStock[]
   manager                  User?                            @relation(fields: [managerId], references: [id])
   officeAdmin              User?                            @relation("SiteOfficeAdmin", fields: [officeAdminId], references: [id])
+  areaManager              User?                            @relation("StoreAreaManager", fields: [areaManagerId], references: [id])
   transactions             InventoryTransaction[]
   mrns                     MRN[]
   opmcs                    OPMC[]
@@ -45,6 +48,7 @@ model InventoryStore {
   @@index([type])
   @@index([managerId])
   @@index([officeAdminId])
+  @@index([areaManagerId])
 }
 
 model InventoryItem {

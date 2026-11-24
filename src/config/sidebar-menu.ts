@@ -671,11 +671,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
                         icon: Receipt,
                     },
                     {
-                        title: 'Petty Cash',
-                        path: '/finance/petty-cash',
-                        icon: Banknote,
-                    },
-                    {
                         title: 'Petty Cash IOUs',
                         path: '/finance/osp-account/ious',
                         icon: Receipt,
@@ -987,6 +982,14 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 ]
             }
         ]
+    },
+
+    {
+        // the cash box of a site office: its custodian and its Area Manager open it without the Finance menu
+        title: 'Petty Cash',
+        path: '/petty-cash',
+        icon: Banknote,
+        permissionId: RBAC_PERMISSIONS.PETTY_CASH_SITE,
     },
 
     {

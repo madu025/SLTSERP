@@ -36,6 +36,7 @@ const userSchema = z.object({
   opmcIds: z.array(z.string()),
   supervisorId: z.string().optional(),
   assignedStoreId: z.string().optional(),
+  siteOfficeIds: z.array(z.string()).optional(),
   status: z.enum(USER_STATUSES).optional(),
 }).superRefine((data, ctx) => {
   if (data.password && data.password.length > 0) {
@@ -96,7 +97,7 @@ interface UserFormDrawerProps {
 
 const EMPTY: UserFormValues = {
   username: '', email: '', password: '', name: '', role: '', employeeId: '',
-  opmcIds: [], supervisorId: '', assignedStoreId: 'none', status: 'active',
+  opmcIds: [], supervisorId: '', assignedStoreId: 'none', siteOfficeIds: [], status: 'active',
 };
 
 export function UserFormDrawer({
@@ -170,6 +171,7 @@ export function UserFormDrawer({
           role: initialData.role, employeeId: initialData.employeeId || '',
           password: '', // a blank password keeps the current one
           assignedStoreId: initialData.assignedStoreId || 'none',
+          siteOfficeIds: initialData.siteOfficeIds || [],
           supervisorId: initialData.supervisorId || '',
           opmcIds: initialData.opmcIds || [],
           status: (USER_STATUSES as readonly string[]).includes(normalizeUserStatus(initialData.status)) ? (normalizeUserStatus(initialData.status) as UserFormValues['status']) : 'active',
@@ -246,6 +248,7 @@ export function UserFormDrawer({
     onSubmit({
       ...data,
       assignedStoreId: data.assignedStoreId === 'none' ? undefined : data.assignedStoreId,
+      siteOfficeIds: data.role === 'AREA_MANAGER' ? (data.siteOfficeIds ?? []) : undefined,
       supervisorId: !data.supervisorId || data.supervisorId === 'none' ? undefined : data.supervisorId,
       designations,
     });
@@ -601,6 +604,27 @@ export function UserFormDrawer({
                       <FormMessage />
                     </FormItem>
                   )} />
+
+                  {watchedRole === 'AREA_MANAGER' && (
+                    <FormField control={form.control} name="siteOfficeIds" render={({ field }) => (
+                      <FormItem className="space-y-2 rounded-xl border border-indigo-300 bg-indigo-50 p-3">
+                        <FormLabel className="text-[11px] font-bold uppercase text-slate-900">Site offices this person is the Area Manager (ARM) of</FormLabel>
+                        <p className="text-[11px] font-medium text-slate-800">The ARM approves the release of petty cash of these site offices. Every site office needs an ARM.</p>
+                        <div className="grid max-h-44 gap-1.5 overflow-y-auto sm:grid-cols-2">
+                          {stores.map((st) => {
+                            const on = (field.value ?? []).includes(st.id);
+                            return (
+                              <label key={st.id} className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-900">
+                                <Checkbox checked={on} onCheckedChange={(c) => field.onChange(c ? [...(field.value ?? []), st.id] : (field.value ?? []).filter((x: string) => x !== st.id))} />
+                                {st.name}
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  )}
 
                   {(options?.scopeAll?.[watchedRole]?.length ?? 0) > 0 && (
                     <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-[11px] font-medium text-emerald-950">

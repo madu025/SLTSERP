@@ -137,6 +137,11 @@ export const CANONICAL_BOOTSTRAP_ROLE_GRANTS = {
     // Goods receipt: the Stores Executive and the Stores Manager (and the CEO and admins); not the store officers.
     // Master data (item master, stores): the Executive, the Manager, the CEO and admins.
     [RBAC_PERMISSIONS.INVENTORY_MASTER]: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'STORES_MANAGER', 'STORES_EXECUTIVE'],
+    // the site office people who may be made custodian of a box, the Area Manager who approves its releases, and the finance people who watch and fund it
+    [RBAC_PERMISSIONS.PETTY_CASH_SITE]: [
+        'SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'AREA_MANAGER', 'SITE_OFFICE_STAFF', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT',
+        'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER', 'AR_OFFICER',
+    ],
     [RBAC_PERMISSIONS.INVENTORY_RELEASE]: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'STORES_MANAGER', 'STORES_EXECUTIVE'],
     [RBAC_PERMISSIONS.INVENTORY_GRN]: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'STORES_MANAGER', 'STORES_EXECUTIVE'],
     [RBAC_PERMISSIONS.INVENTORY_ADJUST]: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'STORES_MANAGER', 'STORES_EXECUTIVE'],

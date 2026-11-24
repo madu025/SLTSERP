@@ -16,6 +16,7 @@ interface UserUpsertValues {
     opmcIds?: string[];
     supervisorId?: string;
     assignedStoreId?: string;
+    siteOfficeIds?: string[];
     status?: string;
     designations?: Array<{ sectionId: string; roleId: string; isPrimary?: boolean }>;
 }

@@ -182,6 +182,7 @@ export class UserService {
             }
         });
         if (!user) throw AppError.notFound('USER_NOT_FOUND');
+        await prisma.inventoryStore.updateMany({ where: { areaManagerId: id }, data: { areaManagerId: null } });
 
         const targetPermissions = await getUserEffectivePermissions(user.id);
         if (targetPermissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC)) {

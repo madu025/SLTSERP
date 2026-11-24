@@ -13,6 +13,7 @@ export const GET = apiHandler(async (req) => {
 
     return await PettyCashService.getReimbursements(accountId, getAuthenticatedUserId());
 }, {
+    permissions: [RBAC_PERMISSIONS.FINANCE_READ, RBAC_PERMISSIONS.PETTY_CASH_SITE],
     rawResponse: true
 });
 
@@ -27,6 +28,7 @@ export const POST = apiHandler(async (req, _params, body) => {
 
     return await PettyCashService.requestReimbursement(accountId, userId);
 }, {
+    permissions: [RBAC_PERMISSIONS.FINANCE_WRITE, RBAC_PERMISSIONS.PETTY_CASH_SITE],
     audit: { action: 'REQUEST_REIMBURSEMENT', entity: 'PETTY_CASH_REIMBURSEMENT' },
     rawResponse: true
 });

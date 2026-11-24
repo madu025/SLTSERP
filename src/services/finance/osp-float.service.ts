@@ -2,7 +2,8 @@ import type { TransactionClient } from '@/types/inventory/inventory-service.type
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
-import { assertSiteOfficeAccess, siteOfficeCode, siteOfficeScope } from '@/lib/site-office-access';
+import { assertAreaManagerApproves, assertSiteOfficeAccess, siteOfficeCode, siteOfficeScope } from '@/lib/site-office-access';
+import { NotificationService } from '@/services/notification';
 import { ACCOUNTS } from '@/services/finance/account-codes';
 import { LedgerService } from '@/services/finance/ledger.service';
 import {
@@ -116,6 +117,38 @@ export class OspFloatService {
         return box.id;
     }
 
+    /** The site office box an IOU draws its cash from, if any: the IOU is on a petty cash float of a site office that keeps a box. */
+    private static async boxOf(iou: { floatId: string | null }): Promise<{ siteOfficeId: string; boxId: string } | null> {
+        if (!iou.floatId) return null;
+        const f = await prisma.ospFloat.findUnique({ where: { id: iou.floatId }, select: { type: true, siteOfficeId: true } });
+        if (!f || f.type !== 'PETTY_CASH' || !f.siteOfficeId) return null;
+        const box = await prisma.pettyCashAccount.findUnique({ where: { siteOfficeId: f.siteOfficeId }, select: { id: true, status: true } });
+        return box && box.status === 'ACTIVE' ? { siteOfficeId: f.siteOfficeId, boxId: box.id } : null;
+    }
+
+    /** A release of cash from a site office box is approved or rejected by the Area Manager of that site office; the Finance Manager has no step in it. */
+    static async assertReleaseApprover(iou: { floatId: string | null; createdById: string | null }, actorId: string | null | undefined) {
+        const where = await this.boxOf(iou);
+        if (!where) return;
+        if (!actorId) throw AppError.unauthorized('Authentication required');
+        await assertAreaManagerApproves(actorId, where.siteOfficeId, iou.createdById);
+    }
+
+    /** Best effort notices: the Area Manager hears of a request, the person who asked hears of the decision. */
+    static async notifyRequest(iou: { floatId: string | null; iouNumber: string; staffName: string; amount: unknown }) {
+        try {
+            const where = await this.boxOf(iou);
+            if (!where) return;
+            const store = await prisma.inventoryStore.findUnique({ where: { id: where.siteOfficeId }, select: { areaManagerId: true, name: true } });
+            if (store?.areaManagerId) await NotificationService.send({ userId: store.areaManagerId, title: 'Petty cash release waiting for your approval', message: `IOU ${iou.iouNumber} for ${iou.staffName}, Rs. ${num(iou.amount).toFixed(2)} (${store.name})`, type: 'FINANCE', priority: 'MEDIUM', link: '/petty-cash' });
+        } catch { /* a missed notice never undoes the work */ }
+    }
+    static async notifyDecision(iou: { createdById: string | null; iouNumber: string }, approved: boolean, reason?: string) {
+        try {
+            if (iou.createdById) await NotificationService.send({ userId: iou.createdById, title: approved ? 'Petty cash release approved' : 'Petty cash release rejected', message: approved ? `IOU ${iou.iouNumber} was approved and the cash was taken from the box.` : `IOU ${iou.iouNumber}: ${reason ?? 'rejected'}`, type: 'FINANCE', priority: 'MEDIUM', link: '/petty-cash' });
+        } catch { /* a missed notice never undoes the work */ }
+    }
+
     /** Every IOU with what is outstanding and for how many days; settlements included. */
     static async listIous(userId: string) {
         const where = await this.visibility(userId);
@@ -191,6 +224,6 @@ export class OspFloatService {
                 await tx.ospPettyCashIou.update({ where: { id: iouId }, data: { settledAmount: Math.round((num(iou.amount) - now) * 100) / 100, settlementStatus: status, settledAt: status === 'SETTLED' ? new Date() : null } });
             }
             return row;
-        });
+        }, { maxWait: 10_000, timeout: 30_000 });
     }
 }

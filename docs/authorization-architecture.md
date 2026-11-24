@@ -250,3 +250,12 @@ One service, `UserAdminService` (`src/services/hr/user-admin.service.ts`), is us
 A contractor belongs to a store when its OPMC is served by the store or one of its teams is assigned to the store (`ContractorStoreService`); the stores pages use `/api/inventory/contractors` (the administrator-only contractor API gave store people an empty list).
 
 **Update:** the Stores Executive is the Stores Manager's *deputy*: it also holds `inventory.approve` (approve and reject requests, approve MRN, wastage and stock takes; the maker still cannot approve their own), `scope.inventory.all` (every store) and `inventory.master`. When there is no Manager the Executive, not the Procurement Officer, passes the main store gates. `inventory.master` (item master, stores, initial stock, virtual swap, legacy reconciliation) and `inventory.grn` (also emergency purchases) are not the officers'.
+
+## Petty cash of a site office (custodian and Area Manager)
+
+- **The box belongs to a site office** (an inventory store), not to an OPMC/RTOM; one site office can cover several RTOMs. One box and one float per site office and type.
+- **`petty-cash.site`** (new capability): work the petty cash of a site office. Default holders: the site office roles (`SITE_OFFICE_STAFF`, `OFFICE_ADMIN`, `OFFICE_ADMIN_ASSISTANT`), `AREA_MANAGER`, and the finance roles that watch and fund it. The capability alone opens no box: which box a person sees comes from the relationship below.
+- **Custodian** (`PettyCashCustodian`): the finance approver names, for each box, who looks after it, from the people registered at that site office. A custodian records and cancels bills, asks for replenishment and sees only that box. A role without `petty-cash.site` cannot be chosen.
+- **Area Manager of a site office** (`InventoryStore.areaManagerId`): set when the Area Manager is registered (the site offices the person covers). A site office has one ARM; a person who is no longer an active Area Manager covers nothing.
+- **Release of cash** (a bill, or cash for an IOU on a petty cash float of a site office that keeps a box) is approved or rejected only by that site office's ARM, never by the person who asked, and there is **no Finance Manager step**. A site office without an ARM releases nothing. A box made before site offices keeps the finance approval. Replenishment and the float stay with Head Office funding.
+- Visibility: people with company-wide finance scope see every box; a custodian or an ARM without a finance reading capability sees only the boxes they look after or are the ARM of.

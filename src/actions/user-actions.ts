@@ -19,6 +19,7 @@ export interface UserActionInput {
     opmcIds?: string[];
     supervisorId?: string;
     assignedStoreId?: string;
+    siteOfficeIds?: string[];
     status?: string;
     /** Module designations (section + role). Omitted: create adds the usual ones, edit leaves them as they are. */
     designations?: Array<{ sectionId: string; roleId: string; isPrimary?: boolean }>;

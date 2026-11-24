@@ -19,6 +19,7 @@ const userFieldsSchema = {
     opmcIds: z.array(z.string().min(1).max(100)).max(100).optional(),
     supervisorId: z.string().min(1).max(100).optional(),
     assignedStoreId: z.string().min(1).max(100).optional(),
+    siteOfficeIds: z.array(z.string().min(1).max(100)).max(100).optional(),
     status: z.enum(['active', 'inactive', 'resigned']).optional(),
     designations: z.array(z.object({ sectionId: z.string().min(1).max(100), roleId: z.string().min(1).max(100), isPrimary: z.boolean().optional() })).max(20).optional(),
 };

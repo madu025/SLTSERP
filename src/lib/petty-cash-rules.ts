@@ -52,3 +52,16 @@ export function checkRefundIntoBox(limit: number, balance: number, amount: numbe
     if (balance + amount > limit + 0.005) return { ok: false, reason: 'INSUFFICIENT_PETTY_CASH_BALANCE', message: `The box would hold Rs. ${(balance + amount).toFixed(2)}, more than its limit of Rs. ${limit.toFixed(2)}` };
     return { ok: true };
 }
+
+export type ApproverCheck = { ok: true } | { ok: false; reason: 'NO_AREA_MANAGER' | 'NOT_THE_AREA_MANAGER' | 'MAKER_CANNOT_APPROVE'; message: string };
+
+/**
+ * A release of petty cash (a bill, or cash for an IOU) at a site office is approved by the Area Manager (ARM) of that site office: no one else, and not the person
+ * who asked. A site office must have an ARM; without one nothing is released.
+ */
+export function checkReleaseApprover(input: { areaManagerId: string | null | undefined; actorId: string; makerId?: string | null }): ApproverCheck {
+    if (!input.areaManagerId) return { ok: false, reason: 'NO_AREA_MANAGER', message: 'This site office has no Area Manager. Set it when the Area Manager is registered; until then nothing can be released' };
+    if (input.areaManagerId !== input.actorId) return { ok: false, reason: 'NOT_THE_AREA_MANAGER', message: 'Only the Area Manager of this site office approves a petty cash release' };
+    if (input.makerId && input.makerId === input.actorId) return { ok: false, reason: 'MAKER_CANNOT_APPROVE', message: 'You asked for this release, so someone else must approve it' };
+    return { ok: true };
+}

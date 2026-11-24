@@ -33,3 +33,14 @@ test('a refund cannot take the box past its limit', () => {
     assert.equal(checkRefundIntoBox(100000, 98000, 2000).ok, true);
     assert.equal(checkRefundIntoBox(100000, 98000, 2000.01).ok, false);
 });
+
+test('a release is approved only by the Area Manager of the site office, never by the person who asked, and never without one', async () => {
+    const { checkReleaseApprover } = await import('../../src/lib/petty-cash-rules');
+    assert.equal(checkReleaseApprover({ areaManagerId: 'arm', actorId: 'arm', makerId: 'cashier' }).ok, true);
+    const none = checkReleaseApprover({ areaManagerId: null, actorId: 'arm' });
+    assert.equal(!none.ok && none.reason, 'NO_AREA_MANAGER');
+    const other = checkReleaseApprover({ areaManagerId: 'arm', actorId: 'fm', makerId: 'cashier' });
+    assert.equal(!other.ok && other.reason, 'NOT_THE_AREA_MANAGER');
+    const self = checkReleaseApprover({ areaManagerId: 'arm', actorId: 'arm', makerId: 'arm' });
+    assert.equal(!self.ok && self.reason, 'MAKER_CANNOT_APPROVE');
+});

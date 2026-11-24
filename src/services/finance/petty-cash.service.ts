@@ -4,7 +4,10 @@ import { prisma } from '@/lib/prisma';
 import { LedgerService } from './ledger.service';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { boxSummary, canCancelVoucher, checkOpening } from '@/lib/petty-cash-rules';
-import { assertSiteOfficeAccess, siteOfficeCode, siteOfficeScope } from '@/lib/site-office-access';
+import { assertAreaManagerApproves, assertSiteOfficeAccess, isCustodian, siteOfficeCode, siteOfficeScope } from '@/lib/site-office-access';
+import { userHasPermission } from '@/lib/user-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { NotificationService } from '@/services/notification';
 
 /** Petty cash belongs to a site office; a box made before site offices still belongs to its OPMC. */
 async function assertPettyCashOpmcAccess(actorId: string | null | undefined, opmcId: string | null | undefined) {
@@ -16,6 +19,23 @@ async function assertPettyCashOpmcAccess(actorId: string | null | undefined, opm
 async function assertBoxAccess(actorId: string | null | undefined, box: { siteOfficeId?: string | null; opmcId?: string | null }) {
   if (box.siteOfficeId) return assertSiteOfficeAccess(actorId, box.siteOfficeId);
   return assertPettyCashOpmcAccess(actorId, box.opmcId);
+}
+/** Bills, cancels and replenishment claims of a site office box: its custodian, or the finance people who may write. */
+async function assertCanOperateBox(actorId: string, box: { id: string; siteOfficeId?: string | null }) {
+  if (!box.siteOfficeId) return;
+  if (await isCustodian(actorId, box.id)) return;
+  if (await userHasPermission(actorId, RBAC_PERMISSIONS.FINANCE_WRITE)) return;
+  throw AppError.forbidden('NOT_A_CUSTODIAN: you do not look after the petty cash of this site office');
+}
+/** A release at a site office box is approved by the Area Manager of the site office. A box made before site offices keeps the finance approval. */
+async function assertCanRelease(actorId: string, box: { siteOfficeId?: string | null }, makerId?: string | null) {
+  if (box.siteOfficeId) { await assertAreaManagerApproves(actorId, box.siteOfficeId, makerId); return; }
+  if (!(await userHasPermission(actorId, RBAC_PERMISSIONS.FINANCE_APPROVE))) throw AppError.forbidden('FINANCE_APPROVAL_REQUIRED: this box is not tied to a site office, so the finance approver releases it');
+}
+/** Best effort: a missed notification never undoes the work. */
+async function tell(userId: string | null | undefined, title: string, message: string) {
+  if (!userId) return;
+  try { await NotificationService.send({ userId, title, message, type: 'FINANCE', priority: 'MEDIUM', link: '/petty-cash' }); } catch { /* the work is done; the notice is a courtesy */ }
 }
 /** The code of a box in document numbers: its site office, or the RTOM of a box made before site offices. */
 async function boxCode(box: { siteOfficeId?: string | null; opmc?: { rtom: string } | null }): Promise<string> {
@@ -125,6 +145,7 @@ export class PettyCashService {
     });
     if (!account) throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_FOUND');
     await assertBoxAccess(data.createdById, account);
+    await assertCanOperateBox(data.createdById, account);
     if (account.status !== 'ACTIVE') throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_ACTIVE');
 
     if (data.amount > Number(account.imprestLimit)) {
@@ -145,7 +166,7 @@ export class PettyCashService {
 
     const voucherNumber = `PCV-${await boxCode(account)}-${year}-${(count + 1).toString().padStart(4, '0')}`;
 
-    return prisma.pettyCashVoucher.create({
+    const recorded = await prisma.pettyCashVoucher.create({
       data: {
         accountId: data.accountId,
         voucherNumber,
@@ -159,6 +180,11 @@ export class PettyCashService {
         status: 'DRAFT'
       }
     });
+    if (account.siteOfficeId) {
+      const store = await prisma.inventoryStore.findUnique({ where: { id: account.siteOfficeId }, select: { areaManagerId: true, name: true } });
+      await tell(store?.areaManagerId, 'Petty cash bill waiting for your approval', `${voucherNumber}: ${data.title}, Rs. ${data.amount.toFixed(2)} (${store?.name ?? 'site office'})`);
+    }
+    return recorded;
   }
 
   /**
@@ -167,7 +193,10 @@ export class PettyCashService {
   static async getSummaries(actorId?: string | null) {
     const accounts = await this.getPettyCashAccounts(actorId);
     if (accounts.length === 0) return [];
-    const stores = await prisma.inventoryStore.findMany({ where: { id: { in: accounts.map((a) => a.siteOfficeId).filter((x): x is string => !!x) } }, select: { id: true, name: true } });
+    const stores = await prisma.inventoryStore.findMany({ where: { id: { in: accounts.map((a) => a.siteOfficeId).filter((x): x is string => !!x) } }, select: { id: true, name: true, areaManager: { select: { id: true, name: true } } } });
+    const custody = await prisma.pettyCashCustodian.findMany({ where: { accountId: { in: accounts.map((a) => a.id) } }, select: { accountId: true, userId: true } });
+    const people = await prisma.user.findMany({ where: { id: { in: [...new Set(custody.map((c) => c.userId))] } }, select: { id: true, name: true } });
+    const canWrite = actorId ? await userHasPermission(actorId, RBAC_PERMISSIONS.FINANCE_WRITE) : false;
     const ids = accounts.map((a) => a.id);
     const [ious, bills, drafts, pending, floats] = await Promise.all([
       prisma.ospPettyCashIou.findMany({ where: { pettyCashAccountId: { in: ids }, status: 'APPROVED' }, select: { pettyCashAccountId: true, amount: true, settledAmount: true } }),
@@ -184,6 +213,13 @@ export class PettyCashService {
       const floatPending = Math.round(floats.filter((f) => f.pettyCashAccountId === a.id).reduce((x, f) => x + Number(f.status === 'APPROVED' ? f.approvedAmount : f.requestedAmount), 0) * 100) / 100;
       return {
         id: a.id, name: a.name, siteOfficeId: a.siteOfficeId, opmcId: a.opmcId, site: stores.find((x) => x.id === a.siteOfficeId)?.name ?? a.opmc?.name ?? a.opmc?.rtom ?? '', status: a.status, ...figures,
+        areaManager: stores.find((x) => x.id === a.siteOfficeId)?.areaManager ?? null,
+        custodians: custody.filter((c) => c.accountId === a.id).map((c) => ({ id: c.userId, name: people.find((u) => u.id === c.userId)?.name ?? '' })),
+        me: {
+          isCustodian: !!actorId && custody.some((c) => c.accountId === a.id && c.userId === actorId),
+          isAreaManager: !!actorId && stores.find((x) => x.id === a.siteOfficeId)?.areaManager?.id === actorId,
+          canWrite,
+        },
         floatPending, floatRoom: Math.max(0, Math.round((figures.unaccounted - floatPending) * 100) / 100),
         draftBills: drafts.find((d) => d.accountId === a.id)?._count._all ?? 0,
         pendingReimbursement: pending.find((r) => r.accountId === a.id) ?? null,
@@ -191,12 +227,56 @@ export class PettyCashService {
     });
   }
 
+  /** The IOUs of a site office box: what was asked, what is out, what is settled. */
+  static async getBoxIous(accountId: string, actorId: string) {
+    const account = await prisma.pettyCashAccount.findUnique({ where: { id: accountId }, select: { id: true, siteOfficeId: true, opmcId: true } });
+    if (!account) throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_FOUND');
+    await assertBoxAccess(actorId, account);
+    if (!account.siteOfficeId) return [];
+    const floats = await prisma.ospFloat.findMany({ where: { siteOfficeId: account.siteOfficeId, type: 'PETTY_CASH' }, select: { id: true } });
+    const ious = await prisma.ospPettyCashIou.findMany({ where: { floatId: { in: floats.map((f) => f.id) } }, orderBy: { createdAt: 'desc' }, take: 200 });
+    return ious.map((i) => ({ id: i.id, iouNumber: i.iouNumber, staffName: i.staffName, amount: Number(i.amount), reason: i.reason, status: i.status, settledAmount: Number(i.settledAmount), outstanding: i.status === 'APPROVED' ? Math.max(0, Number(i.amount) - Number(i.settledAmount)) : 0, createdById: i.createdById, createdAt: i.createdAt }));
+  }
+
+  /** The people who look after the petty cash of a box. */
+  static async getCustodians(accountId: string, actorId: string) {
+    const account = await prisma.pettyCashAccount.findUnique({ where: { id: accountId }, select: { id: true, siteOfficeId: true, opmcId: true } });
+    if (!account) throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_FOUND');
+    await assertBoxAccess(actorId, account);
+    const rows = await prisma.pettyCashCustodian.findMany({ where: { accountId }, select: { userId: true } });
+    const users = await prisma.user.findMany({ where: { id: { in: rows.map((r) => r.userId) } }, select: { id: true, name: true, role: true } });
+    // the people who work at the site office are the ones to choose from
+    const candidates = account.siteOfficeId ? await prisma.user.findMany({ where: { assignedStoreId: account.siteOfficeId, status: { not: 'deleted' } }, select: { id: true, name: true, role: true }, orderBy: { name: 'asc' } }) : [];
+    const withAccess = await Promise.all(candidates.map(async (c) => ({ ...c, hasAccess: await userHasPermission(c.id, RBAC_PERMISSIONS.PETTY_CASH_SITE) })));
+    return { custodians: users, candidates: withAccess };
+  }
+
+  /** Replace the custodians of a box (the finance approver's decision). Each must work at the site office's petty cash with the capability to do it. */
+  static async setCustodians(accountId: string, userIds: string[], actorId: string) {
+    const account = await prisma.pettyCashAccount.findUnique({ where: { id: accountId }, select: { id: true, siteOfficeId: true, opmcId: true } });
+    if (!account || !account.siteOfficeId) throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_FOUND');
+    await assertBoxAccess(actorId, account);
+    const ids = [...new Set(userIds)];
+    const users = await prisma.user.findMany({ where: { id: { in: ids }, status: { not: 'deleted' } }, select: { id: true, name: true } });
+    if (users.length !== ids.length) throw AppError.badRequest('USER_NOT_FOUND');
+    for (const u of users) {
+      if (!(await userHasPermission(u.id, RBAC_PERMISSIONS.PETTY_CASH_SITE))) throw AppError.badRequest(`USER_HAS_NO_PETTY_CASH_ACCESS: ${u.name} cannot work petty cash with their role; give the capability petty-cash.site to the role first`);
+    }
+    await prisma.$transaction(async (tx) => {
+      await tx.pettyCashCustodian.deleteMany({ where: { accountId, userId: { notIn: ids } } });
+      for (const id of ids) await tx.pettyCashCustodian.upsert({ where: { accountId_userId: { accountId, userId: id } }, update: {}, create: { accountId, userId: id, createdById: actorId } });
+      await tx.auditLog.create({ data: { action: 'SET_CUSTODIANS', entity: 'PETTY_CASH_ACCOUNT', entityId: accountId, userId: actorId, newValue: { custodians: ids }, ipAddress: 'SYSTEM', userAgent: 'SYSTEM' } });
+    });
+    return this.getCustodians(accountId, actorId);
+  }
+
   /** Cancel a draft bill with a reason, and the number of the bill it was carried to when there is one. */
   static async cancelVoucher(voucherId: string, reason: string, carriedToNumber: string | null | undefined, actorId: string) {
     if (!reason || reason.trim().length < 3) throw AppError.badRequest('CANCEL_REASON_REQUIRED');
-    const voucher = await prisma.pettyCashVoucher.findUnique({ where: { id: voucherId }, include: { account: { select: { opmcId: true, siteOfficeId: true } } } });
+    const voucher = await prisma.pettyCashVoucher.findUnique({ where: { id: voucherId }, include: { account: { select: { id: true, opmcId: true, siteOfficeId: true } } } });
     if (!voucher) throw AppError.badRequest('VOUCHER_NOT_FOUND');
     await assertBoxAccess(actorId, voucher.account);
+    await assertCanOperateBox(actorId, voucher.account);
     if (!canCancelVoucher(voucher.status)) throw AppError.badRequest(`VOUCHER_CANNOT_BE_CANCELLED: a ${voucher.status.toLowerCase()} bill is already in the books`);
     const cancelled = await prisma.pettyCashVoucher.updateMany({ where: { id: voucherId, status: 'DRAFT' }, data: { status: 'CANCELLED', cancelledReason: reason.trim(), cancelledAt: new Date(), carriedToNumber: carriedToNumber?.trim() || null } });
     if (cancelled.count !== 1) throw AppError.conflict('VOUCHER_ALREADY_PROCESSED');
@@ -209,46 +289,37 @@ export class PettyCashService {
    * Lowers the petty cash account currentBalance and logs double-entry in General Ledger
    */
   static async approveVoucher(voucherId: string, approvedById: string) {
-    return prisma.$transaction(async (tx) => {
-      const voucher = await tx.pettyCashVoucher.findUnique({
-        where: { id: voucherId },
-        include: { account: true }
-      });
-      if (!voucher) throw AppError.badRequest('VOUCHER_NOT_FOUND');
-      if (voucher.status !== 'DRAFT') throw AppError.badRequest('VOUCHER_ALREADY_PROCESSED');
+    // who may approve is decided before the transaction opens: these checks read several rows and must not use up the transaction's time
+    const pre = await prisma.pettyCashVoucher.findUnique({ where: { id: voucherId }, include: { account: true } });
+    if (!pre) throw AppError.badRequest('VOUCHER_NOT_FOUND');
+    if (pre.status !== 'DRAFT') throw AppError.badRequest('VOUCHER_ALREADY_PROCESSED');
+    await assertBoxAccess(approvedById, pre.account);
+    if (pre.createdById === approvedById) throw AppError.badRequest('MAKER_CANNOT_APPROVE_OWN_VOUCHER');
+    await assertCanRelease(approvedById, pre.account, pre.createdById);
+    if (pre.account.status !== 'ACTIVE') throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_ACTIVE');
 
-      const account = voucher.account;
-      await assertBoxAccess(approvedById, account);
-      if (voucher.createdById === approvedById) throw AppError.badRequest('MAKER_CANNOT_APPROVE_OWN_VOUCHER');
-      if (account.status !== 'ACTIVE') throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_ACTIVE');
+    return prisma.$transaction(async (tx) => {
+      // the box is locked, so two bills approved together cannot both take the same cash
+      await tx.$queryRaw`SELECT "id" FROM "PettyCashAccount" WHERE "id" = ${pre.accountId}::uuid FOR UPDATE`;
+      const claimed = await tx.pettyCashVoucher.updateMany({ where: { id: voucherId, status: 'DRAFT' }, data: { status: 'APPROVED', approvedById, approvedAt: new Date() } });
+      if (claimed.count !== 1) throw AppError.conflict('VOUCHER_ALREADY_PROCESSED');
+      const account = await tx.pettyCashAccount.findUniqueOrThrow({ where: { id: pre.accountId } });
 
       // Check if enough funds in petty cash
-      if (new Prisma.Decimal(account.currentBalance).lt(new Prisma.Decimal(voucher.amount))) {
+      if (new Prisma.Decimal(account.currentBalance).lt(new Prisma.Decimal(pre.amount))) {
         throw AppError.badRequest('INSUFFICIENT_PETTY_CASH_BALANCE');
       }
 
-      // 1. Update Voucher Status
-      const updatedVoucher = await tx.pettyCashVoucher.update({
-        where: { id: voucherId },
-        data: {
-          status: 'APPROVED',
-          approvedById,
-          approvedAt: new Date()
-        }
-      });
+      // Decrease Current Balance
+      await tx.pettyCashAccount.update({ where: { id: account.id }, data: { currentBalance: Math.round((Number(account.currentBalance) - Number(pre.amount)) * 100) / 100 } });
 
-      // 2. Decrease Current Balance
-      await tx.pettyCashAccount.update({
-        where: { id: account.id },
-        data: {
-          currentBalance: Number(account.currentBalance) - Number(voucher.amount)
-        }
-      });
+      // Log double-entry transaction
+      await LedgerService.logPettyCashExpense(tx, voucherId, Number(pre.amount), pre.category, `Petty Cash: ${pre.title}`);
 
-      // 3. Log double-entry transaction
-      await LedgerService.logPettyCashExpense(tx, voucherId, Number(voucher.amount), voucher.category, `Petty Cash: ${voucher.title}`);
-
-      return updatedVoucher;
+      return tx.pettyCashVoucher.findUniqueOrThrow({ where: { id: voucherId } });
+    }, { maxWait: 10_000, timeout: 30_000 }).then(async (approved) => {
+      await tell(approved.createdById, 'Petty cash bill approved', `${approved.voucherNumber}: Rs. ${Number(approved.amount).toFixed(2)} was approved and taken from the petty cash.`);
+      return approved;
     });
   }
 
@@ -263,9 +334,10 @@ export class PettyCashService {
     if (!voucher) throw AppError.badRequest('VOUCHER_NOT_FOUND');
     await assertBoxAccess(approvedById, voucher.account);
     if (voucher.createdById === approvedById) throw AppError.badRequest('MAKER_CANNOT_REJECT_OWN_VOUCHER');
+    await assertCanRelease(approvedById, voucher.account, voucher.createdById);
     if (voucher.status !== 'DRAFT') throw AppError.badRequest('VOUCHER_ALREADY_PROCESSED');
 
-    return prisma.pettyCashVoucher.update({
+    const rejected = await prisma.pettyCashVoucher.update({
       where: { id: voucherId },
       data: {
         status: 'REJECTED',
@@ -274,6 +346,8 @@ export class PettyCashService {
         approvedAt: new Date()
       }
     });
+    await tell(rejected.createdById, 'Petty cash bill rejected', `${rejected.voucherNumber}: ${rejectionReason}`);
+    return rejected;
   }
 
   /**
@@ -288,6 +362,7 @@ export class PettyCashService {
       });
       if (!account) throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_FOUND');
       await assertBoxAccess(createdById, account);
+      await assertCanOperateBox(createdById, account);
 
       const pendingReimbursement = await tx.pettyCashReimbursement.findFirst({
         where: { accountId, status: 'PENDING' }

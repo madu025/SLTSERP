@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 import { PettyCashService } from '@/services/finance/petty-cash.service';
 
@@ -16,4 +17,4 @@ const cancelSchema = z.object({
 export const POST = apiHandler(async (_req, params, body) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
     return { message: 'Bill cancelled', data: await PettyCashService.cancelVoucher(body.id, body.reason, body.carriedToNumber, params._userId) };
-}, { schema: cancelSchema, audit: { action: 'CANCEL', entity: 'PETTY_CASH_VOUCHER' } });
+}, { schema: cancelSchema, permissions: [RBAC_PERMISSIONS.FINANCE_WRITE, RBAC_PERMISSIONS.PETTY_CASH_SITE], audit: { action: 'CANCEL', entity: 'PETTY_CASH_VOUCHER' } });

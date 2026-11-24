@@ -40,6 +40,7 @@ model User {
   assignedITAssets              ITAsset[]                     @relation("AssignedITAssetsToUser")
   managedStores                 InventoryStore[]
   managedSiteOffices            InventoryStore[]              @relation("SiteOfficeAdmin")
+  areaManagerStores             InventoryStore[]              @relation("StoreAreaManager")
   approvedMRNs                  MRN[]                         @relation("MRNApprover")
   returnedMRNs                  MRN[]
   notifications                 Notification[]

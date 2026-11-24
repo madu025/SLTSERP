@@ -43,22 +43,31 @@ export class OSPAccountCrudService {
       throw AppError.badRequest('IOU_ALREADY_EXISTS_FOR_STAFF');
     }
 
-    return await prisma.ospPettyCashIou.create({
+    const created = await prisma.ospPettyCashIou.create({
       data: {
         ...data,
         createdById: actorId ?? null,
         status: 'PENDING'
       }
     });
+    await OspFloatService.notifyRequest(created);
+    return created;
   }
 
   static async approveIOU(id: string, actorId?: string | null) {
+    // who may approve is decided before the transaction opens: these checks read several rows and must not use up the transaction's time
+    const pre = await prisma.ospPettyCashIou.findUnique({ where: { id } });
+    if (!pre) throw AppError.notFound('IOU_NOT_FOUND');
+    if (pre.status === 'APPROVED') throw AppError.badRequest('ALREADY_APPROVED');
+    if (pre.status !== 'PENDING') throw AppError.badRequest(`INVALID_STATE: only a pending IOU can be approved (it is ${pre.status})`);
+    assertNotMaker(pre.createdById, actorId);
+    // the cash of a site office box is released by the Area Manager of that site office, not by the Finance Manager
+    await OspFloatService.assertReleaseApprover(pre, actorId);
+
     return await prisma.$transaction(async (tx) => {
-      const iou = await tx.ospPettyCashIou.findUnique({ where: { id } });
-      if (!iou) throw AppError.notFound('IOU_NOT_FOUND');
-      if (iou.status === 'APPROVED') throw AppError.badRequest('ALREADY_APPROVED');
+      await tx.$queryRaw`SELECT "id" FROM "OspPettyCashIou" WHERE "id" = ${id}::uuid FOR UPDATE`;
+      const iou = await tx.ospPettyCashIou.findUniqueOrThrow({ where: { id } });
       if (iou.status !== 'PENDING') throw AppError.badRequest(`INVALID_STATE: only a pending IOU can be approved (it is ${iou.status})`);
-      assertNotMaker(iou.createdById, actorId);
       await OspFloatService.assertCanIssue(tx, iou);
       // an IOU against a petty cash float takes its cash from the site office box (checked and booked there)
       const boxId = await OspFloatService.drawFromBox(tx, iou);
@@ -80,20 +89,28 @@ export class OSPAccountCrudService {
       }
 
       return updated;
+    }, { maxWait: 10_000, timeout: 30_000 }).then(async (approved) => {
+      await OspFloatService.notifyDecision(approved, true);
+      return approved;
     });
   }
 
-  static async rejectIOU(id: string, reason?: string) {
+  static async rejectIOU(id: string, reason?: string, actorId?: string | null) {
     const iou = await prisma.ospPettyCashIou.findUnique({ where: { id } });
     if (!iou) throw AppError.notFound('IOU_NOT_FOUND');
+    if (iou.status !== 'PENDING') throw AppError.badRequest(`INVALID_STATE: only a pending IOU can be rejected (it is ${iou.status})`);
+    await OspFloatService.assertReleaseApprover(iou, actorId);
     
-    return await prisma.ospPettyCashIou.update({
+    const rejected = await prisma.ospPettyCashIou.update({
       where: { id },
       data: { 
         status: 'REJECTED',
+        approvedById: actorId ?? null,
         remarks: reason ? `${iou.remarks || ''} [Rejected: ${reason}]`.trim() : iou.remarks
       }
     });
+    await OspFloatService.notifyDecision(rejected, false, reason);
+    return rejected;
   }
 
   static async getIOUs() {

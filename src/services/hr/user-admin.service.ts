@@ -37,6 +37,8 @@ export interface AdminUserInput {
     opmcIds?: string[];
     supervisorId?: string;
     assignedStoreId?: string;
+    /** Area Manager only: the site offices this person is the Area Manager (ARM) of. Omitted: left as they are. */
+    siteOfficeIds?: string[];
     status?: string;
     /** When given, replaces the user's module designations. When omitted on create, the usual ones for the role are added. */
     designations?: DesignationInput[];
@@ -51,6 +53,27 @@ async function resolveBaseRole(tx: Tx, role: string) {
     const found = await tx.systemRole.findFirst({ where: { code: { in: [role, `${role}_GLOBAL`] }, isActive: true }, select: { id: true, code: true } });
     if (!found) throw AppError.badRequest('NO_SYSTEM_ROLE', { message: `No active system role is defined for ${role}. Create it under Administration > Roles first, so the user is not left without permissions.` });
     return found;
+}
+
+/**
+ * The Area Manager (ARM) of a site office is set when the Area Manager is registered: the site offices the person covers. A site office has one ARM, who
+ * approves the release of its petty cash. A person who is no longer an active Area Manager covers nothing.
+ */
+async function syncCoveredSiteOffices(tx: Tx, userId: string, role: string, active: boolean, siteOfficeIds: string[] | undefined) {
+    if (role !== 'AREA_MANAGER' || !active) {
+        await tx.inventoryStore.updateMany({ where: { areaManagerId: userId }, data: { areaManagerId: null } });
+        return;
+    }
+    if (siteOfficeIds === undefined) return;
+    const ids = [...new Set(siteOfficeIds)];
+    const stores = await tx.inventoryStore.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, type: true, areaManagerId: true, areaManager: { select: { name: true } } } });
+    if (stores.length !== ids.length) throw AppError.badRequest('SITE_OFFICE_NOT_FOUND', { message: 'A site office you chose does not exist' });
+    const notOffice = stores.filter((x) => !['MAIN', 'SUB'].includes(x.type));
+    if (notOffice.length) throw AppError.badRequest('NOT_A_SITE_OFFICE', { message: `Not a site office: ${notOffice.map((x) => x.name).join(', ')}` });
+    const taken = stores.filter((x) => x.areaManagerId && x.areaManagerId !== userId);
+    if (taken.length) throw AppError.conflict(`SITE_OFFICE_HAS_ANOTHER_AREA_MANAGER: Already has an Area Manager: ${taken.map((x) => `${x.name} (${x.areaManager?.name ?? 'another person'})`).join(', ')}. Change that registration first.`);
+    await tx.inventoryStore.updateMany({ where: { areaManagerId: userId, id: { notIn: ids } }, data: { areaManagerId: null } });
+    if (ids.length) await tx.inventoryStore.updateMany({ where: { id: { in: ids } }, data: { areaManagerId: userId } });
 }
 
 function assertStatus(status: string | undefined): string {
@@ -179,6 +202,7 @@ export class UserAdminService {
                     staffId: true, assignedStoreId: true, contractorId: true, mustChangePassword: true, permissions: true,
                     systemRole: { select: { id: true, code: true, name: true } },
                     accessibleOpmcs: { select: { id: true, rtom: true } },
+                    areaManagerStores: { select: { id: true, name: true } },
                     supervisor: { select: { id: true, name: true, username: true, role: true } },
                     sectionAssignments: { select: { id: true, isPrimary: true, section: { select: { id: true, name: true } }, role: { select: { id: true, name: true, code: true } } } },
                 },
@@ -271,6 +295,7 @@ export class UserAdminService {
                 },
                 include: { accessibleOpmcs: { select: { id: true, rtom: true, name: true } }, assignedStore: { select: { id: true, name: true } }, sectionAssignments: true },
             });
+            await syncCoveredSiteOffices(tx, user.id, role, status === 'active', data.siteOfficeIds);
             return user;
         }, { maxWait: 10_000, timeout: 30_000 });
 
@@ -339,6 +364,7 @@ export class UserAdminService {
                     primaryHeld = true;
                 }
             }
+            await syncCoveredSiteOffices(tx, id, role, status === 'active', data.siteOfficeIds);
             return tx.user.update({
                 where: { id },
                 data: {

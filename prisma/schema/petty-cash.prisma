@@ -69,3 +69,15 @@ model PettyCashReimbursement {
   @@index([paymentVoucherId])
   @@index([createdById])
 }
+
+/// A person who looks after the petty cash of a site office: records bills, asks for cash, settles IOUs. Access to that box only.
+model PettyCashCustodian {
+  id          String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  accountId   String   @db.Uuid
+  userId      String   @db.Uuid
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+
+  @@unique([accountId, userId])
+  @@index([userId])
+}
