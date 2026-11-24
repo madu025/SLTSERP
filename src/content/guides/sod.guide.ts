@@ -366,7 +366,7 @@ export const SOD_GUIDE: ModuleGuide = {
             requires: RBAC_PERMISSIONS.INVOICE_CONFIRM_MANAGER,
             steps: [
                 'Open the Dashboard (My work tab). "Your desk" shows how many invoices wait for your approval (with the total and how long the oldest has waited), how many contractor registrations wait for you, and how many invoices of your RTOMs have waited more than 3 days at any step.',
-                'Click "Invoices to approve" or the menu Service Orders → Invoice Approvals to approve or return them. Click "Contractors to approve" or Service Orders → Contractor Approvals to approve or reject a contractor registration.',
+                'Click "Invoices to approve" or the menu Service Orders → Invoice Approvals to approve or return them. Click "Contractors to approve" or Service Orders → Contractor Approvals to approve or reject a contractor registration. The OSP Manager does the second step under Approvals → Contractor Registrations.',
                 'The Billing month box shows the invoices of the month, how many you approved, what the contractors are paid, the revenue of the orders and the margin.',
                 'Below it are the month-end pipeline of your RTOMs and the team of each RTOM (Area Coordinators, QC Officers, Engineers) with what each did this month; an RTOM nobody works in shows "Nobody assigned".',
             ],
@@ -505,7 +505,7 @@ export const SOD_GUIDE: ModuleGuide = {
             steps: [
                 'Finance opens Finance → Send Invoices to OSP Managers. "Ready to send" lists the invoices that the contractor confirmed and OSP Quality verified.',
                 'Tick one or many and click "Send selected" to OSP managers. The OSP managers are notified.',
-                'An OSP manager opens Invoices → OSP Manager Approvals, ticks one or many and clicks "Approve selected", or enters a "Reason to return" and clicks "Return selected". A returned invoice goes back to Finance with the reason.',
+                'An OSP manager opens Approvals → OSP Manager Approvals, ticks one or many and clicks "Approve selected", or enters a "Reason to return" and clicks "Return selected". A returned invoice goes back to Finance with the reason.',
                 'An approved invoice is picked up by the Head Office run (Finance → Head Office Run): payment request, approval, Head Office pack, then Head Office confirms with its reference.',
                 'Finance follows each approved invoice under "Approved, with Head Office": the payment requests, where each stands, and the Head Office reference and date once paid.',
             ],

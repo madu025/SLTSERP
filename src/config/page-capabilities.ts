@@ -9,6 +9,8 @@ import { RBAC_PERMISSIONS, type RbacPermission, isCanonicalPermission } from './
  */
 const PAGE_RULES: ReadonlyArray<{ prefix: string; permission: RbacPermission }> = [
     { prefix: '/admin', permission: RBAC_PERMISSIONS.ADMIN_RBAC },
+    // the two approval steps of a contractor registration (Area Manager, OSP Manager) are checked by the API per step
+    { prefix: '/contractors/management/approvals', permission: RBAC_PERMISSIONS.DASHBOARD_READ },
     { prefix: '/contractors/management', permission: RBAC_PERMISSIONS.ADMIN_RBAC },
     { prefix: '/contractor', permission: RBAC_PERMISSIONS.CONTRACTOR_READ },
     { prefix: '/contractors', permission: RBAC_PERMISSIONS.CONTRACTOR_READ },
@@ -26,6 +28,7 @@ const PAGE_RULES: ReadonlyArray<{ prefix: string; permission: RbacPermission }> 
     { prefix: '/invoices', permission: RBAC_PERMISSIONS.SOD_INVOICE },
     { prefix: '/projects', permission: RBAC_PERMISSIONS.PROJECT_READ },
     { prefix: '/inventory/approvals', permission: RBAC_PERMISSIONS.INVENTORY_APPROVE },
+    { prefix: '/procurement/approvals', permission: RBAC_PERMISSIONS.INVENTORY_APPROVE },
     { prefix: '/petty-cash', permission: RBAC_PERMISSIONS.PETTY_CASH_SITE },
     { prefix: '/inventory/items', permission: RBAC_PERMISSIONS.INVENTORY_MASTER },
     { prefix: '/inventory/grn', permission: RBAC_PERMISSIONS.INVENTORY_GRN },

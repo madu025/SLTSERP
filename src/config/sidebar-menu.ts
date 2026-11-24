@@ -219,22 +219,25 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Contractors',
         path: '/contractors/management',
         icon: HardHat,
-        permissionId: 'contractors',
+        permissionId: RBAC_PERMISSIONS.CONTRACTOR_READ, // everyone who reads contractors sees the scorecard; the register and the import are the administrator's (their pages need admin.rbac)
         submenu: [
             {
                 title: 'All Contractors',
                 path: '/contractors/management',
                 icon: HardHat,
+                permissionId: RBAC_PERMISSIONS.ADMIN_RBAC,
             },
             {
                 title: 'Contractor Scorecard',
                 path: '/contractors/scorecard',
                 icon: TrendingUp,
+                permissionId: RBAC_PERMISSIONS.CONTRACTOR_READ,
             },
             {
                 title: 'Bulk Import',
                 path: '/contractors/management/import',
                 icon: Upload,
+                permissionId: RBAC_PERMISSIONS.ADMIN_RBAC,
             }
         ]
     },
@@ -262,7 +265,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
             },
             {
                 title: 'PM Dashboard',
-                level: 'view',
+                level: 'operate', // the people who run projects; the finance, stores and audit readers have their own dashboards
                 path: '/projects/dashboards/pm',
                 icon: BarChart2,
                 permissionId: RBAC_PERMISSIONS.PROJECT_READ
@@ -276,7 +279,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
             },
             {
                 title: 'QA/QC Dashboard',
-                level: 'view',
+                level: 'operate',
                 path: '/projects/dashboards/qaqc',
                 icon: ClipboardList,
                 permissionId: RBAC_PERMISSIONS.PROJECT_READ
@@ -286,7 +289,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 level: 'view',
                 path: '/projects/dashboards/logistics',
                 icon: Truck,
-                permissionId: RBAC_PERMISSIONS.PROJECT_READ
+                permissionId: RBAC_PERMISSIONS.INVENTORY_READ // material and stock: for the people who read the stores, not for the cashier
             },
             {
                 title: 'IR Material Audit',
@@ -539,12 +542,29 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Approvals',
         path: '/procurement/approvals',
         icon: FileSignature,
-        permissionId: 'restore_requests',
+        // everyone who approves something here holds this capability (store requests); the OSP Manager steps are the same people
+        permissionId: RBAC_PERMISSIONS.INVENTORY_APPROVE,
         submenu: [
             {
+                // the store requests waiting for an approver (the page reads /api/inventory/requests)
                 title: 'Procurement Approvals',
                 path: '/procurement/approvals',
                 icon: FileSignature,
+                permissionId: RBAC_PERMISSIONS.INVENTORY_APPROVE,
+            },
+            {
+                // the invoices Finance sent to the OSP Manager (the OSP Manager holds no Finance menu, so the step lives here)
+                title: 'OSP Manager Approvals',
+                path: '/invoices/osp-approvals',
+                icon: Receipt,
+                permissionId: RBAC_PERMISSIONS.INVOICE_OSP_APPROVE,
+            },
+            {
+                // the OSP Manager step of a contractor registration (the Area Manager step is under Service Orders)
+                title: 'Contractor Registrations',
+                path: '/contractors/management/approvals',
+                icon: FileSignature,
+                permissionId: RBAC_PERMISSIONS.INVOICE_OSP_APPROVE,
             }
         ]
     },
@@ -701,11 +721,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
                     {
                         title: 'Submit Invoices (SLT)',
                         path: '/invoices',
-                        icon: Receipt,
-                    },
-                    {
-                        title: 'OSP Manager Approvals',
-                        path: '/invoices/osp-approvals',
                         icon: Receipt,
                     },
                     {
