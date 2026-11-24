@@ -16,6 +16,7 @@ model OspPettyCashIou {
   floatId         String?   @db.Uuid
   /// the petty cash box the cash was drawn from when the IOU was issued (null: not from a box)
   pettyCashAccountId String? @db.Uuid
+  siteOfficeId    String?   @db.Uuid
   /// bills handed in plus cash returned
   settledAmount   Decimal   @default(0) @db.Decimal(14, 2)
   /// OPEN | PARTIALLY_SETTLED | SETTLED
@@ -120,7 +121,9 @@ model OspVehicleHiringPayment {
 /// A float kept at a site office (petty cash, project advance, fuel...): the limit IOUs are issued against.
 model OspFloat {
   id                 String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  opmcId             String   @db.Uuid
+  /// the site office (an InventoryStore) that keeps this float
+  siteOfficeId       String?  @db.Uuid
+  opmcId             String?  @db.Uuid
   /// PETTY_CASH | PROJECT_ADVANCE | FUEL | OTHER
   type               String
   name               String
@@ -133,6 +136,7 @@ model OspFloat {
   updatedAt          DateTime @updatedAt
 
   @@unique([opmcId, type])
+  @@unique([siteOfficeId, type])
   @@index([status])
 }
 

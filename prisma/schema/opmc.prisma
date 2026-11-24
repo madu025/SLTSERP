@@ -12,7 +12,7 @@ model OPMC {
   contractorPaymentConfigs    ContractorPaymentConfig[]
   contractorTeams             ContractorTeam[]
   store                       InventoryStore?              @relation(fields: [storeId], references: [id])
-  pettyCashAccount            PettyCashAccount?
+  pettyCashAccounts           PettyCashAccount[]
   projects                    Project[]
   revenueConfigs              SODRevenueConfig[]
   serviceOrders               ServiceOrder[]

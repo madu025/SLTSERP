@@ -18,18 +18,18 @@ export const GET = apiHandler(async (req) => {
 // POST /api/finance/petty-cash/accounts - Initialize new petty cash account
 export const POST = apiHandler(async (req, _params, body) => {
     const name = body.name as string | undefined;
-    const opmcId = body.opmcId as string | undefined;
+    const siteOfficeId = body.siteOfficeId as string | undefined;
     const imprestLimit = body.imprestLimit as string | number | undefined;
     const openingBalance = body.openingBalance as string | number | undefined;
     const userId = getAuthenticatedUserId();
 
-    if (!name || !opmcId || imprestLimit === undefined || !userId) {
-        throw AppError.badRequest('name, opmcId, and imprestLimit are required');
+    if (!name || !siteOfficeId || imprestLimit === undefined || !userId) {
+        throw AppError.badRequest('name, siteOfficeId, and imprestLimit are required');
     }
 
     return await PettyCashService.createPettyCashAccount({
         name,
-        opmcId,
+        siteOfficeId,
         imprestLimit: parseFloat(String(imprestLimit)),
         openingBalance: openingBalance === undefined || openingBalance === '' ? 0 : parseFloat(String(openingBalance)),
         createdById: userId

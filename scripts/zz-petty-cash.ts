@@ -19,11 +19,13 @@ async function main() {
     const { EmailService } = await import('../src/services/notification/email.service');
     (EmailService as any).sendMail = async () => true;
     const admin = (await prisma.user.findFirstOrThrow({ where: { username: { equals: 'admin', mode: 'insensitive' } }, select: { id: true } })).id;
-    const withBox = (await prisma.pettyCashAccount.findMany({ select: { opmcId: true } })).map((a) => a.opmcId);
-    const opmc = await prisma.oPMC.findFirstOrThrow({ where: { id: { notIn: withBox } }, select: { id: true, rtom: true } });
+    const opmc = await prisma.oPMC.findFirstOrThrow({ where: { rtom: 'R-KX' }, select: { id: true, rtom: true } });
     const TAG = 'ZZTEST-PC-' + Date.now().toString(36);
+    // the site office is a store; it covers more than one RTOM
+    const other = await prisma.oPMC.findFirstOrThrow({ where: { id: { not: opmc.id } }, select: { id: true } });
+    const office = await prisma.inventoryStore.create({ data: { name: `${TAG} Store`, type: 'SUB', location: 'ZZTEST', opmcs: { connect: [{ id: opmc.id }, { id: other.id }] } } });
     const users: string[] = []; let boxId = ''; let floatId = '';
-    const iouIds: string[] = []; const fundingIds: string[] = [];
+    const iouIds: string[] = []; const fundingIds: string[] = []; let transitId = '';
 
     try {
         const mk = async (name: string, role: string) => {
@@ -36,10 +38,14 @@ async function main() {
         const summary = async () => (await PettyCashService.getSummaries(fm)).find((s: any) => s.id === boxId)!;
 
         // ---------- 1. the box ----------
-        check('1 an opening balance above the limit is refused', /INVALID_OPENING_BALANCE/.test(await refused(() => PettyCashService.createPettyCashAccount({ name: `${TAG} box`, opmcId: opmc.id, imprestLimit: 100000, openingBalance: 100001, createdById: fm }))));
-        const box = await PettyCashService.createPettyCashAccount({ name: `${TAG} box`, opmcId: opmc.id, imprestLimit: 100000, createdById: fm });
+        check('1 an opening balance above the limit is refused', /INVALID_OPENING_BALANCE/.test(await refused(() => PettyCashService.createPettyCashAccount({ name: `${TAG} box`, siteOfficeId: office.id, imprestLimit: 100000, openingBalance: 100001, createdById: fm }))));
+        const box = await PettyCashService.createPettyCashAccount({ name: `${TAG} box`, siteOfficeId: office.id, imprestLimit: 100000, createdById: fm });
         boxId = box.id;
         check('1 a new box starts empty (the float comes from Head Office, not from nowhere)', num(box.currentBalance) === 0);
+
+        check('1 one box for each site office: a second box for the same site office is refused', /ALREADY_EXISTS_FOR_SITE_OFFICE/.test(await refused(() => PettyCashService.createPettyCashAccount({ name: `${TAG} box 2`, siteOfficeId: office.id, imprestLimit: 5000, createdById: fm }))));
+        check('1 a transit store is not a site office', /SITE_OFFICE_NOT_FOUND/.test(await refused(async () => { const t = await prisma.inventoryStore.create({ data: { name: `${TAG} Transit`, type: 'TRANSIT', location: 'ZZTEST' } }); transitId = t.id; await PettyCashService.createPettyCashAccount({ name: 'x', siteOfficeId: t.id, imprestLimit: 5000, createdById: fm }); })));
+        check('1 the box is shown under its site office name', (await PettyCashService.getSummaries(fm)).find((x: any) => x.id === boxId)?.site === `${TAG} Store`);
 
         // ---------- 2. Head Office funds the float ----------
         const req = await HoFundingService.create(assistant, { purpose: 'PETTY_CASH_FLOAT', requestedAmount: 100000, pettyCashAccountId: boxId, remarks: TAG });
@@ -53,9 +59,9 @@ async function main() {
         check('2 after Head Office funds it the box holds Rs. 100,000', s.cashInHand === 100000 && s.unaccounted === 0, JSON.stringify({ c: s.cashInHand, u: s.unaccounted }));
 
         // ---------- 3. an IOU draws cash from the box ----------
-        const fl = await OspFloatService.saveFloat(fm, { opmcId: opmc.id, type: 'PETTY_CASH', name: `${TAG} petty cash`, limitAmount: 100000, maxDaysOutstanding: 0 });
+        const fl = await OspFloatService.saveFloat(fm, { siteOfficeId: office.id, type: 'PETTY_CASH', name: `${TAG} petty cash`, limitAmount: 100000, maxDaysOutstanding: 0 });
         floatId = fl.id;
-        const mkIou = async (n: string, amount: number, who: string, maker: string) => { const i: any = await OSPAccountCrudService.createIOU({ iouNumber: `${TAG}-${n}`, staffName: who, amount, opmcId: opmc.id, floatId, issuedDate: new Date(), reason: 'ZZTEST' }, maker); iouIds.push(i.id); return i; };
+        const mkIou = async (n: string, amount: number, who: string, maker: string) => { const i: any = await OSPAccountCrudService.createIOU({ iouNumber: `${TAG}-${n}`, staffName: who, amount, siteOfficeId: office.id, floatId, issuedDate: new Date(), reason: 'ZZTEST' }, maker); iouIds.push(i.id); return i; };
         const i1 = await mkIou('1', 30000, 'ZZTEST Person A', cashier);
         await OSPAccountCrudService.approveIOU(i1.id, fm);
         const a1 = await prisma.ospPettyCashIou.findUniqueOrThrow({ where: { id: i1.id } });
@@ -63,7 +69,7 @@ async function main() {
         check('3 the IOU is drawn from the box: Rs. 70,000 in hand, Rs. 30,000 out on the IOU', a1.pettyCashAccountId === boxId && s.cashInHand === 70000 && s.iouOut === 30000 && s.unaccounted === 0, JSON.stringify({ c: s.cashInHand, o: s.iouOut, u: s.unaccounted }));
         const issue = await prisma.journalEntry.findFirst({ where: { referenceId: i1.id, referenceType: 'OSP_IOU' }, include: { lines: true } as any }) as any;
         check('3 the issue is booked Dr Advances / Cr Petty cash, balanced', !!issue && issue.lines.length === 2 && issue.lines.some((l: any) => l.accountCode === 'PETTY-1020' && num(l.credit) === 30000));
-        await OspFloatService.saveFloat(fm, { opmcId: opmc.id, type: 'PETTY_CASH', name: `${TAG} petty cash`, limitAmount: 500000, maxDaysOutstanding: 0 });
+        await OspFloatService.saveFloat(fm, { siteOfficeId: office.id, type: 'PETTY_CASH', name: `${TAG} petty cash`, limitAmount: 500000, maxDaysOutstanding: 0 });
         const i2 = await mkIou('2', 80000, 'ZZTEST Person B', cashier);
         check('3 an IOU for more cash than the box holds is refused', /INSUFFICIENT_PETTY_CASH_BALANCE/.test(await refused(() => OSPAccountCrudService.approveIOU(i2.id, fm))));
         check('3 a refused IOU is still pending and takes nothing', (await summary()).cashInHand === 70000 && (await prisma.ospPettyCashIou.findUniqueOrThrow({ where: { id: i2.id } })).status === 'PENDING');
@@ -117,6 +123,7 @@ async function main() {
         if (iouIds.length) { await prisma.ospIouSettlement.deleteMany({ where: { iouId: { in: iouIds } } }).catch(() => undefined); await prisma.ospPettyCashIou.deleteMany({ where: { id: { in: iouIds } } }).catch(() => undefined); }
         if (floatId) await prisma.ospFloat.delete({ where: { id: floatId } }).catch(() => undefined);
         if (boxId) await prisma.pettyCashAccount.delete({ where: { id: boxId } }).catch((e) => console.log('box not deleted:', String(e).slice(0, 120)));
+        for (const sid of [office.id, transitId].filter(Boolean)) await prisma.inventoryStore.delete({ where: { id: sid } }).catch(() => prisma.inventoryStore.update({ where: { id: sid }, data: { type: 'SUB', name: `ZZTEST (closed) ${sid.slice(-6)}` } }).catch(() => undefined));
         for (const id of users) await UserService.deleteUser(id, admin).catch(() => prisma.user.update({ where: { id }, data: { status: 'deleted' } }).catch(() => undefined));
         for (const id of users) await prisma.user.update({ where: { id }, data: { password: 'x!locked', email: 'deleted+' + id + '@example.invalid', username: 'zztest_deleted_' + id.slice(-8) } }).catch(() => undefined);
     }

@@ -2,6 +2,7 @@ import type { TransactionClient } from '@/types/inventory/inventory-service.type
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { assertSiteOfficeAccess, siteOfficeCode, siteOfficeScope } from '@/lib/site-office-access';
 import { ACCOUNTS } from '@/services/finance/account-codes';
 import { LedgerService } from '@/services/finance/ledger.service';
 import {
@@ -19,16 +20,21 @@ export interface SettlementInput { kind: string; amount?: number; reference?: st
  * The person then settles it with bills (an expense) and returns the rest (a refund); every row is kept and posts to the ledger.
  */
 export class OspFloatService {
-    /** The finance data scope: undefined = every site office. */
-    static async assertOpmcInScope(userId: string, opmcId: string | null | undefined) {
-        const scope = await resolveOpmcScope(userId, 'finance');
-        if (scope === undefined) return;
-        if (!opmcId || !scope.includes(opmcId)) throw AppError.forbidden('OPMC_SCOPE_VIOLATION: this site office is outside your area');
+    /** A float, a box and its IOUs belong to a site office; the finance data scope decides which site offices a person sees. */
+    static async assertSiteOfficeInScope(userId: string, siteOfficeId: string | null | undefined) {
+        await assertSiteOfficeAccess(userId, siteOfficeId);
     }
 
+    /** Rows made before site offices still carry an OPMC: they stay visible to the people whose OPMC scope covers it. */
+    private static async visibility(userId: string) {
+        const offices = await siteOfficeScope(userId);
+        if (offices === undefined) return undefined;
+        const opmcs = (await resolveOpmcScope(userId, 'finance')) ?? [];
+        return { OR: [{ siteOfficeId: { in: offices } }, { siteOfficeId: null, opmcId: { in: opmcs } }] };
+    }
     static async listFloats(userId: string) {
-        const scope = await resolveOpmcScope(userId, 'finance');
-        const floats = await prisma.ospFloat.findMany({ where: scope === undefined ? {} : { opmcId: { in: scope } }, orderBy: [{ opmcId: 'asc' }, { type: 'asc' }] });
+        const where = await this.visibility(userId);
+        const floats = await prisma.ospFloat.findMany({ where: where ?? {}, orderBy: [{ siteOfficeId: 'asc' }, { type: 'asc' }] });
         const ious = floats.length ? await prisma.ospPettyCashIou.findMany({ where: { floatId: { in: floats.map((f) => f.id) }, status: 'APPROVED' }, select: { floatId: true, amount: true, settledAmount: true } }) : [];
         return floats.map((f) => {
             const outstanding = ious.filter((i) => i.floatId === f.id).reduce((a, i) => a + Math.max(0, num(i.amount) - num(i.settledAmount)), 0);
@@ -37,16 +43,18 @@ export class OspFloatService {
     }
 
     /** Create the float of a site office and type, or change its limit. */
-    static async saveFloat(userId: string, input: { opmcId: string; type: string; name: string; limitAmount: number; maxDaysOutstanding?: number; status?: string }) {
+    static async saveFloat(userId: string, input: { siteOfficeId: string; type: string; name: string; limitAmount: number; maxDaysOutstanding?: number; status?: string }) {
         if (!(FLOAT_TYPES as readonly string[]).includes(input.type)) throw AppError.badRequest('INVALID_FLOAT_TYPE');
         if (!(input.limitAmount >= 0)) throw AppError.badRequest('LIMIT_MUST_NOT_BE_NEGATIVE');
         const days = input.maxDaysOutstanding ?? 30;
         if (!Number.isInteger(days) || days < 0) throw AppError.badRequest('MAX_DAYS_MUST_BE_A_WHOLE_NUMBER');
-        await this.assertOpmcInScope(userId, input.opmcId);
+        await this.assertSiteOfficeInScope(userId, input.siteOfficeId);
+        const store = await prisma.inventoryStore.findUnique({ where: { id: input.siteOfficeId }, select: { type: true } });
+        if (!store || !['MAIN', 'SUB'].includes(store.type)) throw AppError.badRequest('SITE_OFFICE_NOT_FOUND');
         const data = { name: input.name.trim(), limitAmount: input.limitAmount, maxDaysOutstanding: days, status: input.status ?? 'ACTIVE' };
         const saved = await prisma.ospFloat.upsert({
-            where: { opmcId_type: { opmcId: input.opmcId, type: input.type } },
-            create: { opmcId: input.opmcId, type: input.type, createdById: userId, ...data },
+            where: { siteOfficeId_type: { siteOfficeId: input.siteOfficeId, type: input.type } },
+            create: { siteOfficeId: input.siteOfficeId, type: input.type, createdById: userId, ...data },
             update: data,
         });
         await prisma.auditLog.create({ data: { action: 'SAVE_FLOAT', entity: 'OSP_FLOAT', entityId: saved.id, userId, newValue: { ...data }, ipAddress: 'SYSTEM', userAgent: 'SYSTEM' } });
@@ -54,10 +62,10 @@ export class OspFloatService {
     }
 
     /** A new IOU may name a float; it must be an active float of the same site office. */
-    static async assertFloatForNewIou(floatId: string, opmcId: string | null | undefined) {
+    static async assertFloatForNewIou(floatId: string, siteOfficeId: string | null | undefined) {
         const f = await prisma.ospFloat.findUnique({ where: { id: floatId } });
         if (!f || f.status !== 'ACTIVE') throw AppError.badRequest('FLOAT_NOT_FOUND_OR_INACTIVE');
-        if (opmcId && opmcId !== f.opmcId) throw AppError.badRequest('FLOAT_BELONGS_TO_ANOTHER_SITE_OFFICE');
+        if (siteOfficeId && f.siteOfficeId && siteOfficeId !== f.siteOfficeId) throw AppError.badRequest('FLOAT_BELONGS_TO_ANOTHER_SITE_OFFICE');
         return f;
     }
 
@@ -89,7 +97,7 @@ export class OspFloatService {
         if (!iou.floatId) return null;
         const f = await tx.ospFloat.findUnique({ where: { id: iou.floatId } });
         if (!f || f.type !== 'PETTY_CASH') return null;
-        const box = await tx.pettyCashAccount.findUnique({ where: { opmcId: f.opmcId } });
+        const box = f.siteOfficeId ? await tx.pettyCashAccount.findUnique({ where: { siteOfficeId: f.siteOfficeId } }) : f.opmcId ? await tx.pettyCashAccount.findFirst({ where: { opmcId: f.opmcId } }) : null;
         if (!box || box.status !== 'ACTIVE') return null;
         await tx.$queryRaw`SELECT "id" FROM "PettyCashAccount" WHERE "id" = ${box.id}::uuid FOR UPDATE`;
         const fresh = await tx.pettyCashAccount.findUniqueOrThrow({ where: { id: box.id } });
@@ -99,7 +107,7 @@ export class OspFloatService {
         await tx.pettyCashAccount.update({ where: { id: box.id }, data: { currentBalance: Math.round((num(fresh.currentBalance) - amount) * 100) / 100 } });
         await LedgerService.postTransaction(tx, {
             referenceId: iou.id, referenceType: 'OSP_IOU', idempotencyKey: `OSP_IOU_ISSUE:${iou.id}`, isAutoGenerated: true,
-            description: `Petty cash IOU for ${iou.staffName} (${iou.iouNumber})`, date: new Date(), opmcId: f.opmcId,
+            description: `Petty cash IOU for ${iou.staffName} (${iou.iouNumber})`, date: new Date(), opmcId: f.opmcId ?? undefined,
             lines: [
                 { accountCode: ACCOUNTS.ADVANCES, debit: amount, credit: 0, description: `DR: IOU ${iou.iouNumber}` },
                 { accountCode: ACCOUNTS.PETTY_CASH, debit: 0, credit: amount, description: `CR: cash drawn from the box for IOU ${iou.iouNumber}` },
@@ -110,8 +118,8 @@ export class OspFloatService {
 
     /** Every IOU with what is outstanding and for how many days; settlements included. */
     static async listIous(userId: string) {
-        const scope = await resolveOpmcScope(userId, 'finance');
-        const ious = await prisma.ospPettyCashIou.findMany({ where: scope === undefined ? {} : { opmcId: { in: scope } }, orderBy: { createdAt: 'desc' } });
+        const where = await this.visibility(userId);
+        const ious = await prisma.ospPettyCashIou.findMany({ where: where ?? {}, orderBy: { createdAt: 'desc' } });
         const rows = ious.length ? await prisma.ospIouSettlement.findMany({ where: { iouId: { in: ious.map((i) => i.id) } }, orderBy: { createdAt: 'asc' } }) : [];
         return ious.map((i) => {
             const settlements = rows.filter((r) => r.iouId === i.id).map((r) => ({ ...r, amount: num(r.amount) }));
@@ -125,9 +133,13 @@ export class OspFloatService {
         const amount = Math.round((input.amount ?? 0) * 100) / 100;
         const date = input.settleDate ? new Date(input.settleDate) : new Date();
         if (Number.isNaN(date.getTime())) throw AppError.badRequest('SETTLE_DATE_INVALID');
-        const header = await prisma.ospPettyCashIou.findUnique({ where: { id: iouId }, select: { opmcId: true } });
+        const header = await prisma.ospPettyCashIou.findUnique({ where: { id: iouId }, select: { opmcId: true, siteOfficeId: true } });
         if (!header) throw AppError.notFound('IOU_NOT_FOUND');
-        await this.assertOpmcInScope(userId, header.opmcId);
+        if (header.siteOfficeId) await this.assertSiteOfficeInScope(userId, header.siteOfficeId);
+        else {
+            const legacy = await resolveOpmcScope(userId, 'finance');
+            if (legacy !== undefined && (!header.opmcId || !legacy.includes(header.opmcId))) throw AppError.forbidden('OPMC_SCOPE_VIOLATION: this IOU is outside your area');
+        }
 
         return prisma.$transaction(async (tx) => {
             // one settlement at a time per IOU: the outstanding amount is read under the lock
@@ -148,6 +160,7 @@ export class OspFloatService {
                 if (boxId) {
                     await tx.$queryRaw`SELECT "id" FROM "PettyCashAccount" WHERE "id" = ${boxId}::uuid FOR UPDATE`;
                     const box = await tx.pettyCashAccount.findUniqueOrThrow({ where: { id: boxId }, include: { opmc: { select: { rtom: true } } } });
+                    const code = await (async () => { if (box.siteOfficeId) { const st = await tx.inventoryStore.findUnique({ where: { id: box.siteOfficeId }, select: { name: true } }); return siteOfficeCode(st?.name ?? 'SITE'); } return box.opmc?.rtom ?? 'PC'; })();
                     if (input.kind === 'REFUND') {
                         const back = checkRefundIntoBox(num(box.imprestLimit), num(box.currentBalance), amount);
                         if (!back.ok) throw AppError.badRequest(`${back.reason}: ${back.message}`);
@@ -155,7 +168,7 @@ export class OspFloatService {
                     } else {
                         await tx.pettyCashVoucher.create({
                             data: {
-                                accountId: boxId, voucherNumber: `PCV-${box.opmc.rtom}-${date.getFullYear()}-I${row.id.replace(/-/g, '').slice(-8).toUpperCase()}`,
+                                accountId: boxId, voucherNumber: `PCV-${code}-${date.getFullYear()}-I${row.id.replace(/-/g, '').slice(-8).toUpperCase()}`,
                                 date, title: `Bills of IOU ${iou.iouNumber} (${iou.staffName})`, description: input.reference?.trim() || null, amount, category: 'IOU settlement',
                                 status: 'APPROVED', recipientName: iou.staffName, iouId: iou.id, createdById: userId, approvedAt: new Date(),
                             },
@@ -167,7 +180,7 @@ export class OspFloatService {
                 const what = input.kind === 'BILLS' ? 'Bills settled' : 'Cash returned';
                 await LedgerService.postTransaction(tx, {
                     referenceId: row.id, referenceType: 'OSP_IOU_SETTLEMENT', idempotencyKey: `OSP_IOU_SETTLEMENT:${row.id}`, isAutoGenerated: true,
-                    description: `${what} on IOU ${iou.iouNumber} (${iou.staffName})`, date, createdById: userId, opmcId: iou.opmcId,
+                    description: `${what} on IOU ${iou.iouNumber} (${iou.staffName})`, date, createdById: userId, opmcId: iou.opmcId ?? undefined,
                     lines: [
                         { accountCode: code[post.debit], debit: amount, credit: 0, description: `DR: ${what} ${iou.iouNumber}` },
                         { accountCode: code[post.credit], debit: 0, credit: amount, description: `CR: ${what} ${iou.iouNumber}` },

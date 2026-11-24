@@ -12,8 +12,8 @@ interface IOU {
   id: string; iouNumber: string; staffName: string; amount: number; reason?: string | null; status: string; createdAt: string;
   floatId?: string | null; createdById?: string | null; outstanding: number; daysOutstanding: number; settlementStatus: string; settlements: Settlement[];
 }
-interface Float { id: string; opmcId: string; type: string; name: string; limitAmount: number; maxDaysOutstanding: number; status: string; outstanding: number; available: number }
-interface Opmc { id: string; name?: string; rtom?: string }
+interface Float { id: string; siteOfficeId: string | null; opmcId: string | null; type: string; name: string; limitAmount: number; maxDaysOutstanding: number; status: string; outstanding: number; available: number }
+interface SiteOffice { id: string; name: string; type?: string }
 
 const FLOAT_TYPES: Array<[string, string]> = [['PETTY_CASH', 'Petty cash'], ['PROJECT_ADVANCE', 'Project advance'], ['FUEL', 'Fuel advance'], ['OTHER', 'Other']];
 const KIND_LABEL: Record<string, string> = { BILLS: 'Bills handed in', REFUND: 'Cash returned', REMINDER: 'Reminder' };
@@ -40,7 +40,7 @@ const unwrap = <T,>(payload: unknown): T[] => {
 export default function IOUPage() {
   const [ious, setIous] = useState<IOU[]>([]);
   const [floats, setFloats] = useState<Float[]>([]);
-  const [opmcs, setOpmcs] = useState<Opmc[]>([]);
+  const [offices, setOffices] = useState<SiteOffice[]>([]);
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState<{ id: string; permissions: string[] }>({ id: '', permissions: [] });
   const [iouOpen, setIouOpen] = useState(false);
@@ -50,7 +50,7 @@ export default function IOUPage() {
   const [approving, setApproving] = useState('');
 
   const [iouForm, setIouForm] = useState({ iouNumber: '', staffName: '', amount: '', reason: '', floatId: '' });
-  const [floatForm, setFloatForm] = useState({ opmcId: '', type: 'PETTY_CASH', name: '', limitAmount: '', maxDaysOutstanding: '30' });
+  const [floatForm, setFloatForm] = useState({ siteOfficeId: '', type: 'PETTY_CASH', name: '', limitAmount: '', maxDaysOutstanding: '30' });
   const [setForm, setSetForm] = useState({ kind: 'BILLS', amount: '', reference: '', settleDate: new Date().toISOString().slice(0, 10), remarks: '' });
 
   useEffect(() => {
@@ -69,11 +69,11 @@ export default function IOUPage() {
   }, []);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    fetch('/api/opmcs').then((r) => (r.ok ? r.json() : [])).then((j) => setOpmcs(Array.isArray(j) ? j : (j?.data ?? []))).catch(() => undefined);
+    fetch('/api/finance/site-offices').then((r) => (r.ok ? r.json() : [])).then((j) => setOffices(unwrap<SiteOffice>(j))).catch(() => undefined);
   }, []);
 
   const floatName = (id?: string | null) => floats.find((f) => f.id === id)?.name ?? '-';
-  const opmcName = (id: string) => { const o = opmcs.find((x) => x.id === id); return o?.name ?? o?.rtom ?? id.slice(0, 8); };
+  const officeName = (f: Float) => offices.find((x) => x.id === f.siteOfficeId)?.name ?? (f.siteOfficeId ? f.siteOfficeId.slice(0, 8) : 'RTOM (old float)');
 
   const createIou = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,7 +105,7 @@ export default function IOUPage() {
     try {
       const res = await fetch('/api/finance/osp-account/floats', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ opmcId: floatForm.opmcId, type: floatForm.type, name: floatForm.name.trim(), limitAmount: Number(floatForm.limitAmount), maxDaysOutstanding: Number(floatForm.maxDaysOutstanding) }),
+        body: JSON.stringify({ siteOfficeId: floatForm.siteOfficeId, type: floatForm.type, name: floatForm.name.trim(), limitAmount: Number(floatForm.limitAmount), maxDaysOutstanding: Number(floatForm.maxDaysOutstanding) }),
       });
       if (!res.ok) throw new Error(await failure(res, 'The float was not saved'));
       toast.success('Float saved'); setFloatOpen(false); load();
@@ -171,7 +171,7 @@ export default function IOUPage() {
                           <p className="font-bold text-slate-900">{f.name}</p>
                           <span className="text-xs font-semibold text-slate-800">{FLOAT_TYPES.find(([c]) => c === f.type)?.[1] ?? f.type}</span>
                         </div>
-                        <p className="text-xs text-slate-700">{opmcName(f.opmcId)}{f.status !== 'ACTIVE' ? ' (not active)' : ''}</p>
+                        <p className="text-xs text-slate-700">{officeName(f)}{f.status !== 'ACTIVE' ? ' (not active)' : ''}</p>
                         <dl className="mt-3 grid grid-cols-3 gap-2 text-sm">
                           <div><dt className="text-xs text-slate-700">Limit</dt><dd className="font-semibold text-slate-900">{money(f.limitAmount)}</dd></div>
                           <div><dt className="text-xs text-slate-700">Out</dt><dd className="font-semibold text-slate-900">{money(f.outstanding)}</dd></div>
@@ -257,9 +257,9 @@ export default function IOUPage() {
             <p className="text-xs text-slate-700">One float for each site office and type. Saving again changes its limit.</p>
             <div>
               <label className={label}>Site office</label>
-              <select required className={input} value={floatForm.opmcId} onChange={(e) => setFloatForm({ ...floatForm, opmcId: e.target.value })}>
+              <select required className={input} value={floatForm.siteOfficeId} onChange={(e) => setFloatForm({ ...floatForm, siteOfficeId: e.target.value })}>
                 <option value="">Choose...</option>
-                {opmcs.map((o) => <option key={o.id} value={o.id}>{o.name ?? o.rtom}</option>)}
+                {offices.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
             </div>
             <div>

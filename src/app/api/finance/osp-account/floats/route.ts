@@ -8,7 +8,7 @@ import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 export const dynamic = 'force-dynamic';
 
 const saveSchema = z.object({
-  opmcId: databaseUuidSchema,
+  siteOfficeId: databaseUuidSchema,
   type: z.enum(['PETTY_CASH', 'PROJECT_ADVANCE', 'FUEL', 'OTHER']),
   name: z.string().trim().min(1).max(120),
   limitAmount: z.number().finite().nonnegative(),

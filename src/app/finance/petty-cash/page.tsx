@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 interface Box {
-  id: string; name: string; opmcId: string; site: string; status: string;
+  id: string; name: string; siteOfficeId: string | null; opmcId: string | null; site: string; status: string;
   limit: number; balance: number; iouOut: number; billsWaiting: number; cashInHand: number; replenishAmount: number; unaccounted: number;
   draftBills: number; floatPending: number; floatRoom: number; pendingReimbursement: { reimbursementNumber: string; totalAmount: number | string } | null;
 }
@@ -16,7 +16,7 @@ interface Bill {
   id: string; voucherNumber: string; date: string; title: string; category: string; amount: number | string; status: string; recipientName?: string | null;
   description?: string | null; receiptUrl?: string | null; createdById?: string | null; iouId?: string | null; rejectionReason?: string | null; cancelledReason?: string | null; carriedToNumber?: string | null;
 }
-interface Opmc { id: string; name?: string; rtom?: string }
+interface SiteOffice { id: string; name: string; type?: string }
 
 const CATEGORIES = ['Subsistence', 'Staff welfare', 'Travelling and transport', 'Fuel', 'Stationery and printing', 'Telephone', 'Electricity', 'Water', 'Office expenses', 'Repair and maintenance', 'Equipment hiring', 'Parking', 'Other'];
 const money = (n: number | string) => Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -40,14 +40,14 @@ export default function PettyCashPage() {
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [boxId, setBoxId] = useState('');
   const [bills, setBills] = useState<Bill[]>([]);
-  const [opmcs, setOpmcs] = useState<Opmc[]>([]);
+  const [offices, setOffices] = useState<SiteOffice[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [me, setMe] = useState<{ id: string; permissions: string[] }>({ id: '', permissions: [] });
   const [dialog, setDialog] = useState<'' | 'bill' | 'box' | 'float' | 'reject' | 'cancel'>('');
   const [target, setTarget] = useState<Bill | null>(null);
   const [billForm, setBillForm] = useState({ title: '', amount: '', category: CATEGORIES[0], recipientName: '', description: '', receiptUrl: '' });
-  const [boxForm, setBoxForm] = useState({ opmcId: '', name: '', imprestLimit: '', openingBalance: '0' });
+  const [boxForm, setBoxForm] = useState({ siteOfficeId: '', name: '', imprestLimit: '', openingBalance: '0' });
   const [floatAmount, setFloatAmount] = useState('');
   const [newBoxOffice, setNewBoxOffice] = useState('');
   const [reason, setReason] = useState('');
@@ -70,9 +70,9 @@ export default function PettyCashPage() {
   }, []);
   useEffect(() => { loadBoxes(); }, [loadBoxes]);
   useEffect(() => { loadBills(boxId); }, [boxId, loadBills]);
-  useEffect(() => { fetch('/api/opmcs').then((r) => (r.ok ? r.json() : [])).then((j) => setOpmcs(Array.isArray(j) ? j : (j?.data ?? []))).catch(() => undefined); }, []);
+  useEffect(() => { fetch('/api/finance/site-offices').then((r) => (r.ok ? r.json() : [])).then((j) => setOffices(rows<SiteOffice>(j))).catch(() => undefined); }, []);
 
-  useEffect(() => { const made = boxes.find((b) => b.opmcId === newBoxOffice); if (made) { setBoxId(made.id); setNewBoxOffice(''); } }, [boxes, newBoxOffice]);
+  useEffect(() => { const made = boxes.find((b) => b.siteOfficeId === newBoxOffice); if (made) { setBoxId(made.id); setNewBoxOffice(''); } }, [boxes, newBoxOffice]);
   const box = boxes.find((b) => b.id === boxId);
   const refresh = async () => { await loadBoxes(); await loadBills(boxId); };
   const call = async (key: string, fn: () => Promise<Response>, ok: string, fallback: string, done?: () => void) => {
@@ -91,7 +91,7 @@ export default function PettyCashPage() {
   const reject = (e: React.FormEvent) => { e.preventDefault(); if (!target) return; call('reject', () => post('/api/finance/petty-cash/vouchers', { id: target.id, action: 'REJECT', rejectionReason: reason.trim() }, 'PATCH'), 'Bill rejected', 'The rejection failed', () => { setDialog(''); setReason(''); }); };
   const cancel = (e: React.FormEvent) => { e.preventDefault(); if (!target) return; call('cancel', () => post('/api/finance/petty-cash/vouchers/cancel', { id: target.id, reason: reason.trim(), carriedToNumber: carried.trim() || undefined }), 'Bill cancelled', 'The cancel failed', () => { setDialog(''); setReason(''); setCarried(''); }); };
   const replenish = () => box && call('rep', () => post('/api/finance/petty-cash/reimbursements', { accountId: box.id }), 'Replenishment asked of Head Office', 'The request failed');
-  const createBox = (e: React.FormEvent) => { e.preventDefault(); call('box', () => post('/api/finance/petty-cash/accounts', { name: boxForm.name.trim(), opmcId: boxForm.opmcId, imprestLimit: Number(boxForm.imprestLimit), openingBalance: Number(boxForm.openingBalance || 0) }), 'Petty cash box created', 'The box was not created', () => { setDialog(''); setNewBoxOffice(boxForm.opmcId); }); };
+  const createBox = (e: React.FormEvent) => { e.preventDefault(); call('box', () => post('/api/finance/petty-cash/accounts', { name: boxForm.name.trim(), siteOfficeId: boxForm.siteOfficeId, imprestLimit: Number(boxForm.imprestLimit), openingBalance: Number(boxForm.openingBalance || 0) }), 'Petty cash box created', 'The box was not created', () => { setDialog(''); setNewBoxOffice(boxForm.siteOfficeId); }); };
   const askFloat = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!box || busy) return;
@@ -109,7 +109,7 @@ export default function PettyCashPage() {
   const stat = (title: string, value: string, hint?: string, bad = false) => (
     <div className="rounded-xl border border-slate-300 bg-white p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-800">{title}</p><p className={`mt-1 text-xl font-bold ${bad ? 'text-red-800' : 'text-slate-900'}`}>{value}</p>{hint && <p className="mt-1 text-xs text-slate-700">{hint}</p>}</div>
   );
-  const boxesWithout = opmcs.filter((o) => !boxes.some((b) => b.opmcId === o.id));
+  const officesWithout = offices.filter((o) => !boxes.some((b) => b.siteOfficeId === o.id));
   const btn = 'rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50';
 
   return (
@@ -131,7 +131,7 @@ export default function PettyCashPage() {
                       {boxes.map((b) => <option key={b.id} value={b.id}>{b.site || b.name}</option>)}
                     </select>
                   )}
-                  {canApprove && <button onClick={() => { setBoxForm({ opmcId: '', name: '', imprestLimit: '', openingBalance: '0' }); setDialog('box'); }} className={`${btn} border border-slate-500 bg-white text-slate-900 hover:bg-slate-100`}>New box</button>}
+                  {canApprove && <button onClick={() => { setBoxForm({ siteOfficeId: '', name: '', imprestLimit: '', openingBalance: '0' }); setDialog('box'); }} className={`${btn} border border-slate-500 bg-white text-slate-900 hover:bg-slate-100`}>New box</button>}
                 </div>
               </div>
 
@@ -214,7 +214,7 @@ export default function PettyCashPage() {
           <form onSubmit={createBox} className="w-full max-w-md space-y-3 rounded-xl bg-white p-6 shadow-xl">
             <h2 className="text-xl font-bold text-slate-900">New petty cash box</h2>
             <p className="text-xs text-slate-700">One box for each site office. It starts with what is really in it (0 when Head Office will fund the float).</p>
-            <div><label className={lbl}>Site office</label><select required className={field} value={boxForm.opmcId} onChange={(e) => setBoxForm({ ...boxForm, opmcId: e.target.value })}><option value="">Choose...</option>{boxesWithout.map((o) => <option key={o.id} value={o.id}>{o.name ?? o.rtom}</option>)}</select></div>
+            <div><label className={lbl}>Site office</label><select required className={field} value={boxForm.siteOfficeId} onChange={(e) => setBoxForm({ ...boxForm, siteOfficeId: e.target.value })}><option value="">Choose...</option>{officesWithout.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select></div>
             <div><label className={lbl}>Name</label><input required className={field} value={boxForm.name} onChange={(e) => setBoxForm({ ...boxForm, name: e.target.value })} placeholder="e.g. Kaduwela petty cash" /></div>
             <div><label className={lbl}>Imprest limit (LKR)</label><input required type="number" min="1" step="0.01" className={field} value={boxForm.imprestLimit} onChange={(e) => setBoxForm({ ...boxForm, imprestLimit: e.target.value })} /></div>
             <div><label className={lbl}>Cash in the box now (LKR)</label><input required type="number" min="0" step="0.01" className={field} value={boxForm.openingBalance} onChange={(e) => setBoxForm({ ...boxForm, openingBalance: e.target.value })} /></div>

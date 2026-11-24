@@ -1,14 +1,16 @@
 model PettyCashAccount {
   id             String                   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name           String
-  opmcId         String                   @unique @db.Uuid
+  /// the site office (an InventoryStore) that keeps this box; null only for boxes made before site offices
+  siteOfficeId   String?                  @unique @db.Uuid
+  opmcId         String?                  @db.Uuid
   imprestLimit   Decimal                  @default(0) @db.Decimal(14, 2)
   currentBalance Decimal                  @default(0) @db.Decimal(14, 2)
   status         String                   @default("ACTIVE")
   createdById    String?                  @db.Uuid
   createdAt      DateTime                 @default(now())
   updatedAt      DateTime                 @updatedAt
-  opmc           OPMC                     @relation(fields: [opmcId], references: [id], onDelete: Cascade)
+  opmc           OPMC?                    @relation(fields: [opmcId], references: [id], onDelete: Cascade)
   reimbursements PettyCashReimbursement[]
   vouchers       PettyCashVoucher[]
 

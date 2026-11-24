@@ -20,7 +20,10 @@ async function main() {
     const admin = (await prisma.user.findFirstOrThrow({ where: { username: { equals: 'admin', mode: 'insensitive' } }, select: { id: true } })).id;
     const opmc = await prisma.oPMC.findFirstOrThrow({ where: { rtom: 'R-KX' }, select: { id: true } });
     const otherOpmc = await prisma.oPMC.findFirstOrThrow({ where: { id: { not: opmc.id } }, select: { id: true } });
-    const TAG = 'ZZTEST-FLOAT-' + Date.now().toString(36);
+    const TAG0 = 'ZZTEST-FLOAT-' + Date.now().toString(36);
+    const office = await prisma.inventoryStore.create({ data: { name: `${TAG0} Store`, type: 'SUB', location: 'ZZTEST', opmcs: { connect: [{ id: opmc.id }] } } });
+    const otherOffice = await prisma.inventoryStore.create({ data: { name: `${TAG0} Other Store`, type: 'SUB', location: 'ZZTEST', opmcs: { connect: [{ id: otherOpmc.id }] } } });
+    const TAG = TAG0;
     const users: string[] = []; const ious: string[] = []; let floatId = '';
     const can = (u: string, p: string) => userHasPermission(u, p as any);
 
@@ -40,15 +43,15 @@ async function main() {
         check('0 the AR Officer only reads', (await can(audit, 'finance.read')) && !(await can(audit, 'finance.write')));
 
         // ---------- 1. the float ----------
-        const f = await OspFloatService.saveFloat(manager, { opmcId: opmc.id, type: 'OTHER', name: `${TAG} test float`, limitAmount: 10000, maxDaysOutstanding: 30 });
+        const f = await OspFloatService.saveFloat(manager, { siteOfficeId: office.id, type: 'OTHER', name: `${TAG} test float`, limitAmount: 10000, maxDaysOutstanding: 30 });
         floatId = f.id;
         check('1 the Finance Manager sets a float of Rs. 10,000', num(f.limitAmount) === 10000);
-        check('1 a negative limit is refused', !!(await refused(() => OspFloatService.saveFloat(manager, { opmcId: opmc.id, type: 'OTHER', name: 'x', limitAmount: -1 }))));
-        check('1 a float of a site office outside the scope is refused for a scoped user', !!(await refused(() => OspFloatService.saveFloat(cashier, { opmcId: otherOpmc.id, type: 'OTHER', name: 'x', limitAmount: 1 }))) || true, 'scope: a finance role holds scope.finance.all, so this only proves the call is accepted for them');
+        check('1 a negative limit is refused', !!(await refused(() => OspFloatService.saveFloat(manager, { siteOfficeId: office.id, type: 'OTHER', name: 'x', limitAmount: -1 }))));
+        check('1 a float of a site office outside the scope is refused for a scoped user', !!(await refused(() => OspFloatService.saveFloat(cashier, { siteOfficeId: otherOffice.id, type: 'OTHER', name: 'x', limitAmount: 1 }))) || true, 'scope: a finance role holds scope.finance.all, so this only proves the call is accepted for them');
 
         // ---------- 2. IOUs against the float ----------
         const mkIou = async (n: string, amount: number, who: string, maker: string) => {
-            const iou: any = await OSPAccountCrudService.createIOU({ iouNumber: `${TAG}-${n}`, staffName: who, amount, opmcId: opmc.id, floatId, type: 'OTHER', issuedDate: new Date(), reason: 'ZZTEST' }, maker);
+            const iou: any = await OSPAccountCrudService.createIOU({ iouNumber: `${TAG}-${n}`, staffName: who, amount, siteOfficeId: office.id, floatId, type: 'OTHER', issuedDate: new Date(), reason: 'ZZTEST' }, maker);
             ious.push(iou.id); return iou;
         };
         const i1 = await mkIou('1', 6000, 'ZZTEST Person A', cashier);
@@ -87,14 +90,15 @@ async function main() {
         await prisma.ospPettyCashIou.update({ where: { id: i3.id }, data: { issuedDate: new Date(Date.now() - 45 * 86400000) } });
         const i4 = await mkIou('4', 500, 'ZZTEST Person C', cashier);
         check('4 a person with an IOU open for 45 days (limit 30) gets no new IOU', /STAFF_HAS_OVERDUE_IOU/.test(await refused(() => OSPAccountCrudService.approveIOU(i4.id, manager))));
-        await OspFloatService.saveFloat(manager, { opmcId: opmc.id, type: 'OTHER', name: `${TAG} test float`, limitAmount: 10000, maxDaysOutstanding: 0 });
+        await OspFloatService.saveFloat(manager, { siteOfficeId: office.id, type: 'OTHER', name: `${TAG} test float`, limitAmount: 10000, maxDaysOutstanding: 0 });
         await OSPAccountCrudService.approveIOU(i4.id, manager);
         check('4 with the days limit at 0 (none) the same IOU is approved', (await prisma.ospPettyCashIou.findUniqueOrThrow({ where: { id: i4.id } })).status === 'APPROVED');
-        check('4 an IOU on a float of another site office is refused', /BELONGS_TO_ANOTHER/.test(await refused(() => OSPAccountCrudService.createIOU({ iouNumber: `${TAG}-5`, staffName: 'x', amount: 1, opmcId: otherOpmc.id, floatId } as any, cashier))));
+        check('4 an IOU on a float of another site office is refused', /BELONGS_TO_ANOTHER/.test(await refused(() => OSPAccountCrudService.createIOU({ iouNumber: `${TAG}-5`, staffName: 'x', amount: 1, siteOfficeId: otherOffice.id, floatId } as any, cashier))));
     } finally {
         // ---------- cleanup ----------
         if (ious.length) { await prisma.ospIouSettlement.deleteMany({ where: { iouId: { in: ious } } }).catch(() => undefined); await prisma.ospPettyCashIou.deleteMany({ where: { id: { in: ious } } }).catch(() => undefined); }
         if (floatId) await prisma.ospFloat.delete({ where: { id: floatId } }).catch(() => undefined);
+        for (const sid of [office.id, otherOffice.id]) await prisma.inventoryStore.delete({ where: { id: sid } }).catch(() => prisma.inventoryStore.update({ where: { id: sid }, data: { type: 'SUB', name: `ZZTEST (closed) ${sid.slice(-6)}` } }).catch(() => undefined));
         for (const id of users) await UserService.deleteUser(id, admin).catch(() => prisma.user.update({ where: { id }, data: { status: 'deleted' } }).catch(() => undefined));
         for (const id of users) await prisma.user.update({ where: { id }, data: { password: 'x!locked', email: 'deleted+' + id + '@example.invalid', username: 'zztest_deleted_' + id.slice(-8) } }).catch(() => undefined);
     }

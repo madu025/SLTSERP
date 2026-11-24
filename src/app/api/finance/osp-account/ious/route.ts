@@ -14,7 +14,7 @@ const createSchema = z.object({
   reason: z.string().optional(),
   noOfDays: z.number().nonnegative().optional(),
   remarks: z.string().optional(),
-  opmcId: z.string().optional(),
+  siteOfficeId: databaseUuidSchema.optional(),
   floatId: databaseUuidSchema.optional(),
 });
 export const GET = apiHandler(async (_request, params) => {
@@ -25,7 +25,7 @@ export const GET = apiHandler(async (_request, params) => {
 export const POST = apiHandler(async (request, params) => {
   const body = await request.json();
   const data = createSchema.parse(body);
-  if (data.opmcId) await OspFloatService.assertOpmcInScope(params._userId as string, data.opmcId);
+  if (data.siteOfficeId) await OspFloatService.assertSiteOfficeInScope(params._userId as string, data.siteOfficeId);
   const parsedDate = data.issuedDate ? new Date(data.issuedDate) : new Date();
   const result = await OSPAccountCrudService.createIOU({
     ...data,

@@ -13,6 +13,7 @@ export class OSPAccountCrudService {
   static async createIOU(data: {
     iouNumber: string;
     floatId?: string;
+    siteOfficeId?: string;
     opmcId?: string;
     staffName: string;
     staffServiceNo?: string;
@@ -25,8 +26,8 @@ export class OSPAccountCrudService {
   }, actorId?: string | null) {
     if (data.amount <= 0) throw AppError.badRequest('AMOUNT_MUST_BE_GREATER_THAN_ZERO');
     if (data.floatId) {
-      const f = await OspFloatService.assertFloatForNewIou(data.floatId, data.opmcId);
-      data = { ...data, opmcId: data.opmcId ?? f.opmcId };
+      const f = await OspFloatService.assertFloatForNewIou(data.floatId, data.siteOfficeId);
+      data = { ...data, siteOfficeId: f.siteOfficeId ?? data.siteOfficeId, opmcId: data.opmcId ?? f.opmcId ?? undefined };
     }
 
     const existing = await prisma.ospPettyCashIou.findUnique({
