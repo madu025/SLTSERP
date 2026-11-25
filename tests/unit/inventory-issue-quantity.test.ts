@@ -45,3 +45,15 @@ test('every document a person types quantities into checks them before it takes 
     assert.ok(read('src/services/inventory/contractor-inventory.service.ts').includes("assertPositiveQuantity(data.quantity, 'the returned item')"), 'contractor return');
     assert.ok(read('src/services/inventory/stock-request.service.ts').includes("assertPositiveLines(items, 'requestedQty'"), 'material request');
 });
+
+test('a sub store request must come from someone who works at that store or in its area', () => {
+    const s = fs.readFileSync('src/services/inventory/stock-request.service.ts', 'utf8');
+    assert.ok(/fromStore\.type === 'SUB'\) await StoreService\.assertStoreWriteAccess\(requestedById, fromStoreId\)/.test(s), 'the request service checks the store of the person');
+});
+
+test('the contractor stock is locked while it is picked, and the dashboard values stock at cost (migration 20261221000000)', () => {
+    const sql = fs.readFileSync('prisma/migrations/20261221000000_inventory_concurrency_and_value/migration.sql', 'utf8');
+    assert.ok(/fn_fifo_pick_contractor_batches[\s\S]*FOR UPDATE OF cbs/.test(sql), 'row lock on the contractor batch stock, like the store side');
+    const dash = sql.slice(sql.indexOf('fn_store_dashboard_summary('));
+    assert.ok(dash.includes('i."costPrice"') && !dash.includes('i."unitPrice"') && !dash.includes('avg_price'), 'value at cost, not at the selling price or the purchase order average');
+});

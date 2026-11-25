@@ -54,6 +54,8 @@ export class StockRequestService {
 
         const fromStore = await InventoryRepository.findStoreById(fromStoreId);
         if (!fromStore) throw AppError.badRequest("INVALID_STORE");
+        // A sub store raises its own requests: the person must work at that store or in its area (an officer of one sub store could raise a request in the name of another)
+        if (fromStore.type === 'SUB') await StoreService.assertStoreWriteAccess(requestedById, fromStoreId);
 
         let finalToStoreId = toStoreId;
 
