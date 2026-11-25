@@ -69,7 +69,7 @@ export class NoticeRulesService {
         const rule = rules[job];
         if (!rule) throw AppError.badRequest('UNKNOWN_REPORT');
         const people = await this.candidates();
-        return selectRecipients(people, rule, opmcId).map((p) => ({ id: p.id, email: p.email }));
+        return selectRecipients(people, rule, opmcId).map((p) => ({ id: p.id, email: p.email, name: p.name }));
     }
 
     /** Send a notice to the people of the report's rule (in-app, with the usual preferences and de-duplication). */

@@ -75,9 +75,9 @@ export const TEMPLATE_CODES: TemplateCodeDef[] = [
   {
     code: 'OPS_WEEKLY_DIGEST',
     label: 'Weekly Operations Digest',
-    description: 'Monday digest for SOD/project managers: 30-day SLA, oldest backlogs and operations/project exceptions',
+    description: 'Monday digest for the company managers: key figures with charts (turnaround by week, age of open orders, backlog by RTOM, last 7 days) and the operations/project exceptions',
     category: 'ALERT',
-    placeholders: ['user', 'weekLabel', 'completed', 'slaPct', 'slaDays', 'oldestBacklogs', 'exceptions', 'dashboardUrl'],
+    placeholders: ['user', 'weekLabel', 'completed', 'slaPct', 'slaDays', 'oldestBacklogs', 'exceptions', 'dashboardUrl', 'reportHtml', 'reason'],
     defaultEntityType: 'OPS_DIGEST'
   },
   {
