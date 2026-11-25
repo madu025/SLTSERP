@@ -566,10 +566,12 @@ export default function ProcurementOrdersPage() {
                                                                             )
                                                                         ).length;
                                                                         const isFullyCovered = reqItems.length > 0 && coveredCount === reqItems.length;
+                                                                        const poStates = (req.purchaseOrders ?? []).map((po) => po.status ?? 'APPROVED');
+                                                                        const coverLabel = poStates.includes('PENDING_APPROVAL') ? 'PO awaiting approval' : poStates.every((st) => ['ISSUED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CLOSED'].includes(st)) ? '✓ All POs Issued' : '✓ PO approved, not yet issued';
                                                                         if (isFullyCovered) {
                                                                             return (
                                                                                 <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold whitespace-nowrap px-2 py-1">
-                                                                                    ✓ All POs Issued
+                                                                                    {coverLabel}
                                                                                 </Badge>
                                                                             );
                                                                         }

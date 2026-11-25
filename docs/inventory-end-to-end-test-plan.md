@@ -53,7 +53,7 @@ received minus what was consumed or wasted, and the latest `InventoryLedger` che
 | A1 | Main store raises a material request for the 10 items (quantities include decimals) | request created with an MRN reference, status PENDING, nothing reserved yet |
 | A2 | Each configured gate approves in order, by the right role | the stage moves exactly one gate at a time; a user without the gate role is refused; a user from another area is refused |
 | A3 | Procurement creates a PO per vendor from the approved request | PO references the request; totals, VAT and per-line quantity match the request; a PO above the approval limit goes to `PENDING_APPROVAL` |
-| A4 | PO approver approves (and the maker cannot approve their own PO) | status APPROVED / sent; the same person is refused |
+| A4 | PO approver approves (and the maker cannot approve their own PO) | status APPROVED / sent. Who approves: a role with `procurement.write` and a high enough approval limit (OSP Manager, Head of OSP, CEO, Admin), NOT the Stores Manager. Known gap: the order does not record its maker, so the maker is stopped only by the approval limit |
 | A5 | **OSP Finance gate**: finance reviews the procurement | request/PO is visible in the OSP Finance queue ONLY after procurement passed; before that it is not; finance can approve and reject with a reason; rejection returns it with the reason |
 | A6 | Procurement status moves PO_CREATED, PO_SENT, PO_CONFIRMED, COMPLETED | on COMPLETED the request becomes GRN pending and is shown as "awaiting GRN", not as a recorded receipt |
 

@@ -6,6 +6,10 @@ import { StoreService } from '@/services/inventory/store.service';
 import { NIL_UUID, resolveOpmcScope } from '@/lib/opmc-scope';
 import { AppError } from '@/lib/error';
 import { effectiveInventoryMinLevel, isInventoryReorderNeeded } from '@/lib/inventory-dashboard-metrics';
+// The "pending dispatches" queue is for material that a store issues (internal transfers). A purchase request (LOCAL_PURCHASE) waits for a purchase order and goods
+// from a vendor: nothing can be issued for it, yet it was listed here with an "Issue MIN" button (8 of the 16 open requests in production).
+const NOT_A_PURCHASE = { sourceType: { notIn: ['LOCAL_PURCHASE', 'EMERGENCY_LOCAL'] } };
+
 export const dynamic = 'force-dynamic';
 export const GET = apiHandler(async (req, params) => {
     const { searchParams } = new URL(req.url);
@@ -68,7 +72,7 @@ export const GET = apiHandler(async (req, params) => {
             StoreService.getMaterialBalance(singleStoreId),
             StoreService.getExpiringBatches(singleStoreId, 30),
             prisma.stockRequest.findMany({
-                where: { status: { in: ['PENDING', 'APPROVED'] }, fromStoreId: singleStoreId },
+                where: { status: { in: ['PENDING', 'APPROVED'] }, fromStoreId: singleStoreId, ...NOT_A_PURCHASE },
                 take: 10, orderBy: { createdAt: 'desc' },
                 select: {
                     id: true, requestNr: true, status: true, workflowStage: true, createdAt: true,
@@ -216,6 +220,7 @@ export const GET = apiHandler(async (req, params) => {
     const pendingDispatches = await prisma.stockRequest.findMany({
         where: {
             status: { in: ['PENDING', 'APPROVED'] },
+            ...NOT_A_PURCHASE,
             ...(hasSpecificStore ? { fromStoreId: storeId } : isGlobalScope ? {} : { fromStoreId: NIL_UUID })
         },
         take: 10,

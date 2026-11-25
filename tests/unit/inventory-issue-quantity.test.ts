@@ -68,3 +68,17 @@ test('an issue or return line takes the unit of the item, not "Nos" (drop wire i
     assert.ok(s.includes("unit: i.unit || itemUnits.get(i.itemId) || 'Nos'"), 'issue note lines');
     assert.ok(s.includes("unit: item.unit || itemUnits.get(item.itemId) || 'Nos'"), 'return note lines');
 });
+
+test('the Order Processing screen can read the requests it needs with the procurement capability, and the dispatch queue holds no purchase requests', () => {
+    const route = fs.readFileSync('src/app/api/inventory/requests/route.ts', 'utf8');
+    const get = route.slice(route.indexOf('export const GET'), route.indexOf('// POST: Create stock request'));
+    assert.ok(/permissions: \[RBAC_PERMISSIONS\.INVENTORY_READ, RBAC_PERMISSIONS\.PROCUREMENT_READ\]/.test(get), 'the Procurement Officer holds procurement.read, not inventory.read (the screen was empty with a 403)');
+    const kpi = fs.readFileSync('src/app/api/inventory/dashboard-kpis/route.ts', 'utf8');
+    assert.equal((kpi.match(/\.\.\.NOT_A_PURCHASE/g) ?? []).length, 2, 'both dispatch queries leave out purchase requests');
+    assert.ok(kpi.includes("notIn: ['LOCAL_PURCHASE', 'EMERGENCY_LOCAL']"));
+});
+
+test('the order list says what the purchase orders really are: awaiting approval, approved, or issued', () => {
+    const s = fs.readFileSync('src/app/procurement/orders/page.tsx', 'utf8');
+    assert.ok(s.includes("'PO awaiting approval'") && s.includes('{coverLabel}'), 'a request whose order still waits for approval is not labelled "All POs Issued"');
+});

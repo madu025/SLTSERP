@@ -23,7 +23,9 @@ export const GET = apiHandler(async (req, params) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
     return await InventoryService.getStockRequests(filters, params._userId);
 }, {
-    permissions: [RBAC_PERMISSIONS.INVENTORY_READ],
+    // The Order Processing screen of the Procurement Officer reads the requests in the procurement stage with this call; the Procurement Officer holds
+    // procurement.read and procurement.write (the POST and PATCH below already allow it) but not inventory.read, so the screen was empty (403).
+    permissions: [RBAC_PERMISSIONS.INVENTORY_READ, RBAC_PERMISSIONS.PROCUREMENT_READ],
     rawResponse: true
 });
 
