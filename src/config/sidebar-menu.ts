@@ -1136,6 +1136,13 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: HistoryIcon,
             },
             {
+                // what the system sends by itself, and who receives it
+                title: 'Automated Reports & Alerts',
+                path: '/admin/settings/automated-notices',
+                icon: Mail,
+                permissionId: RBAC_PERMISSIONS.ADMIN_RBAC,
+            },
+            {
                 title: 'System Health & Monitoring',
                 path: '/admin/monitoring',
                 icon: Activity,

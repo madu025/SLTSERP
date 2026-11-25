@@ -281,3 +281,10 @@ The tests in `tests/unit/authorization-rules.test.ts` and `tests/unit/menu-page-
   `OspIouSettlementSubmission` (SUBMITTED); nothing is booked. The ARM verifies (`PATCH`, `VERIFY`): the bills become an approved bill of the box and the
   returned cash goes back into the box, in one transaction. `REJECT` needs a reason and sends it back. The person who submitted never verifies.
   Bills plus cash returned cannot exceed what is outstanding; extra spend is a separate bill.
+
+## Automated notices and who receives them (25 Nov 2026)
+
+- A notice is sent to an **audience**: a capability `notification.audience.*` (catalogue in `src/services/notification/notification-audiences.ts`). The recipients are the active users whose role holds it, or who carry an explicit override with it.
+- A call that is about one area passes `opmcId`: only the members of the audience who work in that area get it. A call without `opmcId` reaches the whole audience, so a company-wide notice must go to a small audience of its own (the Monday digest: `OPS_DIGEST`).
+- The administrator sees and changes the audiences on **Administration > Automated Reports & Alerts**. The seed leaves an audience that already has grants as the administrator set it; a new audience gets its starting grants from `rbac-bootstrap.ts`. `src/lib/rbac-seed-rules.ts` holds that rule.
+- Adding a scheduled job or an audience: describe it in `src/config/automated-notices.ts` (`tests/unit/automated-notices.test.ts` fails otherwise).

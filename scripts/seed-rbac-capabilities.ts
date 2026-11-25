@@ -1,6 +1,7 @@
 import { PrismaClient, PermissionScope, Role } from '@prisma/client';
 import { RBAC_PERMISSION_DEFINITIONS } from '../src/config/rbac-permissions';
 import { CANONICAL_BOOTSTRAP_ROLE_GRANTS, MODULE_DESIGNATION_GRANTS } from '../src/config/rbac-bootstrap';
+import { codesToPreserve } from '../src/lib/rbac-seed-rules';
 
 const prisma = new PrismaClient();
 
@@ -127,7 +128,11 @@ async function main() {
         permissionIds.set(definition.code, permission.id);
     }
 
-    const desiredGrants = RBAC_PERMISSION_DEFINITIONS.flatMap((definition) => {
+    // The notification audiences that already have grants belong to the administrator (page "Automated reports and alerts"): leave them as they are
+    const existingAudienceGrants = await prisma.rolePermission.findMany({ where: { permission: { startsWith: 'notification.audience.' } }, select: { permission: true }, distinct: ['permission'] });
+    const preserved = codesToPreserve(RBAC_PERMISSION_DEFINITIONS.map((d) => d.code), new Set(existingAudienceGrants.map((g) => g.permission)));
+
+    const desiredGrants = RBAC_PERMISSION_DEFINITIONS.filter((definition) => !preserved.has(definition.code)).flatMap((definition) => {
         const allowedRoles = new Set(bootstrapGrants[definition.code] ?? []);
         const permissionDefinitionId = permissionIds.get(definition.code);
         if (!permissionDefinitionId) return [];
@@ -148,7 +153,7 @@ async function main() {
     // Reconcile canonical grants in two set-based writes. Legacy page keys
     // and unrelated administrator-created permissions remain untouched.
     await prisma.rolePermission.deleteMany({
-        where: { permission: { in: RBAC_PERMISSION_DEFINITIONS.map((definition) => definition.code) } },
+        where: { permission: { in: RBAC_PERMISSION_DEFINITIONS.map((definition) => definition.code).filter((code) => !preserved.has(code)) } },
     });
     if (desiredGrants.length > 0) {
         await prisma.rolePermission.createMany({ data: desiredGrants, skipDuplicates: true });
@@ -156,7 +161,7 @@ async function main() {
     grants = desiredGrants.length;
 
     console.log(
-        `RBAC capability seed complete: ${definitions} definitions, ${grants} grants ensured, `
+        `RBAC capability seed complete: ${definitions} definitions, ${grants} grants ensured (${preserved.size} audience capabilities left as the administrator set them), `
         + `${userIdentityRepairs} stale user role link(s) repaired.`
     );
 }
