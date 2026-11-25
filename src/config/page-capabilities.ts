@@ -27,6 +27,9 @@ const PAGE_RULES: ReadonlyArray<{ prefix: string; permission: RbacPermission }> 
     { prefix: '/invoices/osp-approvals', permission: RBAC_PERMISSIONS.INVOICE_OSP_APPROVE },
     { prefix: '/invoices', permission: RBAC_PERMISSIONS.SOD_INVOICE },
     { prefix: '/projects', permission: RBAC_PERMISSIONS.PROJECT_READ },
+    // the national map and the file import (the data calls need the same capabilities: project.plan.read / project.plan.write, held by the same roles)
+    { prefix: '/gis/upload', permission: RBAC_PERMISSIONS.PROJECT_WRITE },
+    { prefix: '/gis', permission: RBAC_PERMISSIONS.PROJECT_READ },
     { prefix: '/inventory/approvals', permission: RBAC_PERMISSIONS.INVENTORY_APPROVE },
     { prefix: '/procurement/approvals', permission: RBAC_PERMISSIONS.INVENTORY_APPROVE },
     { prefix: '/petty-cash', permission: RBAC_PERMISSIONS.PETTY_CASH_SITE },

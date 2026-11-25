@@ -43,7 +43,7 @@ export default function DynamicRateMatrixPage() {
             const res = await fetch('/api/admin/rate-matrix');
             if (res.ok) {
                 const data = await res.json();
-                setRules(data.rules || []);
+                setRules(data.data?.rules || data.rules || []); // the API wraps its result as { success, data: { count, rules } }
             }
         } catch (e) {
             console.error(e);
