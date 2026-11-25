@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { NotificationService } from '@/services/notification/notification.service';
+import { NoticeRulesService } from '@/services/notification/notice-rules.service';
 import { MY_TASKS_LINK } from '@/services/project/project-task-notification.service';
 import { SPI_ALERT_THRESHOLD } from '@/lib/project-evm';
 
@@ -14,8 +15,8 @@ const label = (p: { name: string; projectCode: string }) => `${p.name} (${p.proj
  */
 export class ProjectDeadlineReminderService {
     private static async projectManagers(projectId: string, opmcId: string | null, title: string, message: string, dedupKey: string, link: string) {
-        await NotificationService.notifyByAudience({
-            audience: 'PROJECT_MANAGERS', title: `${title} (no owner found)`, message, type: 'PROJECT', priority: 'HIGH',
+        await NoticeRulesService.notify('project-reminders', {
+            title: `${title} (no owner found)`, message, type: 'PROJECT', priority: 'HIGH',
             link, opmcId: opmcId ?? undefined, metadata: { projectId }, dedupKey: `${dedupKey}:managers`,
         });
     }
@@ -105,8 +106,8 @@ export class ProjectDeadlineReminderService {
         let notified = 0;
         const send = async (p: (typeof active)[number], kind: string, title: string, message: string) => {
             processed++;
-            const result = await NotificationService.notifyByAudience({
-                audience: 'PROJECT_MANAGERS', title, message, type: 'PROJECT', priority: 'HIGH',
+            const result = await NoticeRulesService.notify('project-reminders', {
+                title, message, type: 'PROJECT', priority: 'HIGH',
                 link: `/projects/${p.id}`, opmcId: p.opmcId ?? undefined,
                 metadata: { projectId: p.id, kind }, dedupKey: `project-health:${kind}:${p.id}:${week}`,
             });
@@ -162,8 +163,8 @@ export class ProjectDeadlineReminderService {
         });
         for (const plan of plans) {
             processed++;
-            await NotificationService.notifyByAudience({
-                audience: 'PROJECT_MANAGERS', title: '⏳ Task plan still waiting for approval',
+            await NoticeRulesService.notify('project-reminders', {
+                title: '⏳ Task plan still waiting for approval',
                 message: `The task plan for ${label(plan.project)} has been submitted for more than 2 days. Approve it so the tasks reach their assignees.`,
                 type: 'PROJECT', priority: 'HIGH', link: MY_TASKS_LINK, opmcId: plan.project.opmcId ?? undefined,
                 metadata: { projectId: plan.projectId }, dedupKey: `project-plan-stale:${plan.projectId}:${day(now)}`,

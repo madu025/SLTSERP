@@ -1,6 +1,6 @@
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { CompanyHealthService, type HealthException } from '@/services/core/company-health.service';
-import { NotificationService } from './index';
+import { NoticeRulesService } from './notice-rules.service';
 
 const day = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -15,15 +15,14 @@ const day = (d: Date) => d.toISOString().slice(0, 10);
  */
 export class ManagementAlertService {
     static async run(now: Date = new Date()): Promise<{ processed: number; notified: number }> {
-        // The audience (ADMINISTRATORS) is a management-level, DB-configurable capability group, so the
-        // digest covers every module, exactly like the company-wide dashboard tab.
+        // Who receives it is a rule (default: the people with the company-wide reports level), changed on the page "Automated reports and alerts";
+        // the digest covers every module, exactly like the company-wide dashboard tab.
         const health = await CompanyHealthService.getCompanyHealth(Object.values(RBAC_PERMISSIONS), now);
         const actionable = health.exceptions.filter((e: HealthException) => e.severity !== 'info');
 
         let notified = 0;
         for (const e of actionable) {
-            const result = await NotificationService.notifyByAudience({
-                audience: 'ADMINISTRATORS',
+            const result = await NoticeRulesService.notify('management-alerts', {
                 title: `${e.severity === 'critical' ? '⛔' : '⚠️'} ${e.title}`,
                 message: `${e.detail} (${e.area}). Open the Company health tab for the full picture.`,
                 type: 'SYSTEM',
