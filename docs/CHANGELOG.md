@@ -6,6 +6,7 @@ new developer or an AI assistant would need to know. Refresh `docs/ai-handover.m
 
 ## Authorization (RBAC)
 
+- **25 Nov** Procure-to-pay tested end to end with real roles (`scripts/zz-p2p-flow.ts`, 31 checks): purchase request through its approval chain, purchase order, GRN part and rest (over-receipt and unapproved request refused, GR/IR accrued at the order price), supplier invoice with the 3-way match (mismatch needs a reason; the person who entered it cannot approve), approval posting (GR/IR cleared, input VAT, vendor payable), return to the supplier with the debit note. The return approval (MRN) now has a 30 second transaction limit, as the goods receipt has; it timed out at the 5 second default on a slow database. Payment of a vendor invoice is not covered by the script.
 - **24 Nov** Menu levels (view / operate / invoice / approve / admin, per module) are now capabilities `menu.<module>.<level>`, held through
   roles in the database. The starting levels are `BOOTSTRAP_MENU_LEVELS` in `src/config/rbac-bootstrap.ts`. `src/config/menu-access.ts` has no
   role names. The first page after sign-in is `landingPath()` (`src/config/landing.ts`) from capabilities (contractor portal, stores, dashboard).

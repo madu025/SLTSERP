@@ -52,7 +52,7 @@ for local scripts (`.env.local`). pnpm only.
 ## How to test (what worked)
 
 1. Pure rules first (unit tests), then a service-level script with real roles on `ZZTEST` data (see `scripts/zz-petty-cash.ts`, 61 checks;
-   `scripts/zz-osp-float.ts`), which cleans up after itself (journal entries stay: the ledger is immutable).
+   `scripts/zz-osp-float.ts`; the whole procure-to-pay flow: `scripts/zz-p2p-flow.ts`, 31 checks), which cleans up after itself (journal entries stay: the ledger is immutable).
 2. Browser test on localhost: dev server `sltserp-dev` (port 3100, from `.claude/launch.json`), log in through the form, one account per role
    (`scripts/zz-osp-gui.ts setup <password>` / `teardown`). The dev server is slow over the tunnel: wait for each refresh (the Petty Cash page refreshes every 15 s).
    Receipt upload cannot be tested locally (storage returns 503).

@@ -276,7 +276,7 @@ export class MRNService {
 
                 emitSystemEvent('INVENTORY_UPDATE');
                 return mrn;
-            });
+            }, { maxWait: 10_000, timeout: 30_000 }); // stock, ledger and debit note in one transaction: more than Prisma's default 5 seconds when the database is slow
         }
 
         throw AppError.badRequest('INVALID_ACTION');
