@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PublicInvoiceService } from '@/services/invoice/public.invoice.service';
+import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,8 +18,11 @@ export async function GET(
         
         return NextResponse.json({ success: true, data: responseData });
     } catch (error: unknown) {
+        // A wrong or unknown id is a plain 404 with a fixed message (no database error text for an anonymous caller)
+        if (error instanceof AppError && error.statusCode === 404) {
+            return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+        }
         console.error('[PUBLIC_INVOICE_API_ERROR]', error);
-        const details = error instanceof Error ? error.message : 'Unknown error';
-        return NextResponse.json({ error: 'Failed to fetch public invoice details', details }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to fetch public invoice details' }, { status: 500 });
     }
 }
