@@ -3,8 +3,8 @@ import { CompanyHealthService, type HealthException } from '@/services/core/comp
 import { SodPerformanceService } from '@/services/service-order/sod-performance.service';
 import { SOD_TURNAROUND_SLA_DAYS } from '@/lib/constants/sod-constants';
 import { getAppBaseUrl } from '@/lib/app-url';
-import { NotificationService } from './index';
 import { EmailService } from './email.service';
+import { NoticeRulesService } from './notice-rules.service';
 import { NotificationTemplateEngineService } from './template-engine.service';
 
 export const OPS_DIGEST_TEMPLATE_CODE = 'OPS_WEEKLY_DIGEST';
@@ -22,8 +22,8 @@ export function exceptionsHtml(items: Pick<HealthException, 'severity' | 'title'
  * Monday-morning operations digest for the SOD/project management audience: service-level result for the last 30 days,
  * the oldest backlogs, and every operations or project exception, as an in-app notification and an email.
  *
- * Notification only. The audience is capability-backed (OPS_DIGEST, notification.audience.ops-digest), so who receives it is managed in the database.
- * It is its own audience: the figures are company-wide, and SOD_PROJECT also carries ordinary service-order notices to every area engineer.
+ * Notification only. Who receives it is a rule (module, job level, area) kept in the system settings and changed by the administrator on the page
+ * "Automated reports and alerts": by default the people with the company-wide reports level, since the figures are company-wide.
  */
 export class OpsWeeklyDigestService {
     static async run(now: Date = new Date()): Promise<{ exceptions: number; notified: boolean; emailed: number }> {
@@ -38,13 +38,13 @@ export class OpsWeeklyDigestService {
         const slaText = headline.slaPct30d === null ? 'no completed orders' : `${headline.slaPct30d}% within ${SOD_TURNAROUND_SLA_DAYS} days`;
         const summary = `Last 30 days: ${headline.completed30d.toLocaleString('en-US')} orders completed, ${slaText}. Oldest backlogs: ${worst}. ${items.length} operations/project exception(s).`;
 
-        const sent = await NotificationService.notifyByAudience({
-            audience: 'OPS_DIGEST', title: '📊 Weekly operations digest', message: summary, type: 'SYSTEM',
+        const sent = await NoticeRulesService.notify('ops-weekly-digest', {
+            title: '📊 Weekly operations digest', message: summary, type: 'SYSTEM',
             priority: items.some((e) => e.severity === 'critical') ? 'HIGH' : 'MEDIUM', link,
             metadata: { source: 'ops-weekly-digest' }, dedupKey: `ops-weekly-digest:${week}`,
         });
 
-        const recipients = (await NotificationService.getAudienceRecipients({ audience: 'OPS_DIGEST' })).filter((r) => r.email);
+        const recipients = (await NoticeRulesService.resolve('ops-weekly-digest')).filter((r) => r.email);
         const dashboardUrl = `${getAppBaseUrl()}${link}`;
         let emailed = 0;
         for (const r of recipients) {
