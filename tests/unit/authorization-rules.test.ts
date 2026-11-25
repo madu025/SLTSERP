@@ -66,3 +66,11 @@ test('rule 4: every page that is not public has a page rule (a capability), so a
         .filter((u) => !isPublicPage(u) && !resolvePageCapability(u.replace(/\[[^\]]+\]/g, 'x')));
     assert.deepEqual(missing, []);
 });
+
+test('rule 5: the Head of Section and the OSP Manager see every store (scope.inventory.all), so no store is assigned to them one by one', () => {
+    const holders = (CANONICAL_BOOTSTRAP_ROLE_GRANTS as Record<string, readonly string[]>)['scope.inventory.all'] ?? [];
+    for (const r of ['HEAD_OF_SECTION', 'OSP_MANAGER', 'HEAD_OF_OSP', 'CEO']) assert.ok(holders.includes(r), r);
+    // a role that approves stock requests for every store needs the same reach
+    const approvers = (CANONICAL_BOOTSTRAP_ROLE_GRANTS as Record<string, readonly string[]>)['inventory.approve'] ?? [];
+    for (const r of ['HEAD_OF_SECTION', 'OSP_MANAGER']) assert.ok(approvers.includes(r) && holders.includes(r), r);
+});

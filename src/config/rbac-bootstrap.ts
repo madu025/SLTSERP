@@ -189,7 +189,8 @@ const BASE_BOOTSTRAP_ROLE_GRANTS = {
     ],
     // the Stores Manager runs every store of the island and the Stores Executive, as the Manager's deputy, works in every store too; the officers work in the stores they are assigned to.
     // (The Procurement Officer sees every store for the purchase requests it approves.)
-    [RBAC_PERMISSIONS.SCOPE_INVENTORY_ALL]: ['CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'STORES_MANAGER', 'STORES_EXECUTIVE', 'PROCUREMENT_OFFICER'],
+    // the Head of Section and the OSP Manager approve for every site office store, so they see all of them without being assigned one by one
+    [RBAC_PERMISSIONS.SCOPE_INVENTORY_ALL]: ['CEO', 'HEAD_OF_OSP', 'HEAD_OF_SECTION', 'OSP_MANAGER', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'STORES_MANAGER', 'STORES_EXECUTIVE', 'PROCUREMENT_OFFICER'],
     [RBAC_PERMISSIONS.SCOPE_REPORTS_ALL]: ['CEO', 'HEAD_OF_OSP', 'OSP_MANAGER'],
     [RBAC_PERMISSIONS.SCOPE_FINANCE_ALL]: [
         'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER', 'AR_OFFICER',
