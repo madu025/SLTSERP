@@ -1,15 +1,18 @@
 import { apiHandler } from '@/lib/api-handler';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { PricingAuditService } from '@/services/sf-audit/pricing-audit.service';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
-// GET Handler: Retrieve all Rate Matrix Rules (Auto-seeds if empty)
+// GET Handler: Retrieve all Rate Matrix Rules (Auto-seeds if empty).
+// The rates are read by the people who approve finance and by the SF audit people who check the pricing of invoices against them;
+// only the administrator changes a rate (PUT).
 export const GET = apiHandler(
     async () => {
         return await PricingAuditService.getRateRules();
     },
-    {}
+    { permissions: [RBAC_PERMISSIONS.ADMIN_RBAC, RBAC_PERMISSIONS.FINANCE_APPROVE, RBAC_PERMISSIONS.FINANCE_AUDIT] }
 );
 
 // PUT Handler: Update Rate Rule Amount
@@ -26,6 +29,7 @@ export const PUT = apiHandler(
     },
     {
         schema: updateRateSchema,
+        permissions: [RBAC_PERMISSIONS.ADMIN_RBAC],
         audit: { action: 'UPDATE', entity: 'RATE_MATRIX' }
     }
 );

@@ -5,6 +5,7 @@ import { Role } from '@prisma/client';
 import { RBAC_PERMISSIONS, RBAC_PERMISSION_DEFINITIONS } from '../../src/config/rbac-permissions';
 import { CANONICAL_BOOTSTRAP_ROLE_GRANTS, MODULE_DESIGNATION_GRANTS } from '../../src/config/rbac-bootstrap';
 import { landingPath } from '../../src/config/landing';
+import { resolvePageCapability } from '../../src/config/page-capabilities';
 
 /**
  * The authorization rules of the code base (docs/authorization-architecture.md), kept by tests so a new developer or an AI assistant
@@ -47,4 +48,21 @@ test('rule 3: contractors land on the contractor portal, store people on the inv
     for (const r of ['STORES_MANAGER', 'STORES_EXECUTIVE', 'STORES_ASSISTANT']) assert.equal(landing(r), '/inventory', r);
     for (const r of Object.values(Role).filter((x) => !/CONTRACTOR_|^STORES_/.test(x))) assert.equal(landing(r), '/dashboard', r);
     assert.equal(landingPath(undefined), '/dashboard', 'an old session keeps landing on the dashboard');
+});
+
+/** Pages that anybody may open, with or without a session: sign-in, one-time links, public notices. Every other page needs a page rule. */
+const PUBLIC_PAGES = new Set(['/', '/login', '/forgot-password', '/privacy', '/extension-download', '/approvals/action', '/public/device-audit']);
+const isPublicPage = (url: string) => PUBLIC_PAGES.has(url) || /^\/(contractor-registration|contractor-upload|team-upload|public)\//.test(url);
+
+test('rule 4: every page that is not public has a page rule (a capability), so a signed-in user without it is turned away', () => {
+    const walk = (dir: string, out: string[] = []): string[] => {
+        for (const e of fs.readdirSync(dir)) { const p = dir + '/' + e; if (fs.statSync(p).isDirectory()) walk(p, out); else out.push(p); }
+        return out;
+    };
+    const pages = walk('src/app').filter((f) => f.endsWith('/page.tsx') && !f.startsWith('src/app/api/'));
+    const missing = pages
+        .map((f) => '/' + f.slice('src/app/'.length, -'/page.tsx'.length).split('/').filter((s) => !/^\(.*\)$/.test(s)).join('/'))
+        .map((u) => (u === '/page.tsx' || u === '/' ? '/' : u))
+        .filter((u) => !isPublicPage(u) && !resolvePageCapability(u.replace(/\[[^\]]+\]/g, 'x')));
+    assert.deepEqual(missing, []);
 });
