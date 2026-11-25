@@ -6,6 +6,7 @@ new developer or an AI assistant would need to know. Refresh `docs/ai-handover.m
 
 ## Authorization (RBAC)
 
+- **25 Nov** Polish, module 2 (dashboard): Office Admin, Office Admin Assistant and Site Office Staff hold no dashboard tab; the page fell back to the Operations tab, whose data needs `sod.read`, so they saw an error. They now get "Where you work" (petty cash, support tickets, fleet, notifications; `src/config/dashboard-quick-start.ts`), and the operations figures are fetched only for a person who holds `sod.read`.
 - **24 Nov** Menu levels (view / operate / invoice / approve / admin, per module) are now capabilities `menu.<module>.<level>`, held through
   roles in the database. The starting levels are `BOOTSTRAP_MENU_LEVELS` in `src/config/rbac-bootstrap.ts`. `src/config/menu-access.ts` has no
   role names. The first page after sign-in is `landingPath()` (`src/config/landing.ts`) from capabilities (contractor portal, stores, dashboard).

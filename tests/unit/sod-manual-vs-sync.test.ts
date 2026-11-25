@@ -80,7 +80,7 @@ test('the dashboard of a person who works on the orders of their own RTOMs shows
     assert.ok(svc.includes('inHand') && svc.includes('completedThisMonth') && svc.includes('returnedThisMonth') && svc.includes('oldestInHandDays'), 'in hand, completed and returned per contractor');
     assert.ok(read('src/app/api/service-orders/area-overview/route.ts').includes('AreaOverviewService.forUser'), 'its own read-only route');
     const page = read('src/app/dashboard/page.tsx');
-    assert.ok(page.includes('{!hasMyWork && canViewInventory &&') && page.includes('{!hasMyWork && canViewFinance &&') && page.includes('{!hasMyWork && !resolvingWork && <DashboardFilters'), 'the store, finance, project and company views and the company filters are not shown to them');
+    assert.ok(page.includes('{!hasMyWork && canViewInventory &&') && page.includes('{!hasMyWork && canViewFinance &&') && page.includes('{!hasMyWork && !resolvingWork && hasAnyTab && <DashboardFilters'), 'the store, finance, project and company views and the company filters are not shown to them');
     assert.ok(page.includes('const resolvingWork = !canFilterGlobally && workSummary.isLoading'), 'no company view flashes before it is known');
     const comp = read('src/app/dashboard/components/MyWorkSection.tsx');
     assert.ok(comp.includes('Your RTOMs:') && comp.includes('Contractor progress in your RTOMs'), 'the RTOMs and the contractor progress table');

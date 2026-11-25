@@ -14,6 +14,8 @@ import { DashboardFilters, StatsCardGrid, DashboardError, FinanceSection, Invent
 import type { DashboardFilterMetadata, Stats } from './components';
 import RoleGuard from '@/components/RoleGuard';
 import { landingPath } from '@/config/landing';
+import { hasDashboardTab } from '@/config/dashboard-quick-start';
+import QuickStartSection from './components/QuickStartSection';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import ExecutiveControlTower from './components/ExecutiveControlTower';
 import CompanyHealthSection from './components/CompanyHealthSection';
@@ -133,6 +135,8 @@ export default function DashboardPage() {
     const canViewProcurement = hasPermission(RBAC_PERMISSIONS.PROCUREMENT_READ);
     const canViewProjects = hasPermission(RBAC_PERMISSIONS.PROJECT_READ);
     const canViewOperations = hasPermission(RBAC_PERMISSIONS.SOD_READ);
+    // A person with no tab at all (the office and site office staff) gets a short list of the places they work in, not a failed operations tab
+    const hasAnyTab = hasDashboardTab(user?.permissions);
 
     // Keep the effective default mapped to a tab the current user can actually see.
     const effectiveDefaultTab = useMemo(() => {
@@ -179,7 +183,7 @@ export default function DashboardPage() {
     }, [effectiveDefaultTab, landedOnWork, hasMyWork]);
 
     // The Management overview also shows service-order SLA and PAT figures, so it needs the same operations stats.
-    const isOperationsStats = activeTab === 'operations' || activeTab === 'overview';
+    const isOperationsStats = (activeTab === 'operations' || activeTab === 'overview') && canViewOperations;
     // DashboardFilters needs region/RTOM metadata even when a user lands directly
     // on a non-Operations tab. Keep that metadata request separate so the heavy
     // Operations aggregates are fetched only when the Operations tab is active.
@@ -364,7 +368,7 @@ export default function DashboardPage() {
                     <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8">
                         <div className="max-w-7xl mx-auto w-full space-y-6">
                             {resolvingWork && <div className="space-y-4"><Skeleton className="h-28 rounded-2xl" /><Skeleton className="h-72 rounded-2xl" /></div>}
-                            {!hasMyWork && !resolvingWork && <DashboardFilters
+                            {!hasMyWork && !resolvingWork && hasAnyTab && <DashboardFilters
                                 user={user}
                                 selectedRegion={selectedRegion}
                                 selectedRtom={selectedRtom}
@@ -380,7 +384,9 @@ export default function DashboardPage() {
                                 onRefresh={refreshDashboard}
                             />}
                             
-                            {!resolvingWork && <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                            {!resolvingWork && !hasAnyTab && !hasMyWork && <QuickStartSection permissions={user.permissions} />}
+
+                            {!resolvingWork && (hasAnyTab || hasMyWork) && <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                                 <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1 rounded-2xl border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-950">
                                     {hasMyWork && <TabsTrigger value="work" className="min-w-[7.5rem]">My work</TabsTrigger>}
                                     {canFilterGlobally && <TabsTrigger value="health" className="min-w-[7.5rem]">Company health</TabsTrigger>}
