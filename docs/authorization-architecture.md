@@ -288,3 +288,9 @@ The tests in `tests/unit/authorization-rules.test.ts` and `tests/unit/menu-page-
 - A call that is about one area passes `opmcId`: only the members of the audience who work in that area get it. A call without `opmcId` reaches the whole audience, so a company-wide notice must go to a small audience of its own (the Monday digest: `OPS_DIGEST`).
 - The administrator sees and changes the audiences on **Administration > Automated Reports & Alerts**. The seed leaves an audience that already has grants as the administrator set it; a new audience gets its starting grants from `rbac-bootstrap.ts`. `src/lib/rbac-seed-rules.ts` holds that rule.
 - Adding a scheduled job or an audience: describe it in `src/config/automated-notices.ts` (`tests/unit/automated-notices.test.ts` fails otherwise).
+
+### Reports by module, job level and area (25 Nov 2026)
+
+- A scheduled report goes to the people who work in its **module** at a **job level** (the menu level capability `menu.<module>.<level>` of the role) or above, and, for an area report, in the **area** it is about (their own areas or their store's), plus the people who see every area (administrators, `scope.company.all`, `notification.global`).
+- The default rule of each report is in `src/config/automated-notices.ts` (`rule`); the administrator changes it on Administration > Automated Reports & Alerts, and the change is kept in the system settings (`AUTOMATED_NOTICE_RULES`) and audited. A person with no area receives none of an area report: the page lists them.
+- Send with `NoticeRulesService.notify(job, { title, message, ..., opmcId })` (`src/services/notification/notice-rules.service.ts`); pass `opmcId` when the report is about one area.

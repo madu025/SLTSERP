@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { AUDIENCE_INFO, SCHEDULED_NOTICES, SCHEDULED_JOBS_WITHOUT_NOTICE } from '../../src/config/automated-notices';
+import { AUDIENCE_INFO, SCHEDULED_NOTICES, SCHEDULED_JOBS_WITHOUT_NOTICE, RULE_BASED_NOTICES, MODULE_LABELS, LEVEL_LABELS } from '../../src/config/automated-notices';
+import { MODULE_LEVEL_ORDER } from '../../src/config/menu-access';
+import { isValidRule } from '../../src/lib/notice-recipient-rules';
 import { NOTIFICATION_AUDIENCES } from '../../src/services/notification/notification-audiences';
 import { codesToPreserve } from '../../src/lib/rbac-seed-rules';
 import { CANONICAL_BOOTSTRAP_ROLE_GRANTS } from '../../src/config/rbac-bootstrap';
@@ -50,4 +52,27 @@ test('the page is in the Administration menu and its API is administrator only',
     for (const f of ['src/app/api/admin/automated-notices/route.ts', 'src/app/api/admin/automated-notices/[audience]/people/route.ts']) {
         assert.ok(fs.readFileSync(f, 'utf8').includes('RBAC_PERMISSIONS.ADMIN_RBAC'), f);
     }
+});
+
+test('every report that goes by a rule has a valid default rule, and every module and level has a plain label', () => {
+    assert.ok(Object.keys(RULE_BASED_NOTICES).length >= 4);
+    for (const [job, rule] of Object.entries(RULE_BASED_NOTICES)) assert.ok(isValidRule(rule), job);
+    for (const [module, levels] of Object.entries(MODULE_LEVEL_ORDER)) {
+        assert.ok(module in MODULE_LABELS, module);
+        for (const l of levels) assert.ok(l in LEVEL_LABELS, `${module}.${l}`);
+    }
+    // a report with a rule does not also name an audience
+    for (const n of SCHEDULED_NOTICES.filter((x) => x.rule)) assert.equal(n.audiences, null, n.job);
+});
+
+test('the reports with a rule send by the rule, not by an audience; the rule is stored in the system settings and its route is administrator only', () => {
+    const read = (f: string) => fs.readFileSync(f, 'utf8');
+    assert.ok(read('src/services/notification/management-alerts.service.ts').includes("NoticeRulesService.notify('management-alerts'"));
+    assert.ok(read('src/services/notification/approval-sla.service.ts').includes("NoticeRulesService.notify('approval-sla'"));
+    const projects = read('src/services/project/project-deadline-reminder.service.ts');
+    assert.equal((projects.match(/NoticeRulesService\.notify\('project-reminders'/g) ?? []).length, 3);
+    assert.ok(!projects.includes("audience: 'PROJECT_MANAGERS'"));
+    assert.ok(read('src/services/notification/notice-rules.service.ts').includes("'AUTOMATED_NOTICE_RULES'"));
+    const route = read('src/app/api/admin/automated-notices/rule/route.ts');
+    assert.equal((route.match(/permissions: \[RBAC_PERMISSIONS\.ADMIN_RBAC\]/g) ?? []).length, 2, 'both the read and the change need the administrator capability');
 });

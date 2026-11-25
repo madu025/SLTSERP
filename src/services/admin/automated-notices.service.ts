@@ -3,7 +3,9 @@ import { AppError } from '@/lib/error';
 import { AuditService } from '@/services/audit/audit.service';
 import { NotificationService } from '@/services/notification';
 import { NOTIFICATION_AUDIENCES, type NotificationAudienceId } from '@/services/notification/notification-audiences';
-import { AUDIENCE_INFO, SCHEDULED_NOTICES } from '@/config/automated-notices';
+import { AUDIENCE_INFO, LEVEL_LABELS, MODULE_LABELS, SCHEDULED_NOTICES } from '@/config/automated-notices';
+import { MODULE_LEVEL_ORDER, type MenuModule } from '@/config/menu-access';
+import { NoticeRulesService } from '@/services/notification/notice-rules.service';
 
 export interface AudienceRole { id: string; code: string; name: string; holds: boolean; users: number }
 export interface AudienceOverview {
@@ -50,7 +52,10 @@ export class AutomatedNoticesService {
                     .filter((r) => r.holds || r.users > 0),
             });
         }
-        return { notices: SCHEDULED_NOTICES, audiences };
+        // the reports that go by a rule (module, job level, area): the rule in force and who it reaches, and the choices for the page
+        const rules = await NoticeRulesService.overview();
+        const options = (Object.keys(MODULE_LEVEL_ORDER) as MenuModule[]).map((module) => ({ module, label: MODULE_LABELS[module], levels: MODULE_LEVEL_ORDER[module].map((value) => ({ value, label: LEVEL_LABELS[value] })) }));
+        return { notices: SCHEDULED_NOTICES, audiences, rules, options };
     }
 
     /** The people an audience reaches right now. */

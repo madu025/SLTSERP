@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { slaState } from '@/lib/procurement-rules';
 import { NotificationService } from './index';
+import { NoticeRulesService } from './notice-rules.service';
 
 const day = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -59,8 +60,7 @@ export class ApprovalSlaService {
         }
         const escalated = breaches.filter((b) => b.state === 'ESCALATE');
         if (escalated.length > 0) {
-            await NotificationService.notifyByAudience({
-                audience: 'ADMINISTRATORS',
+            await NoticeRulesService.notify('approval-sla', {
                 title: `${escalated.length} approval(s) waiting more than twice their target time`,
                 message: `The longest has waited ${Math.max(...escalated.map((e) => e.waitedHours))} hours. Open the Control monitor to see them.`,
                 type: 'SYSTEM', priority: 'HIGH', link: '/admin/control',
