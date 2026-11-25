@@ -26,3 +26,8 @@ test('the rate matrix is read by the finance audit capability, changed by the ad
     assert.match(text, /FINANCE_AUDIT/);
     assert.match(text, /permissions: \[RBAC_PERMISSIONS\.ADMIN_RBAC\]/);
 });
+
+test('the Rate Matrix Config page reads the rules from the wrapped API answer ({ data: { rules } }), as the Pricing Audit page does', () => {
+    const page = fs.readFileSync('src/app/finance/rate-matrix/page.tsx', 'utf8');
+    assert.ok(page.includes('data.data?.rules'));
+});
