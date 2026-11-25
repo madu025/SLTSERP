@@ -6,6 +6,7 @@ import { OSPAccountCrudService } from '../../src/services/finance/osp-account-cr
 import { PettyCashService } from '../../src/services/finance/petty-cash.service';
 import { OSPLedgerService } from '../../src/services/finance/osp-ledger.service';
 import { LedgerService } from '../../src/services/finance/ledger.service';
+import { NotificationService } from '../../src/services/notification';
 
 const restorers: Array<() => void> = [];
 function stub(target: object, key: string, implementation: unknown) {
@@ -13,6 +14,9 @@ function stub(target: object, key: string, implementation: unknown) {
   Reflect.set(target, key, implementation);
   restorers.push(() => Reflect.set(target, key, original));
 }
+
+// the notices that a decision sends are a courtesy and need no database here
+mock.method(NotificationService, 'send', async () => undefined);
 
 afterEach(() => {
   while (restorers.length) restorers.pop()!();
@@ -23,8 +27,11 @@ test('OSP IOU write chain creates a pending advance, approves it, and posts to O
   let iou: any = null;
   const ledgerEvents: any[] = [];
   const tx = {
+    // the approval locks the row (FOR UPDATE) and reads it again inside the transaction
+    $queryRaw: async () => [],
     ospPettyCashIou: {
       findUnique: async () => iou,
+      findUniqueOrThrow: async () => iou,
       update: async ({ data }: any) => { iou = { ...iou, ...data }; return iou; },
     },
   };
@@ -65,10 +72,12 @@ test('Petty Cash write chain creates, approves, reimburses, and replenishes the 
     hoFundingRequest: { create: async () => ({}) },
     pettyCashAccount: {
       findUnique: async () => account,
+      findUniqueOrThrow: async () => account,
       update: async ({ data }: any) => { Object.assign(account, data); return account; },
     },
     pettyCashVoucher: {
       findUnique: async () => ({ ...voucher, account }),
+      findUniqueOrThrow: async () => voucher,
       update: async ({ data }: any) => { Object.assign(voucher, data); return voucher; },
       updateMany: async ({ data }: any) => { Object.assign(voucher, data); return { count: 1 }; },
       findMany: async () => [voucher].filter((item) => item.status === 'APPROVED' && !item.reimbursementId),
@@ -83,9 +92,11 @@ test('Petty Cash write chain creates, approves, reimburses, and replenishes the 
   };
 
   // The actors are scoped staff of the account's OPMC
-  stub(prisma.user, 'findUnique', async () => ({ permissions: null, accessibleOpmcs: [{ id: 'opmc-1' }], systemRole: null, sectionAssignments: [] }));
+  // A box made before site offices (no site office on it) is released by the finance approver, so the actors hold the finance capabilities
+  stub(prisma.user, 'findUnique', async () => ({ permissions: JSON.stringify(['finance.read', 'finance.write', 'finance.approve']), accessibleOpmcs: [{ id: 'opmc-1' }], systemRole: null, sectionAssignments: [] }));
   stub(prisma.pettyCashAccount, 'findUnique', async () => account);
   stub(prisma.pettyCashVoucher, 'count', async () => 0);
+  stub(prisma.pettyCashVoucher, 'findUnique', async () => ({ ...voucher, account }));
   stub(prisma.pettyCashVoucher, 'create', async ({ data }: any) => { Object.assign(voucher, data); return voucher; });
   stub(prisma, '$transaction', async (callback: (client: typeof tx) => unknown) => callback(tx));
   mock.method(LedgerService, 'logPettyCashExpense', async () => { ledgerEvents.push('expense'); });
