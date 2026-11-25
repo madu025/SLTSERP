@@ -3,6 +3,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { UserService } from '@/services/hr/user.service';
 import { AppError } from '@/lib/error';
 import { cookies } from 'next/headers';
+import { SESSION_POLICY } from '@/config/session-policy';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
@@ -27,9 +28,19 @@ export const POST = apiHandler(async (req, _params, body) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
-            maxAge: 86400,
+            maxAge: SESSION_POLICY.accessTokenSeconds,
             path: '/',
         });
+        // The new refresh token carries the bumped token version: without it the next refresh would end the session that was meant to continue
+        if (result.refreshToken) {
+            cookieStore.set('refresh_token', result.refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                maxAge: SESSION_POLICY.idleTimeoutSeconds,
+                path: '/',
+            });
+        }
     }
 
     return {

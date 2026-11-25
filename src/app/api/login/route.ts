@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import { UserService } from '@/services/hr/user.service';
 import { LoginHistoryService } from '@/services/hr/login-history.service';
 import { AppError } from '@/lib/error';
+import { SESSION_POLICY } from '@/config/session-policy';
 import { z } from 'zod';
 
 const loginSchema = z.object({
@@ -32,14 +33,14 @@ export const POST = apiHandler(async (_req, _params, data: z.infer<typeof loginS
             secure: isProd,
             sameSite: 'lax',
             path: '/',
-            maxAge: 900, // 15 minutes
+            maxAge: SESSION_POLICY.accessTokenSeconds,
         });
         cookieStore.set('refresh_token', refreshToken, {
             httpOnly: true,
             secure: isProd,
             sameSite: 'lax',
             path: '/',
-            maxAge: 604800, // 7 days
+            maxAge: SESSION_POLICY.idleTimeoutSeconds, // renewed at every refresh; ends after the idle time
         });
 
         console.log(`[LOGIN] Response ready in ${Date.now() - loginStart}ms`);

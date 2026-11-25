@@ -2,9 +2,14 @@
 
 import { useEffect, useCallback, useRef } from 'react';
 import { usePathname } from 'next/navigation';
+import { toast } from 'sonner';
 import { performClientLogout } from '@/lib/client-logout';
+import { SESSION_POLICY, isIdle } from '@/config/session-policy';
 
-const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes in milliseconds
+// The limits are in one place: src/config/session-policy.ts (the server enforces them too)
+const INACTIVITY_LIMIT = SESSION_POLICY.idleTimeoutSeconds * 1000;
+const WARN_BEFORE = SESSION_POLICY.warnBeforeIdleSeconds * 1000;
+const WARNING_TOAST_ID = 'session-idle-warning';
 
 // Endpoints secured by AGENT auth (x-api-key / agent JWT), NOT the session
 // cookie. A 401 from them means the caller lacks agent credentials — it says
@@ -20,6 +25,8 @@ const AGENT_AUTH_PATHS = [
 export default function SessionManager() {
     const pathname = usePathname();
     const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const warnRef = useRef<NodeJS.Timeout | null>(null);
+    const lastActivityRef = useRef<number>(0); // set by resetTimer when the page opens and at every activity
     const fetchPatchedRef = useRef(false);
 
     const handleLogout = useCallback(async () => {
@@ -107,12 +114,25 @@ export default function SessionManager() {
 
     const resetTimer = useCallback(() => {
         if (timerRef.current) clearTimeout(timerRef.current);
+        if (warnRef.current) clearTimeout(warnRef.current);
+        toast.dismiss(WARNING_TOAST_ID);
+        lastActivityRef.current = Date.now();
 
         // Don't set timer if we are already on a login page
         if (pathname === '/login' || pathname === '/contractor/login' || /^\/(contractor-registration|contractor-upload|team-upload)(\/|$)/.test(pathname)) return;
 
+        // A warning before the sign-out, with a way to stay signed in
+        warnRef.current = setTimeout(() => {
+            toast.warning(`You will be signed out in ${Math.round(WARN_BEFORE / 60000)} minutes because there has been no activity.`, {
+                id: WARNING_TOAST_ID,
+                duration: WARN_BEFORE,
+                // the click on this button is itself activity (the window listens to every click), so it restarts the timer
+                action: { label: 'Stay signed in', onClick: () => undefined },
+            });
+        }, Math.max(0, INACTIVITY_LIMIT - WARN_BEFORE));
+
         timerRef.current = setTimeout(() => {
-            console.log('[SESSION-MANAGER] User inactive for 30 minutes. Logging out...');
+            console.log('[SESSION-MANAGER] User inactive. Logging out...');
             handleLogout();
         }, INACTIVITY_LIMIT);
     }, [handleLogout, pathname]);
@@ -139,14 +159,27 @@ export default function SessionManager() {
             window.addEventListener(event, handleActivity);
         });
 
+        // A tab that was asleep (computer asleep, tab frozen) cannot run its timer: when it wakes, check the time since the last activity
+        const handleWake = () => {
+            if (document.visibilityState === 'hidden') return;
+            if (window.location.pathname === '/login' || window.location.pathname === '/contractor/login') return;
+            if (lastActivityRef.current > 0 && isIdle(lastActivityRef.current, Date.now())) handleLogout();
+        };
+        document.addEventListener('visibilitychange', handleWake);
+        window.addEventListener('focus', handleWake);
+
         // Cleanup
         return () => {
             if (timerRef.current) clearTimeout(timerRef.current);
+            if (warnRef.current) clearTimeout(warnRef.current);
+            toast.dismiss(WARNING_TOAST_ID);
             events.forEach(event => {
                 window.removeEventListener(event, handleActivity);
             });
+            document.removeEventListener('visibilitychange', handleWake);
+            window.removeEventListener('focus', handleWake);
         };
-    }, [resetTimer]);
+    }, [resetTimer, handleLogout]);
 
     return null; // This component doesn't render anything
 }

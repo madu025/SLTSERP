@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyRefreshToken, signAccessToken } from '@/lib/auth';
+import { verifyRefreshToken, signAccessToken, signRefreshToken } from '@/lib/auth';
+import { SESSION_POLICY, absoluteLimitReached, refreshLifetimeSeconds } from '@/config/session-policy';
 import { prisma } from '@/lib/prisma';
 import { deriveEffectivePermissions } from '@/lib/effective-permissions';
 import { safeNextPath } from '@/lib/safe-next-path';
@@ -52,6 +53,21 @@ export async function POST(request: NextRequest) {
         const isProd = process.env.NODE_ENV === 'production';
         response.headers.append('Set-Cookie', `token=; Max-Age=0; Path=/; SameSite=Lax${isProd ? '; Secure' : ''}; HttpOnly`);
         response.headers.append('Set-Cookie', `refresh_token=; Max-Age=0; Path=/; SameSite=Lax${isProd ? '; Secure' : ''}; HttpOnly`);
+        return response;
+    }
+
+    // When the person signed in (kept as the refresh token is replaced). Tokens issued before this policy carry no such claim: their issue time is the sign-in.
+    const nowSec = Math.floor(Date.now() / 1000);
+    const authTime = typeof refreshPayload.authTime === 'number' ? refreshPayload.authTime : typeof refreshPayload.iat === 'number' ? refreshPayload.iat : nowSec;
+    if (absoluteLimitReached(authTime, nowSec)) {
+        // Signed in for the absolute limit (12 hours): a new sign-in is required, whatever the activity
+        const response = NextResponse.json(
+            { success: false, error: { code: 'SESSION_LIMIT_REACHED', message: 'Please sign in again' } },
+            { status: 401 }
+        );
+        const secure = process.env.NODE_ENV === 'production';
+        response.headers.append('Set-Cookie', `token=; Max-Age=0; Path=/; SameSite=Lax${secure ? '; Secure' : ''}; HttpOnly`);
+        response.headers.append('Set-Cookie', `refresh_token=; Max-Age=0; Path=/; SameSite=Lax${secure ? '; Secure' : ''}; HttpOnly`);
         return response;
     }
 
@@ -125,10 +141,12 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        // Set new access token cookie
+        // New access token cookie, and a NEW refresh token (rotation): the idle window starts again, but never past the absolute limit
         const isProd = process.env.NODE_ENV === 'production';
-        const accessCookie = `token=${newAccessToken}; Max-Age=900; Path=/; SameSite=Lax${isProd ? '; Secure' : ''}; HttpOnly`;
-        response.headers.set('Set-Cookie', accessCookie);
+        const newRefreshToken = await signRefreshToken({ userId: user.id, role: user.role as string, tokenVersion: user.tokenVersion, contractorId: user.contractorId || undefined }, { authTime, nowSec });
+        const refreshMaxAge = Math.max(1, refreshLifetimeSeconds(authTime, nowSec));
+        response.headers.append('Set-Cookie', `token=${newAccessToken}; Max-Age=${SESSION_POLICY.accessTokenSeconds}; Path=/; SameSite=Lax${isProd ? '; Secure' : ''}; HttpOnly`);
+        response.headers.append('Set-Cookie', `refresh_token=${newRefreshToken}; Max-Age=${refreshMaxAge}; Path=/; SameSite=Lax${isProd ? '; Secure' : ''}; HttpOnly`);
 
         return response;
     } catch (error) {
