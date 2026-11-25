@@ -58,6 +58,7 @@ for local scripts (`.env.local`). pnpm only.
    Receipt upload cannot be tested locally (storage returns 503).
 3. After a deploy that adds a capability, **check the database**: the deploy did not run the seed on 24 Nov; it was run by hand.
    Query `permissionDefinition` for the new codes and derive a role's menu/landing with `deriveEffectivePermissions` (see the checks in the session notes).
+- API handlers without a capability guard: `pnpm exec tsx scripts/route-guard-scan.ts`; a new one fails `route-guards-contrast.test.ts` unless it is reviewed into `tests/unit/fixtures/unguarded-routes.json`. Contrast: `pnpm exec tsx scripts/contrast-scan.ts`.
 4. Run: `pnpm exec tsc --noEmit`, `pnpm run test:unit` (explicit list in `package.json`; add new files there), `pnpm run rbac:check`,
    `pnpm run check:guides`, and for UI work the contrast rule in `AGENTS.md`.
 
