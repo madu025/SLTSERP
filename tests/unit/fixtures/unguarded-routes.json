@@ -1,0 +1,8 @@
+[
+  "GET /api/agent/download",
+  "GET /api/auth/refresh",
+  "GET /api/health/live",
+  "GET /api/metrics",
+  "GET /api/public/invoices/[id]",
+  "POST /api/auth/refresh"
+]
