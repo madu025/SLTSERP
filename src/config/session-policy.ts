@@ -21,10 +21,26 @@ export const SESSION_POLICY = {
     warnBeforeIdleSeconds: 2 * 60,
 } as const;
 
-/** The expiry of the refresh token issued now: the idle window, but never past the absolute limit. 0 or less means the session is over. */
-export function refreshLifetimeSeconds(authTimeSec: number, nowSec: number): number {
+/**
+ * The browser tells the refresh route how long the person has really been inactive (seconds). The page also refreshes by itself in the
+ * background (a status check every minute), and that must never count as activity: without this the session was renewed for ever while a
+ * tab stayed open.
+ */
+export const IDLE_SECONDS_HEADER = 'x-idle-seconds';
+
+/** Reads the header: a missing or invalid value means "active just now" (page loads, older browsers). */
+export function parseIdleSeconds(value: string | null | undefined): number {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? Math.floor(Math.min(n, 1e9)) : 0;
+}
+
+/**
+ * The lifetime of the refresh token issued now: it ends one idle window after the LAST ACTIVITY (not after this refresh), and never past
+ * the absolute limit. 0 or less means the session is over. `idleSeconds` is how long the person has been inactive (0 = active now).
+ */
+export function refreshLifetimeSeconds(authTimeSec: number, nowSec: number, idleSeconds = 0): number {
     const untilAbsolute = authTimeSec + SESSION_POLICY.absoluteLifetimeSeconds - nowSec;
-    return Math.min(SESSION_POLICY.idleTimeoutSeconds, untilAbsolute);
+    return Math.min(SESSION_POLICY.idleTimeoutSeconds - idleSeconds, untilAbsolute);
 }
 
 /** Has the person been signed in for longer than the absolute limit? */

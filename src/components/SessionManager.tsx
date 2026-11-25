@@ -4,7 +4,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 import { performClientLogout } from '@/lib/client-logout';
-import { SESSION_POLICY, isIdle } from '@/config/session-policy';
+import { SESSION_POLICY, IDLE_SECONDS_HEADER, isIdle } from '@/config/session-policy';
 
 // The limits are in one place: src/config/session-policy.ts (the server enforces them too)
 const INACTIVITY_LIMIT = SESSION_POLICY.idleTimeoutSeconds * 1000;
@@ -58,7 +58,9 @@ export default function SessionManager() {
                     if (!publicPages.some(p => window.location.pathname === p || window.location.pathname.startsWith(p + '/'))) {
                         // Attempt token refresh before giving up
                         try {
-                            const refreshRes = await originalFetch('/api/auth/refresh', { method: 'POST' });
+                            // Say how long the person has really been inactive: the page's own background polling is not activity, so it must not renew the session
+                            const idleSeconds = lastActivityRef.current > 0 ? Math.max(0, Math.floor((Date.now() - lastActivityRef.current) / 1000)) : 0;
+                            const refreshRes = await originalFetch('/api/auth/refresh', { method: 'POST', headers: { [IDLE_SECONDS_HEADER]: String(idleSeconds) } });
                             if (refreshRes.ok) {
                                 const refreshData = await refreshRes.json();
                                 if (refreshData.token) {

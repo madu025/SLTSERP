@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyRefreshToken, signAccessToken, signRefreshToken } from '@/lib/auth';
-import { SESSION_POLICY, absoluteLimitReached, refreshLifetimeSeconds } from '@/config/session-policy';
+import { SESSION_POLICY, IDLE_SECONDS_HEADER, absoluteLimitReached, parseIdleSeconds, refreshLifetimeSeconds } from '@/config/session-policy';
 import { prisma } from '@/lib/prisma';
 import { deriveEffectivePermissions } from '@/lib/effective-permissions';
 import { safeNextPath } from '@/lib/safe-next-path';
@@ -59,10 +59,13 @@ export async function POST(request: NextRequest) {
     // When the person signed in (kept as the refresh token is replaced). Tokens issued before this policy carry no such claim: their issue time is the sign-in.
     const nowSec = Math.floor(Date.now() / 1000);
     const authTime = typeof refreshPayload.authTime === 'number' ? refreshPayload.authTime : typeof refreshPayload.iat === 'number' ? refreshPayload.iat : nowSec;
-    if (absoluteLimitReached(authTime, nowSec)) {
-        // Signed in for the absolute limit (12 hours): a new sign-in is required, whatever the activity
+    // How long the person has really been inactive, as the browser measured it (background polling is not activity)
+    const idleSeconds = parseIdleSeconds(request.headers.get(IDLE_SECONDS_HEADER));
+    const endedBy = absoluteLimitReached(authTime, nowSec) ? 'SESSION_LIMIT_REACHED' : idleSeconds >= SESSION_POLICY.idleTimeoutSeconds ? 'SESSION_IDLE' : null;
+    if (endedBy) {
+        // Signed in for the absolute limit (12 hours), or inactive for the idle time: a new sign-in is required
         const response = NextResponse.json(
-            { success: false, error: { code: 'SESSION_LIMIT_REACHED', message: 'Please sign in again' } },
+            { success: false, error: { code: endedBy, message: 'Please sign in again' } },
             { status: 401 }
         );
         const secure = process.env.NODE_ENV === 'production';
@@ -143,8 +146,8 @@ export async function POST(request: NextRequest) {
 
         // New access token cookie, and a NEW refresh token (rotation): the idle window starts again, but never past the absolute limit
         const isProd = process.env.NODE_ENV === 'production';
-        const newRefreshToken = await signRefreshToken({ userId: user.id, role: user.role as string, tokenVersion: user.tokenVersion, contractorId: user.contractorId || undefined }, { authTime, nowSec });
-        const refreshMaxAge = Math.max(1, refreshLifetimeSeconds(authTime, nowSec));
+        const newRefreshToken = await signRefreshToken({ userId: user.id, role: user.role as string, tokenVersion: user.tokenVersion, contractorId: user.contractorId || undefined }, { authTime, nowSec, idleSeconds });
+        const refreshMaxAge = Math.max(1, refreshLifetimeSeconds(authTime, nowSec, idleSeconds));
         response.headers.append('Set-Cookie', `token=${newAccessToken}; Max-Age=${SESSION_POLICY.accessTokenSeconds}; Path=/; SameSite=Lax${isProd ? '; Secure' : ''}; HttpOnly`);
         response.headers.append('Set-Cookie', `refresh_token=${newRefreshToken}; Max-Age=${refreshMaxAge}; Path=/; SameSite=Lax${isProd ? '; Secure' : ''}; HttpOnly`);
 

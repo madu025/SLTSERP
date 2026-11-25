@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { SESSION_POLICY, absoluteLimitReached, isIdle, refreshLifetimeSeconds } from '../../src/config/session-policy';
+import { SESSION_POLICY, IDLE_SECONDS_HEADER, absoluteLimitReached, isIdle, parseIdleSeconds, refreshLifetimeSeconds } from '../../src/config/session-policy';
 
 /**
  * The session policy (src/config/session-policy.ts), after NIST SP 800-63B AAL2 and OWASP session management:
@@ -74,4 +74,29 @@ test('the sign-in routes, the refresh route and the browser all use the policy',
     assert.ok(manager.includes('SESSION_POLICY') && manager.includes("document.addEventListener('visibilitychange'") && manager.includes('Stay signed in'), 'the browser uses the policy, warns before the sign-out and checks when the tab wakes');
     assert.ok(!manager.includes('30 * 60 * 1000'), 'no copy of the idle time in the browser code');
     assert.ok(!read('src/lib/auth.ts').includes("'7d'") && !read('src/lib/auth.ts').includes("'15m'"), 'the token library has no time limit of its own');
+});
+
+test('background polling does not renew an idle session: the refresh token ends one idle window after the LAST ACTIVITY', async () => {
+    const t0 = 2_000_000;
+    assert.equal(refreshLifetimeSeconds(t0, t0, 0), SESSION_POLICY.idleTimeoutSeconds, 'active now: a full window');
+    assert.equal(refreshLifetimeSeconds(t0, t0, 10 * 60), SESSION_POLICY.idleTimeoutSeconds - 600, 'idle for 10 minutes: only 20 minutes are left, not 30 again');
+    assert.ok(refreshLifetimeSeconds(t0, t0, SESSION_POLICY.idleTimeoutSeconds) <= 0, 'idle for the whole window: nothing left');
+    assert.equal(parseIdleSeconds(null), 0);
+    assert.equal(parseIdleSeconds('abc'), 0);
+    assert.equal(parseIdleSeconds('-5'), 0);
+    assert.equal(parseIdleSeconds('120.9'), 120);
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'unit-test-secret-not-used-anywhere-else-0123456789';
+    const { signRefreshToken, verifyRefreshToken } = await import('../../src/lib/auth');
+    const now = Math.floor(Date.now() / 1000);
+    const token = await signRefreshToken({ userId: 'u1', role: 'ENGINEER', tokenVersion: 1 }, { nowSec: now, authTime: now - 3600, idleSeconds: 25 * 60 });
+    const payload = await verifyRefreshToken(token);
+    assert.ok(payload && payload.exp! - payload.iat! === 5 * 60, 'idle for 25 minutes when refreshed: the new token lives only 5 more minutes');
+});
+
+test('the browser reports its real inactivity to the refresh route, which uses it', () => {
+    assert.equal(IDLE_SECONDS_HEADER, 'x-idle-seconds');
+    const manager = read('src/components/SessionManager.tsx');
+    assert.ok(manager.includes('IDLE_SECONDS_HEADER') && manager.includes('lastActivityRef.current'), 'the page sends how long the person has been inactive with the refresh');
+    const refresh = read('src/app/api/auth/refresh/route.ts');
+    assert.ok(refresh.includes('parseIdleSeconds(request.headers.get(IDLE_SECONDS_HEADER))') && refresh.includes("'SESSION_IDLE'") && refresh.includes('nowSec, idleSeconds }'), 'the route refuses an idle session and does not extend it beyond the last activity');
 });

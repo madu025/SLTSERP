@@ -42,14 +42,14 @@ export async function signAccessToken(payload: Record<string, unknown>): Promise
  */
 export async function signRefreshToken(
     payload: { userId: string; role: string; tokenVersion: number; contractorId?: string },
-    options: { authTime?: number; nowSec?: number } = {},
+    options: { authTime?: number; nowSec?: number; idleSeconds?: number } = {},
 ): Promise<string> {
     const nowSec = options.nowSec ?? Math.floor(Date.now() / 1000);
     const authTime = options.authTime ?? nowSec;
     return await new SignJWT({ ...payload, type: 'refresh', authTime })
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt(nowSec)
-        .setExpirationTime(nowSec + Math.max(1, refreshLifetimeSeconds(authTime, nowSec)))
+        .setExpirationTime(nowSec + Math.max(1, refreshLifetimeSeconds(authTime, nowSec, options.idleSeconds ?? 0)))
         .sign(key);
 }
 
