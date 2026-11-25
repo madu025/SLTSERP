@@ -176,7 +176,7 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ id: st
                         <Button onClick={() => window.location.reload()} className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2">
                             Try Reloading Page
                         </Button>
-                        <Button variant="outline" onClick={() => window.location.href = '/public/invoices/cmrwskay6000lsi34c0pjn478'} className="w-full border-slate-600 text-slate-300 hover:bg-slate-700 text-xs">
+                        <Button variant="outline" onClick={() => window.location.href = '/public/invoices/cmrwskay6000lsi34c0pjn478'} className="w-full border-slate-600 !bg-slate-800 !text-slate-100 hover:!bg-slate-700 text-xs">
                             Open Active Test Invoice
                         </Button>
                     </div>

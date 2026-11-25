@@ -956,7 +956,7 @@ export default function ContractorSODsPage() {
                     )}
 
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setSelectedSOD(null)} className="border-slate-800 text-slate-300 text-xs">
+                        <Button variant="outline" onClick={() => setSelectedSOD(null)} className="!bg-slate-800 hover:!bg-slate-700 !border-slate-600 !text-slate-100 text-xs">
                             Cancel
                         </Button>
                         <Button

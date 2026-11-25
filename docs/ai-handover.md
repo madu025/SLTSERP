@@ -21,6 +21,8 @@ for local scripts (`.env.local`). pnpm only.
 4. **Production is touched only with the owner's approval** for schema migrations and the RBAC seed (ask each time); push and deploy are approved
    every time (`git push origin HEAD:main`, then deploy). Never print passwords. Test accounts only on localhost with a password you choose, and tear
    them down. Test mail goes only to the owner's own address.
+   **Observed 25 Nov 2026:** a migration pushed to main (`20261221000000`) was applied to production by the deploy a few minutes after the push, before any manual
+   step. Treat every migration in a push as going live at once, and ask before pushing one.
 5. **Guides and templates follow the code**: update the system guide (`pnpm run check:guides`, `guides:stamp <module>`) and the email template
    registry (`pnpm run check:email-templates`) in the same change.
 

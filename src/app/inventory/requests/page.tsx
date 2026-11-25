@@ -370,14 +370,14 @@ export default function RequestsPage() {
                                                         {r.toStoreId ? 'Internal Transfer' : 'External Purchase'}
                                                     </td>
                                                     <td className="px-3 py-1.5 font-semibold text-slate-900">
-                                                        {r.fromStore.name}
+                                                        {r.fromStore?.name ?? '-'}
                                                     </td>
                                                     <td className="px-3 py-1.5 text-slate-700">
                                                         <div className="flex items-center gap-1.5">
                                                             <div className="h-4 w-4 rounded-full bg-slate-200 flex items-center justify-center text-[9px] font-bold text-slate-500">
-                                                                {r.requestedBy.name.charAt(0)}
+                                                                {(r.requestedBy?.name ?? '?').charAt(0)}
                                                             </div>
-                                                            {r.requestedBy.name}
+                                                            {r.requestedBy?.name ?? '-'}
                                                         </div>
                                                     </td>
                                                     <td className="px-3 py-1.5 text-slate-500">
@@ -591,12 +591,12 @@ export default function RequestsPage() {
                                                                     <td className="px-4 py-3.5">
                                                                         <div className="flex items-center gap-3">
                                                                             <div className="w-8 h-8 bg-slate-100 dark:bg-slate-900 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-800 font-black text-slate-500 dark:text-slate-400 text-[10px]">
-                                                                                {item.item.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                                                                                {(item.item?.name ?? '?').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
                                                                             </div>
-                                                                            <div className="font-bold text-slate-900 dark:text-white text-xs">{item.item.name}</div>
+                                                                            <div className="font-bold text-slate-900 dark:text-white text-xs">{item.item?.name ?? '-'}</div>
                                                                         </div>
                                                                     </td>
-                                                                    <td className="px-4 py-3.5 font-mono text-slate-500 dark:text-slate-400 font-semibold">{item.item.code || 'NO-CODE'}</td>
+                                                                    <td className="px-4 py-3.5 font-mono text-slate-500 dark:text-slate-400 font-semibold">{item.item?.code || 'NO-CODE'}</td>
                                                                     <td className="px-4 py-3.5 text-right font-bold text-slate-800 dark:text-slate-200">{item.requestedQty.toLocaleString()}</td>
                                                                     <td className={cn(
                                                                         "px-4 py-3.5 text-right font-bold",
@@ -627,7 +627,7 @@ export default function RequestsPage() {
                                                                             </Badge>
                                                                         )}
                                                                     </td>
-                                                                    <td className="px-4 py-3.5 text-center text-slate-500 dark:text-slate-400 font-semibold">{item.item.unit}</td>
+                                                                    <td className="px-4 py-3.5 text-center text-slate-500 dark:text-slate-400 font-semibold">{item.item?.unit}</td>
                                                                     <td className="px-4 py-3.5 text-center">
                                                                         <button 
                                                                             type="button"

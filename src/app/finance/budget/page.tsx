@@ -238,7 +238,7 @@ export default function BudgetAllocationsPage() {
                                         <SelectItem value="OPEX">OPEX</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <Button id="refresh-budgets" size="sm" variant="outline" onClick={() => void refetch()} className="border-slate-700 text-slate-300 hover:bg-slate-800">
+                                <Button id="refresh-budgets" size="sm" variant="outline" onClick={() => void refetch()} className="border-slate-600 !bg-slate-800 !text-slate-100 hover:!bg-slate-700">
                                     <RefreshCw className="w-4 h-4 mr-1.5" />
                                     Refresh
                                 </Button>
@@ -472,7 +472,7 @@ export default function BudgetAllocationsPage() {
                         </div>
                     </div>
                     <DialogFooter className="gap-2">
-                        <Button variant="outline" onClick={() => setCreateOpen(false)} className="border-slate-700 text-slate-300">
+                        <Button variant="outline" onClick={() => setCreateOpen(false)} className="border-slate-600 !bg-slate-800 !text-slate-100 hover:!bg-slate-700">
                             Cancel
                         </Button>
                         <Button

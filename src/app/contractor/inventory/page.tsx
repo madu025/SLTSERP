@@ -683,7 +683,7 @@ export default function ContractorInventoryPage() {
                     )}
 
                     <DialogFooter className="flex-row gap-2 pt-2">
-                        <Button variant="outline" onClick={() => setSelectedIssue(null)} className="w-1/2 border-slate-800 text-slate-300 text-xs h-10 rounded-xl">
+                        <Button variant="outline" onClick={() => setSelectedIssue(null)} className="w-1/2 !bg-slate-800 hover:!bg-slate-700 !border-slate-600 !text-slate-100 text-xs h-10 rounded-xl">
                             Cancel
                         </Button>
                         <Button
@@ -857,7 +857,7 @@ export default function ContractorInventoryPage() {
                     </div>
 
                     <DialogFooter className="flex-row gap-2 pt-2">
-                        <Button variant="outline" onClick={() => setIsReturnModalOpen(false)} className="w-1/2 border-slate-800 text-slate-300 text-xs h-10 rounded-xl">
+                        <Button variant="outline" onClick={() => setIsReturnModalOpen(false)} className="w-1/2 !bg-slate-800 hover:!bg-slate-700 !border-slate-600 !text-slate-100 text-xs h-10 rounded-xl">
                             Cancel
                         </Button>
                         <Button

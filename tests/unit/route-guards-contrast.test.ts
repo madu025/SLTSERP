@@ -44,3 +44,9 @@ test('the contrast scan sees cn(...) and multi-line classNames, and does not mix
     assert.equal(scanText('<div className={cn("bg-white text-slate-900", active && "bg-slate-900 text-white")} />').length, 0);
     assert.equal(scanText('<div className="bg-slate-900 text-white hover:text-slate-900" />').length, 0);
 });
+
+test('contrast scan: an outline Button or Badge with light text and no background of its own is invisible on the theme background', () => {
+    assert.equal(scanText('<Button variant="outline" className="border-slate-800 text-slate-300 text-xs">Cancel</Button>').length, 1);
+    assert.equal(scanText('<Button variant="outline" className="!bg-slate-800 !text-slate-100">Cancel</Button>').length, 0);
+    assert.equal(scanText('<Badge variant="outline" className="bg-slate-800 text-slate-300">x</Badge>').length, 0);
+});

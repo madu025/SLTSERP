@@ -54,6 +54,9 @@ export class IssueService {
             // Generate MIN issue number atomically
             const issueNumber = await AuditLedgerService.generateMINNumber(transaction);
 
+            // The unit of every line is the unit of the item (an issue of drop wire in metres was shown to the contractor as "Nos")
+            const itemUnits = new Map((await transaction.inventoryItem.findMany({ where: { id: { in: items.map((i) => i.itemId) } }, select: { id: true, unit: true } })).map((u: { id: string; unit: string | null }) => [u.id, u.unit]));
+
             // 1. Create Material Issue
             const materialIssue = await transaction.contractorMaterialIssue.create({
                 data: {
@@ -67,7 +70,7 @@ export class IssueService {
                         create: items.map((i) => ({
                             itemId: i.itemId,
                             quantity: parseFloat(i.quantity.toString()),
-                            unit: i.unit || 'Nos'
+                            unit: i.unit || itemUnits.get(i.itemId) || 'Nos'
                         }))
                     }
                 }
@@ -228,6 +231,7 @@ export class IssueService {
             // 1. Create Return Record with atomic MRN number
             const returnNumber = await AuditLedgerService.generateMRNNumber(tx);
 
+            const itemUnits = new Map((await tx.inventoryItem.findMany({ where: { id: { in: items.map((i) => i.itemId) } }, select: { id: true, unit: true } })).map((u: { id: string; unit: string | null }) => [u.id, u.unit]));
             const materialReturn = await tx.contractorMaterialReturn.create({
                 data: {
                     returnNumber,
@@ -243,7 +247,7 @@ export class IssueService {
                         create: items.map((item) => ({
                             itemId: item.itemId,
                             quantity: parseFloat(item.quantity.toString()),
-                            unit: item.unit || 'Nos',
+                            unit: item.unit || itemUnits.get(item.itemId) || 'Nos',
                             condition: item.condition || 'GOOD'
                         }))
                     }

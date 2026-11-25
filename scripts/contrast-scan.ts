@@ -52,6 +52,15 @@ export function scanText(text: string, file = ''): ContrastFinding[] {
             if (darkBg && darkText && !lightBg) out.push({ file, line, kind: 'dark-on-dark', classes: shown });
         }
     }
+    // A Button or Badge with variant="outline" gets the THEME background (white in the light theme). Light text on it, with no background class of its own,
+    // is invisible there (the contractor sign-off "Cancel" button was white on white). One line per tag is enough for the JSX in this project.
+    text.split(/\r?\n/).forEach((ln, i) => {
+        if (!/variant="outline"/.test(ln)) return;
+        const cm = ln.match(/className="([^"]*)"/);
+        if (!cm) return;
+        const cls = cm[1].split(/\s+/).filter(Boolean);
+        if (cls.some((x) => LIGHT_TEXT.test(x.replace(/^!/, ''))) && !cls.some((x) => /^!?bg-/.test(x))) out.push({ file, line: i + 1, kind: 'outline-variant-light-text', classes: cm[1].replace(/\s+/g, ' ').slice(0, 150) });
+    });
     return out;
 }
 

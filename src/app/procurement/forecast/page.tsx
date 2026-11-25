@@ -514,7 +514,7 @@ export default function ProcurementForecastPage() {
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800" onClick={() => setShowPODialog(false)}>Cancel</Button>
+                        <Button variant="outline" className="border-slate-600 !bg-slate-800 !text-slate-100 hover:!bg-slate-700" onClick={() => setShowPODialog(false)}>Cancel</Button>
                         <Button 
                             className="bg-emerald-600 hover:bg-emerald-700" 
                             onClick={handleGeneratePO} 

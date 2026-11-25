@@ -126,7 +126,7 @@ export default function DynamicRateMatrixPage() {
                                 </p>
                             </div>
 
-                            <Button onClick={fetchRules} variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800 gap-2 text-xs">
+                            <Button onClick={fetchRules} variant="outline" className="border-slate-600 !bg-slate-800 !text-slate-100 hover:!bg-slate-700 gap-2 text-xs">
                                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh Matrix
                             </Button>
                         </div>

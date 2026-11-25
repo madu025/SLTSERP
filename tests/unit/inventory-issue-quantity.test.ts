@@ -57,3 +57,14 @@ test('the contractor stock is locked while it is picked, and the dashboard value
     const dash = sql.slice(sql.indexOf('fn_store_dashboard_summary('));
     assert.ok(dash.includes('i."costPrice"') && !dash.includes('i."unitPrice"') && !dash.includes('avg_price'), 'value at cost, not at the selling price or the purchase order average');
 });
+
+test('the stock requests page does not crash on a request without a store (6 of 86 in production have none)', () => {
+    const s = fs.readFileSync('src/app/inventory/requests/page.tsx', 'utf8');
+    assert.ok(!/r\.fromStore\.name/.test(s) && !/r\.requestedBy\.name/.test(s) && !/item\.item\.name/.test(s), 'every name on the requests list is read null-safely');
+});
+
+test('an issue or return line takes the unit of the item, not "Nos" (drop wire in metres was shown as Nos)', () => {
+    const s = fs.readFileSync('src/services/inventory/issue.service.ts', 'utf8');
+    assert.ok(s.includes("unit: i.unit || itemUnits.get(i.itemId) || 'Nos'"), 'issue note lines');
+    assert.ok(s.includes("unit: item.unit || itemUnits.get(item.itemId) || 'Nos'"), 'return note lines');
+});

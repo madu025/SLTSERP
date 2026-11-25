@@ -147,7 +147,13 @@ Owner's answers: OSP Finance is the supplier invoice approval; ten materials; pr
 | Roles, sub store request, review, approval, release, receive, contractor issue and return, MRN, wastage, stock take, ledger | `zz-inv-lifecycle` | 42 of 42 pass (after the transaction time fix) |
 | Ten materials, GRN, transfer, issue, sample SOD usage, edit, return, reconciliation, ledger | `zz-inv-chain10` | 27 of 27 pass (after the quantity fix) |
 
-Defects found and fixed: zero or negative quantity accepted by contractor issue, returns and material requests; the 5 second transaction limit. Not yet run: the browser pass by the real roles (Playwright), concurrency, area scope between two sub stores, the SQL report functions against the screens, the contractor app screens.
+Defects found and fixed: zero or negative quantity accepted by contractor issue, returns and material requests; the 5 second transaction limit.
+
+Second run (`zz-inv-phase2`): concurrency of receipts, issues, double receipt and double release held; two orders using the same contractor stock at the same moment both succeeded and left a negative quantity (fixed by a row lock in `fn_fifo_pick_contractor_batches`, migration `20261221000000`); a request could be raised in the name of another sub store (fixed); the store dashboard valued stock at the selling price while the material balance used cost (fixed, one rule: cost). Area scope between two sub stores, the SQL report functions against their tables (balance, low stock, store summary, stock card, contractor summary, ledger) all agree. One check (the same request released by two people at the same moment) passed once and was inconclusive twice because of database connection errors of the test tunnel; stock was never taken twice.
+
+Third run, the browser pass by the real roles (`pnpm run test:inventory:browser`): manager approve, executive release with the MIN reference, officer receive, the contractor app (issue note, dual custody sign-off, stock) all pass; it found the requests page crash, the wrong unit and the invisible Cancel buttons (see the change log).
+
+Not yet run: the browser pass for the procurement part (purchase order, supplier invoice), the project and the SOD material screens of the contractor app, and a repeat of the concurrency check on a fast connection.
 
 ## 7. Open questions for the owner (answer before the next run)
 
