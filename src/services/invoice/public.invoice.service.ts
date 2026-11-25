@@ -6,8 +6,12 @@ export class PublicInvoiceService {
         if (!id) {
             throw AppError.badRequest('Invoice ID is required');
         }
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+            throw AppError.notFound('Invoice not found');
+        }
 
-        let invoice = await prisma.invoice.findUnique({
+        // By the invoice id only (the id in the shared link). An invoice NUMBER is predictable (INV/<contractor>/<region>/<yy>/<mm>-001, -002, ...), so it must never open a public page.
+        const invoice = await prisma.invoice.findUnique({
             where: { id },
             include: {
                 contractor: {
@@ -16,10 +20,6 @@ export class PublicInvoiceService {
                         name: true,
                         registrationNumber: true,
                         address: true,
-                        contactNumber: true,
-                        bankName: true,
-                        bankBranch: true,
-                        bankAccountNumber: true,
                         brNumber: true
                     }
                 },
@@ -37,39 +37,6 @@ export class PublicInvoiceService {
                 }
             }
         });
-
-        if (!invoice) {
-            invoice = await prisma.invoice.findUnique({
-                where: { invoiceNumber: id },
-                include: {
-                    contractor: {
-                        select: {
-                            id: true,
-                            name: true,
-                            registrationNumber: true,
-                            address: true,
-                            contactNumber: true,
-                            bankName: true,
-                            bankBranch: true,
-                            bankAccountNumber: true,
-                            brNumber: true
-                        }
-                    },
-                    project: { select: { id: true, name: true, projectCode: true } },
-                    penalties: true,
-                    sods: {
-                        include: {
-                            erectedPoles: true,
-                            materialUsage: {
-                                include: {
-                                    item: { select: { id: true, code: true, name: true, unit: true } }
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
 
         if (!invoice) {
             throw AppError.notFound('Invoice not found');
