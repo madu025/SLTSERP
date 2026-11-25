@@ -1,5 +1,6 @@
 import { validateQtyAdjustment } from '@/lib/stock-request-adjust';
 import { AppError } from '@/lib/error';
+import { assertPositiveLines } from '@/lib/quantity-guard';
 import { safe } from '@/utils/safe-await.util';
 import { StockRequest, Prisma, StockRequestItem } from '@prisma/client';
 import { StockRequestRepository } from '@/repositories/stock-request.repository';
@@ -48,6 +49,8 @@ export class StockRequestService {
         sltReferenceId?: string; // Used for saving memo/attachment URL
     }): Promise<StockRequest> {
         const { fromStoreId, toStoreId, requestedById, items, priority, requiredDate, purpose, sourceType, projectTypes, maintenanceMonths, irNumber, sltReferenceId } = data;
+
+        assertPositiveLines(items, 'requestedQty', (l) => `requested item ${String(l.itemId ?? l.customName ?? '')}`);
 
         const fromStore = await InventoryRepository.findStoreById(fromStoreId);
         if (!fromStore) throw AppError.badRequest("INVALID_STORE");

@@ -32,7 +32,8 @@ export const materialIssueSchema = z.object({
     month: z.string().min(1, "Month is required"),
     items: z.array(z.object({
         itemId: z.string().min(1),
-        quantity: z.union([z.string(), z.number()]).transform(v => typeof v === 'string' ? parseFloat(v) : v),
+        quantity: z.union([z.string(), z.number()]).transform(v => typeof v === 'string' ? parseFloat(v) : v)
+            .refine((q) => Number.isFinite(q) && q > 0, 'Quantity must be a number greater than zero'),
         unit: z.string().optional(),
         // serial-tracked items: the serial numbers handed over (verified against the store by the issue service)
         serials: z.array(z.string()).optional()

@@ -1,5 +1,6 @@
 import { ContractorStoreService } from '@/services/inventory/contractor-store.service';
 import { AppError } from '@/lib/error';
+import { assertPositiveLines } from '@/lib/quantity-guard';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { StockService } from './stock.service';
@@ -39,6 +40,10 @@ export class IssueService {
         userId?: string;
     }, tx?: TransactionClient) {
         const { contractorId, storeId, month, items, userId } = data;
+
+        // Every line must be a real quantity. Without this a line of 0, a negative number or text became an issue note (and used up a MIN number)
+        // that the contractor sees as pending, although nothing moved.
+        assertPositiveLines(items, 'quantity', (l) => `issued item ${String(l.itemId)}`);
 
         // Store-Scope Enforcement: caller must be authorized for the issuing store
         await StoreService.assertStoreWriteAccess(userId, storeId);
@@ -213,6 +218,7 @@ export class IssueService {
         if (!contractorId || !storeId || !month || !items || !Array.isArray(items) || items.length === 0) {
             throw AppError.badRequest('MISSING_FIELDS');
         }
+        assertPositiveLines(items, 'quantity', (l) => `returned item ${String(l.itemId)}`);
 
         // Store-Scope Enforcement: caller must be authorized for the receiving store
         await StoreService.assertStoreWriteAccess(userId, storeId);

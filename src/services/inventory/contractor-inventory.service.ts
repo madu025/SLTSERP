@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
+import { assertPositiveQuantity } from '@/lib/quantity-guard';
 
 import { StockService } from './stock.service';
 import { AuditLedgerService } from './audit-ledger.service';
@@ -216,6 +217,7 @@ export class ContractorInventoryService {
     }
 
     static async createMaterialReturn(contractorId: UUID, data: { itemId: UUID, quantity: number, condition?: string, reason?: string }) {
+        assertPositiveQuantity(data.quantity, 'the returned item');
         const now = new Date();
         const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 

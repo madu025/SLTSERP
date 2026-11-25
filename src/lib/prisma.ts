@@ -94,6 +94,8 @@ const globalForPrisma = globalThis as unknown as {
 const primaryClient = globalForPrisma.primaryClient ?? new PrismaClient({
     datasources: primaryUrl ? { db: { url: primaryUrl } } : undefined,
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+    // Prisma's default of 5 s ends a stock release, receipt or dispatch of many items in the middle (a ledger entry per item, each chained to the last)
+    transactionOptions: { maxWait: 10000, timeout: 30000 },
 });
 
 globalForPrisma.primaryClient = primaryClient;
@@ -111,6 +113,7 @@ const readClient = hasDistinctReplica
     ? (globalForPrisma.readClient ?? new PrismaClient({
         datasources: replicaUrl ? { db: { url: replicaUrl } } : undefined,
         log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+        transactionOptions: { maxWait: 10000, timeout: 30000 },
       }))
     : primaryClient;
 

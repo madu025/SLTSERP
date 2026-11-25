@@ -137,9 +137,19 @@ service rules, including the case `allocated > on hand`, which must surface as a
 5. **Pass criteria:** all steps pass; the final reconciliation difference is zero for all 10 items; no cross-scope read or write; the ledger
    checksum chain verifies; cleanup leaves nothing active.
 
-## 6. Open questions for the owner (answer before the run)
+## 6. Result of the first run (25 Nov 2026, production, `ZZTEST-` data)
 
-1. Where exactly is OSP Finance in the chain: a gate on the material request, on the purchase order, or on the supplier invoice?
-2. "10 GRN": ten materials in one receipt, or ten separate receipts? (The plan uses ten items; ten receipts can be run the same way.)
-3. May the run use production with `ZZTEST-` data, or is there a QA database?
+Owner's answers: OSP Finance is the supplier invoice approval; ten materials; production with `ZZTEST-` data is allowed.
+
+| Section | Script | Result |
+|---|---|---|
+| A-B procurement, PO, GRN, supplier invoice 3-way match, approval and posting, return, debit note | `zz-p2p-flow` | 31 of 31 pass |
+| Roles, sub store request, review, approval, release, receive, contractor issue and return, MRN, wastage, stock take, ledger | `zz-inv-lifecycle` | 42 of 42 pass (after the transaction time fix) |
+| Ten materials, GRN, transfer, issue, sample SOD usage, edit, return, reconciliation, ledger | `zz-inv-chain10` | 27 of 27 pass (after the quantity fix) |
+
+Defects found and fixed: zero or negative quantity accepted by contractor issue, returns and material requests; the 5 second transaction limit. Not yet run: the browser pass by the real roles (Playwright), concurrency, area scope between two sub stores, the SQL report functions against the screens, the contractor app screens.
+
+## 7. Open questions for the owner (answer before the next run)
+
+1. (Answered) OSP Finance is the supplier invoice approval. 2. (Answered) ten materials. 3. (Answered) production with `ZZTEST-` data.
 4. Should contractors be allowed to receive from a sub store they are not registered to in an emergency (petty purchase fast track)?
