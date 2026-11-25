@@ -2,19 +2,12 @@ import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { signJWT, signAccessToken, signRefreshToken } from '@/lib/auth';
 import { SystemService } from '@/services/core/system.service';
-import { sign, verify, JwtPayload } from 'jsonwebtoken';
 import { Role, Prisma } from '@prisma/client';
 import { AppError } from '@/lib/error';
-import { safe, safeSync } from '@/utils/safe-await.util';
-import { requireEnv } from '@/lib/env';
+import { safe } from '@/utils/safe-await.util';
 import { deriveEffectivePermissions } from '@/lib/effective-permissions';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
-
-/** Fail-closed: JWT signing must never run on a hardcoded default secret */
-function getJwtSecret(): string {
-    return requireEnv('JWT_SECRET');
-}
 
 interface LoginCredentials {
     username: string;
@@ -234,128 +227,6 @@ export class UserService {
             },
             newValue: {
                 status: 'deleted'
-            }
-        });
-
-        return { success: true };
-    }
-
-    /**
-     * Initiates a forgot password workflow
-     */
-    static async forgotPasswordVerify(username: string, employeeId: string) {
-        // Strip null bytes to prevent PostgreSQL UTF8 encoding error (22021)
-        const sanitizedUsername = username.replace(/\0/g, '').trim();
-        const sanitizedEmployeeId = employeeId.replace(/\0/g, '').trim();
-        if (!sanitizedUsername || !sanitizedEmployeeId) {
-            throw AppError.badRequest('USERNAME_AND_EMPLOYEE_ID_REQUIRED');
-        }
-
-        const user = await prisma.user.findUnique({
-            where: { username: sanitizedUsername },
-            select: {
-                id: true,
-                username: true,
-                employeeId: true,
-                securityQuestion: true,
-                securityAnswer: true
-            }
-        });
-
-        if (!user) throw AppError.notFound('USER_NOT_FOUND');
-
-        if (user.employeeId !== sanitizedEmployeeId) {
-            throw AppError.badRequest('EMPLOYEE_ID_MISMATCH');
-        }
-
-        if (!user.securityQuestion || !user.securityAnswer) {
-            throw AppError.badRequest('SECURITY_QUESTION_NOT_SET');
-        }
-
-        // Generate temporary token
-        const token = sign(
-            { userId: user.id, step: 'verify' },
-            getJwtSecret(),
-            { expiresIn: '15m' }
-        );
-
-        return {
-            securityQuestion: user.securityQuestion,
-            token
-        };
-    }
-
-    /**
-     * Verifies the answer of forgot password security question
-     */
-    static async forgotPasswordVerifyAnswer(token: string, answer: string) {
-        const [err, decoded] = safeSync<string | JwtPayload>(() => verify(token, getJwtSecret()));
-        if (err || !decoded) {
-            throw AppError.unauthorized('INVALID_TOKEN');
-        }
-
-        if (typeof decoded === 'string' || decoded.step !== 'verify') {
-            throw AppError.unauthorized('INVALID_TOKEN');
-        }
-
-        const user = await prisma.user.findUnique({
-            where: { id: decoded.userId },
-            select: {
-                id: true,
-                securityAnswer: true
-            }
-        });
-
-        if (!user || !user.securityAnswer) {
-            throw AppError.notFound('USER_NOT_FOUND');
-        }
-
-        const isCorrect = await bcrypt.compare(answer.toLowerCase().trim(), user.securityAnswer);
-        if (!isCorrect) {
-            throw AppError.unauthorized('INCORRECT_ANSWER');
-        }
-
-        // Generate reset token
-        const resetToken = sign(
-            { userId: user.id, step: 'reset' },
-            getJwtSecret(),
-            { expiresIn: '15m' }
-        );
-
-        return {
-            message: 'Security answer verified',
-            token: resetToken
-        };
-    }
-
-    /**
-     * Resets password to a new value
-     */
-    static async forgotPasswordReset(token: string, newPassword: string) {
-        const pwProblem = passwordProblem(newPassword);
-        if (pwProblem) {
-            throw AppError.badRequest(pwProblem);
-        }
-
-        const [err, decoded] = safeSync<string | JwtPayload>(() => verify(token, getJwtSecret()));
-        if (err || !decoded) {
-            throw AppError.unauthorized('INVALID_TOKEN');
-        }
-
-        if (typeof decoded === 'string' || decoded.step !== 'reset') {
-            throw AppError.unauthorized('INVALID_TOKEN');
-        }
-
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-        // Bump tokenVersion to invalidate all existing sessions
-        // (prevents a compromised old token from surviving a password reset)
-        await prisma.user.update({
-            where: { id: decoded.userId },
-            data: {
-                password: hashedPassword,
-                passwordChangedAt: new Date(),
-                tokenVersion: { increment: 1 }
             }
         });
 

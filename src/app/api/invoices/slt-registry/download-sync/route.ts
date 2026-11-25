@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
+import { safeEqual } from '@/lib/safe-equal';
 import { BOMInvoiceService } from '@/services/finance/bom-invoice.service';
 import { SLTPortalAuthService } from '@/services/slt/slt-portal-auth.service';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
@@ -16,7 +17,7 @@ export const POST = apiHandler(async (req, params, body) => {
     const extensionKey = req.headers.get('x-extension-key');
     // Fail-closed: no hardcoded secret fallback — unset env means extension auth is disabled
     const extensionSecret = process.env.EXTENSION_SECRET;
-    const isExtension = !!extensionSecret && extensionKey === extensionSecret;
+    const isExtension = !!extensionSecret && safeEqual(extensionKey, extensionSecret);
 
     const authUserId = params._userId;
     const hasAllowedPermission = params._permissions.includes(RBAC_PERMISSIONS.FINANCE_APPROVE);

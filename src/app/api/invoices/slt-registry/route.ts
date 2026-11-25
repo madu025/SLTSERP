@@ -1,4 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
+import { safeEqual } from '@/lib/safe-equal';
 import { requireExtensionOrSession, getSessionPermissionsFromCookie } from '@/lib/mixed-auth';
 import fs from 'fs';
 import path from 'path';
@@ -169,7 +170,7 @@ export const POST = apiHandler(async (req, params, body) => {
     const extensionKey = req.headers.get('x-extension-key');
     // Fail-closed: no hardcoded secret fallback — unset env means extension auth is disabled
     const extensionSecret = process.env.EXTENSION_SECRET;
-    const isExtension = !!extensionSecret && extensionKey === extensionSecret;
+    const isExtension = !!extensionSecret && safeEqual(extensionKey, extensionSecret);
 
     const cookieSession = isExtension ? null : await getSessionPermissionsFromCookie();
     const hasAllowedPermission = (cookieSession?.permissions ?? params._permissions).includes(RBAC_PERMISSIONS.FINANCE_APPROVE);

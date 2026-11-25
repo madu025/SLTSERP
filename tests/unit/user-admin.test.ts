@@ -84,7 +84,7 @@ test('the list is paged on the server with counts over every account, and the fo
 });
 
 test('every place a password is chosen uses the one policy', () => {
-    for (const f of ['src/components/ForcePasswordChangeModal.tsx', 'src/app/profile/page.tsx', 'src/app/forgot-password/page.tsx', 'src/app/api/auth/forgot-password/reset/route.ts', 'src/services/hr/user.service.ts']) {
+    for (const f of ['src/components/ForcePasswordChangeModal.tsx', 'src/app/profile/page.tsx', 'src/services/hr/user.service.ts']) {
         const s = read(f);
         assert.ok(s.includes('passwordProblem'), `${f} uses passwordProblem`);
         assert.ok(!/length < 6|min\(6/.test(s), `${f} has no older length rule`);
@@ -154,4 +154,14 @@ test('every module passes its domain to the scope check; admin-only and notifica
     for (const [f, d] of files) assert.ok(new RegExp(`resolveOpmcScope\([^)]*, '${d}'\)`).test(read(f)), `${f} uses the ${d} domain`);
     assert.ok(!/resolveOpmcScope\([^)]*, '/.test(read('src/app/api/admin/control/route.ts')), 'the admin control monitor stays strict');
     assert.ok(!/resolveOpmcScope\([^)]*, '/.test(read('src/services/notification/index.ts')), 'the notification inbox stays strict');
+});
+
+test('there is no self-service password reset: only an administrator sets a temporary password', () => {
+    assert.ok(!fs.existsSync('src/app/api/auth/forgot-password'), 'the public forgot-password API is gone');
+    assert.ok(!read('src/middleware.ts').includes('forgot-password/'), 'no public API path for it');
+    assert.ok(!/forgotPassword/.test(read('src/services/hr/user.service.ts')), 'no service methods for it');
+    const page = read('src/app/forgot-password/page.tsx');
+    assert.ok(page.includes('ask your administrator') && !page.includes('fetch('), 'the page only tells the person to ask the administrator');
+    const reset = read('src/services/hr/user-admin.service.ts');
+    assert.ok(/static async resetPassword[\s\S]*?mustChangePassword: true/.test(reset), 'the administrator reset forces a new password at the next sign-in');
 });

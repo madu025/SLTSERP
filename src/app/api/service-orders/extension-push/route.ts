@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
+import { safeEqual } from '@/lib/safe-equal';
 import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { AppError } from '@/lib/error';
 import { redis } from '@/lib/redis';
@@ -42,7 +43,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const extensionSecret = process.env.EXTENSION_SECRET;
 
     let isAuthorized = false;
-    if (!!extensionSecret && authHeader === extensionSecret) {
+    if (!!extensionSecret && safeEqual(authHeader, extensionSecret)) {
         isAuthorized = true;
     } else {
         isAuthorized = await checkAdminAuth();

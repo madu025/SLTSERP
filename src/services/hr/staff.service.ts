@@ -228,20 +228,7 @@ export class StaffService {
     const staffName = staff?.name || user?.name || recentAudits[0]?.custodianName || "Staff Member";
     const staffId = targetStaffId || "UNLINKED";
 
-    // Auto-heal unlinked ITAssets if staff is found
-    if (targetStaffId) {
-      const unlinked = directAssets.filter(a => !a.assignedStaffId);
-      if (unlinked.length > 0) {
-        Promise.all(
-          unlinked.map(a =>
-            prisma.iTAsset.update({
-              where: { id: a.id },
-              data: { assignedStaffId: targetStaffId }
-            }).catch(err => console.error("Auto-heal asset link failed:", err))
-          )
-        ).catch(() => {});
-      }
-    }
+    // (A public lookup never writes: linking an unlinked asset to its staff member is done by an administrator.)
 
     // Merge assigned assets from master inventory with assets from agent sync & previous audits
     interface FormattedAsset {

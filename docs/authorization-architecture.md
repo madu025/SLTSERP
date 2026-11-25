@@ -209,7 +209,7 @@ One service, `UserAdminService` (`src/services/hr/user-admin.service.ts`), is us
 - **Module designations** (`UserSectionAssignment`, e.g. `PROJECTS_ENGINEER`) are picked in the form. When none are sent on create, the usual ones for the role (`SECTION_MAPPING`) are added, only if those SystemRoles already exist. A base role cannot be used as a designation.
 - **Data scope**: roles in `OPMC_REQUIRED_ROLES` (`src/config/user-admin.ts`) must have at least one OPMC, because an empty allow-list denies every operational row. Store roles need a store or an OPMC.
 - **Manual grants** (`User.permissions`) are never written by this form; they have their own audited endpoint. A role change clears them. The old page-name override (which replaced every role grant) was removed.
-- **Password**: one policy for create, edit, reset, change and forgot-password (`passwordProblem`: 8+ characters, a letter and a number). An administrator-set password sets `mustChangePassword` and ends open sessions. The welcome email never contains the password.
+- **Password**: one policy for create, edit, reset and change (`passwordProblem`: 8+ characters, a letter and a number). An administrator-set password sets `mustChangePassword` and ends open sessions. The welcome email never contains the password.
 - **Status**: `active | inactive | resigned` (`deleted` only by the delete action). Compare statuses with `normalizeUserStatus`/`isActiveStatus`, never `===`.
 - **Contractor users** are created from the contractor registration (they need `contractorId`), not from this form.
 

@@ -1,5 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { BankService } from '@/services/finance/bank.service';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -19,6 +20,7 @@ export const POST = apiHandler(async (_request: Request, _params: Record<string,
 }, {
     // GET stays public (contractor registration form lookup); bank master data
     // writes restricted to finance/admin
+    permissions: [RBAC_PERMISSIONS.FINANCE_WRITE],
     audit: { action: 'CREATE', entity: 'Bank' },
     rawResponse: true
 });

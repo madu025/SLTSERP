@@ -1,4 +1,5 @@
 import { AppError } from './error';
+import { safeEqual } from './safe-equal';
 
 /**
  * Fail-closed cron authentication — single guard shared by every /api/cron route.
@@ -21,7 +22,7 @@ export function assertCronAuth(req: Request): void {
         req.headers.get('authorization')?.replace('Bearer ', '') ||
         searchParams.get('secret');
 
-    if (supplied !== expected) {
+    if (!safeEqual(supplied, expected)) {
         throw AppError.unauthorized('Unauthorized: Invalid CRON_SECRET');
     }
 }
