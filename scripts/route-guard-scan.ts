@@ -5,6 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { resolveRouteCapability } from '../src/lib/route-capabilities';
 
+const METHODS = 'GET|POST|PUT|PATCH|DELETE';
+
 const walk = (d: string, o: string[] = []): string[] => {
     for (const e of fs.readdirSync(d)) {
         const p = path.join(d, e);
@@ -14,23 +16,46 @@ const walk = (d: string, o: string[] = []): string[] => {
     return o;
 };
 
+const stripComments = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+
 export interface UnguardedRoute { method: string; url: string; file: string }
+
+/** A handler is explicitly guarded by `permissions: [ ... ]`, or `permissions: NAME` where NAME is declared in the file as a list; comments and schema fields called `permissions` do not count. */
+function isExplicitlyGuarded(block: string, fileText: string): boolean {
+    const code = stripComments(block);
+    if (/\bpermissions\s*:\s*\[/.test(code)) return true;
+    const ref = code.match(/\bpermissions\s*:\s*([A-Za-z_]\w*)\s*[,}\n]/);
+    if (ref && new RegExp('const\\s+' + ref[1] + '\\b[^=]*=\\s*\\[').test(stripComments(fileText))) return true;
+    // a deliberately public handler, or one that authenticates itself
+    return /\bpublicRoute\s*:\s*true\b/.test(code) || /allowAnonymous|skipAuth|requireAuth\s*:\s*false/.test(code);
+}
+
+/** The unguarded handlers of one route file: its text and its url (with [params]). */
+export function findUnguarded(text: string, url: string, file = ''): UnguardedRoute[] {
+    const out: UnguardedRoute[] = [];
+    const concrete = url.replace(/\[[^\]]+\]/g, 'x');
+    // `export const GET = ...`, `export async function GET(...)`, `export function GET(...)`
+    const handlers = [...text.matchAll(new RegExp(`export\\s+(?:const|(?:async\\s+)?function)\\s+(${METHODS})\\b`, 'g'))];
+    handlers.forEach((m, idx) => {
+        const start = m.index ?? 0;
+        const end = idx + 1 < handlers.length ? (handlers[idx + 1].index ?? text.length) : text.length;
+        const block = text.slice(start, end);
+        if (!isExplicitlyGuarded(block, text) && !resolveRouteCapability(concrete, m[1])) out.push({ method: m[1], url, file });
+    });
+    // `export { handler as GET }`: the handler body is elsewhere in the file, so the whole file is judged
+    for (const m of text.matchAll(/export\s*\{([^}]*)\}/g)) {
+        for (const alias of m[1].matchAll(new RegExp(`\\bas\\s+(${METHODS})\\b`, 'g'))) {
+            if (!isExplicitlyGuarded(text, text) && !resolveRouteCapability(concrete, alias[1])) out.push({ method: alias[1], url, file });
+        }
+    }
+    return out;
+}
 
 export function scanRoutes(): UnguardedRoute[] {
     const out: UnguardedRoute[] = [];
     for (const f of walk('src/app/api')) {
-        const text = fs.readFileSync(f, 'utf8');
         const url = '/' + path.relative('src/app', path.dirname(f)).split(path.sep).join('/');
-        const concrete = url.replace(/\[[^\]]+\]/g, 'x');
-        const handlers = [...text.matchAll(/export const (GET|POST|PUT|PATCH|DELETE)\b/g)];
-        handlers.forEach((m, idx) => {
-            const start = m.index ?? 0;
-            const end = idx + 1 < handlers.length ? (handlers[idx + 1].index ?? text.length) : text.length;
-            const block = text.slice(start, end);
-            const explicit = /permissions\s*:/.test(block) || /\bpublic\s*:\s*true\b/.test(block) || /allowAnonymous|skipAuth|requireAuth\s*:\s*false/.test(block);
-            const auto = resolveRouteCapability(concrete, m[1]);
-            if (!explicit && !auto) out.push({ method: m[1], url, file: f.split(path.sep).join('/') });
-        });
+        out.push(...findUnguarded(fs.readFileSync(f, 'utf8'), url, f.split(path.sep).join('/')));
     }
     return out;
 }

@@ -1,5 +1,7 @@
-// Static scan for the high-contrast rule in AGENTS.md: inside ONE className string, light text on a light background and dark text on a dark
+// Static scan for the high-contrast rule in AGENTS.md: inside ONE className, light text on a light background and dark text on a dark
 // background (variants such as hover:, dark:, md: are ignored, so only the base classes are compared).
+// It reads className="...", className={`...`} (without ${}), and className={cn(...)} / clsx(...) / twMerge(...), also over several lines;
+// the string literals inside cn(...) are joined, so cn("bg-white", "text-white") is found. Classes built at run time are not seen.
 // usage: pnpm exec tsx scripts/contrast-scan.ts   (lists file:line and the class string)
 import fs from 'node:fs';
 import path from 'node:path';
@@ -20,26 +22,41 @@ const walk = (d: string, o: string[] = []): string[] => {
 
 export interface ContrastFinding { file: string; line: number; kind: string; classes: string }
 
-export function scan(): ContrastFinding[] {
+/** The class names of a cn(...) call: its string literals, joined. Conditional branches (`cond && "..."`, `a ? "x" : "y"`) are left out, so alternatives are not mixed. */
+const literalsOf = (args: string): string => {
+    const out: string[] = [];
+    for (const m of args.matchAll(/(&&|\?|:)?\s*(["'`])((?:(?!\2)[^\\])*)\2/g)) {
+        if (m[1]) continue;
+        if (m[3].includes('${')) continue;
+        out.push(m[3]);
+    }
+    return out.join(' ');
+};
+
+/** The findings of one file's text. */
+export function scanText(text: string, file = ''): ContrastFinding[] {
     const out: ContrastFinding[] = [];
-    const re = /className=(?:"([^"]*)"|\{`([^`]*)`\})/g;
-    for (const f of walk('src')) {
-        const lines = fs.readFileSync(f, 'utf8').split('\n');
-        lines.forEach((l, i) => {
-            for (const m of l.matchAll(re)) {
-                const c = m[1] ?? m[2] ?? '';
-                if (c.includes('${')) continue;
-                const base = c.split(/\s+/).filter((x) => x && !x.includes(':') && !x.includes('/'));
-                const lightBg = base.some((x) => LIGHT_BG.test(x));
-                const darkBg = base.some((x) => DARK_BG.test(x));
-                const lightText = base.some((x) => LIGHT_TEXT.test(x));
-                const darkText = base.some((x) => DARK_TEXT.test(x));
-                if (lightBg && lightText && !darkBg) out.push({ file: f.split(path.sep).join('/'), line: i + 1, kind: 'light-on-light', classes: c.slice(0, 150) });
-                if (darkBg && darkText && !lightBg) out.push({ file: f.split(path.sep).join('/'), line: i + 1, kind: 'dark-on-dark', classes: c.slice(0, 150) });
-            }
-        });
+    const re = /className=(?:"([^"]*)"|\{`([^`]*)`\}|\{\s*(?:cn|clsx|twMerge)\(([\s\S]*?)\)\s*\})/g;
+    {
+        for (const m of text.matchAll(re)) {
+            const c = m[1] ?? m[2] ?? (m[3] !== undefined ? literalsOf(m[3]) : '');
+            if (c.includes('${')) continue;
+            const line = text.slice(0, m.index ?? 0).split('\n').length;
+            const base = c.split(/\s+/).filter((x) => x && !x.includes(':') && !x.includes('/'));
+            const lightBg = base.some((x) => LIGHT_BG.test(x));
+            const darkBg = base.some((x) => DARK_BG.test(x));
+            const lightText = base.some((x) => LIGHT_TEXT.test(x));
+            const darkText = base.some((x) => DARK_TEXT.test(x));
+            const shown = c.replace(/\s+/g, ' ').slice(0, 150);
+            if (lightBg && lightText && !darkBg) out.push({ file, line, kind: 'light-on-light', classes: shown });
+            if (darkBg && darkText && !lightBg) out.push({ file, line, kind: 'dark-on-dark', classes: shown });
+        }
     }
     return out;
+}
+
+export function scan(): ContrastFinding[] {
+    return walk('src').flatMap((f) => scanText(fs.readFileSync(f, 'utf8'), f.split(path.sep).join('/')));
 }
 
 if (process.argv[1]?.endsWith('contrast-scan.ts')) {
