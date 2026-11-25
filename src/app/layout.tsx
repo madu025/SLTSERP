@@ -7,6 +7,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import SessionManager from "@/components/SessionManager";
 import NexusAgent from "@/components/NexusAgent";
 import ForcePasswordChangeModal from "@/components/ForcePasswordChangeModal";
+import { CHUNK_RECOVERY_SCRIPT } from "@/lib/chunk-recovery";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -58,6 +59,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Reloads once when a JavaScript file from an older deploy is gone (see src/lib/chunk-recovery.ts) */}
+        <script dangerouslySetInnerHTML={{ __html: CHUNK_RECOVERY_SCRIPT }} />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

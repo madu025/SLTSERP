@@ -38,6 +38,17 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns', 'recharts', '@radix-ui/react-icons', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select']
   },
+  // Pages (HTML) must be re-checked with the server every time: a copy kept for a year by the browser or a proxy points to JavaScript
+  // files that a later deploy removed, and the page then hangs on "Loading…". The files under /_next/static keep their long cache
+  // (their names change with every build).
+  async headers() {
+    return [
+      {
+        source: '/((?!_next/static|_next/image|api/).*)',
+        headers: [{ key: 'Cache-Control', value: 'no-cache, must-revalidate' }],
+      },
+    ];
+  },
   async redirects() {
     return [
       {
