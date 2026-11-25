@@ -6,13 +6,13 @@ import { z } from 'zod';
 export const dynamic = 'force-dynamic';
 
 // GET Handler: Retrieve all Rate Matrix Rules (Auto-seeds if empty).
-// The rates are read by the people who approve finance and by the SF audit people who check the pricing of invoices against them;
-// only the administrator changes a rate (PUT).
+// The rates are read by the people who audit pricing (SF Audit, and the Finance Manager and CEO, who hold finance.audit); the Stores Manager,
+// who holds finance.approve without being a finance reader, does not read them. Only the administrator changes a rate (PUT).
 export const GET = apiHandler(
     async () => {
         return await PricingAuditService.getRateRules();
     },
-    { permissions: [RBAC_PERMISSIONS.ADMIN_RBAC, RBAC_PERMISSIONS.FINANCE_APPROVE, RBAC_PERMISSIONS.FINANCE_AUDIT] }
+    { permissions: [RBAC_PERMISSIONS.ADMIN_RBAC, RBAC_PERMISSIONS.FINANCE_AUDIT] }
 );
 
 // PUT Handler: Update Rate Rule Amount

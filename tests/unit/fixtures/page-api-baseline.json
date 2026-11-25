@@ -26,6 +26,7 @@
   "/finance/fpa-dashboard -> GET /api/finance/fpa-dashboard",
   "/finance/ld-penalties -> GET /api/projects",
   "/finance/payments -> GET /api/projects",
+  "/finance/rate-matrix -> GET /api/admin/rate-matrix",
   "/finance/sod-revenue -> GET /api/admin/sod-revenue",
   "/fleet/payments -> GET /api/invoices",
   "/fleet/payments -> GET /api/payments",

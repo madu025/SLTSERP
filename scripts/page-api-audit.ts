@@ -16,7 +16,7 @@ const grantsOf = (r: string): Set<string> => { const own = ownGrants(r); const b
 const ownGrants = (r: string) => new Set([...Object.entries(grants).filter(([, x]) => x.includes(r)).map(([p]) => p), ...Object.entries(MODULE_DESIGNATION_GRANTS).filter(([, x]) => x.includes(r)).map(([p]) => p)]);
 const CODE_BY_KEY = RBAC_PERMISSIONS as Record<string, string>;
 
-const walk = (d: string, out: string[] = []) => { for (const e of fs.readdirSync(d, { withFileTimes: false } as any) as unknown as string[]) { const p = path.join(d, e); const st = fs.statSync(p); if (st.isDirectory()) walk(p, out); else out.push(p); } return out; };
+const walk = (d: string, out: string[] = []) => { for (const e of fs.readdirSync(d)) { const p = path.join(d, e); const st = fs.statSync(p); if (st.isDirectory()) walk(p, out); else out.push(p); } return out; };
 const pages = walk('src/app').filter((f) => f.endsWith(path.join('page.tsx')) && !f.includes(path.join('src', 'app', 'api')));
 const routeFiles = walk('src/app/api').filter((f) => f.endsWith('route.ts'));
 const routeUrl = (f: string) => '/' + path.relative('src/app', path.dirname(f)).split(path.sep).join('/');
