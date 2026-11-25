@@ -73,6 +73,63 @@ export class SodPerformanceService {
         };
     }
 
+    /**
+     * The figures behind the weekly operations digest email (company-wide, so callers must already have company-wide access):
+     * turnaround by week for the last 8 complete weeks (the week in progress is left out), the age of every open order, the RTOMs with the largest backlog, and last week's flow.
+     */
+    static async getDigestData(now = new Date()): Promise<{
+        weeks: { weekStart: string; completed: number; withinPct: number | null }[];
+        ageing: { bucket: AgeBucket; count: number }[];
+        openTotal: number;
+        rtoms: { rtom: string; open: number; over14: number }[];
+        received7d: number;
+        completed7d: number;
+    }> {
+        const done = [...SOD_FINANCIAL_COMPLETION_STATUSES] as string[];
+        const open = [...SOD_OPEN_SLTS_STATUSES] as string[];
+        const week = new Date(now.getTime() - 7 * DAY_MS);
+        const [weekly, age, rtoms, flow] = await Promise.all([
+            prisma.$queryRawUnsafe<{ wk: Date; n: bigint | number; within: bigint | number }[]>(
+                `SELECT date_trunc('week', "completedDate") AS wk, count(*) AS n,
+                        count(*) FILTER (WHERE EXTRACT(EPOCH FROM ("completedDate" - "receivedDate")) / 86400.0 <= $3) AS within
+                 FROM "ServiceOrder" WHERE "status"::text = ANY($1::text[]) AND "receivedDate" IS NOT NULL
+                   AND "completedDate" >= date_trunc('week', $2::timestamptz) - interval '56 days' AND "completedDate" < date_trunc('week', $2::timestamptz) AND "completedDate" >= "receivedDate"
+                 GROUP BY 1 ORDER BY 1`,
+                done, now, SOD_TURNAROUND_SLA_DAYS,
+            ),
+            prisma.$queryRawUnsafe<{ b0: bigint | number; b1: bigint | number; b2: bigint | number; b3: bigint | number; b4: bigint | number }[]>(
+                `SELECT count(*) FILTER (WHERE "receivedDate" >= $2::timestamptz - interval '3 days') AS b0,
+                        count(*) FILTER (WHERE "receivedDate" < $2::timestamptz - interval '3 days' AND "receivedDate" >= $2::timestamptz - interval '7 days') AS b1,
+                        count(*) FILTER (WHERE "receivedDate" < $2::timestamptz - interval '7 days' AND "receivedDate" >= $2::timestamptz - interval '14 days') AS b2,
+                        count(*) FILTER (WHERE "receivedDate" < $2::timestamptz - interval '14 days' AND "receivedDate" >= $2::timestamptz - interval '30 days') AS b3,
+                        count(*) FILTER (WHERE "receivedDate" < $2::timestamptz - interval '30 days') AS b4
+                 FROM "ServiceOrder" WHERE "sltsStatus"::text = ANY($1::text[]) AND "receivedDate" IS NOT NULL`,
+                open, now,
+            ),
+            prisma.$queryRawUnsafe<{ rtom: string | null; open: bigint | number; over14: bigint | number }[]>(
+                `SELECT "rtom", count(*) AS open, count(*) FILTER (WHERE "receivedDate" < $2::timestamptz - interval '14 days') AS over14
+                 FROM "ServiceOrder" WHERE "sltsStatus"::text = ANY($1::text[]) AND "receivedDate" IS NOT NULL
+                 GROUP BY 1 ORDER BY 3 DESC, 2 DESC LIMIT 8`,
+                open, now,
+            ),
+            prisma.$queryRawUnsafe<{ received: bigint | number; completed: bigint | number }[]>(
+                `SELECT count(*) FILTER (WHERE "receivedDate" >= $2::timestamptz) AS received,
+                        count(*) FILTER (WHERE "status"::text = ANY($1::text[]) AND "completedDate" >= $2::timestamptz AND "completedDate" <= $3::timestamptz) AS completed
+                 FROM "ServiceOrder" WHERE "receivedDate" >= $2::timestamptz OR "completedDate" >= $2::timestamptz`,
+                done, week, now,
+            ),
+        ]);
+        const counts = [Number(age[0]?.b0 ?? 0), Number(age[0]?.b1 ?? 0), Number(age[0]?.b2 ?? 0), Number(age[0]?.b3 ?? 0), Number(age[0]?.b4 ?? 0)];
+        return {
+            weeks: weekly.map((w) => ({ weekStart: new Date(w.wk).toISOString().slice(0, 10), completed: Number(w.n), withinPct: slaPct(Number(w.within), Number(w.n)) })),
+            ageing: AGE_BUCKETS.map((bucket, i) => ({ bucket, count: counts[i] })),
+            openTotal: counts.reduce((a, b) => a + b, 0),
+            rtoms: rtoms.map((r) => ({ rtom: String(r.rtom ?? 'Unknown'), open: Number(r.open), over14: Number(r.over14) })),
+            received7d: Number(flow[0]?.received ?? 0),
+            completed7d: Number(flow[0]?.completed ?? 0),
+        };
+    }
+
     private static async compute(scope: string[] | undefined, from: Date, to: Date, now: Date): Promise<SodPerformanceReport> {
         const scopeArr = scope === undefined ? null : scope;
         const done = [...SOD_FINANCIAL_COMPLETION_STATUSES] as string[];
