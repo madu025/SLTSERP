@@ -6,6 +6,7 @@ new developer or an AI assistant would need to know. Refresh `docs/ai-handover.m
 
 ## Authorization (RBAC)
 
+- **25 Nov** The Monday operations digest (email and notification) now has its own audience `OPS_DIGEST` (`notification.audience.ops-digest`: Super Admin, Admin, CEO, Head of OSP, OSP Manager, Head of Section, Manager). It went to the shared `SOD_PROJECT` audience, which 205 people hold (180 of them field Engineers), although the figures are company-wide. `SOD_PROJECT` stays for the ordinary service-order notices. Takes effect when the RBAC seed has run: until then nobody holds the new capability and the digest goes to no one. The administrator can add or remove a person or role on the Permissions page.
 - **24 Nov** Menu levels (view / operate / invoice / approve / admin, per module) are now capabilities `menu.<module>.<level>`, held through
   roles in the database. The starting levels are `BOOTSTRAP_MENU_LEVELS` in `src/config/rbac-bootstrap.ts`. `src/config/menu-access.ts` has no
   role names. The first page after sign-in is `landingPath()` (`src/config/landing.ts`) from capabilities (contractor portal, stores, dashboard).

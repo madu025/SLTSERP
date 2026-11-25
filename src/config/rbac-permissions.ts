@@ -85,6 +85,8 @@ export const RBAC_PERMISSIONS = {
     NOTIFICATION_OFFICE_ADMINS: 'notification.audience.office-admins',
     NOTIFICATION_OPERATIONS: 'notification.audience.operations',
     NOTIFICATION_SOD_PROJECT: 'notification.audience.sod-project',
+    /** The Monday operations digest (company-wide figures and exceptions): the managers who read the company, not every engineer. */
+    NOTIFICATION_OPS_DIGEST: 'notification.audience.ops-digest',
     NOTIFICATION_FINANCE_APPROVERS: 'notification.audience.finance-approvers',
     NOTIFICATION_FINANCE_ALL: 'notification.audience.finance-all',
     NOTIFICATION_INVENTORY_LOW_STOCK: 'notification.audience.inventory-low-stock',
@@ -195,6 +197,7 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.NOTIFICATION_OFFICE_ADMINS, module: 'NOTIFICATION', action: 'AUDIENCE_OFFICE_ADMINS', scope: 'OPMC', description: 'Receive office-administration notification audience events' },
     { code: RBAC_PERMISSIONS.NOTIFICATION_OPERATIONS, module: 'NOTIFICATION', action: 'AUDIENCE_OPERATIONS', scope: 'OPMC', description: 'Receive operations notification audience events' },
     { code: RBAC_PERMISSIONS.NOTIFICATION_SOD_PROJECT, module: 'NOTIFICATION', action: 'AUDIENCE_SOD_PROJECT', scope: 'OPMC', description: 'Receive SOD project notification audience events' },
+    { code: RBAC_PERMISSIONS.NOTIFICATION_OPS_DIGEST, module: 'NOTIFICATION', action: 'AUDIENCE_OPS_DIGEST', scope: 'GLOBAL', description: 'Receive the weekly operations digest (company-wide service-order and project figures and exceptions)' },
     { code: RBAC_PERMISSIONS.NOTIFICATION_FINANCE_APPROVERS, module: 'NOTIFICATION', action: 'AUDIENCE_FINANCE_APPROVERS', scope: 'OPMC', description: 'Receive finance-approval notification audience events' },
     { code: RBAC_PERMISSIONS.NOTIFICATION_FINANCE_ALL, module: 'NOTIFICATION', action: 'AUDIENCE_FINANCE_ALL', scope: 'OPMC', description: 'Receive finance notification audience events' },
     { code: RBAC_PERMISSIONS.NOTIFICATION_INVENTORY_LOW_STOCK, module: 'NOTIFICATION', action: 'AUDIENCE_INVENTORY_LOW_STOCK', scope: 'OPMC', description: 'Receive low-stock notification audience events' },

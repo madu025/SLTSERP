@@ -22,7 +22,8 @@ export function exceptionsHtml(items: Pick<HealthException, 'severity' | 'title'
  * Monday-morning operations digest for the SOD/project management audience: service-level result for the last 30 days,
  * the oldest backlogs, and every operations or project exception, as an in-app notification and an email.
  *
- * Notification only. The audience is capability-backed (SOD_PROJECT), so who receives it is managed in the database.
+ * Notification only. The audience is capability-backed (OPS_DIGEST, notification.audience.ops-digest), so who receives it is managed in the database.
+ * It is its own audience: the figures are company-wide, and SOD_PROJECT also carries ordinary service-order notices to every area engineer.
  */
 export class OpsWeeklyDigestService {
     static async run(now: Date = new Date()): Promise<{ exceptions: number; notified: boolean; emailed: number }> {
@@ -38,12 +39,12 @@ export class OpsWeeklyDigestService {
         const summary = `Last 30 days: ${headline.completed30d.toLocaleString('en-US')} orders completed, ${slaText}. Oldest backlogs: ${worst}. ${items.length} operations/project exception(s).`;
 
         const sent = await NotificationService.notifyByAudience({
-            audience: 'SOD_PROJECT', title: '📊 Weekly operations digest', message: summary, type: 'SYSTEM',
+            audience: 'OPS_DIGEST', title: '📊 Weekly operations digest', message: summary, type: 'SYSTEM',
             priority: items.some((e) => e.severity === 'critical') ? 'HIGH' : 'MEDIUM', link,
             metadata: { source: 'ops-weekly-digest' }, dedupKey: `ops-weekly-digest:${week}`,
         });
 
-        const recipients = (await NotificationService.getAudienceRecipients({ audience: 'SOD_PROJECT' })).filter((r) => r.email);
+        const recipients = (await NotificationService.getAudienceRecipients({ audience: 'OPS_DIGEST' })).filter((r) => r.email);
         const dashboardUrl = `${getAppBaseUrl()}${link}`;
         let emailed = 0;
         for (const r of recipients) {

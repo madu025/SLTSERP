@@ -93,7 +93,7 @@ test('weekly operations digest: Monday job, registered everywhere, template-wire
   assert.match(fs.readFileSync('prisma/seed-notification-templates.ts', 'utf8'), /code: 'OPS_WEEKLY_DIGEST'/);
   const svc = fs.readFileSync('src/services/notification/ops-weekly-digest.service.ts', 'utf8');
   assert.match(svc, /renderEmailByCode\(OPS_DIGEST_TEMPLATE_CODE/);
-  assert.match(svc, /audience: 'SOD_PROJECT'/);
+  assert.match(svc, /audience: 'OPS_DIGEST'/); // its own audience: the company managers, not every engineer who holds SOD_PROJECT
   assert.match(svc, /dedupKey: `ops-weekly-digest:\$\{week\}`/);
 });
 
