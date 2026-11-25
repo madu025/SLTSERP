@@ -6,6 +6,7 @@ new developer or an AI assistant would need to know. Refresh `docs/ai-handover.m
 
 ## Authorization (RBAC)
 
+- **25 Nov** The Head of Section now holds `scope.inventory.all` like the OSP Manager, so both see every site office store without being assigned one by one (found by the procure-to-pay test: the approval stage of a purchase request refused a Head of Section with no store, `STORE_SCOPE_VIOLATION`). Takes effect when the RBAC seed has run.
 - **24 Nov** Menu levels (view / operate / invoice / approve / admin, per module) are now capabilities `menu.<module>.<level>`, held through
   roles in the database. The starting levels are `BOOTSTRAP_MENU_LEVELS` in `src/config/rbac-bootstrap.ts`. `src/config/menu-access.ts` has no
   role names. The first page after sign-in is `landingPath()` (`src/config/landing.ts`) from capabilities (contractor portal, stores, dashboard).
