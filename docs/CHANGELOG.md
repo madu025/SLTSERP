@@ -6,6 +6,7 @@ new developer or an AI assistant would need to know. Refresh `docs/ai-handover.m
 
 ## Authorization (RBAC)
 
+- **25 Nov** Polish, module 2 (dashboard): Office Admin, Office Admin Assistant and Site Office Staff hold no dashboard tab; the page fell back to the Operations tab, whose data needs `sod.read`, so they saw an error. They now get "Where you work" (petty cash, support tickets, fleet, notifications; `src/config/dashboard-quick-start.ts`), and the operations figures are fetched only for a person who holds `sod.read`.
 - **25 Nov** Polish, module 1 (authorization core): `scripts/page-api-audit.ts` checks every page against the capability of each API it calls (designation roles take their base role's grants, as the seed does); `tests/unit/page-api-capability.test.ts` fails on a NEW page/API mismatch (the 57 known ones, mostly dashboard widgets behind tabs and admin-only helper lists, are in `tests/unit/fixtures/page-api-baseline.json`); the rate matrix is read by finance approvers and SF audit, changed by the administrator only; every non-public page has a page rule (`/gis` now needs `project.read`, `/gis/upload` `project.write`).
 - **24 Nov** Menu levels (view / operate / invoice / approve / admin, per module) are now capabilities `menu.<module>.<level>`, held through
   roles in the database. The starting levels are `BOOTSTRAP_MENU_LEVELS` in `src/config/rbac-bootstrap.ts`. `src/config/menu-access.ts` has no
