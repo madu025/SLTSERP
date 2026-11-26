@@ -275,8 +275,11 @@ export class PurchaseOrderService {
             AuditService.log({ userId, action: 'SOD_VIOLATION_BLOCKED', entity: 'PURCHASE_ORDER', entityId: poId, newValue: { reason: 'creator tried to approve own purchase order', stage } }).catch(() => undefined);
             throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: the person who raised a purchase order cannot approve it');
         }
-        const earlier = await prisma.purchaseOrderApproval.count({ where: { purchaseOrderId: poId, actorId: userId, action: 'APPROVED' } });
-        if (earlier > 0) throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: you have already approved an earlier step of this order; the next step needs a different person');
+        // Within the current pass of the chain (since it was last submitted or restarted) one person signs one step only.
+        // Approving the same step again after a return is allowed: the order came back to that step.
+        const passStart = await prisma.purchaseOrderApproval.findFirst({ where: { purchaseOrderId: poId, action: { in: ['SUBMITTED', 'RESET'] } }, orderBy: { seq: 'desc' }, select: { seq: true } });
+        const otherStep = await prisma.purchaseOrderApproval.count({ where: { purchaseOrderId: poId, actorId: userId, action: 'APPROVED', seq: { gt: passStart?.seq ?? 0 }, stage: { not: stage } } });
+        if (otherStep > 0) throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: you have already approved another step of this order; this step needs a different person');
         const next = nextStage(stage);
         const amount = Number(po.totalAmount);
         const note = assertRemarks('APPROVED', remarks);

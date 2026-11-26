@@ -24,7 +24,7 @@ interface InvoiceRow {
 const th = 'py-2 pr-3 text-left text-slate-900';
 const STATUS_TONE: Record<string, string> = {
     MATCHED: 'bg-emerald-100 text-emerald-900', VARIANCE: 'bg-amber-100 text-amber-900', APPROVED: 'bg-blue-100 text-blue-900',
-    PAID: 'bg-slate-200 text-slate-900', PARTIALLY_PAID: 'bg-indigo-100 text-indigo-900', REJECTED: 'bg-red-100 text-red-900', DRAFT: 'bg-slate-100 text-slate-900',
+    AWAITING_EXECUTIVE: 'bg-violet-100 text-violet-900', PAID: 'bg-slate-200 text-slate-900', PARTIALLY_PAID: 'bg-indigo-100 text-indigo-900', REJECTED: 'bg-red-100 text-red-900', DRAFT: 'bg-slate-100 text-slate-900',
 };
 const RESULT_TONE: Record<string, string> = { MATCHED: 'text-emerald-800', PRICE_VARIANCE: 'text-amber-800', QTY_OVER_RECEIVED: 'text-red-800', NOT_RECEIVED: 'text-red-800' };
 
@@ -165,9 +165,9 @@ export default function SupplierInvoicesPage() {
                                                     <span className={`rounded px-2 py-0.5 font-semibold ${STATUS_TONE[r.matchStatus] ?? ''}`} data-testid="inv-match">{r.matchStatus}</span>
                                                     {r.matchStatus !== 'MATCHED' && r.matchDetail?.lines?.filter((l) => l.result !== 'MATCHED').map((l) => <div key={l.poItemId} className={`text-[11px] ${RESULT_TONE[l.result] ?? ''}`}>{l.description}: {l.result.replace(/_/g, ' ').toLowerCase()}{l.priceVariancePct !== null && l.result === 'PRICE_VARIANCE' ? ` (${l.priceVariancePct}%)` : ''}</div>)}
                                                 </td>
-                                                <td className="py-2 pr-3"><span className={`rounded px-2 py-0.5 font-semibold ${STATUS_TONE[r.status] ?? ''}`} data-testid="inv-status">{r.status}</span></td>
+                                                <td className="py-2 pr-3"><span className={`rounded px-2 py-0.5 font-semibold ${STATUS_TONE[r.status] ?? ''}`} data-testid="inv-status">{r.status === 'AWAITING_EXECUTIVE' ? 'AWAITING CEO APPROVAL' : r.status}</span></td>
                                                 <td className="py-2 text-right whitespace-nowrap">
-                                                    {['MATCHED', 'VARIANCE', 'DRAFT'].includes(r.status) && <>
+                                                    {['MATCHED', 'VARIANCE', 'DRAFT', 'AWAITING_EXECUTIVE'].includes(r.status) && <>
                                                         <button data-testid="inv-approve" onClick={() => approve(r)} className="mr-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-900 hover:bg-emerald-100">Approve</button>
                                                         <button data-testid="inv-reject" onClick={() => reject(r)} className="rounded border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-bold text-red-900 hover:bg-red-100">Reject</button>
                                                     </>}

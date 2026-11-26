@@ -52,6 +52,13 @@ export const GET = apiHandler(async (req, params) => {
 export const POST = apiHandler(async (_req, params, body: z.infer<typeof bodySchema>) => {
     const userId = params._userId;
     if (!userId) throw AppError.unauthorized('Authentication required');
+    // Approving or returning needs only the capability of the step the order waits at (checked by the service): the Finance Manager
+    // signs step 3 without procurement.write. Everything else (raise, amend, resubmit, issue, cancel, close) needs procurement.write.
+    const perms = params._permissions ?? [];
+    const isStepAction = body.action === 'APPROVE' || body.action === 'RETURN';
+    if (!isStepAction && !perms.includes(RBAC_PERMISSIONS.PROCUREMENT_WRITE) && !perms.includes(RBAC_PERMISSIONS.ADMIN_RBAC)) {
+        throw AppError.forbidden('This purchase order action needs procurement write access');
+    }
     switch (body.action) {
         case 'CREATE': return PurchaseOrderService.createStorePo({ ...body, userId });
         case 'AMEND': return PurchaseOrderService.amendStorePo({ ...body, userId });
@@ -64,6 +71,6 @@ export const POST = apiHandler(async (_req, params, body: z.infer<typeof bodySch
     }
 }, {
     schema: bodySchema,
-    permissions: [RBAC_PERMISSIONS.PROCUREMENT_WRITE],
+    permissions: [RBAC_PERMISSIONS.PROCUREMENT_WRITE, RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L1, RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L2, RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L3],
     audit: { action: 'STORE_PO_ACTION', entity: 'PURCHASE_ORDER', entityIdParam: 'poId' },
 });

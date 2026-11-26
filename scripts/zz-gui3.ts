@@ -78,6 +78,10 @@ async function main() {
     await mk('mgr', 'STORES_MANAGER', main.id);
     await mk('fm', 'FINANCE_MANAGER', null);
     await mk('hos', 'HEAD_OF_SECTION', main.id);
+    // the purchase order chain: step 1 OSP Manager, step 2 Head of OSP, step 3 Finance Manager (fm); the CEO gives the second approval of a payment above 5M
+    await mk('osp', 'OSP_MANAGER', main.id);
+    await mk('hosp', 'HEAD_OF_OSP', main.id);
+    await mk('ceo', 'CEO', main.id);
 
     // the purchase request goes through its approval chain (as in the procure-to-pay run)
     const req: any = await InventoryService.createStockRequest({ fromStoreId: main.id, sourceType: 'LOCAL_PURCHASE', requestedById: users.exec, priority: 'NORMAL', purpose: 'ZZG3 procurement browser pass', items: [{ itemId: itemA.id, requestedQty: 100 }, { itemId: itemB.id, requestedQty: 50 }] } as any);
@@ -89,8 +93,8 @@ async function main() {
         }
     }
     const reqRow: any = await prisma.stockRequest.findUniqueOrThrow({ where: { id: req.id }, include: { items: true } });
-    // a large price so that the order needs an approver
-    const lines = [{ requestItemId: reqRow.items.find((i: any) => i.itemId === itemA.id).id, quantity: 100, unitPrice: 25000, taxAmount: 450000 }, { requestItemId: reqRow.items.find((i: any) => i.itemId === itemB.id).id, quantity: 50, unitPrice: 8000, taxAmount: 72000 }];
+    // above 5 million even without tax (the invoice form leaves tax empty), so that the supplier invoice also needs the CEO's second approval
+    const lines = [{ requestItemId: reqRow.items.find((i: any) => i.itemId === itemA.id).id, quantity: 100, unitPrice: 55000, taxAmount: 450000 }, { requestItemId: reqRow.items.find((i: any) => i.itemId === itemB.id).id, quantity: 50, unitPrice: 8000, taxAmount: 72000 }];
     const po: any = await PurchaseOrderService.createStorePo({ requestId: req.id, userId: users.proc, vendorId: vendor.id, lines });
     fs.writeFileSync(MANIFEST, JSON.stringify({ tag: TAG, users, stores: [main.id, sub.id], items: [itemA.id, itemB.id], vendor: vendor.id, vendorName: vendor.name, requestId: req.id, requestNr: reqRow.requestNr, poId: po.id, poNumber: po.poNumber }));
     console.log(JSON.stringify({ tag: TAG, request: reqRow.requestNr, requestStatus: reqRow.status, po: po.poNumber, poStatus: po.status, poTotal: num(po.totalAmount), logins: Object.keys(users).map((k) => `zzg3_${k}`) }));

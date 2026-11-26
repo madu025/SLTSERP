@@ -266,6 +266,10 @@ export class SupplierInvoiceService {
             }
             if (invoice.financeApprovedById === userId) throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: the executive approval must be given by a different person from the finance approval');
         }
+        // the first (or only) approval is the finance approval; the executive capability alone only completes an invoice that waits for it
+        if (invoice.status !== 'AWAITING_EXECUTIVE' && !isAdmin && !(await userHasPermission(userId, RBAC_PERMISSIONS.FINANCE_APPROVE))) {
+            throw AppError.forbidden('Approving a supplier invoice needs finance approval access');
+        }
         if (invoice.category === 'PO_GOODS' && invoice.matchStatus !== 'MATCHED' && !(overrideReason && overrideReason.trim().length >= 5) && !(invoice.status === 'AWAITING_EXECUTIVE' && invoice.overrideReason)) {
             throw AppError.badRequest('MATCH_OVERRIDE_REASON_REQUIRED: this invoice does not match the order and receipts; give a reason to approve it');
         }

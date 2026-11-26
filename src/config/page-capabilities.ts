@@ -40,7 +40,9 @@ const PAGE_RULES: ReadonlyArray<{ prefix: string; permission: RbacPermission }> 
     { prefix: '/inventory/admin/virtual-swap', permission: RBAC_PERMISSIONS.INVENTORY_MASTER },
     { prefix: '/inventory/admin/pre-erp-reconciliation', permission: RBAC_PERMISSIONS.INVENTORY_MASTER },
     { prefix: '/inventory', permission: RBAC_PERMISSIONS.INVENTORY_READ },
-    { prefix: '/procurement/orders', permission: RBAC_PERMISSIONS.PROCUREMENT_WRITE },
+    // Order Processing and the order history page: the Finance Manager signs step 3 of the PO chain and only holds procurement.read.
+    // Every action is checked by the API (procurement.write for raising and issuing, the step capability for each approval).
+    { prefix: '/procurement/orders', permission: RBAC_PERMISSIONS.PROCUREMENT_READ },
     { prefix: '/procurement', permission: RBAC_PERMISSIONS.PROCUREMENT_READ },
     { prefix: '/helpdesk/tickets/new', permission: RBAC_PERMISSIONS.HELPDESK_TICKET_CREATE },
     { prefix: '/helpdesk/assets/audits', permission: RBAC_PERMISSIONS.HELPDESK_APPROVE },

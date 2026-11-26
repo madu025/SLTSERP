@@ -73,11 +73,12 @@ export const POST = apiHandler(async (_req, params, body: z.infer<typeof bodySch
             if (!can(RBAC_PERMISSIONS.PROCUREMENT_WRITE) && !can(RBAC_PERMISSIONS.FINANCE_APPROVE)) throw AppError.forbidden('You cannot reject supplier invoices');
             return SupplierInvoiceService.reject(body.id, userId, body.reason);
         case 'APPROVE':
-            if (!can(RBAC_PERMISSIONS.FINANCE_APPROVE)) throw AppError.forbidden('Approving a supplier invoice needs finance approval access');
+            // finance approval, or the executive's second approval of an invoice above the threshold (the service checks which one applies)
+            if (!can(RBAC_PERMISSIONS.FINANCE_APPROVE) && !can(RBAC_PERMISSIONS.PROCUREMENT_INVOICE_APPROVE_EXECUTIVE)) throw AppError.forbidden('Approving a supplier invoice needs finance approval access');
             return SupplierInvoiceService.approve(body.id, userId, body.overrideReason);
     }
 }, {
     schema: bodySchema,
-    permissions: [RBAC_PERMISSIONS.PROCUREMENT_WRITE, RBAC_PERMISSIONS.FINANCE_WRITE, RBAC_PERMISSIONS.FINANCE_APPROVE],
+    permissions: [RBAC_PERMISSIONS.PROCUREMENT_WRITE, RBAC_PERMISSIONS.FINANCE_WRITE, RBAC_PERMISSIONS.FINANCE_APPROVE, RBAC_PERMISSIONS.PROCUREMENT_INVOICE_APPROVE_EXECUTIVE],
     audit: { action: 'SUPPLIER_INVOICE_ACTION', entity: 'SUPPLIER_INVOICE', entityIdParam: 'id' },
 });

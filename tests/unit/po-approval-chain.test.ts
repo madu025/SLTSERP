@@ -92,7 +92,7 @@ test('the service enforces maker-checker, distinct approvers, remarks and the st
     assert.match(svc, /status: 'PENDING_APPROVAL',\s*\n\s*approvalStage: FIRST_PO_STAGE,\s*\n\s*createdById: userId/, 'every new order enters the chain at step 1 whatever its value');
     assert.doesNotMatch(svc, /autoApproves/, 'no order is approved on creation any more');
     assert.match(svc, /po\.createdById && po\.createdById === userId/, 'the person who raised the order cannot approve it');
-    assert.match(svc, /purchaseOrderApproval\.count\(\{ where: \{ purchaseOrderId: poId, actorId: userId, action: 'APPROVED' \}/, 'nobody approves two steps of one order');
+    assert.match(svc, /actorId: userId, action: 'APPROVED', seq: \{ gt: passStart\?\.seq \?\? 0 \}, stage: \{ not: stage \}/, 'nobody approves two different steps in one pass; re-approving the same step after a return is allowed');
     assert.match(svc, /PO_STAGE_PERMISSION\[stage\]/, 'the step capability is checked');
     assert.match(svc, /assertRemarks\('RETURNED', remarks\)/, 'a return needs remarks');
     assert.match(svc, /approvalStage: po\.approvalStage/, 'the step is part of the claim, so two approvers cannot both take the same step');
@@ -119,4 +119,15 @@ test('a supplier invoice above the threshold needs a second, different, executiv
     const cfg = read('src/services/core/system-config.service.ts');
     assert.match(cfg, /PROCUREMENT_CEO_APPROVAL_THRESHOLD: map\.PROCUREMENT_CEO_APPROVAL_THRESHOLD \|\| '5000000'/, 'the default is 5 million and the admin can change it');
     assert.match(read('src/app/admin/settings/page.tsx'), /PROCUREMENT_CEO_APPROVAL_THRESHOLD/, 'it is editable in the admin settings');
+});
+
+test('the step approvers can reach the order screen and act without procurement.write (found in the browser pass)', () => {
+    const pages = read('src/config/page-capabilities.ts');
+    assert.match(pages, /prefix: '\/procurement\/orders', permission: RBAC_PERMISSIONS\.PROCUREMENT_READ/, 'the Finance Manager (read only) must open Order Processing to sign step 3');
+    const route = read('src/app/api/procurement/purchase-orders/route.ts');
+    assert.match(route, /const isStepAction = body\.action === 'APPROVE' \|\| body\.action === 'RETURN';/);
+    assert.match(route, /!isStepAction && !perms\.includes\(RBAC_PERMISSIONS\.PROCUREMENT_WRITE\)/, 'raising, issuing and cancelling still need procurement.write');
+    assert.match(route, /PROCUREMENT_PO_APPROVE_L3\]/, 'a step holder passes the route guard');
+    const inv = read('src/app/procurement/invoices/page.tsx');
+    assert.match(inv, /\['MATCHED', 'VARIANCE', 'DRAFT', 'AWAITING_EXECUTIVE'\]\.includes\(r\.status\)/, 'the CEO sees the approve button on an invoice that waits for them');
 });
