@@ -33,7 +33,8 @@ export type DailyJobType =
     | 'OPS_WEEKLY_DIGEST'
     | 'SUPPLY_CHAIN_ALERTS'
     | 'ROP_RECALC'
-    | 'APPROVAL_SLA';
+    | 'APPROVAL_SLA'
+    | 'PO_PAYMENT_REMINDERS';
 
 export interface SyncJobData {
     opmcId: string;

@@ -127,7 +127,7 @@ test('the step approvers can reach the order screen and act without procurement.
     const route = read('src/app/api/procurement/purchase-orders/route.ts');
     assert.match(route, /const isStepAction = body\.action === 'APPROVE' \|\| body\.action === 'RETURN';/);
     assert.match(route, /!isStepAction && !perms\.includes\(RBAC_PERMISSIONS\.PROCUREMENT_WRITE\)/, 'raising, issuing and cancelling still need procurement.write');
-    assert.match(route, /PROCUREMENT_PO_APPROVE_L3, RBAC_PERMISSIONS\.FINANCE_WRITE\]/, 'a step holder passes the route guard');
+    assert.match(route, /PROCUREMENT_PO_APPROVE_L3\]/, 'a step holder passes the route guard');
     const inv = read('src/app/procurement/invoices/page.tsx');
     assert.match(inv, /\['MATCHED', 'VARIANCE', 'DRAFT', 'AWAITING_EXECUTIVE'\]\.includes\(r\.status\)/, 'the CEO sees the approve button on an invoice that waits for them');
 });

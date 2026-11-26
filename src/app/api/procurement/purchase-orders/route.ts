@@ -25,6 +25,8 @@ const createSchema = z.object({
     lines: z.array(line).min(1),
     // HO mode: the approval given in the HO system (required in that mode, checked by the service)
     ho: z.object({ ref: z.string().max(100), date: z.string().max(40), approvedBy: z.string().max(200), documentUrl: z.string().max(1000) }).nullish(),
+    // HO mode: how the order is paid (checked by the service)
+    credit: z.object({ basis: z.string().max(20), creditDays: z.union([z.number(), z.string()]).nullish(), dueDate: z.string().max(40).nullish() }).nullish(),
 });
 
 const amendSchema = z.object({
@@ -40,9 +42,8 @@ const simple = z.object({ action: z.enum(['ISSUE', 'CLOSE']), poId: databaseUuid
 const approveSchema = z.object({ action: z.enum(['APPROVE', 'RESUBMIT']), poId: databaseUuidSchema, remarks: z.string().max(500).nullish() });
 const returnSchema = z.object({ action: z.literal('RETURN'), poId: databaseUuidSchema, remarks: z.string().min(3).max(500) });
 const cancelSchema = z.object({ action: z.literal('CANCEL'), poId: databaseUuidSchema, reason: z.string().min(3).max(500) });
-const hoPaymentSchema = z.object({ action: z.literal('RECORD_HO_PAYMENT'), poId: databaseUuidSchema, invoiceRef: z.string().max(100).nullish(), paymentRef: z.string().min(3).max(100), paidAt: z.string().max(40) });
 
-const bodySchema = z.discriminatedUnion('action', [createSchema, amendSchema, simple, approveSchema, returnSchema, cancelSchema, hoPaymentSchema]);
+const bodySchema = z.discriminatedUnion('action', [createSchema, amendSchema, simple, approveSchema, returnSchema, cancelSchema]);
 
 // GET /api/procurement/purchase-orders?status=&vendorId=
 // Store purchase orders in the caller's stores, newest first.
@@ -61,11 +62,6 @@ export const POST = apiHandler(async (_req, params, body: z.infer<typeof bodySch
     // signs step 3 without procurement.write. Everything else (raise, amend, resubmit, issue, cancel, close) needs procurement.write.
     const perms = params._permissions ?? [];
     const isStepAction = body.action === 'APPROVE' || body.action === 'RETURN';
-    // the HO payment may be recorded by procurement or by finance
-    if (body.action === 'RECORD_HO_PAYMENT') {
-        if (![RBAC_PERMISSIONS.PROCUREMENT_WRITE, RBAC_PERMISSIONS.FINANCE_WRITE, RBAC_PERMISSIONS.ADMIN_RBAC].some((p) => perms.includes(p))) throw AppError.forbidden('Recording an HO payment needs procurement or finance write access');
-        return PurchaseOrderService.recordHoPayment({ poId: body.poId, userId, invoiceRef: body.invoiceRef, paymentRef: body.paymentRef, paidAt: body.paidAt });
-    }
     if (!isStepAction && !perms.includes(RBAC_PERMISSIONS.PROCUREMENT_WRITE) && !perms.includes(RBAC_PERMISSIONS.ADMIN_RBAC)) {
         throw AppError.forbidden('This purchase order action needs procurement write access');
     }
@@ -82,6 +78,6 @@ export const POST = apiHandler(async (_req, params, body: z.infer<typeof bodySch
     return null;
 }, {
     schema: bodySchema,
-    permissions: [RBAC_PERMISSIONS.PROCUREMENT_WRITE, RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L1, RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L2, RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L3, RBAC_PERMISSIONS.FINANCE_WRITE],
+    permissions: [RBAC_PERMISSIONS.PROCUREMENT_WRITE, RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L1, RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L2, RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L3],
     audit: { action: 'STORE_PO_ACTION', entity: 'PURCHASE_ORDER', entityIdParam: 'poId' },
 });

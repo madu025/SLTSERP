@@ -6,6 +6,7 @@ import { AuditService } from '@/services/audit/audit.service';
 import { canTransitionPo, computePoTotals, isPoEditable, normalizePoStatus, valueAmendment, validatePoLine, type PoStatus } from '@/lib/procurement-rules';
 import { FIRST_PO_STAGE, PO_APPROVAL_MODE_KEY, PO_STAGE_LABEL, PO_STAGE_PERMISSION, assertRemarks, hoClearingDelta, isPoStage, nextStage, poApprovalMode, previousStage, validateHoEvidence, type HoEvidence, type PoApprovalAction, type PoApprovalMode, type PoStage } from '@/lib/po-approval-chain';
 import { SystemConfigService } from '@/services/core/system-config.service';
+import { validateCreditTerms, type CreditTerms } from '@/lib/po-payables';
 import { LedgerService } from '@/services/finance/ledger.service';
 import { ACCOUNTS } from '@/services/finance/account-codes';
 import { approvalEntryHash, firstBrokenEntry } from '@/lib/po-approval-hash';
@@ -23,9 +24,10 @@ export interface CreateStorePoInput {
     lines: { requestItemId: string; quantity: number; unitPrice: number; taxAmount?: number }[];
     /** HO mode: the approval given in the HO system (reference, date, approver, scanned document). Required in that mode. */
     ho?: HoEvidence | null;
+    /** HO mode: how the order is paid (on credit with credit days or a due date, advance, on delivery). Required in that mode. */
+    credit?: CreditTerms | null;
 }
 
-export interface HoPaymentInput { poId: string; userId: string; invoiceRef?: string | null; paymentRef: string; paidAt: string }
 
 export interface AmendStorePoInput {
     poId: string;
@@ -112,7 +114,10 @@ export class PurchaseOrderService {
         if (mode === 'HO_DOCUMENTS') {
             const err = validateHoEvidence(ho);
             if (err) throw AppError.badRequest(`HO_APPROVAL_EVIDENCE_REQUIRED: ${err}`);
+            const termsErr = validateCreditTerms(input.credit);
+            if (termsErr) throw AppError.badRequest(`CREDIT_TERMS_REQUIRED: ${termsErr}`);
         }
+        const credit = input.credit && !validateCreditTerms(input.credit) ? input.credit : null;
         const recordedFromHo = mode === 'HO_DOCUMENTS' && ho;
 
         const po = await prisma.$transaction(async (tx) => {
@@ -134,6 +139,11 @@ export class PurchaseOrderService {
                         hoApprovalDate: new Date(ho!.date as string),
                         hoApprovedBy: ho!.approvedBy!.trim(),
                         hoDocumentUrl: ho!.documentUrl!.trim(),
+                    } : {}),
+                    ...(credit ? {
+                        paymentBasis: credit.basis,
+                        creditDays: credit.creditDays !== null && credit.creditDays !== undefined && String(credit.creditDays).trim() !== '' ? Number(credit.creditDays) : null,
+                        paymentDueDate: credit.dueDate ? new Date(credit.dueDate) : null,
                     } : {}),
                     currency: (input.currency || 'LKR').toUpperCase().slice(0, 3),
                     subtotal: totals.subtotal,
@@ -269,7 +279,7 @@ export class PurchaseOrderService {
      * Adds one entry to the order's append-only approval log (hash-chained, so a change to an earlier entry is detectable).
      * The unique (order, seq) key makes two writers racing for the same place fail instead of forking the chain.
      */
-    private static async appendApproval(client: Omit<typeof prisma, '$connect' | '$disconnect' | '$on' | '$transaction' | '$extends'>, poId: string, e: { stage: string | null; action: PoApprovalAction; actorId: string; amount: number; remarks: string | null }) {
+    static async appendApproval(client: Omit<typeof prisma, '$connect' | '$disconnect' | '$on' | '$transaction' | '$extends'>, poId: string, e: { stage: string | null; action: PoApprovalAction; actorId: string; amount: number; remarks: string | null }) {
         const last = await client.purchaseOrderApproval.findFirst({ where: { purchaseOrderId: poId }, orderBy: { seq: 'desc' }, select: { seq: true, hash: true } });
         const seq = (last?.seq ?? 0) + 1;
         const createdAt = new Date();
@@ -429,6 +439,7 @@ export class PurchaseOrderService {
                 orderDate: po.orderDate, expectedDelivery: po.expectedDelivery, requestNr: po.stockRequest.requestNr,
                 ho: po.hoApprovalRef ? { approvalRef: po.hoApprovalRef, approvalDate: po.hoApprovalDate, approvedBy: po.hoApprovedBy, documentUrl: po.hoDocumentUrl } : null,
                 hoPayment: po.hoPaymentRef ? { invoiceRef: po.hoInvoiceRef, paymentRef: po.hoPaymentRef, paidAt: po.hoPaidAt, cleared: Number(po.hoClearedAmount) } : null,
+                credit: po.paymentBasis ? { basis: po.paymentBasis, creditDays: po.creditDays, dueDate: po.paymentDueDate } : null,
                 values: (() => {
                     const ordered = po.items.reduce((a, l) => a + Number(l.quantity) * Number(l.unitPrice), 0);
                     const received = po.items.reduce((a, l) => a + Number(l.receivedQty) * Number(l.unitPrice), 0);
@@ -445,49 +456,6 @@ export class PurchaseOrderService {
             invoices: po.supplierInvoices.map((i) => ({ id: i.id, invoiceNumber: i.invoiceNumber, total: Number(i.totalAmount), status: i.status, match: i.matchStatus, enteredBy: name(i.createdById), financeApprovedBy: name(i.financeApprovedById), financeApprovedAt: i.financeApprovedAt, approvedBy: name(i.approvedById), approvedAt: i.approvedAt, overrideReason: i.overrideReason, rejectionReason: i.rejectionReason })),
             auditTrail: trail.map((t) => ({ at: t.createdAt, action: t.action, entity: t.entity, by: name(t.userId), detail: t.newValue })),
         };
-    }
-
-    /** Value received against the order: each receipt line at the price it was received at (the PO price). */
-    private static async receivedValue(poId: string): Promise<number> {
-        const ids = (await prisma.purchaseOrderItem.findMany({ where: { purchaseOrderId: poId }, select: { id: true } })).map((i) => i.id);
-        const lines = await prisma.gRNItem.findMany({ where: { poItemId: { in: ids } }, select: { quantity: true, unitPrice: true } });
-        return Math.round(lines.reduce((a, l) => a + Number(l.quantity) * Number(l.unitPrice ?? 0), 0) * 100) / 100;
-    }
-
-    /**
-     * HO paid the supplier: record the HO invoice and payment reference on the order (information for OSP and stores), and clear the
-     * goods-received-not-invoiced balance of what has been received so far against the HO current account. Recording again after more
-     * goods arrive clears only the difference. Not allowed when the order was already invoiced and approved in Nexus (that clears it too).
-     */
-    static async recordHoPayment(input: HoPaymentInput) {
-        const paymentRef = (input.paymentRef ?? '').trim();
-        if (paymentRef.length < 3) throw AppError.badRequest('Enter the HO payment reference');
-        const paidAt = new Date(input.paidAt);
-        if (Number.isNaN(paidAt.getTime()) || paidAt.getTime() > Date.now() + 86_400_000) throw AppError.badRequest('Enter a valid payment date (not in the future)');
-        const po = await this.loadEditable(input.poId);
-        await this.assertStoreAccess(input.userId, po.stockRequest.fromStoreId, po.stockRequest.toStoreId);
-        if (['CANCELLED', 'PENDING_APPROVAL', 'RETURNED'].includes(normalizePoStatus(po.status))) throw AppError.badRequest('A payment can only be recorded on an approved order');
-        const invoiced = await prisma.supplierInvoice.count({ where: { storePoId: po.id, status: { in: ['AWAITING_EXECUTIVE', 'APPROVED', 'PARTIALLY_PAID', 'PAID'] } } });
-        if (invoiced > 0) throw AppError.badRequest('This order was invoiced and approved in Nexus; its payable is handled there');
-        const received = await this.receivedValue(po.id);
-        const delta = hoClearingDelta(received, Number(po.hoClearedAmount ?? 0));
-        const cleared = Math.round((Number(po.hoClearedAmount ?? 0) + delta) * 100) / 100;
-        await prisma.$transaction(async (tx) => {
-            await tx.purchaseOrder.update({ where: { id: po.id }, data: { hoInvoiceRef: input.invoiceRef?.trim() || po.hoInvoiceRef || null, hoPaymentRef: paymentRef, hoPaidAt: paidAt, hoClearedAmount: cleared } });
-            if (delta > 0) {
-                await LedgerService.postTransaction(tx, {
-                    referenceId: po.id, referenceType: 'PURCHASE_ORDER', idempotencyKey: `HO_PAYMENT_${po.id}_${cleared.toFixed(2)}`, isAutoGenerated: true, date: paidAt,
-                    description: `HO paid ${po.vendor} for ${po.poNumber} (${paymentRef})`,
-                    lines: [
-                        { accountCode: ACCOUNTS.AP_ACCRUED, debit: delta, credit: 0, description: `Goods received on ${po.poNumber}, paid by HO` },
-                        { accountCode: ACCOUNTS.HO_CURRENT, debit: 0, credit: delta, description: `Owed to HO: payment ${paymentRef}` },
-                    ],
-                });
-            }
-            await this.appendApproval(tx, po.id, { stage: null, action: 'HO_PAYMENT', actorId: input.userId, amount: Number(po.totalAmount), remarks: `HO payment ${paymentRef}${input.invoiceRef ? ', invoice ' + input.invoiceRef.trim() : ''}, cleared ${delta.toFixed(2)} of ${received.toFixed(2)} received` });
-        }, { maxWait: 10_000, timeout: 30_000 });
-        AuditService.log({ userId: input.userId, action: 'RECORD_HO_PAYMENT', entity: 'PURCHASE_ORDER', entityId: po.id, newValue: { paymentRef, invoiceRef: input.invoiceRef ?? null, paidAt, received, cleared, delta } }).catch(() => undefined);
-        return prisma.purchaseOrder.findUniqueOrThrow({ where: { id: po.id }, include: { items: true } });
     }
 
     /**

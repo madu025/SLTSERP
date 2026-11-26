@@ -45,3 +45,40 @@ Owner decisions (26 Nov 2026):
 - Unit tests for the mode switch, required HO evidence, multi-PO GRN and over-receipt per line.
 - Browser pass by the real roles on ZZTEST data: Procurement Officer records two POs with documents, the Stores Executive receives both on one GRN,
   stock and values are checked, the PO history page shows the document.
+
+---
+
+# Phase D (built 26 Nov 2026): credit purchases through HO, due dates, part payments, payable balance
+
+Owner decisions (26 Nov 2026): the Procurement Officer enters the credit terms and due date on the PO (HO Finance entering it would break the chain);
+HO pays at once or in several parts (HO Finance decides); who records the HO payment is to be decided from this plan.
+
+## What already exists (reuse, do not duplicate)
+
+| Piece | Today | Limit for HO-mode orders |
+|---|---|---|
+| Vendor payment terms | `Vendor.paymentTerms` text ("Net 30"), `dueDateFrom()` in `procurement-rules.ts` | Used only for a Nexus supplier invoice |
+| Supplier invoice due date | `SupplierInvoice.dueDate` | HO-mode orders have no Nexus invoice |
+| Vendor statement `/finance/vendor-statement` | Invoices, paid vouchers, debit notes, running balance, overdue | Does not see HO-mode orders or HO payments |
+| AP aging `/finance/ap/aging` | Buckets by invoice date, reconciles to GL AP-2010 / AP-VEND-2010 | Ages by invoice date, not due date; no HO-mode orders |
+| HO payment of a voucher | `PaymentVoucher` -> HO batch -> HO confirms PAID with reference | Needs a Nexus supplier invoice; one payment per voucher |
+| Planned part payments | `docs/plans/ho-payment-flow.md` section 3.3 `HoPaymentInstallment` (not built) | Planned for vouchers only |
+| Built today | PO HO fields, one "Record HO payment" per PO, clears GR/IR to HO-2020 | One payment only, no due date, no verification |
+
+## Design
+
+D1. Credit terms on the PO (Procurement Officer, required in HO mode): payment basis (CREDIT / ADVANCE / ON_DELIVERY), credit days, due date
+    (filled from goods-received date + credit days, or typed from the HO document), HO credit reference.
+D2. One payments table for both kinds of payable: build the planned `HoPaymentInstallment` once, linked to a purchase order (HO mode) or a voucher (later).
+    Each row: amount, paid date, reference (cheque / transfer), method, recorded by, verified by, status (RECORDED -> VERIFIED, or REJECTED with remarks).
+    The sum of verified rows can never exceed what is payable on the order. Replaces today's single "Record HO payment".
+D3. Who records: an OSP Finance Officer seated at HO (a designation, capability `procurement.ho.payment.record`) records each payment as HO makes it;
+    the OSP Finance Manager verifies it (`procurement.ho.payment.verify`, a different person). Only a verified payment posts to the ledger.
+D4. Ledger, per verified payment: up to the received value not yet cleared, DR GR/IR AP-2010 / CR HO current HO-2020; any part paid before the goods arrive
+    is an advance, DR Advances ADV-1210 / CR HO-2020, moved to GR/IR when the goods are received. The OSP account then balances against HO-2020.
+D5. Reports, extended not duplicated: the vendor statement and AP aging also show HO-mode orders (received, paid, balance, due date, overdue days) and age by
+    due date; the PO history page shows the payment schedule and balance.
+D6. Reminders through the existing automated notices: payments due in 7 days and overdue go to OSP Finance (email template wired as the mandate requires).
+D7. Migration: PO credit fields; the installments table. RBAC seed: the two capabilities and the HO-desk designation.
+D8. Tests: unit rules (payable cap, advance then receipt, maker-checker), and a browser pass: PO with 60 credit days -> GRN -> two part payments recorded at HO
+    -> verified -> statement, aging, ledger and OSP balance agree.

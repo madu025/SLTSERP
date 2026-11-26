@@ -562,6 +562,15 @@ model PurchaseOrder {
   hoPaidAt           DateTime?
   /// Received value already cleared against the HO current account (so a later receipt clears only the difference)
   hoClearedAmount    Decimal           @default(0) @db.Decimal(14, 2)
+  /// Credit terms entered by the Procurement Officer (HO mode): CREDIT | ADVANCE | ON_DELIVERY, credit days, and a due date typed from the HO document
+  paymentBasis       String?
+  creditDays         Int?
+  paymentDueDate     DateTime?
+  /// Paid by HO before the goods arrived and not yet matched to a receipt (Advances ADV-1210); moved to GR/IR as goods are received
+  hoAdvanceAmount    Decimal           @default(0) @db.Decimal(14, 2)
+  /// Tax on the order paid by HO (input VAT)
+  hoTaxPaid          Decimal           @default(0) @db.Decimal(14, 2)
+  hoPayments         HoPaymentInstallment[]
   supplierInvoices   SupplierInvoice[]
   approvals          PurchaseOrderApproval[]
 
@@ -575,6 +584,39 @@ model PurchaseOrder {
   updatedAt DateTime @updatedAt
 
   @@index([stockRequestId])
+}
+
+/// One payment by HO to a supplier (full or one part). Recorded by the OSP Finance Officer at HO, verified by the OSP Finance Manager (a different
+/// person); only a verified payment is posted to the ledger. Linked to a purchase order (HO mode) or, later, to a payment voucher.
+model HoPaymentInstallment {
+  id               String         @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  purchaseOrderId  String?        @db.Uuid
+  paymentVoucherId String?        @db.Uuid
+  amount           Decimal        @db.Decimal(14, 2)
+  paidDate         DateTime
+  /// Cheque or transfer number
+  reference        String
+  /// CHEQUE | TRANSFER | CASH | OTHER
+  method           String         @default("TRANSFER")
+  invoiceRef       String?
+  remarks          String?
+  /// RECORDED -> VERIFIED, or REJECTED (with the reason)
+  status           String         @default("RECORDED")
+  recordedById     String         @db.Uuid
+  recordedAt       DateTime       @default(now())
+  verifiedById     String?        @db.Uuid
+  verifiedAt       DateTime?
+  rejectionReason  String?
+  /// How the verified amount was booked: goods received (GR/IR), advance, tax
+  toGrir           Decimal        @default(0) @db.Decimal(14, 2)
+  toAdvance        Decimal        @default(0) @db.Decimal(14, 2)
+  toTax            Decimal        @default(0) @db.Decimal(14, 2)
+  journalEntryId   String?        @db.Uuid
+
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseOrderId])
+  @@index([status])
 }
 
 /// Append-only, hash-chained record of every step of a purchase order's approval (a database trigger blocks update and delete).

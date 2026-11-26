@@ -25,6 +25,13 @@ interface Dossier {
 const money = (n: number, c = "LKR") => `${c} ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const when = (d: string | null) => (d ? new Date(d).toLocaleString() : "-");
 
+interface Schedule {
+    terms: { basis: string | null; creditDays: number | null; typedDueDate: string | null; firstReceiptAt: string | null; dueDate: string | null; daysOverdue: number | null };
+    totals: { payable: number; received: number; paid: number; pendingVerification: number; outstanding: number; owedForReceived: number; advance: number };
+    payments: { id: string; amount: number; paidDate: string; reference: string; method: string; invoiceRef: string | null; status: string; recordedBy: string | null; verifiedBy: string | null; rejectionReason: string | null; toGrir: number; toAdvance: number; toTax: number }[];
+}
+const BASIS_LABEL: Record<string, string> = { CREDIT: "On credit", ADVANCE: "Advance (before delivery)", ON_DELIVERY: "On delivery" };
+
 const ACTION_LABEL: Record<string, string> = { SUBMITTED: "Sent for approval", APPROVED: "Approved", RETURNED: "Returned with remarks", RESET: "Sent back to step 1 after a change", CANCELLED: "Cancelled", RECORDED: "Recorded as approved in the HO system", HO_PAYMENT: "HO payment recorded" };
 
 /** One purchase order with its whole history: approval steps with remarks, receipts, supplier invoices and the audit trail. Printable for audit. */
@@ -40,23 +47,35 @@ export default function PurchaseOrderDossierPage() {
         },
     });
 
-    // HO payment: recorded here as well, because a fully received order no longer shows on the Order Processing tabs
+    // HO payments: one or several parts, recorded by the OSP Finance Officer at HO and verified by the OSP Finance Manager
     const queryClient = useQueryClient();
+    const { data: sched } = useQuery<Schedule>({
+        queryKey: ["po-payments", id],
+        queryFn: async () => {
+            const res = await fetch(`/api/procurement/purchase-orders/${id}/payments`);
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json?.error?.message || "Could not load the payments");
+            return json.data ?? json;
+        },
+    });
+    const [payAmount, setPayAmount] = useState("");
     const [payRef, setPayRef] = useState("");
+    const [payMethod, setPayMethod] = useState("TRANSFER");
     const [invRef, setInvRef] = useState("");
     const [paidAt, setPaidAt] = useState(() => new Date().toISOString().slice(0, 10));
-    const recordPayment = useMutation({
-        mutationFn: async () => {
-            const res = await fetch("/api/procurement/purchase-orders", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "RECORD_HO_PAYMENT", poId: id, paymentRef: payRef.trim(), invoiceRef: invRef.trim() || undefined, paidAt }),
-            });
+    const payAction = useMutation({
+        mutationFn: async (body: Record<string, unknown>) => {
+            const res = await fetch(`/api/procurement/purchase-orders/${id}/payments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
             const json = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(json?.error?.message || "The HO payment could not be recorded");
+            if (!res.ok) throw new Error(json?.error?.message || "The payment action failed");
             return json;
         },
-        onSuccess: () => { toast.success("HO payment recorded"); setPayRef(""); setInvRef(""); queryClient.invalidateQueries({ queryKey: ["po-dossier", id] }); },
+        onSuccess: (_d, body) => {
+            toast.success(body.action === "RECORD" ? "HO payment recorded: waiting for verification" : body.action === "VERIFY" ? "HO payment verified and posted" : "HO payment record rejected");
+            if (body.action === "RECORD") { setPayAmount(""); setPayRef(""); setInvRef(""); }
+            queryClient.invalidateQueries({ queryKey: ["po-payments", id] });
+            queryClient.invalidateQueries({ queryKey: ["po-dossier", id] });
+        },
         onError: (e: Error) => toast.error(e.message),
     });
 
@@ -96,16 +115,61 @@ export default function PurchaseOrderDossierPage() {
                     <p>Received so far <b className="block">{money(po.values.receivedValue, po.currency)}</b></p>
                     <p>Still to receive <b className="block">{money(po.values.stillToReceive, po.currency)}</b></p>
                 </div>
-                {po.ho && ['APPROVED', 'ISSUED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CLOSED'].includes(po.status) && (
-                    <div className="mt-3 grid grid-cols-1 gap-2 rounded-lg border border-slate-300 bg-slate-50 p-3 sm:grid-cols-4 print:hidden" data-testid="ho-payment-form">
-                        <input aria-label="HO payment reference" placeholder="HO payment ref (cheque / transfer)" data-testid="ho-pay-ref" value={payRef} onChange={(e) => setPayRef(e.target.value)} className="h-8 rounded border border-slate-300 bg-white px-2 text-xs text-slate-900" />
-                        <input aria-label="Supplier invoice number" placeholder="Supplier invoice no. (optional)" data-testid="ho-pay-inv" value={invRef} onChange={(e) => setInvRef(e.target.value)} className="h-8 rounded border border-slate-300 bg-white px-2 text-xs text-slate-900" />
-                        <input aria-label="Payment date" type="date" data-testid="ho-pay-date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} className="h-8 rounded border border-slate-300 bg-white px-2 text-xs text-slate-900" />
-                        <button type="button" data-testid="ho-pay-submit" disabled={recordPayment.isPending || payRef.trim().length < 3} onClick={() => recordPayment.mutate()} className="h-8 rounded border border-violet-800 bg-violet-800 px-3 text-xs font-bold text-white hover:bg-violet-900 disabled:opacity-60">{po.hoPayment ? "Update HO payment" : "Record HO payment"}</button>
-                    </div>
-                )}
-                <p className="mt-2 text-xs text-slate-900" data-testid="dossier-ho-payment">{po.hoPayment ? `Paid by HO: payment ${po.hoPayment.paymentRef}${po.hoPayment.invoiceRef ? ', invoice ' + po.hoPayment.invoiceRef : ''}, ${po.hoPayment.paidAt ? new Date(po.hoPayment.paidAt).toLocaleDateString() : ''} (cleared ${money(po.hoPayment.cleared, po.currency)} of goods received)` : "No HO payment recorded yet."}</p>
             </section>
+
+            {po.ho && sched && (
+                <section className={card} data-testid="dossier-payments">
+                    <h2 className="mb-2 text-sm font-black text-slate-900">Payment by HO</h2>
+                    <p className="text-xs text-slate-900" data-testid="dossier-terms">
+                        {sched.terms.basis ? BASIS_LABEL[sched.terms.basis] ?? sched.terms.basis : "Payment terms not recorded"}
+                        {sched.terms.creditDays ? ` · ${sched.terms.creditDays} credit days` : ""}
+                        {sched.terms.dueDate ? ` · due ${new Date(sched.terms.dueDate).toLocaleDateString()}` : " · due date known when the goods arrive"}
+                        {sched.terms.daysOverdue !== null && sched.terms.daysOverdue > 0 && sched.totals.owedForReceived > 0 ? <b className="text-red-800"> · {sched.terms.daysOverdue} days overdue</b> : null}
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-900 sm:grid-cols-5" data-testid="dossier-pay-totals">
+                        <p>Order value <b className="block">{money(sched.totals.payable, po.currency)}</b></p>
+                        <p>Paid (verified) <b className="block">{money(sched.totals.paid, po.currency)}</b></p>
+                        <p>Waiting verification <b className="block">{money(sched.totals.pendingVerification, po.currency)}</b></p>
+                        <p>Still owed <b className="block">{money(sched.totals.outstanding, po.currency)}</b></p>
+                        <p>Owed for goods received <b className="block">{money(sched.totals.owedForReceived, po.currency)}</b></p>
+                    </div>
+                    <table className="mt-3 w-full">
+                        <thead><tr><th className={th}>Paid on</th><th className={th}>Reference</th><th className={th}>Amount</th><th className={th}>Status</th><th className={th}>Recorded / verified by</th><th className={th}></th></tr></thead>
+                        <tbody>
+                            {sched.payments.map((p) => (
+                                <tr key={p.id} className="border-t border-slate-200" data-testid="dossier-pay-row">
+                                    <td className={td}>{new Date(p.paidDate).toLocaleDateString()}</td>
+                                    <td className={td}>{p.reference} ({p.method.toLowerCase()}){p.invoiceRef ? ` · inv ${p.invoiceRef}` : ""}</td>
+                                    <td className={td}>{money(p.amount, po.currency)}</td>
+                                    <td className={td} data-testid="dossier-pay-status">{p.status}{p.status === "VERIFIED" ? ` (goods ${money(p.toGrir + p.toAdvance, po.currency)}${p.toTax ? ", tax " + money(p.toTax, po.currency) : ""})` : ""}{p.rejectionReason ? `: ${p.rejectionReason}` : ""}</td>
+                                    <td className={td}>{p.recordedBy ?? "-"}{p.verifiedBy ? ` / ${p.verifiedBy}` : ""}</td>
+                                    <td className={td}>
+                                        {p.status === "RECORDED" && (
+                                            <span className="flex gap-1 print:hidden">
+                                                <button type="button" data-testid="pay-verify" disabled={payAction.isPending} onClick={() => payAction.mutate({ action: "VERIFY", installmentId: p.id })} className="rounded border border-emerald-700 bg-emerald-700 px-2 py-0.5 text-[11px] font-bold text-white">Verify</button>
+                                                <button type="button" data-testid="pay-reject" disabled={payAction.isPending} onClick={() => { const reason = window.prompt("Why is this payment record wrong?"); if (reason && reason.trim().length >= 3) payAction.mutate({ action: "REJECT", installmentId: p.id, reason }); }} className="rounded border border-red-300 bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-900">Reject</button>
+                                            </span>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                            {sched.payments.length === 0 && <tr><td className={td} colSpan={6}>No payment by HO recorded yet.</td></tr>}
+                        </tbody>
+                    </table>
+                    {sched.totals.outstanding - sched.totals.pendingVerification > 0.005 && ['APPROVED', 'ISSUED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CLOSED'].includes(po.status) && (
+                        <div className="mt-3 grid grid-cols-1 gap-2 rounded-lg border border-slate-300 bg-slate-50 p-3 sm:grid-cols-6 print:hidden" data-testid="ho-payment-form">
+                            <input aria-label="Amount paid by HO" type="number" min={0} step="0.01" placeholder="Amount paid" data-testid="ho-pay-amount" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} className="h-8 rounded border border-slate-300 bg-white px-2 text-xs text-slate-900" />
+                            <input aria-label="HO payment reference" placeholder="Cheque / transfer no." data-testid="ho-pay-ref" value={payRef} onChange={(e) => setPayRef(e.target.value)} className="h-8 rounded border border-slate-300 bg-white px-2 text-xs text-slate-900" />
+                            <select aria-label="Payment method" data-testid="ho-pay-method" value={payMethod} onChange={(e) => setPayMethod(e.target.value)} className="h-8 rounded border border-slate-300 bg-white px-2 text-xs text-slate-900">
+                                <option value="TRANSFER">Transfer</option><option value="CHEQUE">Cheque</option><option value="CASH">Cash</option><option value="OTHER">Other</option>
+                            </select>
+                            <input aria-label="Supplier invoice number" placeholder="Supplier invoice no." data-testid="ho-pay-inv" value={invRef} onChange={(e) => setInvRef(e.target.value)} className="h-8 rounded border border-slate-300 bg-white px-2 text-xs text-slate-900" />
+                            <input aria-label="Payment date" type="date" data-testid="ho-pay-date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} className="h-8 rounded border border-slate-300 bg-white px-2 text-xs text-slate-900" />
+                            <button type="button" data-testid="ho-pay-submit" disabled={payAction.isPending || payRef.trim().length < 3 || !(Number(payAmount) > 0)} onClick={() => payAction.mutate({ action: "RECORD", amount: Number(payAmount), reference: payRef.trim(), method: payMethod, invoiceRef: invRef.trim() || undefined, paidDate: paidAt })} className="h-8 rounded border border-violet-800 bg-violet-800 px-3 text-xs font-bold text-white hover:bg-violet-900 disabled:opacity-60">Record HO payment</button>
+                        </div>
+                    )}
+                </section>
+            )}
 
             <section className={card}>
                 <h2 className="mb-2 text-sm font-black text-slate-900">Approval steps</h2>

@@ -66,7 +66,7 @@ export default function VendorStatementPage() {
                                         <tbody>
                                             {s.lines.map((l, i) => (
                                                 <tr key={i} className="border-b border-slate-200 text-slate-900">
-                                                    <td className="py-2 pr-3">{l.date}</td><td className="py-2 pr-3">{l.type.replace('_', ' ')}</td><td className="py-2 pr-3 font-medium">{l.reference}</td><td className="py-2 pr-3">{l.detail}</td>
+                                                    <td className="py-2 pr-3">{l.date}</td><td className="py-2 pr-3">{l.type.replace(/_/g, ' ')}</td><td className="py-2 pr-3 font-medium">{l.reference}</td><td className="py-2 pr-3">{l.detail}</td>
                                                     <td className="py-2 pr-3 text-right">{l.debit ? l.debit.toLocaleString() : ''}</td><td className="py-2 pr-3 text-right">{l.credit ? l.credit.toLocaleString() : ''}</td><td className="py-2 text-right font-semibold">{l.balance.toLocaleString()}</td>
                                                 </tr>
                                             ))}

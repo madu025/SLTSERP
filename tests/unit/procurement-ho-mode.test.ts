@@ -45,16 +45,16 @@ test('the service records an HO-approved order as approved, with the evidence an
 });
 
 test('the HO payment clears goods received against the HO current account, once, and not when Nexus invoiced the order (source check)', () => {
-    const svc = read('src/services/procurement/purchase-order.service.ts');
-    assert.match(svc, /accountCode: ACCOUNTS\.AP_ACCRUED, debit: delta/);
-    assert.match(svc, /accountCode: ACCOUNTS\.HO_CURRENT, debit: 0, credit: delta/);
-    assert.match(svc, /idempotencyKey: `HO_PAYMENT_\$\{po\.id\}_\$\{cleared\.toFixed\(2\)\}`/, 'the same clearing is never posted twice');
+    // the payments themselves (parts, record and verify) are in HoPaymentService: tests/unit/po-payables.test.ts
+    const svc = read('src/services/procurement/ho-payment.service.ts');
+    assert.match(svc, /accountCode: ACCOUNTS\.AP_ACCRUED, debit: split\.toGrir/);
+    assert.match(svc, /accountCode: ACCOUNTS\.HO_CURRENT, debit: 0, credit: amount/);
+    assert.match(svc, /idempotencyKey: `HO_INSTALLMENT_\$\{inst\.id\}`/, 'the same payment is never posted twice');
     assert.match(svc, /status: \{ in: \['AWAITING_EXECUTIVE', 'APPROVED', 'PARTIALLY_PAID', 'PAID'\] \}/);
     const inv = read('src/services/procurement/supplier-invoice.service.ts');
     assert.match(inv, /HO_ALREADY_PAID/, 'an order paid by HO cannot also be invoiced and approved in Nexus');
     const route = read('src/app/api/procurement/purchase-orders/route.ts');
-    assert.match(route, /action: z\.literal\('RECORD_HO_PAYMENT'\)/);
-    assert.match(route, /\[RBAC_PERMISSIONS\.PROCUREMENT_WRITE, RBAC_PERMISSIONS\.FINANCE_WRITE, RBAC_PERMISSIONS\.ADMIN_RBAC\]\.some/, 'procurement or finance records it');
+    assert.doesNotMatch(route, /RECORD_HO_PAYMENT/, 'the old single payment action is gone (one place for HO payments)');
 });
 
 test('one GRN can receive the goods of several purchase orders of one vendor (source check)', () => {

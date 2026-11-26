@@ -345,7 +345,8 @@ export class ArApService {
                 include: { vendor: { select: { name: true } } },
             });
             for (const inv of supplierInvoices) {
-                const ageDays = Math.floor((today.getTime() - new Date(inv.invoiceDate).getTime()) / (1000 * 3600 * 24));
+                // aged from the due date when the invoice has one (days past due), otherwise from the invoice date
+                const ageDays = Math.floor((today.getTime() - new Date(inv.dueDate ?? inv.invoiceDate).getTime()) / (1000 * 3600 * 24));
                 const balance = Number(inv.totalAmount) - Number(inv.paidAmount);
                 const vendorId = inv.vendorId;
                 if (!vendorMap.has(vendorId)) {
@@ -359,6 +360,22 @@ export class ArApService {
                 summary[key] += balance;
                 supplierCount++;
                 supplierTotal += balance;
+            }
+            // Orders approved in the HO system: goods received and not yet paid by HO, aged by days past the due date
+            const { HoPayablesService } = await import('@/services/procurement/ho-payables.service');
+            const { dueBucket } = await import('@/lib/po-payables');
+            for (const h of await HoPayablesService.orders({}, today)) {
+                if (h.owedForReceived <= 0) continue;
+                const key = h.vendorId ?? `HO-${h.vendor}`;
+                if (!vendorMap.has(key)) vendorMap.set(key, { vendorId: key, vendorName: h.vendor, current: 0, days31to60: 0, days61to90: 0, over90: 0, totalBalance: 0 });
+                const row = vendorMap.get(key)!;
+                const bucket = dueBucket(h.daysOverdue);
+                row[bucket] += h.owedForReceived;
+                row.totalBalance += h.owedForReceived;
+                summary[bucket] += h.owedForReceived;
+                summary.total += h.owedForReceived;
+                supplierCount++;
+                supplierTotal += h.owedForReceived;
             }
             // Debit notes (goods returned after invoicing) are credits against the vendor's payable
             const notes = await prisma.supplierDebitNote.groupBy({ by: ['vendorId'], _sum: { amount: true, taxAmount: true } });

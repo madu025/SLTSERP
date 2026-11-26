@@ -43,6 +43,11 @@ const HANDLERS: Record<DailyJobType, (job: Job<SystemJobData>) => Promise<unknow
         return ApprovalSlaService.run();
     },
 
+    PO_PAYMENT_REMINDERS: async () => {
+        const { PoPaymentReminderService } = await import('@/services/notification/po-payment-reminders.service');
+        return PoPaymentReminderService.run();
+    },
+
     ROP_RECALC: async () => {
         const { RopRecalcService } = await import('@/services/inventory/rop-recalc.service');
         return RopRecalcService.run();

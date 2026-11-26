@@ -114,6 +114,8 @@ export interface StockRequestActionData {
     currency?: string;
     /** HO mode: the approval given in the HO system for the purchase order being created */
     ho?: { ref?: string | null; date?: string | null; approvedBy?: string | null; documentUrl?: string | null } | null;
+    /** HO mode: how the order is paid */
+    credit?: { basis?: string | null; creditDays?: number | string | null; dueDate?: string | null } | null;
     expectedDelivery?: string;
     irNumber?: string;
     isCoveringPO?: boolean;
