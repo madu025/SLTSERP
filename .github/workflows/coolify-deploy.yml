@@ -1,14 +1,24 @@
 name: Build, release and deploy Coolify image
 
+# The image is built at the same time as QA (both start on the push); nothing reaches the database or Coolify
+# until the QA run of the same revision has passed (job qa below). Keep paths-ignore equal to qa-check.yml.
 on:
-  workflow_run:
-    workflows: ["QA & Security Check"]
-    types: [completed]
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'memory/**'
+      - 'tests/**'
+      - 'scripts/zz-*'
+      - '.github/**'
   workflow_dispatch:
 
 permissions:
   contents: read
   packages: write
+  # the qa job reads the QA run of this revision before anything is released
+  actions: read
 
 # One verified main revision owns one image build, one DB release, and one
 # Coolify rollout. A newer revision supersedes all older work.
@@ -25,11 +35,6 @@ env:
 jobs:
   prepare:
     name: Select and validate the release revision
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_branch == 'main' &&
-       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.revision.outputs.sha }}
@@ -40,7 +45,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          QA_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          QA_HEAD_SHA: ${{ github.event_name == 'push' && github.sha || '' }}
         run: |
           set -euo pipefail
           latest_sha="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" refs/heads/main | awk '{print $1}')"
@@ -48,11 +53,11 @@ jobs:
             echo "Could not resolve the current main revision." >&2
             exit 1
           fi
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_run" && "$latest_sha" != "$QA_HEAD_SHA" ]]; then
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "$latest_sha" != "$QA_HEAD_SHA" ]]; then
             # Commits that touch only ignored paths (docs, tests, workflows) never
             # run QA, so they must not supersede a verified code revision.
             # Keep this regex in sync with paths-ignore in qa-check.yml.
-            IGNORED_PATHS_REGEX='^(.*\.md|docs/.*|memory/.*|tests/.*|\.github/.*)$'
+            IGNORED_PATHS_REGEX='^(.*\.md|docs/.*|memory/.*|tests/.*|scripts/zz-.*|\.github/.*)$'
             changed="$(gh api "repos/${GITHUB_REPOSITORY}/compare/${QA_HEAD_SHA}...${latest_sha}" --paginate --jq '.files[].filename')"
             if [[ -n "$changed" ]] && ! grep -Evq "$IGNORED_PATHS_REGEX" <<<"$changed"; then
               echo "Only ignored paths changed since ${QA_HEAD_SHA}; deploying the verified revision."
@@ -122,10 +127,38 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  qa:
+    name: Wait for QA of this revision
+    needs: prepare
+    if: needs.prepare.outputs.current != 'false' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Wait until the QA & Security Check of this revision passed
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.prepare.outputs.sha }}
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 240); do
+            run="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/qa-check.yml/runs?head_sha=${SHA}&event=push&per_page=1" --jq '.workflow_runs[0] | "\(.status) \(.conclusion)"' 2>/dev/null || true)"
+            case "$run" in
+              "completed success") echo "QA passed for ${SHA}."; exit 0 ;;
+              completed*) echo "QA did not pass for ${SHA}: ${run}" >&2; exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "QA did not finish in time for ${SHA}." >&2
+          exit 1
+
   release:
     name: Run one-time Prisma/data release job
-    needs: [prepare, build]
-    if: needs.prepare.outputs.current != 'false'
+    needs: [prepare, build, qa]
+    # a manual run (workflow_dispatch) has no QA run to wait for: it deploys the current main as before
+    if: >-
+      !cancelled() && needs.prepare.outputs.current != 'false' && needs.build.result == 'success' &&
+      (needs.qa.result == 'success' || (github.event_name == 'workflow_dispatch' && needs.qa.result == 'skipped'))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

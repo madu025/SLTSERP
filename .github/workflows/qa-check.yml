@@ -13,6 +13,7 @@ on:
       - 'docs/**'
       - 'memory/**'
       - 'tests/**'
+      - 'scripts/zz-*'
       - '.github/**'
   workflow_dispatch:
 
@@ -69,7 +70,10 @@ jobs:
           fi
           exit "$status"
 
+      # On a push to main the deploy workflow builds the same code into the image at the same time (a broken build stops the
+      # release there); building it here too only doubled the wait. Pull requests have no image build, so they keep this check.
       - name: Production build
+        if: github.event_name == 'pull_request'
         run: pnpm run build
         env:
           NODE_OPTIONS: --max-old-space-size=6144
