@@ -177,6 +177,11 @@ export class GRNService {
                 if (lineMode) { const a = lineAlloc.get(idx); return a ? { id: a.poItemId, unitPrice: a.unitPrice } : undefined; }
                 return poLineByItem.get(itemId);
             };
+            // a request with an order approved in the HO system is received per PO (with that PO's vendor invoice), never as a combined intake
+            if (!poId && !lineMode && requestIdInput) {
+                const hoOrders = await tx.purchaseOrder.count({ where: { stockRequestId: requestIdInput, hoApprovalRef: { not: null }, status: { not: 'CANCELLED' } } });
+                if (hoOrders > 0) throw AppError.badRequest('HO_ORDER_PO_REQUIRED: choose the purchase order this delivery is for; each delivery is received against its own PO with its vendor invoice');
+            }
             const poIdsTouched = lineMode ? [...new Set([...lineAlloc.values()].map((a) => a.poId))] : (poId ? [poId] : []);
             const requestIdsTouched = lineMode ? [...new Set([...lineAlloc.values()].map((a) => a.requestId))] : (requestId ? [requestId] : []);
 

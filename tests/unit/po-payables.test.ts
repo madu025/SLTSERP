@@ -79,3 +79,7 @@ test('the voucher payments route checks the voucher scope like the status route 
     assert.match(route, /await assertVoucherAccess\(voucher\.projectId, userId, voucher\.description\)/);
     assert.equal((route.match(/await voucherInScope\(id, userId\)/g) ?? []).length, 2, 'both reading and recording are scoped');
 });
+
+test('a request with an HO order cannot be received as a combined intake without choosing the PO (found while writing the browser pass)', () => {
+    assert.match(read('src/services/inventory/grn.service.ts'), /HO_ORDER_PO_REQUIRED: choose the purchase order this delivery is for/);
+});
