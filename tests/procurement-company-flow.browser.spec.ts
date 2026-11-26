@@ -204,10 +204,13 @@ test('company flow on the screens: request, approvals, POs, GRN, voucher chain, 
   expect(poA).toMatchObject({ ordered: [600], status: 'APPROVED', creditDays: 30 });
   expect(poB).toMatchObject({ ordered: [400], status: 'APPROVED', creditDays: 45 });
 
-  // everything is ordered: no third PO can be added
-  row = await inProgressRow();
-  await expect(row.getByRole('button', { name: /add po/i }), 'no PO beyond the approved 1000').toHaveCount(0);
-  await proc.screenshot({ path: `${SHOTS}/11-orders-in-progress.png`, fullPage: true });
+  // everything is ordered: the request left "In progress" for "Ready for GRN" by itself, where no further PO can be added
+  await proc.goto('/procurement/orders', { waitUntil: 'domcontentloaded' });
+  await proc.getByRole('button', { name: /^ready for grn$/i }).first().click();
+  const readyRow = proc.locator('tr', { hasText: REQ }).first();
+  await readyRow.waitFor({ timeout: 240_000 });
+  await expect(readyRow.getByRole('button', { name: /add po/i }), 'no PO beyond the approved 1000').toHaveCount(0);
+  await proc.screenshot({ path: `${SHOTS}/11-orders-ready-for-grn.png`, fullPage: true });
 
   // every line is ordered: the request is ready for the GRN by itself, and the Stores Manager is told
   await expect.poll(() => check().requests[0].procurement, { timeout: 240_000, intervals: [10_000] }).toBe('COMPLETED');

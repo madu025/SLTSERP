@@ -1,5 +1,5 @@
 import { PrismaClient, PermissionScope, Role } from '@prisma/client';
-import { RBAC_PERMISSION_DEFINITIONS } from '../src/config/rbac-permissions';
+import { RBAC_PERMISSION_DEFINITIONS, RETIRED_PERMISSION_CODES } from '../src/config/rbac-permissions';
 import { CANONICAL_BOOTSTRAP_ROLE_GRANTS, MODULE_DESIGNATION_GRANTS } from '../src/config/rbac-bootstrap';
 import { codesToPreserve } from '../src/lib/rbac-seed-rules';
 
@@ -160,9 +160,13 @@ async function main() {
     }
     grants = desiredGrants.length;
 
+    // retired capabilities: their grants go and their definitions are switched off (kept for the audit history)
+    const retiredGrants = await prisma.rolePermission.deleteMany({ where: { permission: { in: [...RETIRED_PERMISSION_CODES] } } });
+    const retiredDefinitions = await prisma.permissionDefinition.updateMany({ where: { code: { in: [...RETIRED_PERMISSION_CODES] }, isActive: true }, data: { isActive: false } });
+
     console.log(
         `RBAC capability seed complete: ${definitions} definitions, ${grants} grants ensured (${preserved.size} audience capabilities left as the administrator set them), `
-        + `${userIdentityRepairs} stale user role link(s) repaired.`
+        + `${userIdentityRepairs} stale user role link(s) repaired; retired: ${retiredDefinitions.count} definition(s) switched off, ${retiredGrants.count} grant(s) removed.`
     );
 }
 

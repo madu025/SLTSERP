@@ -251,3 +251,14 @@ export const RBAC_PERMISSION_SET = new Set<string>(RBAC_PERMISSION_CODES);
 export function isCanonicalPermission(value: string): value is RbacPermission {
     return RBAC_PERMISSION_SET.has(value);
 }
+
+/**
+ * Capabilities that were removed from the catalog. The deploy seed switches their definitions off and deletes their grants, so the
+ * administrator's permission screens no longer list them. A code here must not be reused for a different meaning.
+ */
+export const RETIRED_PERMISSION_CODES: readonly string[] = [
+    // 26 Nov 2026: purchase orders and large payments are approved in the HO ERP, not in Nexus
+    'procurement.po.approve.l1', 'procurement.po.approve.l2', 'procurement.po.approve.l3', 'procurement.invoice.approve.executive',
+    // 26 Nov 2026: the vendor voucher is signed on paper; the Account Officer records it, the HO Account Executive receives the documents
+    'finance.pv.approve.account', 'finance.pv.approve.osp', 'finance.pv.approve.hos', 'procurement.pv.documents', 'notification.audience.pv-account-managers',
+];

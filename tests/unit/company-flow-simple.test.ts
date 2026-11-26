@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { RBAC_PERMISSION_DEFINITIONS } from '../../src/config/rbac-permissions';
+import { RBAC_PERMISSION_DEFINITIONS, RETIRED_PERMISSION_CODES } from '../../src/config/rbac-permissions';
 
 /**
  * The simpler company flow (owner, 26 Nov 2026). Approvals signed on paper or given in the HO ERP are recorded, not repeated, in Nexus:
@@ -54,6 +54,14 @@ test('voucher: the HO Account Executive receives the documents (HO Invoice Secti
     assert.match(chain, /pv\.createdById === userId\) throw AppError\.badRequest\('SEGREGATION_OF_DUTIES_VIOLATION/);
     assert.match(chain, /status: 'SUBMITTED_TO_HO', submittedToHoById: userId, submittedToHoAt: new Date\(\), docsStatus: 'RECEIVED'/);
     assert.match(read('src/app/api/procurement/payment-approvals/route.ts'), /const STEP_HOLDERS = \[RBAC_PERMISSIONS\.FINANCE_WRITE, RBAC_PERMISSIONS\.PROCUREMENT_HO_PAYMENT_RECORD\];/);
+});
+
+test('retired capabilities are never in the catalog, and the deploy seed switches them off and removes their grants (found after the deploy)', () => {
+    const codes = new Set(RBAC_PERMISSION_DEFINITIONS.map((p) => p.code as string));
+    for (const c of RETIRED_PERMISSION_CODES) assert.ok(!codes.has(c), `${c} is retired, so it is not in the catalog`);
+    const seed = read('scripts/seed-rbac-capabilities.ts');
+    assert.match(seed, /prisma\.rolePermission\.deleteMany\(\{ where: \{ permission: \{ in: \[\.\.\.RETIRED_PERMISSION_CODES\] \} \} \}\)/);
+    assert.match(seed, /prisma\.permissionDefinition\.updateMany\(\{ where: \{ code: \{ in: \[\.\.\.RETIRED_PERMISSION_CODES\] \}, isActive: true \}, data: \{ isActive: false \} \}\)/);
 });
 
 test('the capabilities of the removed steps are gone', () => {
