@@ -14,6 +14,7 @@ import { AuditService } from '@/services/audit/audit.service';
 import { getProcurementConfig } from '@/services/procurement/procurement-config';
 import { overReceiptCheck, poStatusFromReceipts, weightedAverageCost, normalizePoStatus } from '@/lib/procurement-rules';
 import { ACCOUNTS } from '@/services/finance/account-codes';
+import { PUBLIC_USER_SELECT } from '@/lib/public-user-select';
 
 export class GRNService {
     static async getGRNs(storeId?: string, allowedStoreIds?: string[]) {
@@ -26,12 +27,12 @@ export class GRNService {
             where,
             include: {
                 store: true,
-                receivedBy: true,
+                receivedBy: { select: PUBLIC_USER_SELECT },
                 request: {
                     include: {
                         items: { include: { item: true } },
-                        requestedBy: true,
-                        approvedBy: true,
+                        requestedBy: { select: PUBLIC_USER_SELECT },
+                        approvedBy: { select: PUBLIC_USER_SELECT },
                         purchaseOrders: true
                     }
                 },

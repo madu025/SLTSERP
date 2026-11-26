@@ -16,6 +16,7 @@ import { StoreService } from './store.service';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { getStockRequestActionPermission } from '@/lib/inventory-stock-request-permissions';
 import { NIL_UUID, resolveOpmcScope } from '@/lib/opmc-scope';
+import { PUBLIC_USER_SELECT } from '@/lib/public-user-select';
 import {
     resolveProcessGateAudience,
     type NotificationAudienceId,
@@ -251,7 +252,7 @@ export class StockRequestService {
             include: {
                 fromStore: true,
                 toStore: true,
-                requestedBy: true,
+                requestedBy: { select: PUBLIC_USER_SELECT },
                 items: { include: { item: true } },
                 purchaseOrders: {
                     include: {
@@ -260,7 +261,7 @@ export class StockRequestService {
                 },
                 grns: {
                     include: {
-                        receivedBy: true,
+                        receivedBy: { select: PUBLIC_USER_SELECT },
                         items: { include: { item: true } }
                     },
                     orderBy: { createdAt: 'desc' }
@@ -379,7 +380,7 @@ export class StockRequestService {
                 items: { include: { item: true } },
                 fromStore: true,
                 toStore: true,
-                requestedBy: true,
+                requestedBy: { select: PUBLIC_USER_SELECT },
                 purchaseOrders: { include: { items: true } },
             },
         });
@@ -628,7 +629,7 @@ export class StockRequestService {
                     remarks: remarks || 'Approval recalled for re-evaluation.'
                 },
                 include: {
-                    requestedBy: true
+                    requestedBy: { select: PUBLIC_USER_SELECT }
                 }
             });
 

@@ -12,6 +12,7 @@ import { LedgerService } from '../finance/ledger.service';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { mrnSchema } from '@/lib/validations/inventory.schema';
+import { PUBLIC_USER_SELECT } from '@/lib/public-user-select';
 
 export class MRNService {
     static async createMRN(data: {
@@ -91,7 +92,7 @@ export class MRNService {
             include: {
                 store: true,
                 returnedBy: true,
-                approvedBy: true,
+                approvedBy: { select: PUBLIC_USER_SELECT },
                 items: {
                     include: { item: true }
                 }

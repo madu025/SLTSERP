@@ -53,13 +53,11 @@ async function bell(page: Page, title: RegExp, shot: string) {
     const button = page.getByRole('button', { name: /^Notifications/ }).first();
     await button.waitFor({ timeout: 120_000 });
     await button.click();
-    const panel = page.getByRole('dialog').filter({ hasText: 'Unread Activities' }).first();
-    await panel.waitFor({ timeout: 30_000 }).catch(() => undefined);
-    await page.waitForTimeout(2500);
-    const titles = (await page.locator('h4').allInnerTexts()).map((t) => t.trim());
-    if (titles.some((t) => title.test(t))) {
+    // the bell opens the notifications panel; a notice is shown by its title, whatever the panel's markup
+    const notice = page.getByText(title).first();
+    if (await notice.waitFor({ state: 'visible', timeout: 15_000 }).then(() => true).catch(() => false)) {
       await page.screenshot({ path: `${SHOTS}/${shot}.png` });
-      console.log(`BELL ${shot}: ${titles.filter((t) => title.test(t))[0]}`);
+      console.log(`BELL ${shot}: ${(await notice.innerText()).trim().slice(0, 90)}`);
       await page.keyboard.press('Escape');
       return;
     }

@@ -4,6 +4,7 @@ import { InventoryStore, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { StoreWithDetails, TransactionClient, UUID } from '@/types/inventory/inventory-service.types';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { PUBLIC_USER_SELECT } from '@/lib/public-user-select';
 
 export class StoreService {
     /** Low stock alerts are now handled by DB trigger trg_low_stock_auto_alert with InventoryAlertCooldown table */
@@ -194,7 +195,7 @@ export class StoreService {
     static async getStore(id: string): Promise<StoreWithDetails | null> {
         return await InventoryRepository.findStoreWithDetails(id, {
             opmcs: true,
-            manager: true
+            manager: { select: PUBLIC_USER_SELECT }
         }) as StoreWithDetails | null;
     }
 
