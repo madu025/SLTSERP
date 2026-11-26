@@ -388,7 +388,7 @@ export class GRNService {
             });
 
             // 3.5 Log receipt in General Ledger (real-time double-entry)
-            await LedgerService.logGrnReceipt(tx, grn.id, totalGrnCost);
+            await LedgerService.logGrnReceipt(tx, grn.id, totalGrnCost, `GRN ${grnNumber}: goods received in store${supplier || vendorLabel ? " from " + (supplier || vendorLabel) : ""}`);
 
             // 4. Update the status of every stock request this GRN receives against (one, or one per purchase order)
             for (const requestId of requestIdsTouched) {

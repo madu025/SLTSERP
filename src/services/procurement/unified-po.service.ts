@@ -47,7 +47,7 @@ export class UnifiedPoService {
         const rows: UnifiedPo[] = [
             ...store.map((p) => {
                 const status = unifiedPoStatus('STORE', p.status);
-                return { kind: 'STORE' as const, id: p.id, poNumber: p.poNumber, vendorId: p.vendorId, vendorName: p.vendor, status, rawStatus: p.status, total: Number(p.totalAmount), currency: p.currency, orderDate: p.orderDate.toISOString(), expectedDelivery: p.expectedDelivery ? p.expectedDelivery.toISOString() : null, scopeLabel: p.stockRequest.requestNr, href: '/procurement/orders', invoiceable: !!p.vendorId && ['APPROVED', 'ISSUED', 'PARTIALLY_RECEIVED', 'RECEIVED'].includes(status) };
+                return { kind: 'STORE' as const, id: p.id, poNumber: p.poNumber, vendorId: p.vendorId, vendorName: p.vendor, status, rawStatus: p.status, total: Number(p.totalAmount), currency: p.currency, orderDate: p.orderDate.toISOString(), expectedDelivery: p.expectedDelivery ? p.expectedDelivery.toISOString() : null, scopeLabel: p.stockRequest.requestNr, href: `/procurement/orders/${p.id}`, invoiceable: !!p.vendorId && ['APPROVED', 'ISSUED', 'PARTIALLY_RECEIVED', 'RECEIVED'].includes(status) };
             }),
             ...project.map((p) => {
                 const status = unifiedPoStatus('PROJECT', p.status);

@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 interface Dossier {
     po: {
@@ -36,6 +38,26 @@ export default function PurchaseOrderDossierPage() {
             if (!res.ok) throw new Error(json?.error?.message || "Could not load the purchase order");
             return json.data ?? json;
         },
+    });
+
+    // HO payment: recorded here as well, because a fully received order no longer shows on the Order Processing tabs
+    const queryClient = useQueryClient();
+    const [payRef, setPayRef] = useState("");
+    const [invRef, setInvRef] = useState("");
+    const [paidAt, setPaidAt] = useState(() => new Date().toISOString().slice(0, 10));
+    const recordPayment = useMutation({
+        mutationFn: async () => {
+            const res = await fetch("/api/procurement/purchase-orders", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "RECORD_HO_PAYMENT", poId: id, paymentRef: payRef.trim(), invoiceRef: invRef.trim() || undefined, paidAt }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json?.error?.message || "The HO payment could not be recorded");
+            return json;
+        },
+        onSuccess: () => { toast.success("HO payment recorded"); setPayRef(""); setInvRef(""); queryClient.invalidateQueries({ queryKey: ["po-dossier", id] }); },
+        onError: (e: Error) => toast.error(e.message),
     });
 
     if (isLoading) return <div className="p-6 text-slate-900">Loading purchase order…</div>;
@@ -74,6 +96,14 @@ export default function PurchaseOrderDossierPage() {
                     <p>Received so far <b className="block">{money(po.values.receivedValue, po.currency)}</b></p>
                     <p>Still to receive <b className="block">{money(po.values.stillToReceive, po.currency)}</b></p>
                 </div>
+                {po.ho && ['APPROVED', 'ISSUED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CLOSED'].includes(po.status) && (
+                    <div className="mt-3 grid grid-cols-1 gap-2 rounded-lg border border-slate-300 bg-slate-50 p-3 sm:grid-cols-4 print:hidden" data-testid="ho-payment-form">
+                        <input aria-label="HO payment reference" placeholder="HO payment ref (cheque / transfer)" data-testid="ho-pay-ref" value={payRef} onChange={(e) => setPayRef(e.target.value)} className="h-8 rounded border border-slate-300 bg-white px-2 text-xs text-slate-900" />
+                        <input aria-label="Supplier invoice number" placeholder="Supplier invoice no. (optional)" data-testid="ho-pay-inv" value={invRef} onChange={(e) => setInvRef(e.target.value)} className="h-8 rounded border border-slate-300 bg-white px-2 text-xs text-slate-900" />
+                        <input aria-label="Payment date" type="date" data-testid="ho-pay-date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} className="h-8 rounded border border-slate-300 bg-white px-2 text-xs text-slate-900" />
+                        <button type="button" data-testid="ho-pay-submit" disabled={recordPayment.isPending || payRef.trim().length < 3} onClick={() => recordPayment.mutate()} className="h-8 rounded border border-violet-800 bg-violet-800 px-3 text-xs font-bold text-white hover:bg-violet-900 disabled:opacity-60">{po.hoPayment ? "Update HO payment" : "Record HO payment"}</button>
+                    </div>
+                )}
                 <p className="mt-2 text-xs text-slate-900" data-testid="dossier-ho-payment">{po.hoPayment ? `Paid by HO: payment ${po.hoPayment.paymentRef}${po.hoPayment.invoiceRef ? ', invoice ' + po.hoPayment.invoiceRef : ''}, ${po.hoPayment.paidAt ? new Date(po.hoPayment.paidAt).toLocaleDateString() : ''} (cleared ${money(po.hoPayment.cleared, po.currency)} of goods received)` : "No HO payment recorded yet."}</p>
             </section>
 

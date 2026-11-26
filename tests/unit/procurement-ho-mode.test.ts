@@ -82,3 +82,9 @@ test('a GRN can only receive PO lines of orders raised by the receiving store (s
     assert.match(grn, /await StoreService\.assertStoreWriteAccess\(receivedById, storeId\)/, 'the receiver must have write access to the store');
     assert.match(grn, /if \(l\.purchaseOrder\.stockRequest\.fromStoreId !== storeId\) throw AppError\.forbidden\(`PURCHASE_ORDER_LINE_NOT_IN_STORE/, 'another store\'s order cannot be received here');
 });
+
+test('the GRN journal entry names the GRN number, and the PO list opens the order history page (browser pass)', () => {
+    assert.match(read('src/services/inventory/grn.service.ts'), /logGrnReceipt\(tx, grn\.id, totalGrnCost, `GRN \$\{grnNumber\}: goods received in store/);
+    assert.match(read('src/services/procurement/unified-po.service.ts'), /href: `\/procurement\/orders\/\$\{p\.id\}`/, 'a received order (gone from the Order Processing tabs) is still reachable');
+    assert.match(read('src/app/procurement/orders/[id]/page.tsx'), /data-testid="ho-payment-form"/, 'the HO payment can be recorded on the history page');
+});
