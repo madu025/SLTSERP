@@ -8,13 +8,12 @@ import path from 'node:path';
  * The company procure-to-pay flow, every step on the screens by the real roles, and after each step the next person's notification bell
  * (people, store, item and vendors from `scripts/zz-gui6.ts setup-ui`; run against the deployed site because uploads go to storage):
  *   Stores Officer: material request C-Hook 1000 (local purchase);
- *   Approvals: the OSP Manager cannot sign first; Stores Manager, OSP Manager, Head of Section approve in turn;
- *   Procurement Officer: PO-A (Vendor A 600) and PO-B (Vendor B 400) with the credit days (approved in the HO system); no third PO once all is ordered;
- *     marks the orders sent, confirmed, finished (ready for GRN);
+ *   Approvals: the OSP Manager cannot sign first; Stores Manager, then OSP Manager (no Head of Section step);
+ *   Stores Manager: "Documents submitted to Procurement";
+ *   Procurement Officer: PO-A (Vendor A 600) and PO-B (Vendor B 400) with the credit days; once all is ordered the request is ready for GRN by itself;
  *   Stores Manager: GRN for PO-A, 550 accepted and 50 rejected with a reason, Oracle GRN number, vendor invoice;
- *   OSP Account Officer: payment voucher; OSP Account Manager, OSP Manager, Head of Section approve it (the invoice is posted at the last);
- *   OSP Account sends the documents, the Procurement Officer marks them received (the voucher goes to HO);
- *   Account Executive at HO: 50,000 then the rest; ledger, invoice and voucher end PAID.
+ *   OSP Account Officer: payment voucher; "Signed by all three" with the scan (the invoice is posted); documents sent to HO;
+ *   HO Account Executive: documents received (the voucher is with HO), then 50,000 and the rest; ledger, invoice and voucher end PAID.
  * Env: GUI6_PASSWORD. The rest is read from the manifest that setup-ui writes.
  */
 const PASSWORD = process.env.GUI6_PASSWORD ?? '';
@@ -148,7 +147,7 @@ test('company flow on the screens: request, approvals, POs, GRN, voucher chain, 
   expect(check().requests[0].stage, 'the OSP Manager must not sign the Stores Manager step').toBe('STORES_MANAGER_APPROVAL');
   console.log(`OSP MANAGER FIRST: ${early ? 'listed but refused' : 'not in the queue'}`);
 
-  // 3. Stores Manager -> OSP Manager -> Head of Section, each told by the bell
+  // 3. Stores Manager -> OSP Manager, each told by the bell (no Head of Section step)
   const sm = await signIn(browser, 'zzg6_sm');
   await bell(sm, /New material request to review \(Stores Manager\)/, '02-bell-stores-manager');
   await approveRequest(sm, REQ, '03-approve-stores-manager');
@@ -156,16 +155,23 @@ test('company flow on the screens: request, approvals, POs, GRN, voucher chain, 
 
   await bell(osp, /Material request to approve \(OSP Manager\)/, '04-bell-osp-manager');
   await approveRequest(osp, REQ, '05-approve-osp-manager');
-  await expect.poll(() => check().requests[0].stage, { timeout: 240_000, intervals: [10_000] }).toBe('HOS_APPROVAL');
-
-  const hos = await signIn(browser, 'zzg6_hos');
-  await bell(hos, /Material request to approve \(Head of Section\)/, '06-bell-head-of-section');
-  await approveRequest(hos, REQ, '07-approve-head-of-section');
   await expect.poll(() => check().requests[0].stage, { timeout: 240_000, intervals: [10_000] }).toBe('PROCUREMENT');
+
+  // 3b. the Stores Manager is told and confirms the documents were handed to Procurement
+  await bell(sm, /Material request approved: submit the documents to Procurement/, '06-bell-stores-manager-documents');
+  await sm.goto('/inventory/requests', { waitUntil: 'domcontentloaded' });
+  await sm.getByRole('button', { name: /Procurement Requisitions/ }).click();
+  const smRow = sm.locator('tr', { hasText: REQ }).first();
+  await smRow.waitFor({ timeout: 240_000 });
+  await smRow.getByRole('button').last().click();
+  sm.once('dialog', (d) => d.accept());
+  await sm.getByTestId('req-docs-submitted').click();
+  await expect.poll(() => check().requests[0].docsSubmitted, { timeout: 240_000, intervals: [10_000] }).toBe(true);
+  await sm.screenshot({ path: `${SHOTS}/07-documents-submitted.png`, fullPage: true });
 
   // 4. the Procurement Officer records the two HO orders: PO-A Vendor A 600 (30 days), PO-B Vendor B the open 400 (45 days)
   const proc = await signIn(browser, 'zzg6_proc');
-  await bell(proc, /Material request approved: create the PO/, '08-bell-procurement');
+  await bell(proc, /Material request documents submitted: record the PO/, '08-bell-procurement');
   await proc.goto('/procurement/orders', { waitUntil: 'domcontentloaded' });
   const pendingRow = proc.locator('tr', { hasText: REQ }).first();
   await pendingRow.waitFor({ timeout: 240_000 });
@@ -203,15 +209,10 @@ test('company flow on the screens: request, approvals, POs, GRN, voucher chain, 
   await expect(row.getByRole('button', { name: /add po/i }), 'no PO beyond the approved 1000').toHaveCount(0);
   await proc.screenshot({ path: `${SHOTS}/11-orders-in-progress.png`, fullPage: true });
 
-  // sent to the vendors, confirmed, finished: the request goes to the stores for the GRN
-  for (const step of [/^sent$/i, /^confirm$/i, /^finish$/i]) {
-    row = await inProgressRow();
-    await row.getByRole('button', { name: step }).click();
-    await proc.waitForTimeout(6000);
-  }
+  // every line is ordered: the request is ready for the GRN by itself, and the Stores Manager is told
   await expect.poll(() => check().requests[0].procurement, { timeout: 240_000, intervals: [10_000] }).toBe('COMPLETED');
   console.log('REQUEST AFTER PROCUREMENT ' + JSON.stringify(check().requests[0]));
-  await bell(so, /Procurement Completed/, '12-bell-requester-procurement-done');
+  await bell(sm, /Purchase orders recorded: ready for GRN/, '12-bell-stores-manager-ready-grn');
   await so.context().close();
   const POA: string = poA.poNumber;
   const INV = `${POA}-INV-1`;
@@ -268,44 +269,31 @@ test('company flow on the screens: request, approvals, POs, GRN, voucher chain, 
   await vrow.getByTestId('vp-submit').click();
   await expect.poll(() => check().pvs[0]?.status, { timeout: 240_000, intervals: [10_000] }).toBe('PENDING_APPROVAL');
 
-  // 7. OSP Account Manager -> OSP Manager -> Head of Section, each told by the bell; the invoice is posted at the last
-  const am = await signIn(browser, 'zzg6_am');
-  await bell(am, /Vendor payment to accept/, '15-bell-account-manager');
-  vrow = await voucherRow(am);
-  await vrow.getByTestId('vp-approve').click();
-  await expect.poll(() => check().pvs[0]?.stage, { timeout: 240_000, intervals: [10_000] }).toBe('OSP_MANAGER');
-  await am.context().close();
-
-  await bell(osp, /Vendor payment to approve \(OSP Manager\)/, '16-bell-osp-manager-voucher');
-  await (await chainRow(osp)).getByTestId('pv-approve').click();
-  await expect.poll(() => check().pvs[0]?.stage, { timeout: 240_000, intervals: [10_000] }).toBe('HEAD_OF_SECTION');
-  expect(check().invoices[0].status, 'not posted before the last approval').toBe('MATCHED');
-  await osp.context().close();
-
-  await bell(hos, /Vendor payment to approve \(Head of Section\)/, '17-bell-head-of-section-voucher');
-  await (await chainRow(hos)).getByTestId('pv-approve').click();
+  // 7. signed on paper by the Account Manager, OSP Manager and Head of Section: the Account Officer records it with the scan (the invoice is posted)
+  expect(check().invoices[0].status, 'not posted before the signatures').toBe('MATCHED');
+  await (await chainRow(ao)).getByTestId('pv-signed').setInputFiles(pdf);
   await expect.poll(() => check().pvs[0]?.status, { timeout: 240_000, intervals: [10_000] }).toBe('APPROVED');
   c = check();
-  expect(c.invoices[0].status, 'posted at the Head of Section approval').toBe('APPROVED');
-  expect(c.pvs[0].docs).toBe('TO_SEND');
-  await hos.context().close();
+  expect(c.invoices[0].status, 'posted with the signatures').toBe('APPROVED');
+  expect(c.pvs[0]).toMatchObject({ docs: 'TO_SEND', signed: true });
+  await osp.context().close();
 
-  // 8. the OSP Account is told to send the documents; the Procurement Officer is told they were sent and marks them received
-  await bell(ao, /send the documents to Procurement/, '18-bell-account-officer-documents');
+  // 8. the Account Officer sends the documents; the HO Account Executive is told, receives them, and the voucher is with HO
   ao.once('dialog', (d) => d.accept());
   await (await chainRow(ao)).getByTestId('pv-docs-sent').click();
   await expect.poll(() => check().pvs[0]?.docs, { timeout: 240_000, intervals: [10_000] }).toBe('SENT');
+  await ao.screenshot({ path: `${SHOTS}/15-voucher-signed-documents-sent.png`, fullPage: true });
   await ao.context().close();
-  await bell(proc, /Voucher documents sent to Procurement/, '19-bell-procurement-documents');
-  const procRow = await chainRow(proc);
-  proc.once('dialog', (d) => d.accept());
-  await procRow.getByTestId('pv-docs-received').click();
-  await expect.poll(() => check().pvs[0]?.status, { timeout: 240_000, intervals: [10_000] }).toBe('SUBMITTED_TO_HO');
   await proc.context().close();
+  const ae = await signIn(browser, 'zzg6_ae');
+  await bell(ae, /Voucher documents sent to the HO Invoice Section/, '16-bell-account-executive-documents');
+  const aeRow = await chainRow(ae);
+  ae.once('dialog', (d) => d.accept());
+  await aeRow.getByTestId('pv-docs-received').click();
+  await expect.poll(() => check().pvs[0]?.status, { timeout: 240_000, intervals: [10_000] }).toBe('SUBMITTED_TO_HO');
 
   // 9. the Account Executive at HO is told and records the payments HO made: 50,000 now, the rest later
-  const ae = await signIn(browser, 'zzg6_ae');
-  await bell(ae, /sent to HO/i, '20-bell-account-executive');
+  await bell(ae, /Vendor payment with HO: record the payments/, '20-bell-account-executive');
   for (const [amount, ref] of [['50000', 'ZZTEST-HO-PAY-1'], ['32500', 'ZZTEST-HO-PAY-2']]) {
     vrow = await voucherRow(ae);
     await vrow.getByTestId('vp-pay-part').click();

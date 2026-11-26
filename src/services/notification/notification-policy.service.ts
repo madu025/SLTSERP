@@ -245,8 +245,8 @@ export class NotificationPolicyService {
                 message = `Material request ${req.requestNr} was approved by the OSP Manager and now waits for the Head of Section.`;
                 break;
             case 'PROCUREMENT':
-                title = 'Material request approved: create the PO';
-                message = `Material request ${req.requestNr} was signed off and now needs its purchase order(s).`;
+                title = 'Material request approved: submit the documents to Procurement';
+                message = `Material request ${req.requestNr} was approved by the OSP Manager. Hand the documents to the Procurement Officer and confirm it with "Documents submitted to Procurement".`;
                 break;
             case 'MAIN_STORE_RELEASE':
                 title = 'Material Release Required';
@@ -269,7 +269,7 @@ export class NotificationPolicyService {
             type: 'INVENTORY',
             priority: 'HIGH',
             // the review steps are signed on the Approvals screen, the PO is made on Order Processing
-            link: stage === 'PROCUREMENT' ? '/procurement/orders' : ['OSP_MANAGER_APPROVAL', 'HOS_APPROVAL'].includes(stage) ? '/procurement/approvals' : '/inventory/requests'
+            link: ['OSP_MANAGER_APPROVAL', 'HOS_APPROVAL'].includes(stage) ? '/procurement/approvals' : '/inventory/requests'
         });
     }
 

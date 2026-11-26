@@ -483,15 +483,15 @@ export class PaymentVoucherService {
     if (status === 'APPROVED' && !returningFromHo) {
       await ApprovalLimitService.assertCanApprove(userId, Number(existing.netAmount), 'PAYMENT_VOUCHER', id);
     }
-    // Company flow (a voucher for a GRN invoice): the OSP Account Manager's approval is step 1 of 3; the OSP Manager and the Head of Section follow on
-    // the Vendor Payment Approvals screen, the invoice is posted at the last step, and the Procurement Officer sends it to HO after the documents check.
+    // Company flow (a voucher for a GRN invoice): it is signed on paper by the OSP Account Manager, OSP Manager and Head of Section and the Account Officer
+    // records "signed by all three" on Vendor Payment Vouchers; the HO Account Executive receives the documents, which sends it to HO.
     const { PvChainService } = await import('./pv-chain.service');
     const chainVoucher = await PvChainService.isChainVoucher(existing.supplierInvoiceId);
     if (chainVoucher && status === 'APPROVED' && !returningFromHo) {
-      return PvChainService.accountManagerStep(id, userId);
+      throw AppError.badRequest('VENDOR_VOUCHER_SIGNATURES_STEP: record "Signed by all three" with the scan of the signed voucher on Vendor Payment Vouchers');
     }
     if (chainVoucher && status === 'SUBMITTED_TO_HO') {
-      throw AppError.badRequest('VENDOR_VOUCHER_DOCUMENTS_STEP: the Procurement Officer sends this voucher to HO after checking its documents');
+      throw AppError.badRequest('VENDOR_VOUCHER_DOCUMENTS_STEP: the HO Account Executive sends this voucher to HO by receiving its documents');
     }
 
     // the contractor invoices that this payment completed: their contractors are told once the payment is committed
@@ -520,8 +520,8 @@ export class PaymentVoucherService {
         updateData.submittedToHoById = userId;
         updateData.submittedToHoAt = new Date();
       } else if (status === 'PENDING_APPROVAL' && chainVoucher) {
-        // submitted into the company chain: it waits for the OSP Account Manager
-        updateData.approvalStage = 'ACCOUNT_MANAGER';
+        // submitted into the company chain: it waits for the signatures on paper (recorded by the Account Officer)
+        updateData.approvalStage = 'SIGNATURES';
         updateData.approvalTrail = [...(Array.isArray(existing.approvalTrail) ? existing.approvalTrail : []), { stage: null, action: 'SUBMITTED', userId, at: new Date().toISOString(), remarks: null }];
       } else if (status === 'PAID') {
         const paidOn = new Date(options!.hoPaidDate!);
@@ -625,10 +625,6 @@ export class PaymentVoucherService {
     for (const invoiceId of paidContractorInvoiceIds) {
       const inv = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { invoiceNumber: true, contractorId: true } });
       if (inv) await notifyContractorUsers(inv.contractorId, { invoiceId, step: 'PAID', priority: 'HIGH', title: 'Invoice paid', message: `Invoice ${inv.invoiceNumber} is paid by Head Office. The retention is released after the warranty period.` });
-    }
-    if (status === 'PENDING_APPROVAL' && chainVoucher) {
-      const { notifyStep } = await import('./pv-chain.service');
-      notifyStep('PV_ACCOUNT_MANAGERS', existing, 'Vendor payment to accept (OSP Account Manager)', 'raised by the OSP Account Officer from the GRN invoice; waiting for your acceptance', '/finance/ho-payments');
     }
     return result;
   }

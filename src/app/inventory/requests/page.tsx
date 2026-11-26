@@ -53,6 +53,7 @@ interface InventoryRequest {
     remarks?: string;
     sltReferenceId?: string | null;
     workflowStage?: string | null;
+    procurementDocsSubmittedAt?: string | null;
     sourceType?: string | null;
     hsOspAction?: string | null;
     managerAction?: string | null;
@@ -170,7 +171,7 @@ export default function RequestsPage() {
     });
 
     const approvalMutation = useMutation({
-        mutationFn: async ({ action }: { action: 'APPROVE' | 'REJECT' | 'ARM_APPROVE' | 'STORES_MANAGER_APPROVE' | 'RELEASE' | 'RECEIVE' | 'RECALL_APPROVAL' | 'CREATE_PO' | 'ADJUST_QTY' }) => {
+        mutationFn: async ({ action }: { action: 'APPROVE' | 'REJECT' | 'ARM_APPROVE' | 'STORES_MANAGER_APPROVE' | 'RELEASE' | 'RECEIVE' | 'RECALL_APPROVAL' | 'CREATE_PO' | 'ADJUST_QTY' | 'DOCS_SUBMITTED' }) => {
             if (!selectedRequest) return;
 
             const body = {
@@ -1030,6 +1031,21 @@ export default function RequestsPage() {
                                         ) : (
                                             <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs px-3 py-1.5 font-medium">
                                                 🔒 Pending OSP Manager Approval
+                                            </Badge>
+                                        )
+                                    ) : selectedRequest.workflowStage === 'PROCUREMENT' && !selectedRequest.procurementDocsSubmittedAt ? (
+                                        isAreaManager ? (
+                                            <Button
+                                                data-testid="req-docs-submitted"
+                                                onClick={() => { if (window.confirm('The documents of this request were handed to the Procurement Officer?')) approvalMutation.mutate({ action: 'DOCS_SUBMITTED' }); }}
+                                                disabled={approvalMutation.isPending}
+                                                className="h-9 px-4 text-xs font-bold rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white flex items-center gap-1.5 shadow-md"
+                                            >
+                                                <Package className="w-3.5 h-3.5" /> {approvalMutation.isPending ? 'Processing...' : 'Documents submitted to Procurement'}
+                                            </Button>
+                                        ) : (
+                                            <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 text-xs px-3 py-1.5 font-medium">
+                                                Approved — waiting for the Stores Manager to submit the documents to Procurement
                                             </Badge>
                                         )
                                     ) : selectedRequest.workflowStage === 'PROCUREMENT' ? (

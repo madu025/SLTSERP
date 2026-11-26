@@ -60,12 +60,12 @@ async function main() {
         const notices: Record<string, string[]> = {};
         for (const n of notes) (notices[keyOf.get(n.userId) as string] ??= []).push(n.title);
         console.log('CHECK ' + JSON.stringify({
-            requests: reqs.map((r) => ({ requestNr: r.requestNr, status: r.status, stage: r.workflowStage, procurement: r.procurementStatus, qty: r.items.map((i: any) => num(i.requestedQty)) })),
+            requests: reqs.map((r) => ({ requestNr: r.requestNr, status: r.status, stage: r.workflowStage, procurement: r.procurementStatus, docsSubmitted: !!r.procurementDocsSubmittedAt, qty: r.items.map((i: any) => num(i.requestedQty)) })),
             stock: num(stock?.quantity),
             pos: pos.map((p) => ({ poNumber: p.poNumber, vendor: p.vendor, status: p.status, creditDays: p.creditDays ?? null, ordered: p.items.map((l: any) => num(l.quantity)), received: p.items.map((l: any) => num(l.receivedQty)) })),
             grns: grns.map((g) => ({ grnNumber: g.grnNumber, oracle: g.oracleGrnNumber, invoiceNo: g.vendorInvoiceNumber, accepted: g.items.map((i: any) => num(i.quantity)), rejected: g.items.map((i: any) => num(i.rejectedQty)), reason: g.items.map((i: any) => i.rejectReason) })),
             invoices: invoices.map((i) => ({ invoiceNumber: i.invoiceNumber, grnLinked: !!i.grnId, status: i.status, match: i.matchStatus, total: num(i.totalAmount), paid: num(i.paidAmount), due: i.dueDate?.toISOString().slice(0, 10) ?? null })),
-            pvs: pvs.map((p) => ({ status: p.status, amount: num(p.amount), hoPaid: num(p.hoPaidAmount), stage: p.approvalStage, docs: p.docsStatus })),
+            pvs: pvs.map((p) => ({ status: p.status, amount: num(p.amount), hoPaid: num(p.hoPaidAmount), stage: p.approvalStage, docs: p.docsStatus, signed: !!p.signedVoucherUrl })),
             notices,
             parts: parts.map((x) => ({ amount: num(x.amount), status: x.status, posted: !!x.journalEntryId })),
             journals: je.map((e) => ({ type: e.referenceType, lines: e.lines.map((l: any) => `${l.accountCode} ${num(l.debit) ? 'DR ' + num(l.debit) : 'CR ' + num(l.credit)}`) })),

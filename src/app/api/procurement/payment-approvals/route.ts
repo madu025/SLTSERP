@@ -7,10 +7,12 @@ import { PvChainService } from '@/services/finance/pv-chain.service';
 
 export const dynamic = 'force-dynamic';
 
-const STEP_HOLDERS = [RBAC_PERMISSIONS.FINANCE_APPROVE, RBAC_PERMISSIONS.FINANCE_WRITE, RBAC_PERMISSIONS.FINANCE_PV_APPROVE_OSP, RBAC_PERMISSIONS.FINANCE_PV_APPROVE_HOS, RBAC_PERMISSIONS.PROCUREMENT_PV_DOCUMENTS];
+// the OSP Account (signatures, documents sent) and the HO Account Executive (documents received)
+const STEP_HOLDERS = [RBAC_PERMISSIONS.FINANCE_WRITE, RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD];
 const bodySchema = z.object({
     voucherId: databaseUuidSchema,
-    action: z.enum(['APPROVE', 'REJECT', 'DOCS_SENT', 'DOCS_RECEIVED', 'DOCS_NOT_RECEIVED']),
+    action: z.enum(['SIGNED', 'NOT_SIGNED', 'DOCS_SENT', 'DOCS_RECEIVED', 'DOCS_NOT_RECEIVED']),
+    signedVoucherUrl: z.string().max(1000).nullish(),
     remarks: z.string().max(500).nullish(),
     matchOverrideReason: z.string().max(500).nullish(),
 });
@@ -22,9 +24,9 @@ export const GET = apiHandler(async (_req, params) => {
     return PvChainService.list(params._userId);
 }, { permissions: [RBAC_PERMISSIONS.PROCUREMENT_PV_CHAIN_READ] });
 
-// POST /api/procurement/payment-approvals  { voucherId, action: APPROVE | REJECT | DOCS_SENT | DOCS_RECEIVED | DOCS_NOT_RECEIVED, remarks? }
-// Each action is checked by the service against the step the voucher waits at (OSP Manager, Head of Section, Procurement Officer, Account Officer).
+// POST /api/procurement/payment-approvals  { voucherId, action: SIGNED | NOT_SIGNED | DOCS_SENT | DOCS_RECEIVED | DOCS_NOT_RECEIVED, remarks?, signedVoucherUrl? }
+// Each action is checked by the service against the step the voucher waits at (OSP Account, HO Account Executive).
 export const POST = apiHandler(async (_req, params, body: z.infer<typeof bodySchema>) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
-    return PvChainService.act(body.voucherId, params._userId, body.action, body.remarks, body.matchOverrideReason);
+    return PvChainService.act(body.voucherId, params._userId, body.action, body.remarks, { signedVoucherUrl: body.signedVoucherUrl, matchOverrideReason: body.matchOverrideReason });
 }, { schema: bodySchema, permissions: STEP_HOLDERS, audit: { action: 'PV_CHAIN_ACTION', entity: 'PAYMENT_VOUCHER', entityIdParam: 'voucherId' } });

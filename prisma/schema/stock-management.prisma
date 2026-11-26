@@ -34,6 +34,9 @@ model StockRequest {
   maintenanceMonths                String?
   workflowStage                    String                            @default("REQUEST")
   procurementStatus                String                            @default("PENDING")
+  /// The Stores Manager confirms the request documents were submitted to Procurement (after the OSP Manager approval)
+  procurementDocsSubmittedAt       DateTime?
+  procurementDocsSubmittedById     String?                           @db.Uuid
   irNumber                         String?
   isCoveringPO                     Boolean                           @default(false)
   armAction                        String?

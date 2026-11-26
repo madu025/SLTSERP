@@ -17,6 +17,8 @@ import { getUserEffectivePermissions } from '@/lib/user-permissions';
 import { getStockRequestActionPermission } from '@/lib/inventory-stock-request-permissions';
 import { NIL_UUID, resolveOpmcScope } from '@/lib/opmc-scope';
 import { PUBLIC_USER_SELECT } from '@/lib/public-user-select';
+import { AuditService } from '@/services/audit/audit.service';
+import { NotificationService } from '@/services/notification';
 import {
     resolveProcessGateAudience,
     type NotificationAudienceId,
@@ -335,6 +337,8 @@ export class StockRequestService {
                 return StockRequestService.handleAdjustQty(data);
             case 'REJECT':
                 return StockRequestService.handleReject(data);
+            case 'DOCS_SUBMITTED':
+                return StockRequestService.handleDocsSubmitted(data);
             case 'CREATE_PO':
                 return StockRequestService.handleCreatePO(data);
             case 'UPDATE_PROCUREMENT_STATUS':
@@ -348,6 +352,25 @@ export class StockRequestService {
             default:
                 throw AppError.badRequest('INVALID_ACTION');
         }
+    }
+
+    /** The Stores Manager confirms the request documents were handed to Procurement; the Procurement Officer is told to record the PO. */
+    private static async handleDocsSubmitted(data: StockRequestActionData) {
+        const { requestId, userId, remarks } = data;
+        const claim = await prisma.stockRequest.updateMany({
+            where: { id: requestId, workflowStage: 'PROCUREMENT', procurementDocsSubmittedAt: null },
+            data: { procurementDocsSubmittedAt: new Date(), procurementDocsSubmittedById: userId },
+        });
+        if (claim.count === 0) throw AppError.badRequest('Only an approved request waiting for Procurement whose documents are not yet submitted can be marked');
+        const updated = await prisma.stockRequest.findUniqueOrThrow({ where: { id: requestId } });
+        AuditService.log({ userId, action: 'REQUEST_DOCS_SUBMITTED', entity: 'STOCK_REQUEST', entityId: requestId, newValue: { requestNr: updated.requestNr, remarks: remarks ?? null } }).catch(() => undefined);
+        NotificationService.notifyByAudience({
+            audience: 'PROCESS_GATE_PROCUREMENT', type: 'INVENTORY', priority: 'HIGH', link: '/procurement/orders',
+            title: 'Material request documents submitted: record the PO',
+            message: `The Stores Manager submitted the documents of material request ${updated.requestNr}. Record its purchase order(s).`,
+            metadata: { requestId }, dedupKey: `request-docs:${requestId}`,
+        }).catch(() => undefined);
+        return updated;
     }
 
     private static async handleCreatePO(data: StockRequestActionData) {
@@ -385,6 +408,14 @@ export class StockRequestService {
         });
 
         this.safeNotifyFinalAction(updated as unknown as StockRequest, 'CREATE_PO', remarks);
+        // every line ordered (the live POs reach the approved quantity): the request is ready for the GRN, no further click
+        const fullyOrdered = updated.items.length > 0 && updated.items.every((it) => {
+            const approved = Number(it.approvedQty) > 0 ? Number(it.approvedQty) : Number(it.requestedQty);
+            const ordered = updated.purchaseOrders.filter((po) => String(po.status ?? '').toUpperCase() !== 'CANCELLED')
+                .reduce((sum, po) => sum + po.items.filter((l) => l.stockRequestItemId === it.id).reduce((a, l) => a + Number(l.quantity), 0), 0);
+            return ordered >= approved - 1e-9;
+        });
+        if (fullyOrdered) return this.handleProcurementComplete({ ...data, action: 'PROCUREMENT_COMPLETE' });
         return updated;
     }
 
@@ -672,6 +703,13 @@ export class StockRequestService {
         });
 
         this.safeNotifyFinalAction(updated, 'PROCUREMENT_COMPLETE');
+        // the Stores Manager receives the goods: told that the request is ready for the GRN
+        NotificationService.notifyByAudience({
+            audience: 'STORES_MANAGERS', type: 'INVENTORY', priority: 'MEDIUM', link: '/inventory/grn',
+            title: 'Purchase orders recorded: ready for GRN',
+            message: `Every line of material request ${updated.requestNr} is on a purchase order. Receive the deliveries with the GRN.`,
+            metadata: { requestId }, dedupKey: `request-ready-grn:${requestId}`,
+        }).catch(() => undefined);
         return updated;
     }
 

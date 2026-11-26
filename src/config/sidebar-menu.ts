@@ -553,8 +553,8 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 permissionId: RBAC_PERMISSIONS.INVENTORY_APPROVE,
             },
             {
-                // vendor payment vouchers: OSP Manager and Head of Section review, then the Procurement Officer confirms the documents and sends to HO
-                title: 'Vendor Payment Approvals',
+                // vendor payment vouchers: the OSP Account records the signatures and sends the documents, the HO Account Executive receives them
+                title: 'Vendor Payment Vouchers',
                 path: '/procurement/payment-approvals',
                 icon: Receipt,
                 permissionId: RBAC_PERMISSIONS.PROCUREMENT_PV_CHAIN_READ,

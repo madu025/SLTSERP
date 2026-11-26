@@ -26,7 +26,6 @@ export const AUDIENCE_INFO: Record<NotificationAudienceId, AudienceInfo> = {
     SOD_PROJECT: { label: 'Service order and project notices', description: 'Ordinary service-order notices for the area they are about (the weekly digest has its own audience).', areaScope: 'area' },
     OPS_DIGEST: { label: 'Weekly operations digest (not used)', description: 'Replaced by the recipient rule of the Weekly operations digest report (module, job level, area). No report sends to this audience any more.', areaScope: 'company' },
     FINANCE_APPROVERS: { label: 'Finance approvers', description: 'Payments and Head Office requests waiting for a finance approval.', areaScope: 'company' },
-    PV_ACCOUNT_MANAGERS: { label: 'Vendor payments: OSP Account Manager', description: 'Vendor payment vouchers raised from a GRN invoice, waiting for the OSP Account Manager.', areaScope: 'company' },
     FINANCE_ALL: { label: 'Finance team', description: 'General finance notices.', areaScope: 'company' },
     INVENTORY_LOW_STOCK: { label: 'Low stock (in-app)', description: 'Items below the reorder level.', areaScope: 'company' },
     INVENTORY_ALERT_EMAIL: { label: 'Inventory alerts (email)', description: 'The same stock alerts by email.', areaScope: 'company' },

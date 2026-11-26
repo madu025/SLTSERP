@@ -40,6 +40,7 @@ interface ProcurementRequest {
     status: string;
     workflowStage: string;
     procurementStatus?: string | null;
+    procurementDocsSubmittedAt?: string | null;
     purchaseOrders?: {
         id?: string;
         poNumber: string;
@@ -207,26 +208,6 @@ export default function ProcurementOrdersPage() {
         onError: (err: any) => toast.error(err?.message || "Failed to create PO")
     });
     // Update PO Status Mutation
-    const updateStatusMutation = useMutation({
-        mutationFn: async ({ requestId, newStatus }: { requestId: string, newStatus: string }) => {
-            const res = await fetch("/api/inventory/requests", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    requestId,
-                    action: "UPDATE_PROCUREMENT_STATUS",
-                    procurementStatus: newStatus
-                })
-            });
-            if (!res.ok) throw new Error("Failed to update status");
-            return res.json();
-        },
-        onSuccess: () => {
-            toast.success("Status updated successfully!");
-            queryClient.invalidateQueries({ queryKey: ["procurement-orders"] });
-        },
-        onError: () => toast.error("Failed to update status")
-    });
     // Mark as Ready for GRN
     const completeOrderMutation = useMutation({
         mutationFn: async (requestId: string) => {
@@ -571,7 +552,12 @@ export default function ProcurementOrdersPage() {
                                                             >
                                                                 <Eye className="w-4 h-4" />
                                                             </Button>
-                                                            {activeTab === "PENDING" && (
+                                                            {activeTab === "PENDING" && !req.procurementDocsSubmittedAt && (
+                                                                <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 text-[10px] font-bold whitespace-nowrap px-2 py-1" data-testid="po-wait-docs">
+                                                                    Waiting for the Stores Manager&apos;s documents
+                                                                </Badge>
+                                                            )}
+                                                            {activeTab === "PENDING" && req.procurementDocsSubmittedAt && (
                                                                 <Button
                                                                     size="sm"
                                                                     className="h-7 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] uppercase rounded-lg"
@@ -590,10 +576,16 @@ export default function ProcurementOrdersPage() {
                                                                         const poStates = (req.purchaseOrders ?? []).map((po) => po.status ?? 'APPROVED');
                                                                         const coverLabel = poStates.includes('RETURNED') ? 'PO returned: needs changes' : poStates.includes('PENDING_APPROVAL') ? 'PO awaiting approval' : poStates.every((st) => ['ISSUED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CLOSED'].includes(st)) ? '✓ All POs Issued' : '✓ PO approved, not yet issued';
                                                                         if (isFullyCovered) {
+                                                                            // a fully ordered request goes to "Ready for GRN" by itself; the button is for orders recorded before that rule
                                                                             return (
-                                                                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold whitespace-nowrap px-2 py-1">
-                                                                                    {coverLabel}
-                                                                                </Badge>
+                                                                                <>
+                                                                                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold whitespace-nowrap px-2 py-1">
+                                                                                        {coverLabel}
+                                                                                    </Badge>
+                                                                                    <Button size="sm" data-testid="po-ready-grn" className="h-7 px-2.5 bg-green-600 hover:bg-green-700 text-white font-bold text-[10px] uppercase rounded-lg" onClick={() => completeOrderMutation.mutate(req.id)}>
+                                                                                        <Package className="w-3.5 h-3.5 mr-1" /> Ready for GRN
+                                                                                    </Button>
+                                                                                </>
                                                                             );
                                                                         }
                                                                         return (
@@ -607,36 +599,6 @@ export default function ProcurementOrdersPage() {
                                                                             </Button>
                                                                         );
                                                                     })()}
-                                                                    {req.procurementStatus === "PO_CREATED" && (
-                                                                        <Button
-                                                                            size="sm"
-                                                                            variant="outline"
-                                                                            className="h-7 text-[10px] font-bold border-slate-200 hover:bg-slate-50"
-                                                                            onClick={() => updateStatusMutation.mutate({ requestId: req.id, newStatus: "PO_SENT" })}
-                                                                        >
-                                                                            Sent
-                                                                        </Button>
-                                                                    )}
-                                                                    {req.procurementStatus === "PO_SENT" && (
-                                                                        <Button
-                                                                            size="sm"
-                                                                            variant="outline"
-                                                                            className="h-7 text-[10px] font-bold border-slate-200 hover:bg-slate-50"
-                                                                            onClick={() => updateStatusMutation.mutate({ requestId: req.id, newStatus: "PO_CONFIRMED" })}
-                                                                        >
-                                                                            Confirm
-                                                                        </Button>
-                                                                    )}
-                                                                    {req.procurementStatus === "PO_CONFIRMED" && (
-                                                                        <Button
-                                                                            size="sm"
-                                                                            className="h-7 px-2.5 bg-green-600 hover:bg-green-700 text-white font-bold text-[10px] uppercase rounded-lg"
-                                                                            onClick={() => completeOrderMutation.mutate(req.id)}
-                                                                        >
-                                                                            <Package className="w-3.5 h-3.5 mr-1" />
-                                                                            Finish
-                                                                        </Button>
-                                                                    )}
                                                                 </>
                                                             )}
                                                         </div>

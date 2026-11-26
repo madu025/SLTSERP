@@ -16,26 +16,18 @@ export function notifyStep(audience: NotificationAudienceId, pv: { id: string; p
     }).catch(() => undefined);
 }
 
-export const PV_STAGES = ['ACCOUNT_MANAGER', 'OSP_MANAGER', 'HEAD_OF_SECTION'] as const;
-export type PvStage = (typeof PV_STAGES)[number];
-export const PV_STAGE_LABEL: Record<PvStage, string> = { ACCOUNT_MANAGER: 'OSP Account Manager', OSP_MANAGER: 'OSP Manager', HEAD_OF_SECTION: 'Head of Section' };
-const STAGE_PERMISSION: Record<PvStage, string> = {
-    ACCOUNT_MANAGER: RBAC_PERMISSIONS.FINANCE_PV_APPROVE_ACCOUNT,
-    OSP_MANAGER: RBAC_PERMISSIONS.FINANCE_PV_APPROVE_OSP,
-    HEAD_OF_SECTION: RBAC_PERMISSIONS.FINANCE_PV_APPROVE_HOS,
-};
-export type PvChainAction = 'APPROVE' | 'REJECT' | 'DOCS_SENT' | 'DOCS_RECEIVED' | 'DOCS_NOT_RECEIVED';
+export type PvChainAction = 'SIGNED' | 'NOT_SIGNED' | 'DOCS_SENT' | 'DOCS_RECEIVED' | 'DOCS_NOT_RECEIVED';
 
 type TrailEntry = { stage: string | null; action: string; userId: string; at: string; remarks: string | null };
 const trailOf = (v: unknown): TrailEntry[] => (Array.isArray(v) ? (v as TrailEntry[]) : []);
 const entry = (stage: string | null, action: string, userId: string, remarks?: string | null): TrailEntry => ({ stage, action, userId, at: new Date().toISOString(), remarks: remarks?.trim() || null });
 
 /**
- * The company flow for a vendor payment voucher raised from a GRN invoice (owner's diagram):
- *   OSP Account Officer raises it -> OSP Account Manager -> OSP Manager -> Head of Section (the vendor invoice is posted here) ->
- *   the OSP Account (Officer or Manager) sends the documents to Procurement and confirms it -> Procurement Officer checks them (received: sent to HO;
- *   not received: back to the OSP Account with remarks, which sends them again) -> HO pays. Every step notifies the people of the next one.
- * A rejection at any step sends the voucher back to the Account Officer (DRAFT) with the remarks. Nobody signs two steps, and the maker signs none.
+ * The company flow for a vendor payment voucher raised from a GRN invoice (owner, 26 Nov 2026):
+ *   OSP Account Officer raises and submits it -> the OSP Account Manager, OSP Manager and Head of Section sign it on paper, and the Account Officer
+ *   records "signed by all three" with the scan of the signed voucher (the vendor invoice is posted here) -> the Account Officer sends the documents
+ *   and confirms it -> the HO Account Executive (HO Invoice Section) marks them received (the voucher is with HO) or not received (back to the
+ *   Account Officer with remarks) -> the Account Executive records HO's payments. "Not signed" sends the voucher back to draft with the remarks.
  */
 export class PvChainService {
     /** Is this voucher in the company chain (it pays the vendor invoice of one GRN)? */
@@ -55,22 +47,7 @@ export class PvChainService {
         await assertVoucherAccess(pv.projectId, userId, pv.description);
     }
 
-    /** Step 1, called from the voucher approval of the OSP Account Manager: moves the voucher on to the OSP Manager. */
-    static async accountManagerStep(pvId: string, userId: string) {
-        const pv = await prisma.paymentVoucher.findUniqueOrThrow({ where: { id: pvId } });
-        if (!(await userHasPermission(userId, STAGE_PERMISSION.ACCOUNT_MANAGER))) throw AppError.forbidden('PV_STAGE_NOT_PERMITTED: this voucher waits for the OSP Account Manager');
-        if (pv.approvalStage !== 'ACCOUNT_MANAGER') throw AppError.badRequest('This voucher is not waiting for the OSP Account Manager');
-        const claim = await prisma.paymentVoucher.updateMany({
-            where: { id: pvId, status: 'PENDING_APPROVAL', approvalStage: 'ACCOUNT_MANAGER' },
-            data: { approvalStage: 'OSP_MANAGER', approvalTrail: [...trailOf(pv.approvalTrail), entry('ACCOUNT_MANAGER', 'APPROVED', userId)] as never },
-        });
-        if (claim.count === 0) throw AppError.conflict('This voucher was just actioned by someone else');
-        AuditService.log({ userId, action: 'PV_CHAIN_APPROVE', entity: 'PAYMENT_VOUCHER', entityId: pvId, newValue: { stage: 'ACCOUNT_MANAGER', next: 'OSP_MANAGER' } }).catch(() => undefined);
-        notifyStep('PROCESS_GATE_OSP_MANAGER', pv, 'Vendor payment to approve (OSP Manager)', 'accepted by the OSP Account Manager, waiting for your approval');
-        return prisma.paymentVoucher.findUniqueOrThrow({ where: { id: pvId } });
-    }
-
-    static async act(pvId: string, userId: string, action: PvChainAction, remarks?: string | null, matchOverrideReason?: string | null) {
+    static async act(pvId: string, userId: string, action: PvChainAction, remarks?: string | null, opts?: { signedVoucherUrl?: string | null; matchOverrideReason?: string | null }) {
         const pv = await prisma.paymentVoucher.findUnique({ where: { id: pvId } });
         if (!pv) throw AppError.notFound('Payment voucher not found');
         await this.assertChainAccess(pv, userId);
@@ -79,63 +56,54 @@ export class PvChainService {
         const note = remarks?.trim() || null;
         const can = (p: string) => userHasPermission(userId, p);
 
-        if (action === 'APPROVE' || action === 'REJECT') {
-            const stage = pv.approvalStage as PvStage | null;
-            if (pv.status !== 'PENDING_APPROVAL' || !stage || stage === 'ACCOUNT_MANAGER') throw AppError.badRequest('This voucher is not waiting at the OSP Manager or Head of Section step');
-            if (!(await can(STAGE_PERMISSION[stage]))) throw AppError.forbidden(`PV_STAGE_NOT_PERMITTED: this voucher waits for the ${PV_STAGE_LABEL[stage]}`);
-            if (pv.createdById === userId || trail.some((t) => t.action === 'APPROVED' && t.userId === userId)) {
-                throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: the maker or an earlier approver cannot sign this step');
-            }
-            if (action === 'REJECT') {
-                if (!note || note.length < 3) throw AppError.badRequest('Remarks are required when a voucher is rejected');
-                const claim = await prisma.paymentVoucher.updateMany({ where: { id: pvId, status: 'PENDING_APPROVAL', approvalStage: stage }, data: { status: 'DRAFT', approvalStage: null, approvalTrail: [...trail, entry(stage, 'REJECTED', userId, note)] as never, notes: `${pv.notes ? pv.notes + ' | ' : ''}Rejected by the ${PV_STAGE_LABEL[stage]}: ${note}` } });
+        if (action === 'SIGNED' || action === 'NOT_SIGNED') {
+            // the OSP Account records what happened on paper: the voucher was signed by the three, or it was not
+            if (!(await can(RBAC_PERMISSIONS.FINANCE_WRITE))) throw AppError.forbidden('Recording the signatures of a voucher is the OSP Account\'s step');
+            if (pv.status !== 'PENDING_APPROVAL' || pv.approvalStage !== 'SIGNATURES') throw AppError.badRequest('This voucher is not waiting for its signatures');
+            if (action === 'NOT_SIGNED') {
+                if (!note || note.length < 3) throw AppError.badRequest('Say why the voucher was not signed');
+                const claim = await prisma.paymentVoucher.updateMany({ where: { id: pvId, status: 'PENDING_APPROVAL', approvalStage: 'SIGNATURES' }, data: { status: 'DRAFT', approvalStage: null, approvalTrail: [...trail, entry('SIGNATURES', 'NOT_SIGNED', userId, note)] as never, notes: `${pv.notes ? pv.notes + ' | ' : ''}Not signed: ${note}` } });
                 if (claim.count === 0) throw AppError.conflict('This voucher was just actioned by someone else');
-                notifyStep('FINANCE_ALL', pv, 'Vendor payment rejected', `rejected by the ${PV_STAGE_LABEL[stage]}: ${note}. Correct it and send it again.`, '/finance/ho-payments');
-                if (pv.createdById) NotificationService.send({ userId: pv.createdById, title: 'Your payment voucher was rejected', message: `${pv.pvNumber}: rejected by the ${PV_STAGE_LABEL[stage]}: ${note}`, type: 'FINANCE', priority: 'HIGH', link: '/finance/ho-payments', metadata: { voucherId: pv.id } }).catch(() => undefined);
-            } else if (stage === 'OSP_MANAGER') {
-                const claim = await prisma.paymentVoucher.updateMany({ where: { id: pvId, status: 'PENDING_APPROVAL', approvalStage: stage }, data: { approvalStage: 'HEAD_OF_SECTION', approvalTrail: [...trail, entry(stage, 'APPROVED', userId, note)] as never } });
-                if (claim.count === 0) throw AppError.conflict('This voucher was just actioned by someone else');
-                notifyStep('PROCESS_GATE_HEAD_OF_SECTION', pv, 'Vendor payment to approve (Head of Section)', 'approved by the OSP Manager, waiting for your approval');
-                notifyStep('FINANCE_ALL', pv, 'Vendor payment approved by the OSP Manager', 'approved by the OSP Manager; it now waits for the Head of Section', '/finance/ho-payments');
             } else {
-                // last approval: the vendor invoice is approved and posted (GR/IR -> vendor payable), then the voucher is approved
+                const url = (opts?.signedVoucherUrl ?? '').trim();
+                if (!url || !(url.startsWith('/') || /^https?:\/\//.test(url))) throw AppError.badRequest('SIGNED_VOUCHER_SCAN_REQUIRED: attach the scan of the voucher signed by the Account Manager, OSP Manager and Head of Section');
+                // the vendor invoice is approved and posted (GR/IR -> vendor payable) together with the signatures
                 const { SupplierInvoiceService } = await import('@/services/procurement/supplier-invoice.service');
                 const si = await prisma.supplierInvoice.findUniqueOrThrow({ where: { id: pv.supplierInvoiceId! }, select: { id: true, status: true } });
-                if (['MATCHED', 'VARIANCE'].includes(si.status)) await SupplierInvoiceService.approve(si.id, userId, matchOverrideReason ?? null, { viaVoucherChain: true });
+                if (['MATCHED', 'VARIANCE'].includes(si.status)) await SupplierInvoiceService.approve(si.id, userId, opts?.matchOverrideReason ?? null, { viaVoucherChain: true });
                 const after = await prisma.supplierInvoice.findUniqueOrThrow({ where: { id: si.id }, select: { status: true } });
-                if (!['APPROVED', 'PARTIALLY_PAID', 'PAID'].includes(after.status)) throw AppError.badRequest(`SUPPLIER_INVOICE_NOT_YET_APPROVED: the vendor invoice is ${after.status}; it needs its remaining approval first`);
-                const claim = await prisma.paymentVoucher.updateMany({ where: { id: pvId, status: 'PENDING_APPROVAL', approvalStage: stage }, data: { status: 'APPROVED', approvalStage: null, approvedById: userId, approvedAt: new Date(), docsStatus: 'TO_SEND', approvalTrail: [...trail, entry(stage, 'APPROVED', userId, note)] as never } });
+                if (!['APPROVED', 'PARTIALLY_PAID', 'PAID'].includes(after.status)) throw AppError.badRequest(`SUPPLIER_INVOICE_NOT_YET_APPROVED: the vendor invoice is ${after.status}`);
+                const claim = await prisma.paymentVoucher.updateMany({ where: { id: pvId, status: 'PENDING_APPROVAL', approvalStage: 'SIGNATURES' }, data: { status: 'APPROVED', approvalStage: null, approvedById: userId, approvedAt: new Date(), docsStatus: 'TO_SEND', signedVoucherUrl: url, approvalTrail: [...trail, entry('SIGNATURES', 'SIGNED', userId, note ?? 'Signed by the OSP Account Manager, OSP Manager and Head of Section')] as never } });
                 if (claim.count === 0) throw AppError.conflict('This voucher was just actioned by someone else');
-                notifyStep('FINANCE_ALL', pv, 'Vendor payment approved: send the documents to Procurement', 'approved by the Head of Section. Send the documents to the Procurement Officer and confirm it with "Documents sent".');
             }
-            AuditService.log({ userId, action: `PV_CHAIN_${action}`, entity: 'PAYMENT_VOUCHER', entityId: pvId, newValue: { stage, remarks: note } }).catch(() => undefined);
+            AuditService.log({ userId, action: `PV_CHAIN_${action}`, entity: 'PAYMENT_VOUCHER', entityId: pvId, newValue: { remarks: note, signedVoucherUrl: opts?.signedVoucherUrl ?? null } }).catch(() => undefined);
             return prisma.paymentVoucher.findUniqueOrThrow({ where: { id: pvId } });
         }
 
         if (action === 'DOCS_SENT') {
-            // the OSP Account Officer or Manager has sent the documents to Procurement (after the approval, or again after "not received")
-            if (!(await can(RBAC_PERMISSIONS.FINANCE_WRITE))) throw AppError.forbidden('Sending the voucher documents to Procurement is the OSP Account\'s step');
+            // the OSP Account has sent the documents to the HO Invoice Section (after the signatures, or again after "not received")
+            if (!(await can(RBAC_PERMISSIONS.FINANCE_WRITE))) throw AppError.forbidden('Sending the voucher documents is the OSP Account\'s step');
             const claim = await prisma.paymentVoucher.updateMany({ where: { id: pvId, status: 'APPROVED', docsStatus: { in: ['TO_SEND', 'NOT_RECEIVED'] } }, data: { docsStatus: 'SENT', approvalTrail: [...trail, entry(null, 'DOCS_SENT', userId, note)] as never } });
-            if (claim.count === 0) throw AppError.badRequest('Only an approved voucher whose documents are still to send can be marked sent');
+            if (claim.count === 0) throw AppError.badRequest('Only a signed voucher whose documents are still to send can be marked sent');
             AuditService.log({ userId, action: 'PV_CHAIN_DOCS_SENT', entity: 'PAYMENT_VOUCHER', entityId: pvId, newValue: { remarks: note } }).catch(() => undefined);
-            notifyStep('PROCESS_GATE_PROCUREMENT', pv, 'Voucher documents sent to Procurement', 'the OSP Account sent the documents: check them and mark them received or not received');
+            notifyStep('FINANCE_ALL', pv, 'Voucher documents sent to the HO Invoice Section', 'the OSP Account sent the signed voucher and its documents: the HO Account Executive marks them received or not received');
             return prisma.paymentVoucher.findUniqueOrThrow({ where: { id: pvId } });
         }
 
-        // DOCS_RECEIVED / DOCS_NOT_RECEIVED: the Procurement Officer checks what the OSP Account sent
-        if (!(await can(RBAC_PERMISSIONS.PROCUREMENT_PV_DOCUMENTS))) throw AppError.forbidden('Checking the voucher documents is the Procurement Officer\'s step');
+        // DOCS_RECEIVED / DOCS_NOT_RECEIVED: the HO Account Executive (HO Invoice Section) checks what the OSP Account sent
+        if (!(await can(RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD))) throw AppError.forbidden('Checking the voucher documents is the HO Account Executive\'s step');
         if (pv.status !== 'APPROVED' || pv.docsStatus !== 'SENT') throw AppError.badRequest('The OSP Account has not sent the documents of this voucher yet');
-        if (pv.createdById === userId || trail.some((t) => t.action === 'APPROVED' && t.userId === userId)) throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: the maker or an approver cannot check the documents');
+        if (pv.createdById === userId) throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: the maker of the voucher cannot receive its documents');
         if (action === 'DOCS_NOT_RECEIVED') {
             if (!note || note.length < 3) throw AppError.badRequest('Say which documents are missing');
             const claim = await prisma.paymentVoucher.updateMany({ where: { id: pvId, status: 'APPROVED', docsStatus: 'SENT' }, data: { docsStatus: 'NOT_RECEIVED', docsCheckedById: userId, docsCheckedAt: new Date(), docsRemarks: note, approvalTrail: [...trail, entry(null, 'DOCS_NOT_RECEIVED', userId, note)] as never } });
             if (claim.count === 0) throw AppError.conflict('This voucher was just actioned by someone else');
-            notifyStep('FINANCE_ALL', pv, 'Voucher documents not received by Procurement', `missing: ${note}. Send them again and confirm "Documents sent".`, '/finance/ho-payments');
+            notifyStep('FINANCE_ALL', pv, 'Voucher documents not received at HO', `missing: ${note}. Send them again and confirm "Documents sent".`, '/procurement/payment-approvals');
         } else {
-            // documents inspected and confirmed: the voucher goes to the HO Invoice Section
+            // documents received: the voucher is with the HO Invoice Section; the Account Executive records HO's payments
             const claim = await prisma.paymentVoucher.updateMany({ where: { id: pvId, status: 'APPROVED', docsStatus: 'SENT' }, data: { status: 'SUBMITTED_TO_HO', submittedToHoById: userId, submittedToHoAt: new Date(), docsStatus: 'RECEIVED', docsCheckedById: userId, docsCheckedAt: new Date(), docsRemarks: note, approvalTrail: [...trail, entry(null, 'DOCS_RECEIVED_SENT_TO_HO', userId, note)] as never } });
             if (claim.count === 0) throw AppError.conflict('This voucher was just actioned by someone else');
-            notifyStep('FINANCE_ALL', pv, 'Vendor payment sent to HO', 'documents received by Procurement; the voucher is with the HO Invoice Section. The Account Executive records HO\'s payments.', '/finance/ho-payments');
+            notifyStep('FINANCE_ALL', pv, 'Vendor payment with HO: record the payments', 'documents received by the HO Invoice Section. The Account Executive records HO\'s payments in full or in parts.', '/finance/ho-payments');
         }
         AuditService.log({ userId, action: `PV_CHAIN_${action}`, entity: 'PAYMENT_VOUCHER', entityId: pvId, newValue: { remarks: note } }).catch(() => undefined);
         return prisma.paymentVoucher.findUniqueOrThrow({ where: { id: pvId } });
@@ -144,7 +112,7 @@ export class PvChainService {
     /** The company-flow vouchers in the caller's scope, with where each one waits and its trail. */
     static async list(userId: string) {
         const rows = await prisma.paymentVoucher.findMany({
-            where: { supplierInvoiceId: { not: null }, OR: [{ approvalStage: { not: null } }, { docsStatus: { not: null } }, { status: 'DRAFT', notes: { contains: 'Rejected by the' } }] },
+            where: { supplierInvoiceId: { not: null }, OR: [{ approvalStage: { not: null } }, { docsStatus: { not: null } }, { status: 'DRAFT', notes: { contains: 'Not signed:' } }] },
             orderBy: { createdAt: 'desc' },
             take: 300,
         });
@@ -162,11 +130,10 @@ export class PvChainService {
         return visible.map((v) => {
             const i = inv.get(v.supplierInvoiceId!);
             const g = i?.grnId ? grn.get(i.grnId) : undefined;
-            const stage = v.approvalStage as PvStage | null;
-            return {
+                        return {
                 id: v.id, pvNumber: v.pvNumber, status: v.status, amount: Number(v.amount), payee: v.payeeName,
-                waitingFor: v.status === 'PENDING_APPROVAL' && stage ? PV_STAGE_LABEL[stage] : v.status === 'APPROVED' && v.docsStatus === 'TO_SEND' ? 'OSP Account (send the documents to Procurement)' : v.status === 'APPROVED' && v.docsStatus === 'SENT' ? 'Procurement Officer (check the documents)' : v.status === 'APPROVED' && v.docsStatus === 'NOT_RECEIVED' ? 'OSP Account (send the documents again)' : v.status === 'DRAFT' ? 'OSP Account Officer (rejected)' : v.status === 'SUBMITTED_TO_HO' ? 'HO (payment)' : '-',
-                stage, docsStatus: v.docsStatus, docsRemarks: v.docsRemarks,
+                waitingFor: v.status === 'PENDING_APPROVAL' && v.approvalStage === 'SIGNATURES' ? 'OSP Account (signatures of the Account Manager, OSP Manager and Head of Section)' : v.status === 'APPROVED' && v.docsStatus === 'TO_SEND' ? 'OSP Account (send the documents to HO)' : v.status === 'APPROVED' && v.docsStatus === 'SENT' ? 'HO Account Executive (check the documents)' : v.status === 'APPROVED' && v.docsStatus === 'NOT_RECEIVED' ? 'OSP Account (send the documents again)' : v.status === 'DRAFT' ? 'OSP Account Officer (not signed)' : v.status === 'SUBMITTED_TO_HO' ? 'HO (payment)' : '-',
+                stage: v.approvalStage, docsStatus: v.docsStatus, signedVoucherUrl: v.signedVoucherUrl, docsRemarks: v.docsRemarks,
                 invoiceNumber: i?.invoiceNumber ?? null, match: i?.matchStatus ?? null, poNumber: i?.storePo?.poNumber ?? null, vendor: i?.vendor.name ?? v.payeeName,
                 grnNumber: g?.grnNumber ?? null, oracleGrnNumber: g?.oracleGrnNumber ?? null,
                 trail: trailOf(v.approvalTrail).map((t) => ({ ...t, by: who.get(t.userId) ?? null })),

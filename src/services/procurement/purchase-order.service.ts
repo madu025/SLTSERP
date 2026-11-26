@@ -59,6 +59,7 @@ export class PurchaseOrderService {
             include: { items: true, purchaseOrders: { include: { items: true } } },
         });
         if (!request) throw AppError.notFound('Stock request not found');
+        if (!request.procurementDocsSubmittedAt) throw AppError.badRequest('PROCUREMENT_DOCUMENTS_NOT_SUBMITTED: the Stores Manager has not yet submitted the documents of this request to Procurement');
         if (CLOSED_REQUEST_STATUSES.includes(request.status)) throw AppError.badRequest(`A purchase order cannot be raised for a ${request.status.toLowerCase()} request`);
         await this.assertStoreAccess(userId, request.fromStoreId, request.toStoreId);
 

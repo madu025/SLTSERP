@@ -567,6 +567,8 @@ model PaymentVoucher {
   docsCheckedById    String?         @db.Uuid
   docsCheckedAt      DateTime?
   docsRemarks        String?
+  /// Company flow: the scan of the voucher signed on paper by the Account Manager, OSP Manager and Head of Section
+  signedVoucherUrl   String?
   confirmedById      String?         @db.Uuid
   recordedOnBehalf   Boolean         @default(false)
   createdAt          DateTime        @default(now())

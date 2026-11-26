@@ -518,10 +518,11 @@ export class ProcessGateAdminService {
         {
           entityType: 'MATERIAL_REQUEST',
           fromStatus: 'OSP_MANAGER_APPROVAL',
-          toStatus: 'HOS_APPROVAL',
-          label: '3. OSP Manager Review',
+          // after the OSP Manager the request goes to Procurement; the Stores Manager is told to submit the documents
+          toStatus: 'PROCUREMENT',
+          label: '3. OSP Manager Approval',
           isEnabled: true,
-          notificationAudience: 'PROCESS_GATE_HEAD_OF_SECTION',
+          notificationAudience: 'STORES_MANAGERS',
           approvalLevels: [{ level: 1, requiredRole: 'OSP_MANAGER', description: 'OSP Manager reviews the material request' }]
         },
         {
@@ -529,7 +530,8 @@ export class ProcessGateAdminService {
           fromStatus: 'HOS_APPROVAL',
           toStatus: 'PROCUREMENT',
           label: '4. Head of Section Signoff',
-          isEnabled: true,
+          // switched off (owner, 26 Nov 2026); kept so it can be switched on again on the Process Gates page
+          isEnabled: false,
           notificationAudience: 'PROCESS_GATE_PROCUREMENT',
           approvalLevels: [{ level: 1, requiredRole: 'HEAD_OF_SECTION', description: 'Head of Section signs off the material request' }]
         },

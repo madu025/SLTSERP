@@ -20,6 +20,8 @@ export const STOCK_REQUEST_ACTION_PERMISSIONS: Readonly<Record<StockRequestActio
     // releasing stock from the main store: the Executive and the Manager (the officers raise requests and receive at their own store)
     RELEASE: RBAC_PERMISSIONS.INVENTORY_RELEASE,
     RECEIVE: RBAC_PERMISSIONS.INVENTORY_WRITE,
+    // the Stores Manager confirms the request documents were handed to Procurement
+    DOCS_SUBMITTED: RBAC_PERMISSIONS.INVENTORY_APPROVE,
     CREATE_PO: RBAC_PERMISSIONS.PROCUREMENT_WRITE,
     UPDATE_PROCUREMENT_STATUS: RBAC_PERMISSIONS.PROCUREMENT_WRITE,
     PROCUREMENT_COMPLETE: RBAC_PERMISSIONS.PROCUREMENT_WRITE,
