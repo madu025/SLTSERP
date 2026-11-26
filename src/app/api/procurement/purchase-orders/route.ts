@@ -23,8 +23,6 @@ const createSchema = z.object({
     remarks: z.string().max(1000).nullish(),
     currency: z.string().max(3).nullish(),
     lines: z.array(line).min(1),
-    // HO mode: the approval given in the HO system (required in that mode, checked by the service)
-    ho: z.object({ ref: z.string().max(100), date: z.string().max(40), approvedBy: z.string().max(200), documentUrl: z.string().max(1000) }).nullish(),
     // HO mode: how the order is paid (checked by the service)
     credit: z.object({ basis: z.string().max(20), creditDays: z.union([z.number(), z.string()]).nullish(), dueDate: z.string().max(40).nullish() }).nullish(),
 });

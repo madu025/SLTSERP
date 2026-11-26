@@ -4,7 +4,7 @@ import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
 import { StoreService } from '@/services/inventory/store.service';
 import { AuditService } from '@/services/audit/audit.service';
 import { canTransitionPo, computePoTotals, isPoEditable, normalizePoStatus, valueAmendment, validatePoLine, type PoStatus } from '@/lib/procurement-rules';
-import { FIRST_PO_STAGE, PO_APPROVAL_MODE_KEY, PO_STAGE_LABEL, PO_STAGE_PERMISSION, assertRemarks, hoClearingDelta, isPoStage, nextStage, poApprovalMode, previousStage, validateHoEvidence, type HoEvidence, type PoApprovalAction, type PoApprovalMode, type PoStage } from '@/lib/po-approval-chain';
+import { FIRST_PO_STAGE, PO_APPROVAL_MODE_KEY, PO_STAGE_LABEL, PO_STAGE_PERMISSION, assertRemarks, hoClearingDelta, isPoStage, nextStage, poApprovalMode, previousStage, type PoApprovalAction, type PoApprovalMode, type PoStage } from '@/lib/po-approval-chain';
 import { SystemConfigService } from '@/services/core/system-config.service';
 import { validateCreditTerms, type CreditTerms } from '@/lib/po-payables';
 import { LedgerService } from '@/services/finance/ledger.service';
@@ -23,7 +23,6 @@ export interface CreateStorePoInput {
     currency?: string | null;
     lines: { requestItemId: string; quantity: number; unitPrice: number; taxAmount?: number }[];
     /** HO mode: the approval given in the HO system (reference, date, approver, scanned document). Required in that mode. */
-    ho?: HoEvidence | null;
     /** HO mode: how the order is paid (on credit with credit days or a due date, advance, on delivery). Required in that mode. */
     credit?: CreditTerms | null;
 }
@@ -108,17 +107,14 @@ export class PurchaseOrderService {
 
         const totals = computePoTotals(lines.map((l) => ({ quantity: l.quantity, unitPrice: l.unitPrice, taxAmount: l.taxAmount })));
 
-        // HO mode: the order was approved in the HO system; it is recorded here, with the evidence, as approved
+        // HO mode: the order was approved in the HO system; it is recorded here as approved, with how it is paid
         const mode = await this.approvalMode();
-        const ho = input.ho ?? null;
         if (mode === 'HO_DOCUMENTS') {
-            const err = validateHoEvidence(ho);
-            if (err) throw AppError.badRequest(`HO_APPROVAL_EVIDENCE_REQUIRED: ${err}`);
             const termsErr = validateCreditTerms(input.credit);
             if (termsErr) throw AppError.badRequest(`CREDIT_TERMS_REQUIRED: ${termsErr}`);
         }
         const credit = input.credit && !validateCreditTerms(input.credit) ? input.credit : null;
-        const recordedFromHo = mode === 'HO_DOCUMENTS' && ho;
+        const recordedFromHo = mode === 'HO_DOCUMENTS';
 
         const po = await prisma.$transaction(async (tx) => {
             const poNumber = await AuditLedgerService.getNextDocumentNumber('SPO', tx);
@@ -133,13 +129,7 @@ export class PurchaseOrderService {
                     status: recordedFromHo ? 'APPROVED' : 'PENDING_APPROVAL',
                     approvalStage: recordedFromHo ? null : FIRST_PO_STAGE,
                     createdById: userId,
-                    ...(recordedFromHo ? {
-                        approvedAt: new Date(ho!.date as string),
-                        hoApprovalRef: ho!.ref!.trim(),
-                        hoApprovalDate: new Date(ho!.date as string),
-                        hoApprovedBy: ho!.approvedBy!.trim(),
-                        hoDocumentUrl: ho!.documentUrl!.trim(),
-                    } : {}),
+                    ...(recordedFromHo ? { approvedAt: new Date() } : {}),
                     ...(credit ? {
                         paymentBasis: credit.basis,
                         creditDays: credit.creditDays !== null && credit.creditDays !== undefined && String(credit.creditDays).trim() !== '' ? Number(credit.creditDays) : null,
@@ -165,12 +155,12 @@ export class PurchaseOrderService {
                 where: { id: requestId },
                 data: { procurementStatus: 'PO_CREATED', ...(input.remarks ? { remarks: input.remarks } : {}) },
             });
-            if (recordedFromHo) await this.appendApproval(tx, created.id, { stage: null, action: 'RECORDED', actorId: userId, amount: totals.totalAmount, remarks: `HO approval ${ho!.ref!.trim()} dated ${new Date(ho!.date as string).toISOString().slice(0, 10)} by ${ho!.approvedBy!.trim()}` });
+            if (recordedFromHo) await this.appendApproval(tx, created.id, { stage: null, action: 'RECORDED', actorId: userId, amount: totals.totalAmount, remarks: 'Approved in the HO system; recorded by the Procurement Officer' });
             else await this.appendApproval(tx, created.id, { stage: FIRST_PO_STAGE, action: 'SUBMITTED', actorId: userId, amount: totals.totalAmount, remarks: input.remarks ?? null });
             return created;
         });
 
-        AuditService.log({ userId, action: 'CREATE_STORE_PO', entity: 'PURCHASE_ORDER', entityId: po.id, newValue: { poNumber: po.poNumber, vendor: vendorName, vendorId, total: totals.totalAmount, lines: lines.length, mode, hoApprovalRef: recordedFromHo ? ho!.ref : null } }).catch(() => undefined);
+        AuditService.log({ userId, action: 'CREATE_STORE_PO', entity: 'PURCHASE_ORDER', entityId: po.id, newValue: { poNumber: po.poNumber, vendor: vendorName, vendorId, total: totals.totalAmount, lines: lines.length, mode, recordedFromHo } }).catch(() => undefined);
         return po;
     }
 
@@ -227,7 +217,7 @@ export class PurchaseOrderService {
         const valueChanged = (vendorId ?? null) !== (po.vendorId ?? null) || (input.lines ?? []).length > 0;
         let restart = false;
         let resetRemarks: string | null = null;
-        if (valueChanged && po.hoApprovalRef) {
+        if (valueChanged && (po.hoApprovalRef || (await this.approvalMode()) === 'HO_DOCUMENTS')) {
             // the HO approved this vendor and value; a different order needs its own HO approval
             throw AppError.badRequest('This order was approved in the HO system: change it there, then cancel this order and record the new one with its HO approval');
         }

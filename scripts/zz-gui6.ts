@@ -62,7 +62,7 @@ async function main() {
         console.log('CHECK ' + JSON.stringify({
             requests: reqs.map((r) => ({ requestNr: r.requestNr, status: r.status, stage: r.workflowStage, procurement: r.procurementStatus, qty: r.items.map((i: any) => num(i.requestedQty)) })),
             stock: num(stock?.quantity),
-            pos: pos.map((p) => ({ poNumber: p.poNumber, vendor: p.vendor, status: p.status, ho: p.hoApprovalRef, creditDays: p.creditDays ?? null, ordered: p.items.map((l: any) => num(l.quantity)), received: p.items.map((l: any) => num(l.receivedQty)) })),
+            pos: pos.map((p) => ({ poNumber: p.poNumber, vendor: p.vendor, status: p.status, creditDays: p.creditDays ?? null, ordered: p.items.map((l: any) => num(l.quantity)), received: p.items.map((l: any) => num(l.receivedQty)) })),
             grns: grns.map((g) => ({ grnNumber: g.grnNumber, oracle: g.oracleGrnNumber, invoiceNo: g.vendorInvoiceNumber, accepted: g.items.map((i: any) => num(i.quantity)), rejected: g.items.map((i: any) => num(i.rejectedQty)), reason: g.items.map((i: any) => i.rejectReason) })),
             invoices: invoices.map((i) => ({ invoiceNumber: i.invoiceNumber, grnLinked: !!i.grnId, status: i.status, match: i.matchStatus, total: num(i.totalAmount), paid: num(i.paidAmount), due: i.dueDate?.toISOString().slice(0, 10) ?? null })),
             pvs: pvs.map((p) => ({ status: p.status, amount: num(p.amount), hoPaid: num(p.hoPaidAmount), stage: p.approvalStage, docs: p.docsStatus })),
@@ -125,11 +125,10 @@ async function main() {
     }
     const r: any = await prisma.stockRequest.findUniqueOrThrow({ where: { id: req.id }, include: { items: true } });
     // HO bought from two vendors: one PO each, recorded by the Procurement Officer with the HO approval and 30 days credit
-    const ho = (ref: string) => ({ ref, date: new Date().toISOString().slice(0, 10), approvedBy: 'ZZTEST GM Procurement', documentUrl: '/api/storage/procurement/zztest-ho-approval.pdf' });
-    const poA: any = await PurchaseOrderService.createStorePo({ requestId: r.id, userId: users.proc, vendorId: vA.id, lines: [{ requestItemId: r.items[0].id, quantity: 600, unitPrice: 150 }], ho: ho(`${TAG}/HO/A`), credit: { basis: 'CREDIT', creditDays: 30 } });
-    const poB: any = await PurchaseOrderService.createStorePo({ requestId: r.id, userId: users.proc, vendorId: vB.id, lines: [{ requestItemId: r.items[0].id, quantity: 400, unitPrice: 160 }], ho: ho(`${TAG}/HO/B`), credit: { basis: 'CREDIT', creditDays: 45 } });
+    const poA: any = await PurchaseOrderService.createStorePo({ requestId: r.id, userId: users.proc, vendorId: vA.id, lines: [{ requestItemId: r.items[0].id, quantity: 600, unitPrice: 150 }], credit: { basis: 'CREDIT', creditDays: 30 } });
+    const poB: any = await PurchaseOrderService.createStorePo({ requestId: r.id, userId: users.proc, vendorId: vB.id, lines: [{ requestItemId: r.items[0].id, quantity: 400, unitPrice: 160 }], credit: { basis: 'CREDIT', creditDays: 45 } });
     let overOrder = 'not tried';
-    try { await PurchaseOrderService.createStorePo({ requestId: r.id, userId: users.proc, vendorId: vA.id, lines: [{ requestItemId: r.items[0].id, quantity: 1, unitPrice: 150 }], ho: ho(`${TAG}/HO/X`), credit: { basis: 'CREDIT', creditDays: 30 } }); overOrder = 'ACCEPTED (wrong)'; } catch (e: any) { overOrder = 'refused: ' + String(e.message).slice(0, 80); }
+    try { await PurchaseOrderService.createStorePo({ requestId: r.id, userId: users.proc, vendorId: vA.id, lines: [{ requestItemId: r.items[0].id, quantity: 1, unitPrice: 150 }], credit: { basis: 'CREDIT', creditDays: 30 } }); overOrder = 'ACCEPTED (wrong)'; } catch (e: any) { overOrder = 'refused: ' + String(e.message).slice(0, 80); }
     // the Procurement Officer hands the procurement details to the stores (ready for GRN)
     await InventoryService.processStockRequestAction({ requestId: r.id, action: 'PROCUREMENT_COMPLETE', userId: users.proc } as any).catch((e: any) => chain.push('ready for GRN: ' + String(e.message).slice(0, 80)));
     const ready: any = await prisma.stockRequest.findUniqueOrThrow({ where: { id: r.id }, select: { workflowStage: true, procurementStatus: true } });

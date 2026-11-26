@@ -3,7 +3,7 @@
 Owner decisions (26 Nov 2026):
 - The PO is approved in the HO internal system and on paper. In Nexus the PO part ends with the Procurement Officer.
 - The three-step Nexus chain (OSP Manager, Head of OSP, Finance Manager) is switched off by an admin setting, not deleted.
-- The Procurement Officer records the PO with the HO approval reference number and a scan of the approved document (both required).
+- The Procurement Officer records the PO with its payment terms. (26 Nov 2026, owner: the HO approval reference, date, approver and scan were removed from the PO form; the approval stays in the HO system.)
 - One GRN (one delivery) may receive goods of several POs.
 - Finance (supplier invoice approval and payment) is also in the HO system. OSP and stores still need to know quantities and money:
   the PO carries the quantities and prices, so that is the source of the values in Nexus.

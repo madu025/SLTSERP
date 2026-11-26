@@ -92,11 +92,6 @@ export default function ProcurementOrdersPage() {
     const [itemUnitPrices, setItemUnitPrices] = useState<Record<string, number>>({});
     const [itemOrderQtys, setItemOrderQtys] = useState<Record<string, number>>({});
     // HO mode: the approval given in the HO system (reference, date, approver, scanned document)
-    const [hoRef, setHoRef] = useState("");
-    const [hoDate, setHoDate] = useState("");
-    const [hoApprovedBy, setHoApprovedBy] = useState("");
-    const [hoDocUrl, setHoDocUrl] = useState("");
-    const [hoUploading, setHoUploading] = useState(false);
     // HO mode: how the order is paid (entered by the Procurement Officer)
     const [payBasis, setPayBasis] = useState("");
     const [creditDays, setCreditDays] = useState("");
@@ -111,24 +106,6 @@ export default function ProcurementOrdersPage() {
         staleTime: 5 * 60_000,
     });
     const hoMode = poMode !== 'NEXUS_CHAIN';
-    const uploadHoDocument = async (file: File) => {
-        setHoUploading(true);
-        try {
-            const fd = new FormData();
-            fd.append("file", file);
-            fd.append("bucket", "procurement");
-            const res = await fetch("/api/upload", { method: "POST", body: fd });
-            const json = await res.json().catch(() => ({}));
-            const url = json?.url ?? json?.data?.url;
-            if (!res.ok || !url) throw new Error(json?.error?.message || "Upload failed");
-            setHoDocUrl(url);
-            toast.success("HO approval document attached");
-        } catch (e: any) {
-            toast.error(e?.message || "Upload failed");
-        } finally {
-            setHoUploading(false);
-        }
-    };
     // Toolbar Filters
     const [searchQuery, setSearchQuery] = useState("");
     const [priorityFilter, setPriorityFilter] = useState("ALL");
@@ -205,7 +182,7 @@ export default function ProcurementOrdersPage() {
     });
     // Create PO Mutation
     const createPOMutation = useMutation({
-        mutationFn: async (data: { poNumber: string, vendor: string, vendorId?: string, expectedDelivery?: string, remarks?: string, items: any[], ho?: { ref: string; date: string; approvedBy: string; documentUrl: string } | null, credit?: { basis: string; creditDays: number | null; dueDate: string | null } | null }) => {
+        mutationFn: async (data: { poNumber: string, vendor: string, vendorId?: string, expectedDelivery?: string, remarks?: string, items: any[], credit?: { basis: string; creditDays: number | null; dueDate: string | null } | null }) => {
             if (!selectedRequest) throw new Error("No request selected");
             const res = await fetch("/api/inventory/requests", {
                 method: "PATCH",
@@ -219,7 +196,6 @@ export default function ProcurementOrdersPage() {
                     expectedDelivery: data.expectedDelivery,
                     remarks: data.remarks,
                     items: data.items,
-                    ho: data.ho ?? null,
                     credit: data.credit ?? null
                 })
             });
@@ -292,10 +268,6 @@ export default function ProcurementOrdersPage() {
         setSelectedItemIds({});
         setItemUnitPrices({});
         setItemOrderQtys({});
-        setHoRef("");
-        setHoDate("");
-        setHoApprovedBy("");
-        setHoDocUrl("");
         setPayBasis("");
         setCreditDays("");
         setPayDueDate("");
@@ -356,13 +328,8 @@ export default function ProcurementOrdersPage() {
             toast.error("Enter how the order is paid; on credit, the credit days or the due date");
             return;
         }
-        if (hoMode && (hoRef.trim().length < 3 || !hoDate || hoApprovedBy.trim().length < 3 || !hoDocUrl)) {
-            toast.error("Enter the HO approval reference, date, approved by, and attach the scanned HO approval document");
-            return;
-        }
         const chosen = vendorList.find((v) => v.id === vendorId);
         createPOMutation.mutate({
-            ho: hoMode ? { ref: hoRef.trim(), date: hoDate, approvedBy: hoApprovedBy.trim(), documentUrl: hoDocUrl } : null,
             credit: hoMode ? { basis: payBasis, creditDays: creditDays ? Number(creditDays) : null, dueDate: payDueDate || null } : null,
             poNumber,
             vendor: chosen ? chosen.name : vendor,
@@ -1166,26 +1133,9 @@ export default function ProcurementOrdersPage() {
                                         </div>
                                     </div>
                                     {hoMode && (
-                                        <div className="bg-white border border-slate-300 p-5 rounded-2xl shadow-sm space-y-3" data-testid="ho-approval-block">
-                                            <h4 className="text-xs font-black text-slate-900">HO approval (the order was approved in the HO system)</h4>
+                                        <div className="bg-white border border-slate-300 p-5 rounded-2xl shadow-sm space-y-3" data-testid="payment-terms-block">
+                                            <h4 className="text-xs font-black text-slate-900">Payment terms (the order was approved in the HO system)</h4>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                <div className="space-y-1">
-                                                    <Label htmlFor="hoRef" className="text-[11px] font-bold text-slate-800">HO approval reference no.</Label>
-                                                    <Input id="hoRef" data-testid="ho-ref" value={hoRef} onChange={(e) => setHoRef(e.target.value)} className="h-9 text-xs bg-white text-slate-900" />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <Label htmlFor="hoDate" className="text-[11px] font-bold text-slate-800">HO approval date</Label>
-                                                    <Input id="hoDate" data-testid="ho-date" type="date" value={hoDate} onChange={(e) => setHoDate(e.target.value)} className="h-9 text-xs bg-white text-slate-900" />
-                                                </div>
-                                                <div className="space-y-1 sm:col-span-2">
-                                                    <Label htmlFor="hoBy" className="text-[11px] font-bold text-slate-800">Approved by (name and designation)</Label>
-                                                    <Input id="hoBy" data-testid="ho-by" value={hoApprovedBy} onChange={(e) => setHoApprovedBy(e.target.value)} className="h-9 text-xs bg-white text-slate-900" />
-                                                </div>
-                                                <div className="space-y-1 sm:col-span-2">
-                                                    <Label htmlFor="hoDoc" className="text-[11px] font-bold text-slate-800">Scanned HO approval document (PDF or image)</Label>
-                                                    <input id="hoDoc" data-testid="ho-doc" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadHoDocument(f); }} className="block w-full text-xs text-slate-900" />
-                                                    <p className="text-[11px] font-semibold text-slate-700" data-testid="ho-doc-state">{hoUploading ? "Uploading…" : hoDocUrl ? "Document attached" : "No document attached yet"}</p>
-                                                </div>
                                                 <div className="space-y-1">
                                                     <Label htmlFor="payBasis" className="text-[11px] font-bold text-slate-800">How the order is paid</Label>
                                                     <select id="payBasis" data-testid="pay-basis" value={payBasis} onChange={(e) => setPayBasis(e.target.value)} className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-900">

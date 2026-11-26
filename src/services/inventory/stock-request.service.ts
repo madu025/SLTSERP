@@ -364,7 +364,6 @@ export class StockRequestService {
             expectedDelivery: expectedDelivery || null,
             remarks: remarks || null,
             currency: data.currency || null,
-            ho: data.ho ?? null,
             credit: data.credit ?? null,
             lines: (items ?? []).map((item) => ({
                 requestItemId: item.id,

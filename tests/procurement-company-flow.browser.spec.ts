@@ -9,7 +9,7 @@ import path from 'node:path';
  * (people, store, item and vendors from `scripts/zz-gui6.ts setup-ui`; run against the deployed site because uploads go to storage):
  *   Stores Officer: material request C-Hook 1000 (local purchase);
  *   Approvals: the OSP Manager cannot sign first; Stores Manager, OSP Manager, Head of Section approve in turn;
- *   Procurement Officer: PO-A (Vendor A 600) and PO-B (Vendor B 400) with the HO approval, scan and credit days; no third PO once all is ordered;
+ *   Procurement Officer: PO-A (Vendor A 600) and PO-B (Vendor B 400) with the credit days (approved in the HO system); no third PO once all is ordered;
  *     marks the orders sent, confirmed, finished (ready for GRN);
  *   Stores Manager: GRN for PO-A, 550 accepted and 50 rejected with a reason, Oracle GRN number, vendor invoice;
  *   OSP Account Officer: payment voucher; OSP Account Manager, OSP Manager, Head of Section approve it (the invoice is posted at the last);
@@ -85,12 +85,8 @@ async function approveRequest(page: Page, requestNr: string, shot: string) {
   await go.click();
 }
 
-async function hoBlock(page: Page, ref: string, scan: string, creditDays: string) {
-  await page.getByTestId('ho-ref').fill(ref);
-  await page.getByTestId('ho-date').fill(new Date().toISOString().slice(0, 10));
-  await page.getByTestId('ho-by').fill('ZZTEST GM Procurement');
-  await page.getByTestId('ho-doc').setInputFiles(scan);
-  await expect(page.getByTestId('ho-doc-state')).toHaveText(/Document attached/, { timeout: 120_000 });
+async function paymentTerms(page: Page, creditDays: string) {
+  await expect(page.getByTestId('ho-ref'), 'no HO approval fields on the PO form').toHaveCount(0);
   await page.getByTestId('pay-basis').selectOption('CREDIT');
   await page.getByTestId('credit-days').fill(creditDays);
 }
@@ -175,7 +171,7 @@ test('company flow on the screens: request, approvals, POs, GRN, voucher chain, 
   await pendingRow.waitFor({ timeout: 240_000 });
   await pendingRow.getByRole('button', { name: /create po/i }).click();
   await poLine(proc, M.vendorA, '600', '150');
-  await hoBlock(proc, `${M.tag}/HO/A`, pdf, '30');
+  await paymentTerms(proc, '30');
   await proc.screenshot({ path: `${SHOTS}/09-po-a-form.png`, fullPage: true });
   await proc.getByRole('button', { name: /create purchase order/i }).click();
   await expect.poll(() => check().pos.length, { timeout: 240_000, intervals: [10_000] }).toBe(1);
@@ -192,15 +188,15 @@ test('company flow on the screens: request, approvals, POs, GRN, voucher chain, 
   await poLine(proc, M.vendorB, null, '160');
   const openQty = await proc.getByRole('dialog').locator('tr', { hasText: M.itemName }).first().locator('input[type="number"]').nth(0).inputValue();
   expect(openQty, 'the second PO starts with the open quantity').toBe('400');
-  await hoBlock(proc, `${M.tag}/HO/B`, pdf, '45');
+  await paymentTerms(proc, '45');
   await proc.screenshot({ path: `${SHOTS}/10-po-b-form.png`, fullPage: true });
   await proc.getByRole('button', { name: /create purchase order/i }).click();
   await expect.poll(() => check().pos.length, { timeout: 240_000, intervals: [10_000] }).toBe(2);
   c = check();
   const poA = c.pos.find((p: any) => p.vendor === M.vendorA);
   const poB = c.pos.find((p: any) => p.vendor === M.vendorB);
-  expect(poA).toMatchObject({ ordered: [600], ho: `${M.tag}/HO/A`, creditDays: 30 });
-  expect(poB).toMatchObject({ ordered: [400], ho: `${M.tag}/HO/B`, creditDays: 45 });
+  expect(poA).toMatchObject({ ordered: [600], status: 'APPROVED', creditDays: 30 });
+  expect(poB).toMatchObject({ ordered: [400], status: 'APPROVED', creditDays: 45 });
 
   // everything is ordered: no third PO can be added
   row = await inProgressRow();

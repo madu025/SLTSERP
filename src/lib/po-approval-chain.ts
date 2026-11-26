@@ -62,21 +62,6 @@ export function poApprovalMode(value: string | null | undefined): PoApprovalMode
     return value === 'NEXUS_CHAIN' ? 'NEXUS_CHAIN' : 'HO_DOCUMENTS';
 }
 
-export interface HoEvidence { ref?: string | null; date?: string | Date | null; approvedBy?: string | null; documentUrl?: string | null }
-
-/** The HO approval must carry its reference, a date that is not in the future, who approved it, and the scanned document. */
-export function validateHoEvidence(e: HoEvidence | null | undefined, now = new Date()): string | null {
-    if (!e) return 'HO approval details are required: reference number, date, approved by and the scanned document';
-    if ((e.ref ?? '').trim().length < 3) return 'Enter the HO approval reference number';
-    const d = e.date ? new Date(e.date) : null;
-    if (!d || Number.isNaN(d.getTime())) return 'Enter the HO approval date';
-    if (d.getTime() > now.getTime() + 86_400_000) return 'The HO approval date cannot be in the future';
-    if ((e.approvedBy ?? '').trim().length < 3) return 'Enter who approved the order at HO (name and designation)';
-    const url = (e.documentUrl ?? '').trim();
-    if (!url || !(url.startsWith('/') || /^https?:\/\//.test(url))) return 'Attach the scanned HO approval document';
-    return null;
-}
-
 /** What recording (or re-recording) the HO payment clears: the received value not yet cleared. Never negative. */
 export function hoClearingDelta(receivedValue: number, alreadyCleared: number): number {
     return Math.max(0, Math.round((receivedValue - alreadyCleared) * 100) / 100);

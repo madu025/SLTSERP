@@ -1,10 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { poApprovalMode, validateHoEvidence } from '../../src/lib/po-approval-chain';
+import { poApprovalMode } from '../../src/lib/po-approval-chain';
 
 const read = (p: string) => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8');
-const good = { ref: 'HO/PO/2026/0412', date: '2026-11-20', approvedBy: 'A. Perera, GM Finance', documentUrl: '/api/storage/procurement/po-0412.pdf' };
 
 test('HO mode is the default; only an explicit NEXUS_CHAIN turns the Nexus chain on', () => {
     assert.equal(poApprovalMode(undefined), 'HO_DOCUMENTS');
@@ -15,26 +14,15 @@ test('HO mode is the default; only an explicit NEXUS_CHAIN turns the Nexus chain
     assert.match(read('src/app/admin/settings/page.tsx'), /PROCUREMENT_PO_APPROVAL_MODE/, 'the admin can switch it');
 });
 
-test('an HO-approved order needs its reference, date, approver and scanned document', () => {
-    const now = new Date('2026-11-26T10:00:00Z');
-    assert.equal(validateHoEvidence(good, now), null);
-    assert.match(validateHoEvidence(null, now)!, /required/);
-    assert.match(validateHoEvidence({ ...good, ref: 'x' }, now)!, /reference/);
-    assert.match(validateHoEvidence({ ...good, date: 'not a date' }, now)!, /date/);
-    assert.match(validateHoEvidence({ ...good, date: '2026-12-31' }, now)!, /future/);
-    assert.match(validateHoEvidence({ ...good, approvedBy: '' }, now)!, /approved/);
-    assert.match(validateHoEvidence({ ...good, documentUrl: '' }, now)!, /document/);
-    assert.match(validateHoEvidence({ ...good, documentUrl: 'javascript:alert(1)' }, now)!, /document/, 'only a stored file link is accepted');
-    assert.equal(validateHoEvidence({ ...good, documentUrl: 'https://files.example/po.pdf' }, now), null);
-});
-
-test('the service records an HO-approved order as approved, with the evidence and a log entry (source check)', () => {
+test('the service records an HO-approved order as approved with its payment terms and a log entry; no HO approval fields (source check)', () => {
     const svc = read('src/services/procurement/purchase-order.service.ts');
-    assert.match(svc, /if \(mode === 'HO_DOCUMENTS'\) \{\s*\n\s*const err = validateHoEvidence\(ho\);/, 'the evidence is required in HO mode');
+    assert.match(svc, /if \(mode === 'HO_DOCUMENTS'\) \{\s*\n\s*const termsErr = validateCreditTerms\(input\.credit\);/, 'the payment terms are required in HO mode');
+    assert.match(svc, /const recordedFromHo = mode === 'HO_DOCUMENTS';/);
     assert.match(svc, /status: recordedFromHo \? 'APPROVED' : 'PENDING_APPROVAL'/);
-    assert.match(svc, /hoDocumentUrl: ho!\.documentUrl!\.trim\(\)/);
+    assert.doesNotMatch(svc, /validateHoEvidence|hoDocumentUrl: ho/, 'no HO approval reference, approver or scan is asked (owner, 26 Nov 2026)');
     assert.match(svc, /action: 'RECORDED'/, 'the approval log records where the approval came from');
-    assert.match(svc, /if \(valueChanged && po\.hoApprovalRef\)/, 'the vendor or value of an HO-approved order cannot be changed in Nexus');
+    assert.match(svc, /if \(valueChanged && \(po\.hoApprovalRef \|\| \(await this\.approvalMode\(\)\) === 'HO_DOCUMENTS'\)\)/, 'the vendor or value of an HO-approved order cannot be changed in Nexus');
+    assert.doesNotMatch(read('src/app/procurement/orders/page.tsx'), /data-testid="ho-ref"|Approved by \(name and designation\)/);
 });
 
 test('a GRN line names its PO line; a line-based GRN never mixes vendors or HO orders (source check)', () => {
