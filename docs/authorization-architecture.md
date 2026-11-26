@@ -299,9 +299,9 @@ The tests in `tests/unit/authorization-rules.test.ts` and `tests/unit/menu-page-
 
 Four capabilities carry the approval chain: `procurement.po.approve.l1` (OSP Manager), `.l2` (Head of OSP), `.l3` (Finance Manager) and `procurement.invoice.approve.executive` (CEO, second approval of a supplier invoice above the admin threshold). They are catalogued in `src/config/rbac-permissions.ts`, granted in `rbac-bootstrap.ts` and checked in the service with `userHasPermission`, in addition to `procurement.write` on the route. Segregation of duties is part of the rule: the maker never approves, and no person holds two steps of one order or both approvals of one invoice.
 
-## HO payment capabilities (26 Nov 2026)
+## HO payment capability (26 Nov 2026)
 
-`procurement.ho.payment.record` (OSP Finance Officer at HO: granted to the Finance Assistant and Finance Manager; an administrator may give it to a designation) records a payment HO made on a purchase order; `procurement.ho.payment.verify` (Finance Manager) verifies it, after which it is posted. The service refuses a verification by the person who recorded the payment. Both are checked on `/api/procurement/purchase-orders/:id/payments`; reading the schedule needs `procurement.read` or `finance.read`.
+`procurement.ho.payment.record` is held only by the Finance-section designation HO_ACCOUNT_EXECUTIVE_FINANCE_ASSISTANT (Account Executive at HO) through `MODULE_DESIGNATION_GRANTS`; no base role holds it. It records HO's payments on OSP vendor payment vouchers (`/api/finance/payment-vouchers/:id/payments`). The maker and the approver of a voucher can never record its payment. The other two positions (OSP Account Officer, OSP Account Manager) are designations on the Finance Assistant and Finance Manager roles and use their roles' capabilities.
 
 ## Session policy (25 Nov 2026)
 

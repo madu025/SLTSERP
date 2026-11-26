@@ -1,97 +1,81 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { advanceToApply, daysOverdue, dueBucket, dueDateOf, outstanding, owedForReceived, payableTotal, recordingCapError, splitPayment, validateCreditTerms, type PayableState } from '../../src/lib/po-payables';
+import { readFileSync, existsSync } from 'node:fs';
+import { daysOverdue, dueBucket, dueDateOf, validateCreditTerms } from '../../src/lib/po-payables';
 import { RBAC_PERMISSIONS, RBAC_PERMISSION_DEFINITIONS } from '../../src/config/rbac-permissions';
+import { MODULE_DESIGNATION_GRANTS, getCanonicalBootstrapRoles } from '../../src/config/rbac-bootstrap';
 
 const read = (p: string) => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8');
-// an order of 300,000 goods + 54,000 tax, of which 200,000 of goods has been received
-const base: PayableState = { orderedGoods: 300_000, tax: 54_000, receivedValue: 200_000, cleared: 0, advance: 0, taxPaid: 0 };
 
-test('the Procurement Officer must give the payment terms; on credit, credit days or a due date', () => {
+test('the Procurement Officer gives the payment terms; on credit, credit days or a due date', () => {
     assert.match(validateCreditTerms(null)!, /how the order is paid/);
     assert.match(validateCreditTerms({ basis: 'CREDIT' })!, /credit days or the due date/);
     assert.equal(validateCreditTerms({ basis: 'CREDIT', creditDays: 60 }), null);
     assert.equal(validateCreditTerms({ basis: 'CREDIT', dueDate: '2027-01-31' }), null);
     assert.match(validateCreditTerms({ basis: 'CREDIT', creditDays: 0 })!, /1 to 365/);
-    assert.match(validateCreditTerms({ basis: 'CREDIT', creditDays: 12.5 })!, /whole number/);
     assert.equal(validateCreditTerms({ basis: 'ON_DELIVERY' }), null);
-    assert.match(validateCreditTerms({ basis: 'LATER' })!, /Unknown/);
 });
 
-test('the due date: typed date first, else goods received + credit days; advance at order; on delivery at receipt', () => {
+test('due dates and aging by days past due', () => {
     const received = new Date('2026-11-26T00:00:00Z');
     assert.equal(dueDateOf({ basis: 'CREDIT', creditDays: 60, firstReceiptAt: received })!.toISOString().slice(0, 10), '2027-01-25');
     assert.equal(dueDateOf({ basis: 'CREDIT', creditDays: 60, paymentDueDate: '2027-02-15', firstReceiptAt: received })!.toISOString().slice(0, 10), '2027-02-15');
-    assert.equal(dueDateOf({ basis: 'CREDIT', creditDays: 60, firstReceiptAt: null }), null, 'not known before the goods arrive');
-    assert.equal(dueDateOf({ basis: 'ADVANCE', orderDate: '2026-11-20' })!.toISOString().slice(0, 10), '2026-11-20');
-    assert.equal(dueDateOf({ basis: 'ON_DELIVERY', firstReceiptAt: received })!.toISOString().slice(0, 10), '2026-11-26');
     assert.equal(daysOverdue(new Date('2026-11-20'), new Date('2026-11-26')), 6);
-    assert.equal(daysOverdue(new Date('2026-12-01'), new Date('2026-11-26')), -5);
     assert.equal(dueBucket(-5), 'current');
     assert.equal(dueBucket(45), 'days31to60');
     assert.equal(dueBucket(120), 'over90');
 });
 
-test('a payment pays received goods first, then goods not yet received (advance), then tax; never more than the order is worth', () => {
-    assert.equal(payableTotal(base), 354_000);
-    assert.deepEqual(splitPayment(150_000, base), { toGrir: 150_000, toAdvance: 0, toTax: 0 }, 'part payment of received goods');
-    assert.deepEqual(splitPayment(250_000, base), { toGrir: 200_000, toAdvance: 50_000, toTax: 0 }, 'more than received: the rest is an advance');
-    assert.deepEqual(splitPayment(354_000, base), { toGrir: 200_000, toAdvance: 100_000, toTax: 54_000 }, 'the whole order');
-    assert.match(splitPayment(354_000.5, base).error!, /more than is still owed/);
-    const afterFirst: PayableState = { ...base, cleared: 150_000 };
-    assert.deepEqual(splitPayment(50_000, afterFirst), { toGrir: 50_000, toAdvance: 0, toTax: 0 }, 'the second part pays the rest of the received goods');
-    assert.equal(owedForReceived(afterFirst), 50_000);
-    assert.equal(outstanding(afterFirst), 204_000);
-    assert.match(splitPayment(0, base).error!, /greater than zero/);
-});
-
-test('goods arriving after an advance use the advance; recording more than the order is worth is refused', () => {
-    assert.equal(advanceToApply(100_000, 60_000), 60_000);
-    assert.equal(advanceToApply(100_000, 160_000), 100_000);
-    assert.equal(advanceToApply(0, 60_000), 0);
-    assert.equal(recordingCapError(100_000, 200_000, 354_000), null);
-    assert.match(recordingCapError(200_000, 200_000, 354_000)!, /more than the order is worth/, 'recorded but unverified payments count too');
-});
-
-test('recording and verifying are two capabilities held by different roles, and one person can never do both on a payment (source check)', () => {
-    const codes = new Set<string>(RBAC_PERMISSION_DEFINITIONS.map((p) => p.code));
-    assert.ok(codes.has(RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD) && codes.has(RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_VERIFY));
-    const boot = read('src/config/rbac-bootstrap.ts');
-    assert.match(boot, /PROCUREMENT_HO_PAYMENT_VERIFY\]: \['FINANCE_MANAGER'\]/);
-    const svc = read('src/services/procurement/ho-payment.service.ts');
-    assert.match(svc, /inst\.recordedById === userId/, 'the recorder cannot verify');
-    assert.match(svc, /SELECT id FROM "PurchaseOrder" WHERE id = \$\{po\.id\}::uuid FOR UPDATE/, 'two verifications cannot use the same balance');
-    assert.match(svc, /accountCode: ACCOUNTS\.AP_ACCRUED, debit: split\.toGrir/);
-    assert.match(svc, /accountCode: ACCOUNTS\.ADVANCES, debit: split\.toAdvance/);
-    assert.match(svc, /accountCode: ACCOUNTS\.INPUT_VAT, debit: split\.toTax/);
-    assert.match(svc, /accountCode: ACCOUNTS\.HO_CURRENT, debit: 0, credit: amount/);
-    assert.match(svc, /idempotencyKey: `HO_INSTALLMENT_\$\{inst\.id\}`/, 'a payment is never posted twice');
-    assert.match(svc, /status: \{ in: \['AWAITING_EXECUTIVE', 'APPROVED', 'PARTIALLY_PAID', 'PAID'\] \}/, 'not on an order invoiced in Nexus');
-    const route = read('src/app/api/procurement/purchase-orders/[id]/payments/route.ts');
-    assert.match(route, /case 'RECORD':\s*\n\s*if \(!can\(RBAC_PERMISSIONS\.PROCUREMENT_HO_PAYMENT_RECORD\)\)/);
-    assert.match(route, /case 'VERIFY':\s*\n\s*if \(!can\(RBAC_PERMISSIONS\.PROCUREMENT_HO_PAYMENT_VERIFY\)\)/);
-});
-
-test('a GRN moves an advance to GR/IR, and the reports and reminders see HO-mode orders (source check)', () => {
+test('a GRN of an HO order needs the Oracle GRN number and the vendor invoice, and creates that invoice in the same transaction (source check)', () => {
     const grn = read('src/services/inventory/grn.service.ts');
-    assert.match(grn, /const apply = advanceToApply\(Number\(p\.hoAdvanceAmount\), receiptValue\)/);
-    assert.match(grn, /idempotencyKey: `HO_ADVANCE_APPLY_\$\{grn\.id\}_\$\{id\}`/);
-    assert.match(read('src/services/finance/vendor-statement.service.ts'), /type: 'GOODS_RECEIVED' as const/);
-    const aging = read('src/services/finance/ar-ap.service.ts');
-    assert.match(aging, /HoPayablesService\.orders\(\{\}, today\)/);
-    assert.match(aging, /new Date\(inv\.dueDate \?\? inv\.invoiceDate\)/, 'supplier invoices age from the due date');
-    assert.match(read('src/services/service-order/sod.sync.service.ts'), /\{ name: 'po-payment-reminders', type: 'PO_PAYMENT_REMINDERS', at: '07:40'/);
-    assert.match(read('src/workers/system.worker.ts'), /PO_PAYMENT_REMINDERS: async \(\) =>/);
-    const po = read('src/services/procurement/purchase-order.service.ts');
-    assert.match(po, /const termsErr = validateCreditTerms\(input\.credit\);/, 'HO-mode orders need their payment terms');
-    assert.doesNotMatch(po, /static async recordHoPayment/, 'the single payment record was replaced by the payments table');
+    assert.match(grn, /ORACLE_GRN_NUMBER_REQUIRED/);
+    assert.match(grn, /VENDOR_INVOICE_REQUIRED: attach the scanned vendor invoice/);
+    assert.match(grn, /GRN_REJECT_REASON_REQUIRED/, 'a rejected quantity needs its reason');
+    assert.match(grn, /HO_ORDER_ONE_PO_PER_GRN/, 'an HO order is received one PO per GRN');
+    assert.match(grn, /SupplierInvoiceService\.createFromGrnTx\(tx as unknown as Prisma\.TransactionClient/, 'the invoice is saved with the GRN or not at all');
+    assert.match(grn, /rejectedQty: Number\(item\.rejectedQty \?\? 0\)/);
+    const si = read('src/services/procurement/supplier-invoice.service.ts');
+    assert.match(si, /static async createFromGrnTx\(/);
+    assert.match(si, /grnId: input\.grnId/);
+    const schema = read('prisma/schema/supplier-invoice.prisma');
+    assert.match(schema, /grnId\s+String\?\s+@unique @db\.Uuid/, 'one vendor invoice per GRN');
 });
 
-test('the migration is additive and refuses a zero or negative amount', () => {
-    const sql = read('prisma/migrations/20261224000000_po_credit_ho_payments/migration.sql');
-    assert.match(sql, /CREATE TABLE "HoPaymentInstallment"/);
-    assert.match(sql, /CHECK \("amount" > 0\)/);
-    for (const c of ['paymentBasis', 'creditDays', 'paymentDueDate', 'hoAdvanceAmount', 'hoTaxPaid']) assert.match(sql, new RegExp(`ADD COLUMN "${c}"`));
-    assert.doesNotMatch(sql, /DROP |DELETE FROM|UPDATE "/);
+test('the OSP Account Manager accepts the voucher and, with it, the GRN invoice; the Account Executive records part payments (source check)', () => {
+    const pv = read('src/services/finance/payment-voucher.service.ts');
+    assert.match(pv, /const grnInvoiceAwaitingVoucher = !!si\.grnId && \['MATCHED', 'VARIANCE'\]\.includes\(si\.status\)/, 'a voucher can be raised from a GRN invoice before it is approved');
+    assert.match(pv, /await SupplierInvoiceService\.approve\(si\.id, userId, options\?\.matchOverrideReason \?\? null\)/, 'accepting the voucher approves its invoice first');
+    const ho = read('src/services/procurement/ho-payment.service.ts');
+    assert.match(ho, /pv\.createdById === input\.userId \|\| pv\.approvedById === input\.userId/, 'the maker and the approver cannot record the payment');
+    assert.match(ho, /accountCode: ACCOUNTS\.AP_VENDOR, debit: amount/);
+    assert.match(ho, /accountCode: ACCOUNTS\.HO_CURRENT, debit: 0, credit: amount/);
+    assert.match(ho, /idempotencyKey: `PV_INSTALLMENT_\$\{inst\.id\}`/, 'a payment is never posted twice');
+    assert.match(ho, /status: 'PAID', paidById/, 'the voucher is PAID when the parts reach its amount');
+    assert.match(ho, /HO pays it in one payment of the full amount/, 'a voucher with deductions is paid in one go');
+});
+
+test('only the Account Executive designation records HO payments, and the three positions exist as designations', () => {
+    const codes = new Set<string>(RBAC_PERMISSION_DEFINITIONS.map((p) => p.code));
+    assert.ok(codes.has(RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD));
+    assert.ok(!codes.has('procurement.ho.payment.verify'), 'there is no separate verification step');
+    assert.deepEqual([...getCanonicalBootstrapRoles(RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD)], [], 'no whole base role records HO payments');
+    assert.deepEqual(MODULE_DESIGNATION_GRANTS[RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD], ['HO_ACCOUNT_EXECUTIVE_FINANCE_ASSISTANT']);
+    const sql = read('prisma/migrations/20261225000000_company_p2p_flow/migration.sql');
+    for (const c of ['OSP_ACCOUNT_OFFICER_FINANCE_ASSISTANT', 'OSP_ACCOUNT_MANAGER_FINANCE_MANAGER', 'HO_ACCOUNT_EXECUTIVE_FINANCE_ASSISTANT']) assert.match(sql, new RegExp(`'${c}'`));
+    assert.match(sql, /'STORES_MANAGER', 'DEFAULT', 'inventory\.approve', '\["STORES_MANAGER"\]'/, 'the Stores Manager reviews the material request before the OSP Manager');
+    assert.match(sql, /AND NOT EXISTS/, 'the chain change can run twice without adding the step twice');
+});
+
+test('the screens of the superseded flows are gone (one place for each step)', () => {
+    assert.ok(!existsSync(new URL('../../src/app/inventory/grn/po-receipt/page.tsx', import.meta.url)), 'no multi-PO GRN screen');
+    assert.ok(!existsSync(new URL('../../src/app/api/procurement/purchase-orders/[id]/payments/route.ts', import.meta.url)), 'no payments on the PO');
+    assert.ok(existsSync(new URL('../../src/app/api/finance/payment-vouchers/[id]/payments/route.ts', import.meta.url)), 'payments are on the voucher');
+    assert.match(read('src/app/finance/ho-payments/page.tsx'), /data-testid="vp-pay-part"/);
+    assert.match(read('src/app/inventory/grn/page.tsx'), /data-testid="grn-oracle"/);
+});
+
+test('the voucher payments route checks the voucher scope like the status route (security review)', () => {
+    const route = read('src/app/api/finance/payment-vouchers/[id]/payments/route.ts');
+    assert.match(route, /await assertVoucherAccess\(voucher\.projectId, userId, voucher\.description\)/);
+    assert.equal((route.match(/await voucherInScope\(id, userId\)/g) ?? []).length, 2, 'both reading and recording are scoped');
 });

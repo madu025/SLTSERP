@@ -25,6 +25,9 @@ interface GRNItem {
     serials?: string[];
     hasSerial?: boolean;
     expiryDate?: string;
+    /** Delivered but rejected by the Stores Manager (not taken into stock, not paid) */
+    rejectedQty?: number;
+    rejectReason?: string;
 }
 
 interface PORefItem {
@@ -132,6 +135,11 @@ export default function GRNPage() {
     const [grnNumber, setGRNNumber] = useState('');
     const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0]);
     const [invoiceNumber, setInvoiceNumber] = useState('');
+    // HO orders: the Oracle GRN number and the vendor's invoice for this delivery (one invoice per GRN)
+    const [oracleNo, setOracleNo] = useState('');
+    const [invDate, setInvDate] = useState('');
+    const [invGoods, setInvGoods] = useState('');
+    const [invTax, setInvTax] = useState('');
     const [receivedItems, setReceivedItems] = useState<GRNItem[]>([]);
     const [grnRemarks, setGRNRemarks] = useState('');
     const [selectedPOId, setSelectedPOId] = useState<string>('ALL');
@@ -204,7 +212,13 @@ export default function GRNPage() {
             sltReferenceId: string | null;
             reference?: string;
             documentUrl?: string;
-            items: Array<{ itemId: string; quantity: number; serials?: string[] }>;
+            oracleGrnNumber?: string;
+            vendorInvoiceNumber?: string;
+            vendorInvoiceDate?: string;
+            vendorInvoiceGoods?: number;
+            vendorInvoiceTax?: number;
+            vendorInvoiceUrl?: string;
+            items: Array<{ itemId: string; quantity: number; serials?: string[]; rejectedQty?: number; rejectReason?: string }>;
         }) => {
             return await createGRN(data);
         },
@@ -297,6 +311,10 @@ export default function GRNPage() {
         setGRNNumber(''); // Reset GRN number
         setDocumentUrl('');
         setInvoiceNumber('');
+        setOracleNo('');
+        setInvDate('');
+        setInvGoods('');
+        setInvTax('');
     };
 
     const handleCreateGRN = async () => {
@@ -362,11 +380,15 @@ export default function GRNPage() {
             sltReferenceId: selectedRequest.irNumber || null,
             reference: invoiceNumber,
             documentUrl: finalDocumentUrl || undefined,
+            // the vendor's invoice for this delivery and the Oracle GRN number (required by the server for orders approved in the HO system)
+            ...(oracleNo.trim() ? { oracleGrnNumber: oracleNo.trim() } : {}),
+            ...(invDate ? { vendorInvoiceNumber: invoiceNumber, vendorInvoiceDate: invDate, vendorInvoiceGoods: Number(invGoods || 0), vendorInvoiceTax: Number(invTax || 0), vendorInvoiceUrl: finalDocumentUrl || undefined } : {}),
             items: receivedItems.map(item => ({
                 itemId: item.itemId,
                 quantity: parseFloat(item.receivedQty.toString()),
                 serials: item.hasSerial ? (item.serials || []).filter(s => s && s.trim() !== '') : undefined,
-                expiryDate: item.expiryDate || undefined
+                expiryDate: item.expiryDate || undefined,
+                ...(Number(item.rejectedQty || 0) > 0 ? { rejectedQty: Number(item.rejectedQty), rejectReason: item.rejectReason || '' } : {})
             }))
         };
 
@@ -426,7 +448,6 @@ export default function GRNPage() {
                         <div className="space-y-0.5">
                             <h1 className="text-xl font-black text-slate-900 tracking-tight">Goods Receipt Note (GRN)</h1>
                             <p className="text-xs text-slate-500">Receive goods and update stock levels</p>
-                            <a href="/inventory/grn/po-receipt" data-testid="grn-multi-po-link" className="inline-block rounded-md border border-emerald-700 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900 hover:bg-emerald-100">One delivery, several purchase orders: receive against PO lines</a>
                         </div>
 
                         {/* Tabs */}
@@ -735,6 +756,26 @@ export default function GRNPage() {
                                                      </div>
                                                  </div>
 
+                                                 <div className="grid grid-cols-2 gap-4 mt-3" data-testid="grn-ho-fields">
+                                                     <div className="space-y-1.5">
+                                                         <label htmlFor="grn-oracle" className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Oracle GRN number</label>
+                                                         <Input id="grn-oracle" data-testid="grn-oracle" value={oracleNo} onChange={(e) => setOracleNo(e.target.value)} className="h-9 text-xs bg-white text-slate-900" />
+                                                     </div>
+                                                     <div className="space-y-1.5">
+                                                         <label htmlFor="grn-inv-date" className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Vendor invoice date</label>
+                                                         <Input id="grn-inv-date" data-testid="grn-inv-date" type="date" value={invDate} onChange={(e) => setInvDate(e.target.value)} className="h-9 text-xs bg-white text-slate-900" />
+                                                     </div>
+                                                     <div className="space-y-1.5">
+                                                         <label htmlFor="grn-inv-goods" className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Invoice value of the goods (without tax)</label>
+                                                         <Input id="grn-inv-goods" data-testid="grn-inv-goods" type="number" min={0} step="0.01" value={invGoods} onChange={(e) => setInvGoods(e.target.value)} className="h-9 text-xs bg-white text-slate-900" />
+                                                     </div>
+                                                     <div className="space-y-1.5">
+                                                         <label htmlFor="grn-inv-tax" className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Invoice tax</label>
+                                                         <Input id="grn-inv-tax" data-testid="grn-inv-tax" type="number" min={0} step="0.01" value={invTax} onChange={(e) => setInvTax(e.target.value)} className="h-9 text-xs bg-white text-slate-900" />
+                                                     </div>
+                                                 </div>
+                                                 <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">For an order approved in the HO system, the Oracle GRN number and the vendor invoice (number, date, values, scan) are required: the invoice is created with this GRN for the payment voucher.</p>
+
                                                  <p className="text-[10px] text-blue-600/80 dark:text-blue-400/80 font-medium">
                                                      Selecting a specific PO filters the checklist to show ONLY the materials authorized under that supplier&apos;s purchase order.
                                                  </p>
@@ -754,7 +795,8 @@ export default function GRNPage() {
                                                     <tr>
                                                         <th className="px-4 py-3">Material Description</th>
                                                         <th className="px-4 py-3 text-center w-28">Ordered Qty</th>
-                                                        <th className="px-4 py-3 text-center w-36">Received Qty</th>
+                                                        <th className="px-4 py-3 text-center w-36">Accepted Qty</th>
+                                                        <th className="px-4 py-3 text-center w-48">Rejected Qty / reason</th>
                                                         <th className="px-4 py-3">Expiry &amp; Serial Registry</th>
                                                     </tr>
                                                 </thead>
@@ -786,6 +828,10 @@ export default function GRNPage() {
                                                                         Over
                                                                     </div>
                                                                 )}
+                                                            </td>
+                                                            <td className="px-4 py-3.5">
+                                                                <Input type="number" min={0} step="any" data-testid="grn-rejected" aria-label="Rejected quantity" className="h-8 text-right text-xs bg-white text-slate-900" value={item.rejectedQty ?? ''} onChange={(e) => { const u = [...receivedItems]; u[idx] = { ...u[idx], rejectedQty: parseFloat(e.target.value) || 0 }; setReceivedItems(u); }} />
+                                                                {Number(item.rejectedQty || 0) > 0 && <Input data-testid="grn-reject-reason" aria-label="Reason for rejecting" placeholder="Reason" className="mt-1 h-8 text-xs bg-white text-slate-900" value={item.rejectReason ?? ''} onChange={(e) => { const u = [...receivedItems]; u[idx] = { ...u[idx], rejectReason: e.target.value }; setReceivedItems(u); }} />}
                                                             </td>
                                                             <td className="px-4 py-3.5 space-y-3">
                                                                 <div className="space-y-1">

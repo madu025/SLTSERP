@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { hoClearingDelta, poApprovalMode, validateHoEvidence } from '../../src/lib/po-approval-chain';
+import { poApprovalMode, validateHoEvidence } from '../../src/lib/po-approval-chain';
 
 const read = (p: string) => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8');
 const good = { ref: 'HO/PO/2026/0412', date: '2026-11-20', approvedBy: 'A. Perera, GM Finance', documentUrl: '/api/storage/procurement/po-0412.pdf' };
@@ -28,13 +28,6 @@ test('an HO-approved order needs its reference, date, approver and scanned docum
     assert.equal(validateHoEvidence({ ...good, documentUrl: 'https://files.example/po.pdf' }, now), null);
 });
 
-test('recording the HO payment clears only the received value not yet cleared', () => {
-    assert.equal(hoClearingDelta(1_000_000, 0), 1_000_000);
-    assert.equal(hoClearingDelta(1_500_000, 1_000_000), 500_000, 'a later receipt clears the difference');
-    assert.equal(hoClearingDelta(1_000_000, 1_000_000), 0);
-    assert.equal(hoClearingDelta(900_000, 1_000_000), 0, 'never negative');
-});
-
 test('the service records an HO-approved order as approved, with the evidence and a log entry (source check)', () => {
     const svc = read('src/services/procurement/purchase-order.service.ts');
     assert.match(svc, /if \(mode === 'HO_DOCUMENTS'\) \{\s*\n\s*const err = validateHoEvidence\(ho\);/, 'the evidence is required in HO mode');
@@ -44,31 +37,17 @@ test('the service records an HO-approved order as approved, with the evidence an
     assert.match(svc, /if \(valueChanged && po\.hoApprovalRef\)/, 'the vendor or value of an HO-approved order cannot be changed in Nexus');
 });
 
-test('the HO payment clears goods received against the HO current account, once, and not when Nexus invoiced the order (source check)', () => {
-    // the payments themselves (parts, record and verify) are in HoPaymentService: tests/unit/po-payables.test.ts
-    const svc = read('src/services/procurement/ho-payment.service.ts');
-    assert.match(svc, /accountCode: ACCOUNTS\.AP_ACCRUED, debit: split\.toGrir/);
-    assert.match(svc, /accountCode: ACCOUNTS\.HO_CURRENT, debit: 0, credit: amount/);
-    assert.match(svc, /idempotencyKey: `HO_INSTALLMENT_\$\{inst\.id\}`/, 'the same payment is never posted twice');
-    assert.match(svc, /status: \{ in: \['AWAITING_EXECUTIVE', 'APPROVED', 'PARTIALLY_PAID', 'PAID'\] \}/);
-    const inv = read('src/services/procurement/supplier-invoice.service.ts');
-    assert.match(inv, /HO_ALREADY_PAID/, 'an order paid by HO cannot also be invoiced and approved in Nexus');
-    const route = read('src/app/api/procurement/purchase-orders/route.ts');
-    assert.doesNotMatch(route, /RECORD_HO_PAYMENT/, 'the old single payment action is gone (one place for HO payments)');
-});
-
-test('one GRN can receive the goods of several purchase orders of one vendor (source check)', () => {
+test('a GRN line names its PO line; a line-based GRN never mixes vendors or HO orders (source check)', () => {
     const grn = read('src/services/inventory/grn.service.ts');
     assert.match(grn, /const lineMode = items\.some\(\(i\) => i\.poItemId\)/);
     assert.match(grn, /GRN_MIXED_VENDORS/, 'one delivery is from one vendor');
     assert.match(grn, /GRN_PO_MODE_CONFLICT/);
     assert.match(grn, /overReceiptCheck\(Number\(l\.quantity\), Number\(l\.receivedQty\), qty, cfg\.overReceiptTolerancePct\)/, 'over-receipt is checked per PO line');
     assert.match(grn, /PURCHASE_ORDER_NOT_APPROVED/);
-    assert.match(grn, /tx\.gRNItem\.create\(\{\s*\n\s*data: \{ grnId: grn\.id, itemId: item\.itemId, quantity: qty, poItemId: poLine\?\.id \?\? null, unitPrice: costPrice, batchId: batch\.id \}/, 'each line keeps its own PO line and batch, even for the same item on two orders');
+    assert.match(grn, /tx\.gRNItem\.create\(\{\s*\n\s*data: \{ grnId: grn\.id, itemId: item\.itemId, quantity: qty, poItemId: poLine\?\.id \?\? null, unitPrice: costPrice, batchId: batch\.id, rejectedQty:/, 'each line keeps its own PO line and batch, even for the same item on two orders');
     assert.match(grn, /for \(const id of poIdsTouched\)/, 'every order moves to partly or fully received on its own');
     assert.match(grn, /for \(const requestId of requestIdsTouched\)/, 'every stock request behind those orders is updated');
     assert.match(read('src/lib/validations/inventory.schema.ts'), /poItemId: databaseUuidSchema\.nullish\(\)/);
-    assert.match(read('src/app/api/inventory/grn/open-po-lines/route.ts'), /permissions: \[RBAC_PERMISSIONS\.INVENTORY_GRN\]/, 'the stores people who receive goods can list the open lines');
 });
 
 test('the migration is additive', () => {
@@ -86,5 +65,4 @@ test('a GRN can only receive PO lines of orders raised by the receiving store (s
 test('the GRN journal entry names the GRN number, and the PO list opens the order history page (browser pass)', () => {
     assert.match(read('src/services/inventory/grn.service.ts'), /logGrnReceipt\(tx, grn\.id, totalGrnCost, `GRN \$\{grnNumber\}: goods received in store/);
     assert.match(read('src/services/procurement/unified-po.service.ts'), /href: `\/procurement\/orders\/\$\{p\.id\}`/, 'a received order (gone from the Order Processing tabs) is still reachable');
-    assert.match(read('src/app/procurement/orders/[id]/page.tsx'), /data-testid="ho-payment-form"/, 'the HO payment can be recorded on the history page');
 });

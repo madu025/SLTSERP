@@ -23,6 +23,8 @@ model SupplierInvoice {
   createdById     String    @db.Uuid
   approvedById    String?   @db.Uuid
   approvedAt      DateTime?
+  /// The GRN this invoice bills (one vendor invoice per GRN, created when the Stores Manager confirms the GRN)
+  grnId           String?   @unique @db.Uuid
   /// An invoice above the executive threshold waits as AWAITING_EXECUTIVE after this first (finance) approval
   financeApprovedById String?   @db.Uuid
   financeApprovedAt   DateTime?

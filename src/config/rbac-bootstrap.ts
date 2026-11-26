@@ -159,9 +159,8 @@ const BASE_BOOTSTRAP_ROLE_GRANTS = {
     [RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L2]: ['HEAD_OF_OSP'],
     [RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L3]: ['FINANCE_MANAGER'],
     [RBAC_PERMISSIONS.PROCUREMENT_INVOICE_APPROVE_EXECUTIVE]: ['CEO'],
-    // HO payments: the OSP Finance Officer seated at HO (a Finance Assistant) records, the Finance Manager verifies; never the same person (checked in the service)
-    [RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD]: ['FINANCE_ASSISTANT', 'FINANCE_MANAGER'],
-    [RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_VERIFY]: ['FINANCE_MANAGER'],
+    // HO payments on vouchers are recorded by the Account Executive designation only (see MODULE_DESIGNATION_GRANTS), never by a whole base role
+    [RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD]: [],
     [RBAC_PERMISSIONS.CONTRACTOR_READ]: [
         'SUPER_ADMIN', 'ADMIN', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT', 'OSP_MANAGER', 'AREA_MANAGER',
         'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'SITE_OFFICE_STAFF', 'ENGINEER', 'ASSISTANT_ENGINEER',
@@ -345,6 +344,8 @@ const BASE_MODULE_DESIGNATION_GRANTS: Readonly<Record<string, readonly string[]>
     // the project engineers draw project material and see its balances
     [RBAC_PERMISSIONS.INVENTORY_READ]: ['PROJECTS_ENGINEER', 'PROJECTS_ASSISTANT_ENGINEER'],
     [RBAC_PERMISSIONS.NOTIFICATION_PROJECT_MANAGERS]: ['PROJECTS_ENGINEER', 'PROJECTS_ASSISTANT_ENGINEER'],
+    // the Account Executive at HO (Finance section designation on the Finance Assistant role) records HO's payments on OSP vouchers
+    [RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD]: ['HO_ACCOUNT_EXECUTIVE_FINANCE_ASSISTANT'],
 };
 
 export const MODULE_DESIGNATION_GRANTS: Readonly<Record<string, readonly string[]>> = { ...BASE_MODULE_DESIGNATION_GRANTS, ...menuDesignations };

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 import { AppError } from '@/lib/error';
 import { AuditService } from '@/services/audit/audit.service';
 import { LedgerService } from '@/services/finance/ledger.service';
@@ -103,6 +104,68 @@ export class SupplierInvoiceService {
             _sum: { quantity: true },
         });
         return new Map(rows.filter((r) => r.poItemId !== null).map((r) => [r.poItemId as string, Number(r._sum.quantity ?? 0)]));
+    }
+
+    /**
+     * The vendor's invoice for one GRN (company flow: one invoice per delivery), created in the GRN's own transaction so the receipt and its invoice
+     * are saved together or not at all. Lines are the accepted quantities of the GRN; the vendor's goods value is spread over them in proportion to
+     * their PO value, so a vendor price that differs from the PO shows up in the 3-way match as a price variance. Tax is spread the same way.
+     */
+    static async createFromGrnTx(tx: Prisma.TransactionClient, input: {
+        grnId: string; grnNumber: string; poId: string; userId: string; invoiceNumber: string; invoiceDate: Date; goods: number; tax: number; dueDate: Date | null;
+        lines: { poItemId: string; quantity: number }[];
+    }) {
+        const po = await tx.purchaseOrder.findUnique({ where: { id: input.poId }, include: { items: { include: { stockRequestItem: { include: { item: { select: { code: true, name: true } } } } } } } });
+        if (!po) throw AppError.notFound('Purchase order not found');
+        if (!po.vendorId) throw AppError.badRequest('This purchase order has no vendor record: link a vendor to the order before receiving it with an invoice');
+        const byId = new Map(po.items.map((l) => [l.id, l]));
+        const merged = new Map<string, number>();
+        for (const l of input.lines) {
+            if (!byId.has(l.poItemId)) throw AppError.badRequest('A GRN line does not belong to this purchase order');
+            if (l.quantity > 0) merged.set(l.poItemId, (merged.get(l.poItemId) ?? 0) + l.quantity);
+        }
+        if (merged.size === 0) throw AppError.badRequest('Nothing was accepted on this GRN, so there is nothing to invoice');
+        const entries = [...merged.entries()];
+        const poValue = entries.reduce((a, [id, q]) => a + q * Number(byId.get(id)!.unitPrice), 0);
+        const goods = round2(input.goods);
+        const tax = round2(input.tax);
+        // spread goods and tax over the lines by PO value; the last line takes the rounding remainder
+        let goodsLeft = goods;
+        let taxLeft = tax;
+        const lines = entries.map(([poItemId, quantity], i) => {
+            const share = poValue > 0 ? (quantity * Number(byId.get(poItemId)!.unitPrice)) / poValue : 1 / entries.length;
+            const last = i === entries.length - 1;
+            const lineGoods = last ? goodsLeft : round2(goods * share);
+            const lineTax = last ? taxLeft : round2(tax * share);
+            goodsLeft = round2(goodsLeft - lineGoods);
+            taxLeft = round2(taxLeft - lineTax);
+            return { poItemId, quantity, unitPrice: quantity > 0 ? Math.round((lineGoods / quantity) * 100) / 100 : 0, taxAmount: lineTax, amount: round2(lineGoods + lineTax) };
+        });
+        const billedRows = await tx.supplierInvoiceItem.groupBy({ by: ['poItemId'], where: { poItemId: { in: [...merged.keys()] }, invoice: { status: { not: 'REJECTED' } } }, _sum: { quantity: true } });
+        const billed = new Map(billedRows.map((r) => [r.poItemId as string, Number(r._sum.quantity ?? 0)]));
+        const cfg = await getProcurementConfig(tx as unknown as typeof prisma);
+        const outcome: MatchOutcome = threeWayMatch(lines.map((l) => {
+            const p = byId.get(l.poItemId)!;
+            return { poItemId: l.poItemId, description: `${p.stockRequestItem.item.code} ${p.stockRequestItem.item.name}`, orderedQty: Number(p.quantity), orderedPrice: Number(p.unitPrice), receivedQty: Number(p.receivedQty), invoicedBefore: billed.get(l.poItemId) ?? 0, invoiceQty: l.quantity, invoicePrice: l.unitPrice };
+        }), cfg.matchPriceTolerancePct);
+        try {
+            const invoice = await tx.supplierInvoice.create({
+                data: {
+                    invoiceNumber: input.invoiceNumber.trim(), vendorId: po.vendorId, storePoId: po.id, grnId: input.grnId,
+                    invoiceDate: input.invoiceDate, dueDate: input.dueDate, currency: po.currency,
+                    subtotal: goods, taxAmount: tax, totalAmount: round2(goods + tax),
+                    status: outcome.status === 'MATCHED' ? 'MATCHED' : 'VARIANCE', matchStatus: outcome.status,
+                    matchDetail: JSON.parse(JSON.stringify({ tolerancePct: cfg.matchPriceTolerancePct, lines: outcome.lines, grnNumber: input.grnNumber })),
+                    createdById: input.userId,
+                    items: { create: lines.map((l) => ({ poItemId: l.poItemId, description: `${byId.get(l.poItemId)!.stockRequestItem.item.code} ${byId.get(l.poItemId)!.stockRequestItem.item.name}`, quantity: l.quantity, unitPrice: l.unitPrice, taxAmount: l.taxAmount, amount: l.amount })) },
+                },
+            });
+            AuditService.log({ userId: input.userId, action: 'CREATE_SUPPLIER_INVOICE_FROM_GRN', entity: 'SUPPLIER_INVOICE', entityId: invoice.id, newValue: { invoiceNumber: invoice.invoiceNumber, po: po.poNumber, grn: input.grnNumber, total: Number(invoice.totalAmount), match: outcome.status } }).catch(() => undefined);
+            return invoice;
+        } catch (error) {
+            if ((error as { code?: string }).code === 'P2002') throw AppError.conflict('This vendor invoice number has already been entered for this vendor');
+            throw error;
+        }
     }
 
     static async create(input: CreateSupplierInvoiceInput) {
@@ -281,10 +344,6 @@ export class SupplierInvoiceService {
             if (first.count === 0) throw AppError.conflict('This invoice has already been actioned');
             AuditService.log({ userId, action: 'FINANCE_APPROVE_SUPPLIER_INVOICE', entity: 'SUPPLIER_INVOICE', entityId: id, newValue: { total: Number(invoice.totalAmount), threshold, waitingFor: 'EXECUTIVE', override: overrideReason ?? null } }).catch(() => undefined);
             return prisma.supplierInvoice.findUniqueOrThrow({ where: { id }, include: { items: true } });
-        }
-        if (invoice.storePoId) {
-            const paidByHo = await prisma.purchaseOrder.findUnique({ where: { id: invoice.storePoId }, select: { hoPaymentRef: true, poNumber: true } });
-            if (paidByHo?.hoPaymentRef) throw AppError.badRequest(`HO_ALREADY_PAID: ${paidByHo.poNumber} was paid by HO (${paidByHo.hoPaymentRef}); its payable was cleared there`);
         }
         if (invoice.category !== 'PO_GOODS') return this.approveService(invoice, userId);
 

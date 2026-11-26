@@ -45,9 +45,8 @@ export const RBAC_PERMISSIONS = {
     PROCUREMENT_PO_APPROVE_L3: 'procurement.po.approve.l3',
     // second approval of a supplier payment above the threshold set in the admin settings
     PROCUREMENT_INVOICE_APPROVE_EXECUTIVE: 'procurement.invoice.approve.executive',
-    // HO mode: an HO payment to a supplier is recorded by the OSP Finance Officer at HO and verified by the OSP Finance Manager
+    // the Account Executive at HO records the payments HO makes on OSP vendor payment vouchers (in full or in parts)
     PROCUREMENT_HO_PAYMENT_RECORD: 'procurement.ho.payment.record',
-    PROCUREMENT_HO_PAYMENT_VERIFY: 'procurement.ho.payment.verify',
     CONTRACTOR_READ: 'contractor.read',
     CONTRACTOR_WRITE: 'contractor.write',
     HELPDESK_READ: 'helpdesk.read',
@@ -174,8 +173,7 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L2, module: 'PROCUREMENT', action: 'PO_APPROVE_L2', scope: 'OPMC', description: 'Purchase order approval, step 2 of 3 (Head of OSP)' },
     { code: RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L3, module: 'PROCUREMENT', action: 'PO_APPROVE_L3', scope: 'OPMC', description: 'Purchase order approval, step 3 of 3 (Finance Manager)' },
     { code: RBAC_PERMISSIONS.PROCUREMENT_INVOICE_APPROVE_EXECUTIVE, module: 'PROCUREMENT', action: 'INVOICE_APPROVE_EXECUTIVE', scope: 'OPMC', description: 'Second approval of a supplier invoice above the executive payment threshold (CEO)' },
-    { code: RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD, module: 'PROCUREMENT', action: 'HO_PAYMENT_RECORD', scope: 'OPMC', description: 'Record a payment HO made to a supplier on a purchase order (OSP Finance Officer at HO)' },
-    { code: RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_VERIFY, module: 'PROCUREMENT', action: 'HO_PAYMENT_VERIFY', scope: 'OPMC', description: 'Verify a recorded HO payment so that it is posted to the ledger (OSP Finance Manager)' },
+    { code: RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD, module: 'PROCUREMENT', action: 'HO_PAYMENT_RECORD', scope: 'OPMC', description: 'Record a payment HO made on an OSP vendor payment voucher, in full or in parts (Account Executive at HO)' },
     { code: RBAC_PERMISSIONS.CONTRACTOR_READ, module: 'CONTRACTOR', action: 'READ', scope: 'OPMC', description: 'Read contractor data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.CONTRACTOR_WRITE, module: 'CONTRACTOR', action: 'WRITE', scope: 'OPMC', description: 'Submit contractor portal work, stock, and return actions within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.HELPDESK_READ, module: 'HELPDESK', action: 'READ', scope: 'OPMC', description: 'Read helpdesk tickets, assets, telemetry, and support data within the assigned OPMC scope' },

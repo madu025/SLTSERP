@@ -61,7 +61,17 @@ export const grnSchema = z.object({
         locator: z.string().optional(),
         // one GRN may receive the goods of several purchase orders: each line names its PO line
         poItemId: databaseUuidSchema.nullish(),
-    })).min(1)
+        // delivered but rejected by the Stores Manager (quantity is what was accepted)
+        rejectedQty: z.number().min(0).nullish(),
+        rejectReason: z.string().max(300).nullish(),
+    })).min(1),
+    // HO orders: the Oracle GRN number and the vendor's invoice for this delivery
+    oracleGrnNumber: z.string().max(60).nullish(),
+    vendorInvoiceNumber: z.string().max(60).nullish(),
+    vendorInvoiceDate: z.string().max(40).nullish(),
+    vendorInvoiceGoods: z.number().min(0).nullish(),
+    vendorInvoiceTax: z.number().min(0).nullish(),
+    vendorInvoiceUrl: z.string().max(1000).nullish(),
 });
 
 export const mrnSchema = z.object({

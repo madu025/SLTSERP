@@ -13,7 +13,6 @@ import { grnSchema } from '@/lib/validations/inventory.schema';
 import { AuditService } from '@/services/audit/audit.service';
 import { getProcurementConfig } from '@/services/procurement/procurement-config';
 import { overReceiptCheck, poStatusFromReceipts, weightedAverageCost, normalizePoStatus } from '@/lib/procurement-rules';
-import { advanceToApply } from '@/lib/po-payables';
 import { ACCOUNTS } from '@/services/finance/account-codes';
 
 export class GRNService {
@@ -54,7 +53,9 @@ export class GRNService {
             throw AppError.badRequest('INVALID_GRN_PAYLOAD');
         }
 
-        const { storeId, sourceType, supplier, items, requestId: requestIdInput, purchaseOrderId, sltReferenceId, reference, documentUrl } = parsed.data;
+        const { storeId, sourceType, supplier, items, requestId: requestIdInput, purchaseOrderId, sltReferenceId, reference, documentUrl, oracleGrnNumber, vendorInvoiceNumber, vendorInvoiceDate, vendorInvoiceGoods, vendorInvoiceTax, vendorInvoiceUrl } = parsed.data;
+        // a rejected quantity needs its reason (the goods go back to the vendor and are not paid)
+        for (const i of items) if (Number(i.rejectedQty ?? 0) > 0 && (i.rejectReason ?? '').trim().length < 3) throw AppError.badRequest('GRN_REJECT_REASON_REQUIRED: give the reason for the rejected quantity');
         // A receipt against a PO is a receipt against that PO's stock request, even if the caller did not say so
         let requestId: string | null | undefined = requestIdInput;
 
@@ -91,6 +92,7 @@ export class GRNService {
             const cfg = await getProcurementConfig(tx as unknown as typeof prisma);
             const poLineByItem = new Map<string, { id: string; quantity: number; receivedQty: number; unitPrice: number }>();
             let poId: string | null = null;
+            let hoInvoiceFor: { poId: string; creditDays: number | null; paymentDueDate: Date | null } | null = null;
             if (purchaseOrderId) {
                 const po = await tx.purchaseOrder.findUnique({
                     where: { id: purchaseOrderId },
@@ -109,6 +111,14 @@ export class GRNService {
                 }
                 requestId = po.stockRequestId;
                 poId = po.id;
+                // an order approved in the HO system is received with its Oracle GRN number and the vendor's invoice for this delivery
+                if (po.hoApprovalRef) {
+                    if ((oracleGrnNumber ?? '').trim().length < 3) throw AppError.badRequest('ORACLE_GRN_NUMBER_REQUIRED: enter the GRN number from the Oracle system');
+                    if ((vendorInvoiceNumber ?? '').trim().length < 1 || !vendorInvoiceDate || Number.isNaN(new Date(vendorInvoiceDate).getTime())) throw AppError.badRequest('VENDOR_INVOICE_REQUIRED: enter the vendor invoice number and date for this delivery');
+                    if (!(Number(vendorInvoiceGoods) >= 0) || !(Number(vendorInvoiceTax ?? 0) >= 0)) throw AppError.badRequest('VENDOR_INVOICE_REQUIRED: enter the invoice goods value and tax');
+                    if (!(vendorInvoiceUrl ?? '').trim()) throw AppError.badRequest('VENDOR_INVOICE_REQUIRED: attach the scanned vendor invoice');
+                    hoInvoiceFor = { poId: po.id, creditDays: po.creditDays, paymentDueDate: po.paymentDueDate };
+                }
                 for (const l of po.items) {
                     poLineByItem.set(l.stockRequestItem.itemId, { id: l.id, quantity: Number(l.quantity), receivedQty: Number(l.receivedQty), unitPrice: Number(l.unitPrice) });
                 }
@@ -135,7 +145,7 @@ export class GRNService {
                 const ids = [...new Set(items.map((i) => i.poItemId as string))];
                 const poLines = await tx.purchaseOrderItem.findMany({
                     where: { id: { in: ids } },
-                    include: { purchaseOrder: { select: { id: true, poNumber: true, status: true, vendor: true, vendorId: true, stockRequestId: true, stockRequest: { select: { fromStoreId: true } } } }, stockRequestItem: { select: { itemId: true } } },
+                    include: { purchaseOrder: { select: { id: true, poNumber: true, status: true, vendor: true, vendorId: true, stockRequestId: true, hoApprovalRef: true, stockRequest: { select: { fromStoreId: true } } } }, stockRequestItem: { select: { itemId: true } } },
                 });
                 const byId = new Map(poLines.map((l) => [l.id, l]));
                 const vendors = new Set<string>();
@@ -143,6 +153,8 @@ export class GRNService {
                 items.forEach((i, idx) => {
                     const l = byId.get(i.poItemId as string);
                     if (!l) throw AppError.badRequest('PURCHASE_ORDER_LINE_NOT_FOUND');
+                    // an order approved in the HO system is received one PO per GRN, with the vendor's invoice for that delivery
+                    if (l.purchaseOrder.hoApprovalRef) throw AppError.badRequest(`HO_ORDER_ONE_PO_PER_GRN: receive ${l.purchaseOrder.poNumber} on its own GRN with its vendor invoice`);
                     // the goods of an order are received into the store that raised it (the caller's access to that store was checked above)
                     if (l.purchaseOrder.stockRequest.fromStoreId !== storeId) throw AppError.forbidden(`PURCHASE_ORDER_LINE_NOT_IN_STORE: ${l.purchaseOrder.poNumber} belongs to another store`);
                     const st = normalizePoStatus(l.purchaseOrder.status);
@@ -181,6 +193,12 @@ export class GRNService {
                     purchaseOrderId: lineMode ? (poIdsTouched.length === 1 ? poIdsTouched[0] : null) : (purchaseOrderId || null),
                     reference: reference || sltReferenceId || null,
                     documentUrl: documentUrl || null,
+                    oracleGrnNumber: oracleGrnNumber?.trim() || null,
+                    vendorInvoiceNumber: vendorInvoiceNumber?.trim() || null,
+                    vendorInvoiceDate: vendorInvoiceDate ? new Date(vendorInvoiceDate) : null,
+                    vendorInvoiceGoods: vendorInvoiceGoods ?? null,
+                    vendorInvoiceTax: vendorInvoiceTax ?? null,
+                    vendorInvoiceUrl: vendorInvoiceUrl?.trim() || null,
                 },
             });
 
@@ -238,7 +256,7 @@ export class GRNService {
 
                 // B. The GRN line, with its PO line, the price it was received at and its batch
                 await tx.gRNItem.create({
-                    data: { grnId: grn.id, itemId: item.itemId, quantity: qty, poItemId: poLine?.id ?? null, unitPrice: costPrice, batchId: batch.id },
+                    data: { grnId: grn.id, itemId: item.itemId, quantity: qty, poItemId: poLine?.id ?? null, unitPrice: costPrice, batchId: batch.id, rejectedQty: Number(item.rejectedQty ?? 0), rejectReason: item.rejectReason?.trim() || null },
                 });
 
                 // C. Initialize Batch Stock in Store
@@ -373,27 +391,6 @@ export class GRNService {
                 const p = await tx.purchaseOrder.findUnique({ where: { id }, select: { status: true, poNumber: true, vendor: true, hoAdvanceAmount: true, items: { select: { quantity: true, receivedQty: true } } } });
                 const nextStatus = poStatusFromReceipts(p?.status, (p?.items ?? []).map((l) => ({ quantity: Number(l.quantity), receivedQty: Number(l.receivedQty) })));
                 await tx.purchaseOrder.update({ where: { id }, data: { status: nextStatus } });
-
-                // HO paid this order in advance: the goods now received use up that advance (Advances ADV-1210 -> GR/IR AP-2010)
-                if (p && Number(p.hoAdvanceAmount) > 0) {
-                    const receiptValue = items.reduce((a, i, idx) => {
-                        const line = lineMode ? lineAlloc.get(idx) : poLineByItem.get(i.itemId);
-                        const belongs = lineMode ? (line as { poId: string } | undefined)?.poId === id : id === poId;
-                        return belongs && line ? a + Number(i.quantity) * line.unitPrice : a;
-                    }, 0);
-                    const apply = advanceToApply(Number(p.hoAdvanceAmount), receiptValue);
-                    if (apply > 0) {
-                        await tx.purchaseOrder.update({ where: { id }, data: { hoAdvanceAmount: { decrement: apply }, hoClearedAmount: { increment: apply } } });
-                        await LedgerService.postTransaction(tx, {
-                            referenceId: id, referenceType: 'PURCHASE_ORDER', idempotencyKey: `HO_ADVANCE_APPLY_${grn.id}_${id}`, isAutoGenerated: true,
-                            description: `GRN ${grnNumber}: goods received against the advance HO paid on ${p.poNumber}`,
-                            lines: [
-                                { accountCode: ACCOUNTS.AP_ACCRUED, debit: apply, credit: 0, description: `Goods received on ${p.poNumber}, already paid in advance` },
-                                { accountCode: ACCOUNTS.ADVANCES, debit: 0, credit: apply, description: `Advance to ${p.vendor} used by GRN ${grnNumber}` },
-                            ],
-                        });
-                    }
-                }
             }
 
             // 4. Create Transaction Log
@@ -489,6 +486,17 @@ export class GRNService {
                         }
                     }
                 }
+            }
+
+            // the vendor's invoice for this delivery, saved with the GRN (due: the PO's due date, else this GRN's date + the PO's credit days)
+            if (hoInvoiceFor) {
+                const { SupplierInvoiceService } = await import('@/services/procurement/supplier-invoice.service');
+                const due = hoInvoiceFor.paymentDueDate ?? (hoInvoiceFor.creditDays ? new Date(grn.createdAt.getTime() + hoInvoiceFor.creditDays * 86_400_000) : null);
+                await SupplierInvoiceService.createFromGrnTx(tx as unknown as Prisma.TransactionClient, {
+                    grnId: grn.id, grnNumber, poId: hoInvoiceFor.poId, userId: receivedById, invoiceNumber: vendorInvoiceNumber!, invoiceDate: new Date(vendorInvoiceDate!),
+                    goods: Number(vendorInvoiceGoods), tax: Number(vendorInvoiceTax ?? 0), dueDate: due,
+                    lines: items.map((i) => ({ poItemId: poLineByItem.get(i.itemId)!.id, quantity: Number(i.quantity) })),
+                });
             }
 
             emitSystemEvent('INVENTORY_UPDATE');

@@ -10,8 +10,8 @@ import RoleGuard from '@/components/RoleGuard';
 import { Loader2, Send } from 'lucide-react';
 import { Panel, compact } from '@/app/dashboard/components/health/HealthCharts';
 
-interface Invoice { id: string; invoiceNumber: string; status: string; totalAmount: number | string; paidAmount: number | string; dueDate: string | null; vendor: { name: string; code: string } }
-interface Voucher { id: string; pvNumber: string; status: string; type: string; amount: number | string; netAmount: number | string; taxWithheld: number | string; payeeName: string; supplierInvoiceId: string | null; hoBatchId: string | null; hoReference: string | null; createdAt: string }
+interface Invoice { id: string; invoiceNumber: string; status: string; grnId?: string | null; matchStatus?: string; totalAmount: number | string; paidAmount: number | string; dueDate: string | null; vendor: { name: string; code: string } }
+interface Voucher { id: string; pvNumber: string; status: string; type: string; amount: number | string; netAmount: number | string; taxWithheld: number | string; payeeName: string; supplierInvoiceId: string | null; hoPaidAmount?: number | string; hoBatchId: string | null; hoReference: string | null; createdAt: string }
 interface Pack { id: string; batchNumber: string; status: string; totalAmount: number; voucherCount: number; paid: number; submittedAt: string }
 interface PackLine { category: string; pvNumber: string; payee: string; type: string; amount: number; taxWithheld: number; retention: number; net: number; status: string; hoReference: string | null; hoPaidDate: string | null; invoiceNumber: string | null; invoiceDate: string | null; dueDate: string | null; matchStatus: string | null; poNumber: string | null; grnNumbers: string[]; approvedBy: string | null; project: string | null }
 
@@ -44,12 +44,13 @@ function Inner() {
     const [wht, setWht] = useState('0');
     const [picked, setPicked] = useState<string[]>([]);
     const [note, setNote] = useState('');
-    const [confirm, setConfirm] = useState<{ id: string; mode: 'PAID' | 'RETURN' } | null>(null);
+    const [confirm, setConfirm] = useState<{ id: string; mode: 'PAID' | 'RETURN' | 'PART' } | null>(null);
+    const [partAmount, setPartAmount] = useState('');
     const [hoRef, setHoRef] = useState('');
     const [hoDate, setHoDate] = useState(new Date().toISOString().slice(0, 10));
     const [reason, setReason] = useState('');
 
-    const invoices = useQuery<Invoice[]>({ queryKey: ['hp-invoices'], queryFn: async () => (await api<Invoice[]>('/api/procurement/invoices')).filter((i) => ['APPROVED', 'PARTIALLY_PAID'].includes(i.status)), staleTime: 15_000 });
+    const invoices = useQuery<Invoice[]>({ queryKey: ['hp-invoices'], queryFn: async () => (await api<Invoice[]>('/api/procurement/invoices')).filter((i) => ['APPROVED', 'PARTIALLY_PAID'].includes(i.status) || (!!i.grnId && ['MATCHED', 'VARIANCE'].includes(i.status))), staleTime: 15_000 });
     const vouchers = useQuery<Voucher[]>({ queryKey: ['hp-vouchers'], queryFn: async () => { const r = await api<Voucher[] | { data: Voucher[] }>('/api/finance/payment-vouchers'); return Array.isArray(r) ? r : (r as { data: Voucher[] }).data ?? []; }, staleTime: 10_000 });
     const packs = useQuery<Pack[]>({ queryKey: ['hp-packs'], queryFn: () => api('/api/finance/ho/batches'), staleTime: 10_000 });
 
@@ -65,6 +66,20 @@ function Inner() {
     const move = useMutation({
         mutationFn: ({ id, status, extra }: { id: string; status: string; extra?: Record<string, string> }) => api(`/api/finance/payment-vouchers/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, ...(status === 'CANCELLED' ? { cancelledReason: 'Cancelled by user' } : {}), ...(status === 'REJECTED' ? { rejectionReason: 'Rejected by approver' } : {}), ...extra }) }),
         onSuccess: () => { toast.success('Updated'); setConfirm(null); setHoRef(''); setReason(''); refresh(); },
+        onError: (e: Error, vars) => {
+            // accepting a voucher whose GRN invoice does not match the order: ask the reason, then accept again with it
+            if (vars.status === 'APPROVED' && /MATCH_OVERRIDE_REASON_REQUIRED/.test(e.message)) {
+                const why = window.prompt('The vendor invoice does not match the order and the GRN. Reason for accepting it:');
+                if (why && why.trim().length >= 5) move.mutate({ ...vars, extra: { ...(vars.extra ?? {}), matchOverrideReason: why.trim() } });
+                return;
+            }
+            toast.error(e.message);
+        },
+    });
+    // the Account Executive at HO records a payment HO made on a vendor voucher, in full or one part
+    const payPart = useMutation({
+        mutationFn: ({ id }: { id: string }) => api(`/api/finance/payment-vouchers/${id}/payments`, { method: 'POST', body: JSON.stringify({ amount: Number(partAmount), reference: hoRef.trim(), paidDate: hoDate }) }),
+        onSuccess: () => { toast.success('HO payment recorded'); setConfirm(null); setHoRef(''); setPartAmount(''); refresh(); },
         onError: (e: Error) => toast.error(e.message),
     });
     const submitPack = useMutation({
@@ -103,7 +118,7 @@ function Inner() {
                             <p className="mt-1 text-sm text-slate-700">OSP Finance prepares and approves the request; Head Office pays and confirms it with its own reference.</p>
                         </div>
 
-                        <Panel title="Approved invoices awaiting a payment request">
+                        <Panel title="Vendor invoices awaiting a payment request (one per GRN)">
                             {invoices.isLoading && <Loader2 className="h-5 w-5 animate-spin text-blue-600" />}
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
@@ -150,11 +165,11 @@ function Inner() {
                                                 <td className="py-2 pr-3 font-medium">{v.pvNumber}</td><td className="py-2 pr-3">{v.payeeName}</td><td className="py-2 pr-3">{v.type}</td>
                                                 <td className="py-2 pr-3 text-right">{Number(v.netAmount).toLocaleString()}</td>
                                                 <td className="py-2 pr-3"><span className={`rounded px-2 py-0.5 font-semibold ${TONE[v.status] ?? ''}`} data-testid="vp-status">{LABEL[v.status] ?? v.status.replace('_', ' ')}</span></td>
-                                                <td className="py-2 pr-3">{v.hoReference ?? '—'}</td>
+                                                <td className="py-2 pr-3" data-testid="vp-ho">{v.hoReference ?? '—'}{v.supplierInvoiceId && Number(v.hoPaidAmount ?? 0) > 0 ? ` · paid ${Number(v.hoPaidAmount).toLocaleString()} of ${Number(v.amount).toLocaleString()}` : ''}</td>
                                                 <td className="py-2 text-right whitespace-nowrap">
                                                     {(next[v.status] ?? []).map((a) => <button key={a.status} data-testid={`vp-${a.label.toLowerCase()}`} onClick={() => move.mutate({ id: v.id, status: a.status })} disabled={move.isPending} className="ml-1.5 rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-bold text-slate-900 hover:bg-slate-100 disabled:opacity-50">{a.label}</button>)}
                                                     {v.status === 'SUBMITTED_TO_HO' && (<>
-                                                        <button data-testid="vp-confirm" onClick={() => setConfirm({ id: v.id, mode: 'PAID' })} className="ml-1.5 rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-900 hover:bg-emerald-100">Confirm paid</button>
+                                                        {v.supplierInvoiceId ? <button data-testid="vp-pay-part" onClick={() => { setConfirm({ id: v.id, mode: 'PART' }); setPartAmount(String(Number(v.amount) - Number(v.hoPaidAmount ?? 0))); }} className="ml-1.5 rounded border border-violet-300 bg-violet-50 px-2 py-0.5 text-xs font-bold text-violet-900 hover:bg-violet-100">Record HO payment</button> : <button data-testid="vp-confirm" onClick={() => setConfirm({ id: v.id, mode: 'PAID' })} className="ml-1.5 rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-900 hover:bg-emerald-100">Confirm paid</button>}
                                                         <button data-testid="vp-return" onClick={() => setConfirm({ id: v.id, mode: 'RETURN' })} className="ml-1.5 rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-bold text-slate-900 hover:bg-slate-100">Return</button>
                                                     </>)}
                                                 </td>
@@ -174,9 +189,19 @@ function Inner() {
                         </Panel>
 
                         {confirm && (
-                            <Panel title={confirm.mode === 'PAID' ? 'Confirm the payment made by Head Office' : 'Return this request to OSP Finance'}>
+                            <Panel title={confirm.mode === 'PAID' ? 'Confirm the payment made by Head Office' : confirm.mode === 'PART' ? 'Record a payment made by Head Office (full or part)' : 'Return this request to OSP Finance'}>
                                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                                    {confirm.mode === 'PAID' ? (<>
+                                    {confirm.mode === 'PART' ? (<>
+                                        <label className="text-xs font-semibold text-slate-900">Amount paid now
+                                            <input data-testid="ho-part-amount" type="number" min={0} step="0.01" value={partAmount} onChange={(e) => setPartAmount(e.target.value)} className={input} />
+                                        </label>
+                                        <label className="text-xs font-semibold text-slate-900">Cheque / transfer reference
+                                            <input data-testid="ho-ref" value={hoRef} onChange={(e) => setHoRef(e.target.value)} className={input} />
+                                        </label>
+                                        <label className="text-xs font-semibold text-slate-900">Date paid
+                                            <input data-testid="ho-date" type="date" value={hoDate} onChange={(e) => setHoDate(e.target.value)} className={input} />
+                                        </label>
+                                    </>) : confirm.mode === 'PAID' ? (<>
                                         <label className="text-xs font-semibold text-slate-900">Head Office payment reference
                                             <input data-testid="ho-ref" value={hoRef} onChange={(e) => setHoRef(e.target.value)} className={input} />
                                         </label>
@@ -189,7 +214,8 @@ function Inner() {
                                         </label>
                                     )}
                                     <div className="flex items-end gap-2">
-                                        <button data-testid="ho-go" disabled={move.isPending || (confirm.mode === 'PAID' ? !hoRef.trim() : !reason.trim())} onClick={() => move.mutate(confirm.mode === 'PAID' ? { id: confirm.id, status: 'PAID', extra: { hoReference: hoRef, hoPaidDate: hoDate } } : { id: confirm.id, status: 'APPROVED', extra: { returnReason: reason } })} className="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800 disabled:opacity-50">{confirm.mode === 'PAID' ? 'Confirm paid' : 'Return request'}</button>
+                                        {confirm.mode === 'PART' && <button data-testid="ho-part-go" disabled={payPart.isPending || hoRef.trim().length < 3 || !(Number(partAmount) > 0)} onClick={() => payPart.mutate({ id: confirm.id })} className="rounded-md bg-violet-800 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-900 disabled:opacity-50">Record payment</button>}
+                                        {confirm.mode !== 'PART' && <button data-testid="ho-go" disabled={move.isPending || (confirm.mode === 'PAID' ? !hoRef.trim() : !reason.trim())} onClick={() => move.mutate(confirm.mode === 'PAID' ? { id: confirm.id, status: 'PAID', extra: { hoReference: hoRef, hoPaidDate: hoDate } } : { id: confirm.id, status: 'APPROVED', extra: { returnReason: reason } })} className="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800 disabled:opacity-50">{confirm.mode === 'PAID' ? 'Confirm paid' : 'Return request'}</button>}
                                         <button onClick={() => setConfirm(null)} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900">Close</button>
                                     </div>
                                 </div>

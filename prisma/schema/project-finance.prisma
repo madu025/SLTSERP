@@ -556,6 +556,8 @@ model PaymentVoucher {
   hoBatchId          String?         @db.Uuid
   hoReference        String?
   hoPaidDate         DateTime?
+  /// Paid so far by HO through part payments (HoPaymentInstallment); the voucher is PAID once this reaches its amount
+  hoPaidAmount       Decimal         @default(0) @db.Decimal(14, 2)
   confirmedById      String?         @db.Uuid
   recordedOnBehalf   Boolean         @default(false)
   createdAt          DateTime        @default(now())

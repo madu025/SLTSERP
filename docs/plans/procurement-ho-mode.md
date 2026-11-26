@@ -82,3 +82,22 @@ D6. Reminders through the existing automated notices: payments due in 7 days and
 D7. Migration: PO credit fields; the installments table. RBAC seed: the two capabilities and the HO-desk designation.
 D8. Tests: unit rules (payable cap, advance then receipt, maker-checker), and a browser pass: PO with 60 credit days -> GRN -> two part payments recorded at HO
     -> verified -> statement, aging, ledger and OSP balance agree.
+
+---
+
+# Section E (built 26 Nov 2026): the company flow from the owner's diagram
+
+Replaces Phase D's payments on the PO. Relations: material request 1 -> n PO (one per vendor, total within the approved quantity); PO 1 -> n GRN; GRN 1 -> 1 vendor invoice -> 1 payment voucher.
+
+| Step | Who (position -> role / designation) | Screen |
+|---|---|---|
+| Material request | Stores Officer (Stores Executive / Assistant) | Material Requisitions |
+| Review 1, 2, 3 | Stores Manager, OSP Manager, Head of Section | Approvals (request gate, Admin can change levels) |
+| Record the HO procurement | Procurement Officer | Order Processing: PO with HO reference, scan, credit terms |
+| Accept / reject the delivery, Oracle GRN number, vendor invoice | Stores Manager | GRN |
+| Payment voucher from the GRN invoice | OSP Account Officer (designation on Finance Assistant) | Payment requests to Head Office |
+| Accept the voucher (approves the invoice) | OSP Account Manager (designation on Finance Manager) | same |
+| Send to HO Invoice Section | OSP Account Manager / Officer | same (packs) |
+| Record HO's full or part payments | Account Executive at HO (designation, only holder of procurement.ho.payment.record) | same: Record HO payment |
+
+Ledger: GRN accept INV-1010 DR / GR/IR AP-2010 CR; voucher acceptance GR/IR DR (+ input VAT) / Vendor payable AP-VEND-2010 CR; each HO payment Vendor payable DR / HO current HO-2020 CR.

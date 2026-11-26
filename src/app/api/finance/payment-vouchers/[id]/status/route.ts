@@ -16,11 +16,12 @@ const updateStatusSchema = z.object({
     hoReference: z.string().trim().max(120).optional(),
     hoPaidDate: z.string().optional(),
     returnReason: z.string().trim().max(500).optional(),
+    matchOverrideReason: z.string().trim().max(500).optional(),
 });
 
 // PATCH /api/finance/payment-vouchers/[id]/status - Update payment voucher status
 export const PATCH = apiHandler(async (req, params, body) => {
-    const { status, rejectionReason, cancelledReason, hoReference, hoPaidDate, returnReason } = body;
+    const { status, rejectionReason, cancelledReason, hoReference, hoPaidDate, returnReason, matchOverrideReason } = body;
     const userId = getAuthenticatedUserId();
     if (!userId) throw AppError.unauthorized('Authentication required');
     const voucher = await prisma.paymentVoucher.findUnique({ where: { id: params.id }, select: { projectId: true, status: true, description: true } });
@@ -41,6 +42,7 @@ export const PATCH = apiHandler(async (req, params, body) => {
         hoPaidDate,
         returnReason,
         recordedOnBehalf,
+        matchOverrideReason,
     });
 }, {
     schema: updateStatusSchema,

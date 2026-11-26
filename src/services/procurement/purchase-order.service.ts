@@ -458,41 +458,6 @@ export class PurchaseOrderService {
         };
     }
 
-    /**
-     * Lines still to receive on approved, open purchase orders of the caller's stores, for a GRN that receives several orders at once.
-     * One row per PO line with what is left to receive; the receiving store is the store that raised the request.
-     */
-    static async openLinesForReceipt(userId: string) {
-        const stores = await StoreService.getAccessibleStores(userId);
-        const ids = stores.map((s) => s.id);
-        const pos = await prisma.purchaseOrder.findMany({
-            where: { status: { in: ['APPROVED', 'ISSUED', 'PARTIALLY_RECEIVED', 'PENDING', 'COMPLETED'] }, stockRequest: { fromStoreId: { in: ids } } },
-            orderBy: { createdAt: 'asc' },
-            take: 300,
-            select: {
-                id: true, poNumber: true, status: true, vendor: true, vendorId: true, hoApprovalRef: true,
-                stockRequest: { select: { fromStoreId: true, fromStore: { select: { name: true } } } },
-                items: { select: { id: true, quantity: true, receivedQty: true, unitPrice: true, stockRequestItem: { select: { item: { select: { id: true, code: true, name: true, unit: true, hasSerial: true } } } } } },
-            },
-        });
-        const rows = [];
-        for (const po of pos) {
-            if (normalizePoStatus(po.status) === 'RECEIVED') continue;
-            for (const l of po.items) {
-                const remaining = Math.round((Number(l.quantity) - Number(l.receivedQty)) * 10_000) / 10_000;
-                if (remaining <= 0) continue;
-                const item = l.stockRequestItem.item;
-                rows.push({
-                    poId: po.id, poNumber: po.poNumber, vendor: po.vendor, vendorKey: po.vendorId ?? po.vendor, hoApprovalRef: po.hoApprovalRef,
-                    storeId: po.stockRequest.fromStoreId, storeName: po.stockRequest.fromStore?.name ?? null,
-                    poItemId: l.id, itemId: item.id, code: item.code, name: item.name, unit: item.unit, hasSerial: item.hasSerial,
-                    ordered: Number(l.quantity), received: Number(l.receivedQty), remaining, unitPrice: Number(l.unitPrice),
-                });
-            }
-        }
-        return rows;
-    }
-
     static async listStorePos(userId: string, filter: { status?: string; vendorId?: string } = {}) {
         const stores = await StoreService.getAccessibleStores(userId);
         const ids = stores.map((s) => s.id);

@@ -361,22 +361,6 @@ export class ArApService {
                 supplierCount++;
                 supplierTotal += balance;
             }
-            // Orders approved in the HO system: goods received and not yet paid by HO, aged by days past the due date
-            const { HoPayablesService } = await import('@/services/procurement/ho-payables.service');
-            const { dueBucket } = await import('@/lib/po-payables');
-            for (const h of await HoPayablesService.orders({}, today)) {
-                if (h.owedForReceived <= 0) continue;
-                const key = h.vendorId ?? `HO-${h.vendor}`;
-                if (!vendorMap.has(key)) vendorMap.set(key, { vendorId: key, vendorName: h.vendor, current: 0, days31to60: 0, days61to90: 0, over90: 0, totalBalance: 0 });
-                const row = vendorMap.get(key)!;
-                const bucket = dueBucket(h.daysOverdue);
-                row[bucket] += h.owedForReceived;
-                row.totalBalance += h.owedForReceived;
-                summary[bucket] += h.owedForReceived;
-                summary.total += h.owedForReceived;
-                supplierCount++;
-                supplierTotal += h.owedForReceived;
-            }
             // Debit notes (goods returned after invoicing) are credits against the vendor's payable
             const notes = await prisma.supplierDebitNote.groupBy({ by: ['vendorId'], _sum: { amount: true, taxAmount: true } });
             for (const n of notes) {

@@ -56,6 +56,8 @@ export interface GRNItemInput {
     locator?: string;
     /** The PO line this receipt line is for: lets one GRN receive the goods of several purchase orders */
     poItemId?: string | null;
+    rejectedQty?: number | null;
+    rejectReason?: string | null;
 }
 
 export interface CreateGRNData {
@@ -69,6 +71,12 @@ export interface CreateGRNData {
     sltReferenceId?: string | null;
     reference?: string | null;
     documentUrl?: string | null;
+    oracleGrnNumber?: string | null;
+    vendorInvoiceNumber?: string | null;
+    vendorInvoiceDate?: string | null;
+    vendorInvoiceGoods?: number | null;
+    vendorInvoiceTax?: number | null;
+    vendorInvoiceUrl?: string | null;
 }
 
 export interface StockIssueRequest {

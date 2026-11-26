@@ -114,6 +114,14 @@ model GRN {
   receivedById    String           @db.Uuid
   reference       String?
   documentUrl     String?
+  /// The GRN number HO's Oracle system gave this receipt (required in HO mode), for tracking between the two systems
+  oracleGrnNumber     String?
+  /// The vendor's invoice for this delivery (one invoice per GRN): number, date, goods value, tax, scan
+  vendorInvoiceNumber String?
+  vendorInvoiceDate   DateTime?
+  vendorInvoiceGoods  Decimal?  @db.Decimal(14, 2)
+  vendorInvoiceTax    Decimal?  @db.Decimal(14, 2)
+  vendorInvoiceUrl    String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   receivedBy      User             @relation(fields: [receivedById], references: [id])
@@ -127,6 +135,7 @@ model GRN {
   @@index([storeId])
   @@index([requestId])
   @@index([purchaseOrderId])
+  @@index([oracleGrnNumber])
   @@index([grnNumber])
   @@index([receivedById])
 }
@@ -139,6 +148,9 @@ model GRNItem {
   /// The PO line this receipt line fulfils, and the price it was received at (PO price when linked, else item cost)
   poItemId  String?         @db.Uuid
   unitPrice Decimal?        @db.Decimal(14, 2)
+  /// Delivered but rejected by the Stores Manager (not taken into stock, not paid); quantity is what was accepted
+  rejectedQty  Decimal      @default(0) @db.Decimal(12, 4)
+  rejectReason String?
   batchId   String?         @unique @db.Uuid
   createdAt DateTime        @default(now())
   batch     InventoryBatch? @relation(fields: [batchId], references: [id])
@@ -616,6 +628,7 @@ model HoPaymentInstallment {
   purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
 
   @@index([purchaseOrderId])
+  @@index([paymentVoucherId])
   @@index([status])
 }
 

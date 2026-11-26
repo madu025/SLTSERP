@@ -154,7 +154,9 @@ export class PaymentVoucherService {
     if (data.supplierInvoiceId) {
       const si = await prisma.supplierInvoice.findUnique({ where: { id: data.supplierInvoiceId }, include: { vendor: { select: { name: true } } } });
       if (!si) throw AppError.badRequest('SUPPLIER_INVOICE_NOT_FOUND');
-      if (!['APPROVED', 'PARTIALLY_PAID'].includes(si.status)) throw AppError.badRequest('SUPPLIER_INVOICE_MUST_BE_APPROVED_BEFORE_PAYMENT');
+      // the vendor's invoice for one GRN (company flow) is accepted together with its voucher, so it may still be MATCHED or VARIANCE here
+      const grnInvoiceAwaitingVoucher = !!si.grnId && ['MATCHED', 'VARIANCE'].includes(si.status);
+      if (!['APPROVED', 'PARTIALLY_PAID'].includes(si.status) && !grnInvoiceAwaitingVoucher) throw AppError.badRequest('SUPPLIER_INVOICE_MUST_BE_APPROVED_BEFORE_PAYMENT');
       const live = await prisma.paymentVoucher.findMany({ where: { supplierInvoiceId: si.id, status: { notIn: ['CANCELLED', 'REJECTED'] } }, select: { amount: true } });
       const committed = live.reduce((sum, pv) => sum.plus(pv.amount), new Prisma.Decimal(0));
       if (committed.plus(data.amount).gt(si.totalAmount)) throw AppError.badRequest('SUPPLIER_INVOICE_PAYMENT_EXCEEDS_TOTAL');
@@ -422,6 +424,8 @@ export class PaymentVoucherService {
       returnReason?: string;
       /** The actor is an OSP user recording a confirmation that Head Office gave (not Head Office itself) */
       recordedOnBehalf?: boolean;
+      /** Accepting a voucher whose vendor invoice does not match the order and the GRN: the reason */
+      matchOverrideReason?: string;
     }
   ) {
     const validStatuses = ['PENDING_APPROVAL', 'APPROVED', 'SUBMITTED_TO_HO', 'PAID', 'REJECTED', 'CANCELLED'];
@@ -478,6 +482,19 @@ export class PaymentVoucherService {
     // Approving commits Head Office's money: the approver's limit (role limit, or the manager limit) must cover the request
     if (status === 'APPROVED' && !returningFromHo) {
       await ApprovalLimitService.assertCanApprove(userId, Number(existing.netAmount), 'PAYMENT_VOUCHER', id);
+    }
+    // Company flow: the OSP Account Manager accepts the voucher and, with it, the vendor's invoice for that GRN (no separate invoice approval).
+    // The invoice approval runs first (maker-checker, 3-way match reason, ledger: GR/IR -> vendor payable); the voucher is approved only if it succeeds.
+    if (status === 'APPROVED' && !returningFromHo && existing.supplierInvoiceId) {
+      const si = await prisma.supplierInvoice.findUnique({ where: { id: existing.supplierInvoiceId }, select: { id: true, status: true, grnId: true } });
+      if (si?.grnId && ['MATCHED', 'VARIANCE', 'AWAITING_EXECUTIVE'].includes(si.status)) {
+        const { SupplierInvoiceService } = await import('@/services/procurement/supplier-invoice.service');
+        await SupplierInvoiceService.approve(si.id, userId, options?.matchOverrideReason ?? null);
+        const after = await prisma.supplierInvoice.findUnique({ where: { id: si.id }, select: { status: true } });
+        if (!after || !['APPROVED', 'PARTIALLY_PAID', 'PAID'].includes(after.status)) {
+          throw AppError.badRequest(`SUPPLIER_INVOICE_NOT_YET_APPROVED: the vendor invoice is ${after?.status ?? 'missing'}; it needs its remaining approval before the voucher can be accepted`);
+        }
+      }
     }
 
     // the contractor invoices that this payment completed: their contractors are told once the payment is committed
