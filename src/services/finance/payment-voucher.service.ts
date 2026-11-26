@@ -628,7 +628,7 @@ export class PaymentVoucherService {
     }
     if (status === 'PENDING_APPROVAL' && chainVoucher) {
       const { notifyStep } = await import('./pv-chain.service');
-      notifyStep('FINANCE_APPROVERS', existing, 'Vendor payment to accept (OSP Account Manager)', 'raised by the OSP Account Officer from the GRN invoice; waiting for your acceptance', '/finance/ho-payments');
+      notifyStep('PV_ACCOUNT_MANAGERS', existing, 'Vendor payment to accept (OSP Account Manager)', 'raised by the OSP Account Officer from the GRN invoice; waiting for your acceptance', '/finance/ho-payments');
     }
     return result;
   }

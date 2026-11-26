@@ -84,7 +84,8 @@ export class StockRequestService {
             }
         });
 
-        const defaultInitialStage = isExternalProcurement ? 'OSP_MANAGER_APPROVAL' : 'ARM_APPROVAL';
+        // a stage is named after who the request waits for; an external purchase starts with the Stores Manager
+        const defaultInitialStage = isExternalProcurement ? 'STORES_MANAGER_APPROVAL' : 'ARM_APPROVAL';
         const initialWorkflowStage = (initialPolicy && initialPolicy.toStatus && initialPolicy.toStatus !== 'PENDING') ? initialPolicy.toStatus : defaultInitialStage;
 
         // Process items: create ad-hoc InventoryItems for custom/unregistered items

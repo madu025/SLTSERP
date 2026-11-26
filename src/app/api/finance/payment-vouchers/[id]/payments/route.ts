@@ -6,6 +6,7 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 import { assertVoucherAccess } from '@/lib/payment-voucher-access';
 import { HoPaymentService } from '@/services/procurement/ho-payment.service';
+import { PvChainService } from '@/services/finance/pv-chain.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,8 +15,10 @@ const recordSchema = z.object({ amount: z.number().positive(), paidDate: z.strin
 
 /** The same voucher scope check as the voucher status route: a caller only sees and pays vouchers inside their scope. */
 async function voucherInScope(id: string, userId: string) {
-    const voucher = await prisma.paymentVoucher.findUnique({ where: { id }, select: { projectId: true, description: true } });
+    const voucher = await prisma.paymentVoucher.findUnique({ where: { id }, select: { projectId: true, description: true, supplierInvoiceId: true } });
     if (!voucher) throw AppError.notFound('Payment voucher not found');
+    // a company-flow voucher belongs to no area: its chain's people reach it; any other voucher needs the normal voucher access
+    if (await PvChainService.isChainVoucher(voucher.supplierInvoiceId)) return PvChainService.assertChainAccess(voucher, userId);
     await assertVoucherAccess(voucher.projectId, userId, voucher.description);
 }
 

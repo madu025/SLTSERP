@@ -48,6 +48,7 @@ export const RBAC_PERMISSIONS = {
     // the Account Executive at HO records the payments HO makes on OSP vendor payment vouchers (in full or in parts)
     PROCUREMENT_HO_PAYMENT_RECORD: 'procurement.ho.payment.record',
     // company flow: a vendor voucher is accepted by the OSP Account Manager (finance.approve), then these two, then the documents step
+    FINANCE_PV_APPROVE_ACCOUNT: 'finance.pv.approve.account',
     FINANCE_PV_APPROVE_OSP: 'finance.pv.approve.osp',
     FINANCE_PV_APPROVE_HOS: 'finance.pv.approve.hos',
     PROCUREMENT_PV_DOCUMENTS: 'procurement.pv.documents',
@@ -102,6 +103,7 @@ export const RBAC_PERMISSIONS = {
     /** The Monday operations digest (company-wide figures and exceptions): the managers who read the company, not every engineer. */
     NOTIFICATION_OPS_DIGEST: 'notification.audience.ops-digest',
     NOTIFICATION_FINANCE_APPROVERS: 'notification.audience.finance-approvers',
+    NOTIFICATION_PV_ACCOUNT_MANAGERS: 'notification.audience.pv-account-managers',
     NOTIFICATION_FINANCE_ALL: 'notification.audience.finance-all',
     NOTIFICATION_INVENTORY_LOW_STOCK: 'notification.audience.inventory-low-stock',
     NOTIFICATION_INVENTORY_ALERT_EMAIL: 'notification.audience.inventory-alert-email',
@@ -180,6 +182,7 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L3, module: 'PROCUREMENT', action: 'PO_APPROVE_L3', scope: 'OPMC', description: 'Purchase order approval, step 3 of 3 (Finance Manager)' },
     { code: RBAC_PERMISSIONS.PROCUREMENT_INVOICE_APPROVE_EXECUTIVE, module: 'PROCUREMENT', action: 'INVOICE_APPROVE_EXECUTIVE', scope: 'OPMC', description: 'Second approval of a supplier invoice above the executive payment threshold (CEO)' },
     { code: RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD, module: 'PROCUREMENT', action: 'HO_PAYMENT_RECORD', scope: 'OPMC', description: 'Record a payment HO made on an OSP vendor payment voucher, in full or in parts (Account Executive at HO)' },
+    { code: RBAC_PERMISSIONS.FINANCE_PV_APPROVE_ACCOUNT, module: 'FINANCE', action: 'PV_APPROVE_ACCOUNT', scope: 'OPMC', description: 'Vendor payment voucher, step 1 of 3: OSP Account Manager acceptance' },
     { code: RBAC_PERMISSIONS.FINANCE_PV_APPROVE_OSP, module: 'FINANCE', action: 'PV_APPROVE_OSP', scope: 'OPMC', description: 'Vendor payment voucher, step 2 of 3: OSP Manager review (after the OSP Account Manager)' },
     { code: RBAC_PERMISSIONS.FINANCE_PV_APPROVE_HOS, module: 'FINANCE', action: 'PV_APPROVE_HOS', scope: 'OPMC', description: 'Vendor payment voucher, step 3 of 3: Head of Section review (posts the vendor invoice)' },
     { code: RBAC_PERMISSIONS.PROCUREMENT_PV_CHAIN_READ, module: 'PROCUREMENT', action: 'PV_CHAIN_READ', scope: 'OPMC', description: 'See the vendor payment vouchers of the company flow and where each one waits (Vendor Payment Approvals)' },
@@ -221,6 +224,7 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.NOTIFICATION_OPERATIONS, module: 'NOTIFICATION', action: 'AUDIENCE_OPERATIONS', scope: 'OPMC', description: 'Receive operations notification audience events' },
     { code: RBAC_PERMISSIONS.NOTIFICATION_SOD_PROJECT, module: 'NOTIFICATION', action: 'AUDIENCE_SOD_PROJECT', scope: 'OPMC', description: 'Receive SOD project notification audience events' },
     { code: RBAC_PERMISSIONS.NOTIFICATION_OPS_DIGEST, module: 'NOTIFICATION', action: 'AUDIENCE_OPS_DIGEST', scope: 'GLOBAL', description: 'Receive the weekly operations digest (company-wide service-order and project figures and exceptions)' },
+    { code: RBAC_PERMISSIONS.NOTIFICATION_PV_ACCOUNT_MANAGERS, module: 'NOTIFICATION', action: 'AUDIENCE_PV_ACCOUNT_MANAGERS', scope: 'OPMC', description: 'Receive the vendor payment vouchers waiting for the OSP Account Manager' },
     { code: RBAC_PERMISSIONS.NOTIFICATION_FINANCE_APPROVERS, module: 'NOTIFICATION', action: 'AUDIENCE_FINANCE_APPROVERS', scope: 'OPMC', description: 'Receive finance-approval notification audience events' },
     { code: RBAC_PERMISSIONS.NOTIFICATION_FINANCE_ALL, module: 'NOTIFICATION', action: 'AUDIENCE_FINANCE_ALL', scope: 'OPMC', description: 'Receive finance notification audience events' },
     { code: RBAC_PERMISSIONS.NOTIFICATION_INVENTORY_LOW_STOCK, module: 'NOTIFICATION', action: 'AUDIENCE_INVENTORY_LOW_STOCK', scope: 'OPMC', description: 'Receive low-stock notification audience events' },

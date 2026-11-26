@@ -20,7 +20,7 @@ export const PV_STAGES = ['ACCOUNT_MANAGER', 'OSP_MANAGER', 'HEAD_OF_SECTION'] a
 export type PvStage = (typeof PV_STAGES)[number];
 export const PV_STAGE_LABEL: Record<PvStage, string> = { ACCOUNT_MANAGER: 'OSP Account Manager', OSP_MANAGER: 'OSP Manager', HEAD_OF_SECTION: 'Head of Section' };
 const STAGE_PERMISSION: Record<PvStage, string> = {
-    ACCOUNT_MANAGER: RBAC_PERMISSIONS.FINANCE_APPROVE,
+    ACCOUNT_MANAGER: RBAC_PERMISSIONS.FINANCE_PV_APPROVE_ACCOUNT,
     OSP_MANAGER: RBAC_PERMISSIONS.FINANCE_PV_APPROVE_OSP,
     HEAD_OF_SECTION: RBAC_PERMISSIONS.FINANCE_PV_APPROVE_HOS,
 };
@@ -45,9 +45,20 @@ export class PvChainService {
         return !!si?.grnId;
     }
 
+    /**
+     * Who may see and act on a company-flow voucher: the people of its chain (a vendor payment belongs to no area, so the area scope of
+     * finance does not apply); anyone else needs the normal voucher access. The step itself is still checked by its own capability.
+     */
+    static async assertChainAccess(pv: { projectId: string | null; description: string | null }, userId: string) {
+        if (await userHasPermission(userId, RBAC_PERMISSIONS.PROCUREMENT_PV_CHAIN_READ)) return;
+        if (await userHasPermission(userId, RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD)) return;
+        await assertVoucherAccess(pv.projectId, userId, pv.description);
+    }
+
     /** Step 1, called from the voucher approval of the OSP Account Manager: moves the voucher on to the OSP Manager. */
     static async accountManagerStep(pvId: string, userId: string) {
         const pv = await prisma.paymentVoucher.findUniqueOrThrow({ where: { id: pvId } });
+        if (!(await userHasPermission(userId, STAGE_PERMISSION.ACCOUNT_MANAGER))) throw AppError.forbidden('PV_STAGE_NOT_PERMITTED: this voucher waits for the OSP Account Manager');
         if (pv.approvalStage !== 'ACCOUNT_MANAGER') throw AppError.badRequest('This voucher is not waiting for the OSP Account Manager');
         const claim = await prisma.paymentVoucher.updateMany({
             where: { id: pvId, status: 'PENDING_APPROVAL', approvalStage: 'ACCOUNT_MANAGER' },
@@ -62,7 +73,7 @@ export class PvChainService {
     static async act(pvId: string, userId: string, action: PvChainAction, remarks?: string | null, matchOverrideReason?: string | null) {
         const pv = await prisma.paymentVoucher.findUnique({ where: { id: pvId } });
         if (!pv) throw AppError.notFound('Payment voucher not found');
-        await assertVoucherAccess(pv.projectId, userId, pv.description);
+        await this.assertChainAccess(pv, userId);
         if (!(await this.isChainVoucher(pv.supplierInvoiceId))) throw AppError.badRequest('This voucher does not follow the vendor payment chain');
         const trail = trailOf(pv.approvalTrail);
         const note = remarks?.trim() || null;
@@ -139,7 +150,7 @@ export class PvChainService {
         });
         const visible = [];
         for (const r of rows) {
-            try { await assertVoucherAccess(r.projectId, userId, r.description); visible.push(r); } catch { /* outside the caller's scope */ }
+            try { await this.assertChainAccess(r, userId); visible.push(r); } catch { /* outside the caller's scope */ }
         }
         const invoices = await prisma.supplierInvoice.findMany({ where: { id: { in: visible.map((v) => v.supplierInvoiceId!) } }, select: { id: true, invoiceNumber: true, totalAmount: true, matchStatus: true, grnId: true, storePo: { select: { poNumber: true } }, vendor: { select: { name: true } } } });
         const grns = await prisma.gRN.findMany({ where: { id: { in: invoices.map((i) => i.grnId!).filter(Boolean) } }, select: { id: true, grnNumber: true, oracleGrnNumber: true } });

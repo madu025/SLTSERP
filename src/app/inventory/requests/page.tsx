@@ -825,7 +825,7 @@ export default function RequestsPage() {
                                                     const stage = selectedRequest.workflowStage ?? '';
                                                     const completed = selectedRequest.status === 'COMPLETED' || stage === 'COMPLETED';
                                                     const rejected = selectedRequest.status === 'REJECTED';
-                                                    const awaitingApproval = !completed && !rejected && ['REQUEST', 'PENDING', 'ARM_APPROVAL', 'OSP_MANAGER_APPROVAL'].includes(stage);
+                                                    const awaitingApproval = !completed && !rejected && ['REQUEST', 'PENDING', 'ARM_APPROVAL', 'STORES_MANAGER_APPROVAL', 'OSP_MANAGER_APPROVAL', 'HOS_APPROVAL'].includes(stage);
                                                     const awaitingRelease = !completed && !rejected && stage === 'MAIN_STORE_RELEASE';
                                                     const partlyIssued = !completed && !rejected && stage === 'PARTIALLY_ISSUED';
                                                     const awaitingReceipt = !completed && !rejected && ['SUB_STORE_RECEIVE', 'RECEIVE_PENDING', 'DISPATCHED'].includes(stage);
@@ -889,9 +889,9 @@ export default function RequestsPage() {
                                                     <div className="relative">
                                                         <span className="absolute -left-6 top-0.5 w-3 h-3 rounded-full bg-amber-500 border-2 border-white dark:border-slate-900 animate-pulse"></span>
                                                         <div className="font-bold text-slate-800 dark:text-slate-200">
-                                                            {selectedRequest.workflowStage === 'OSP_MANAGER_APPROVAL' ? 'OSP Manager Review' : 'Management Review'}
+                                                            {selectedRequest.workflowStage === 'STORES_MANAGER_APPROVAL' ? 'Stores Manager Review' : selectedRequest.workflowStage === 'OSP_MANAGER_APPROVAL' ? 'OSP Manager Review' : selectedRequest.workflowStage === 'HOS_APPROVAL' ? 'Head of Section Signoff' : 'Management Review'}
                                                         </div>
-                                                        <div className="text-[10px] text-amber-600 font-semibold">{selectedRequest.workflowStage === 'OSP_MANAGER_APPROVAL' ? 'Awaiting OSP Manager Approval' : 'Awaiting approval'}</div>
+                                                        <div className="text-[10px] text-amber-600 font-semibold">{selectedRequest.workflowStage === 'STORES_MANAGER_APPROVAL' ? 'Awaiting Stores Manager' : selectedRequest.workflowStage === 'OSP_MANAGER_APPROVAL' ? 'Awaiting OSP Manager Approval' : selectedRequest.workflowStage === 'HOS_APPROVAL' ? 'Awaiting Head of Section' : 'Awaiting approval'}</div>
                                                     </div>
                                                 )}
 

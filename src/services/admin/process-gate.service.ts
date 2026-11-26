@@ -497,31 +497,41 @@ export class ProcessGateAdminService {
         {
           entityType: 'MATERIAL_REQUEST',
           fromStatus: 'DRAFT',
-          toStatus: 'OSP_MANAGER_APPROVAL',
-          label: '1. MRN Submission & OSP Review',
+          toStatus: 'STORES_MANAGER_APPROVAL',
+          // the submission gate only chooses where a new request starts (nobody signs it); a stage is named after who it waits for
+          label: '1. MRN Submission (to the Stores Manager)',
           isEnabled: true,
           // external purchases only; transfers between our own stores use the two internal gates below
           conditions: { field: 'isExternalProcurement', operator: '==', value: true },
+          notificationAudience: 'STORES_MANAGERS',
+          approvalLevels: [{ level: 1, requiredRole: 'STORES_MANAGER', description: 'A new request starts with the Stores Manager' }]
+        },
+        {
+          entityType: 'MATERIAL_REQUEST',
+          fromStatus: 'STORES_MANAGER_APPROVAL',
+          toStatus: 'OSP_MANAGER_APPROVAL',
+          label: '2. Stores Manager Review',
+          isEnabled: true,
           notificationAudience: 'PROCESS_GATE_OSP_MANAGER',
-          approvalLevels: [{ level: 1, requiredRole: 'OSP_MANAGER', description: 'OSP Manager verifies field requirements' }]
+          approvalLevels: [{ level: 1, requiredRole: 'STORES_MANAGER', description: 'Stores Manager reviews the material request' }]
         },
         {
           entityType: 'MATERIAL_REQUEST',
           fromStatus: 'OSP_MANAGER_APPROVAL',
           toStatus: 'HOS_APPROVAL',
-          label: '2. Head of Section Signoff',
+          label: '3. OSP Manager Review',
           isEnabled: true,
           notificationAudience: 'PROCESS_GATE_HEAD_OF_SECTION',
-          approvalLevels: [{ level: 1, requiredRole: 'HEAD_OF_SECTION', description: 'Head of Section authorizes high-value material allocation' }]
+          approvalLevels: [{ level: 1, requiredRole: 'OSP_MANAGER', description: 'OSP Manager reviews the material request' }]
         },
         {
           entityType: 'MATERIAL_REQUEST',
           fromStatus: 'HOS_APPROVAL',
           toStatus: 'PROCUREMENT',
-          label: '3. Procurement Authorization',
+          label: '4. Head of Section Signoff',
           isEnabled: true,
           notificationAudience: 'PROCESS_GATE_PROCUREMENT',
-          approvalLevels: [{ level: 1, requiredRole: 'PROCUREMENT_OFFICER', description: 'Procurement checks store stock & supplier PO' }]
+          approvalLevels: [{ level: 1, requiredRole: 'HEAD_OF_SECTION', description: 'Head of Section signs off the material request' }]
         },
         {
           entityType: 'MATERIAL_REQUEST',

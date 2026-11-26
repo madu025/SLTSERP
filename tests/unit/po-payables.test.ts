@@ -109,7 +109,28 @@ test('the OSP Account confirms the documents were sent before Procurement checks
     for (const a of ["notifyStep('PROCESS_GATE_OSP_MANAGER'", "notifyStep('PROCESS_GATE_HEAD_OF_SECTION'", "notifyStep('PROCESS_GATE_PROCUREMENT'", "'Vendor payment approved by the OSP Manager'", "'Vendor payment approved: send the documents to Procurement'", "'Voucher documents not received by Procurement'", "'Vendor payment sent to HO'", "'Vendor payment rejected'"]) {
         assert.ok(chain.includes(a), `notice: ${a}`);
     }
-    assert.match(read('src/services/finance/payment-voucher.service.ts'), /notifyStep\('FINANCE_APPROVERS', existing, 'Vendor payment to accept \(OSP Account Manager\)'/);
+    assert.match(read('src/services/finance/payment-voucher.service.ts'), /notifyStep\('PV_ACCOUNT_MANAGERS', existing, 'Vendor payment to accept \(OSP Account Manager\)'/);
     assert.match(read('src/services/procurement/ho-payment.service.ts'), /'Vendor payment fully paid by HO' : 'Part payment made by HO'/);
     assert.match(read('src/services/inventory/grn.service.ts'), /title: 'GRN received with a vendor invoice: raise the payment voucher'/);
+});
+
+test('material request chain: Stores Manager, OSP Manager, Head of Section, then Procurement; stage names say who it waits for (found by the browser pass)', () => {
+    const sql = read('prisma/migrations/20261227000000_material_request_chain_fix/migration.sql');
+    assert.match(sql, /SET "toStatus" = 'STORES_MANAGER_APPROVAL'/, 'a new request starts with the Stores Manager');
+    assert.match(sql, /'STORES_MANAGER_APPROVAL', 'OSP_MANAGER_APPROVAL', '2\. Stores Manager Review'/);
+    assert.match(sql, /"requiredRole" = 'OSP_MANAGER', "eligibleRoles" = '\["OSP_MANAGER"\]'[\s\S]*"fromStatus" = 'OSP_MANAGER_APPROVAL' AND p\."toStatus" = 'HOS_APPROVAL'/, 'at Awaiting OSP Manager the OSP Manager signs');
+    assert.match(sql, /"requiredRole" = 'HEAD_OF_SECTION', "eligibleRoles" = '\["HEAD_OF_SECTION"\]'[\s\S]*"fromStatus" = 'HOS_APPROVAL' AND p\."toStatus" = 'PROCUREMENT'/, 'at Awaiting Head of Section the Head of Section signs');
+    assert.match(sql, /WHERE NOT EXISTS/, 'the new gate is added once');
+    const seed = read('src/services/admin/process-gate.service.ts');
+    assert.match(seed, /fromStatus: 'STORES_MANAGER_APPROVAL',\s*\n\s*toStatus: 'OSP_MANAGER_APPROVAL'/, 'a fresh database gets the same chain');
+    assert.match(read('src/services/inventory/stock-request.service.ts'), /isExternalProcurement \? 'STORES_MANAGER_APPROVAL' : 'ARM_APPROVAL'/);
+});
+
+test('step 1 is the OSP Account Manager\'s own capability, and the chain\'s people reach company-flow vouchers (found by the browser pass)', () => {
+    const chain = read('src/services/finance/pv-chain.service.ts');
+    assert.ok(chain.includes('ACCOUNT_MANAGER: RBAC_PERMISSIONS.FINANCE_PV_APPROVE_ACCOUNT'), 'the Stores Manager also holds finance.approve, so step 1 has its own capability');
+    assert.ok(chain.includes('if (await userHasPermission(userId, RBAC_PERMISSIONS.PROCUREMENT_PV_CHAIN_READ)) return;'), 'the Head of Section and Procurement reach the voucher without company-wide finance scope');
+    const boot = read('src/config/rbac-bootstrap.ts');
+    assert.ok(boot.includes("[RBAC_PERMISSIONS.FINANCE_PV_APPROVE_ACCOUNT]: ['FINANCE_MANAGER']"));
+    assert.ok(boot.includes("[RBAC_PERMISSIONS.NOTIFICATION_PV_ACCOUNT_MANAGERS]: ['FINANCE_MANAGER']"), 'the step 1 notice goes to the Finance Manager only, not the Stores Manager');
 });
