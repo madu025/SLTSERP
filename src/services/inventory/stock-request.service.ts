@@ -147,7 +147,8 @@ export class StockRequestService {
                 opmcId: fromStore.opmcs?.[0]?.id,
                 type: req.sourceType
             },
-            stage: initialWorkflowStage
+            stage: initialWorkflowStage,
+            audience: resolveProcessGateAudience(initialPolicy?.notificationAudience ?? null),
         }));
         
         if (nErr) {

@@ -196,23 +196,26 @@ export class NotificationPolicyService {
     }
 
     static async notifyStockRequestCreated(
-        req: { id: string; requestNr: string; fromStoreName: string; opmcId?: string; type: string },
-        stage: string
+        req: { id: string; requestNr: string; fromStoreName: string; opmcId?: string; type?: string },
+        stage: string,
+        gateAudience: NotificationAudienceId | null = null,
     ) {
         const isArmStage = stage === 'ARM_APPROVAL';
-        const audience: NotificationAudienceId = isArmStage
-            ? 'STOCK_REQUEST_ARM'
-            : 'STOCK_REQUEST_PROCUREMENT';
+        const isStoresManagerStage = stage === 'STORES_MANAGER_APPROVAL';
+        // the submission gate names who a new request waits for; without one, the request type's default audience
+        const audience: NotificationAudienceId = gateAudience
+            ?? (isArmStage ? 'STOCK_REQUEST_ARM' : isStoresManagerStage ? 'STORES_MANAGERS' : 'STOCK_REQUEST_PROCUREMENT');
 
-        const stageName = isArmStage ? 'ARM approval' : 'OSP Manager / Procurement approval';
+        const stageName = isArmStage ? 'ARM approval' : isStoresManagerStage ? 'review (Stores Manager)' : 'OSP Manager / Procurement approval';
 
         await NotificationService.notifyByAudience({
             audience,
-            title: isArmStage ? 'New Material Request' : 'New Procurement Requisition',
+            title: isArmStage ? 'New Material Request' : isStoresManagerStage ? 'New material request to review (Stores Manager)' : 'New Procurement Requisition',
             message: `New Material Request ${req.requestNr} from ${req.fromStoreName} requires your ${stageName}.`,
             type: 'INVENTORY',
             priority: 'HIGH',
-            link: '/inventory/requests',
+            // an external purchase is reviewed on the Approvals screen (the process gate queue)
+            link: isStoresManagerStage ? '/procurement/approvals' : '/inventory/requests',
             opmcId: req.opmcId,
             metadata: { requestId: req.id, type: req.type }
         });
@@ -228,17 +231,22 @@ export class NotificationPolicyService {
 
         // Fix #5: default case guard — unknown stages log a warning and skip notification
         switch (stage) {
+            // a stage is named after who the request waits for
             case 'STORES_MANAGER_APPROVAL':
-                title = 'Request Approved by ARM';
-                message = `Material request ${req.requestNr} approved by ARM, requires Stores Manager approval.`;
+                title = 'Material request to review (Stores Manager)';
+                message = `Material request ${req.requestNr} was approved at the previous step and now waits for the Stores Manager.`;
                 break;
             case 'OSP_MANAGER_APPROVAL':
-                title = 'Request Approved by Store Manager';
-                message = `Material request ${req.requestNr} approved by Store Manager, requires OSP Manager final approval.`;
+                title = 'Material request to approve (OSP Manager)';
+                message = `Material request ${req.requestNr} was reviewed by the Stores Manager and now waits for the OSP Manager.`;
+                break;
+            case 'HOS_APPROVAL':
+                title = 'Material request to approve (Head of Section)';
+                message = `Material request ${req.requestNr} was approved by the OSP Manager and now waits for the Head of Section.`;
                 break;
             case 'PROCUREMENT':
-                title = 'Local Purchase Approved';
-                message = `Material request ${req.requestNr} approved for Local Purchase, requires PO creation.`;
+                title = 'Material request approved: create the PO';
+                message = `Material request ${req.requestNr} was signed off and now needs its purchase order(s).`;
                 break;
             case 'MAIN_STORE_RELEASE':
                 title = 'Material Release Required';
@@ -260,7 +268,8 @@ export class NotificationPolicyService {
             message,
             type: 'INVENTORY',
             priority: 'HIGH',
-            link: '/inventory/requests'
+            // the review steps are signed on the Approvals screen, the PO is made on Order Processing
+            link: stage === 'PROCUREMENT' ? '/procurement/orders' : ['OSP_MANAGER_APPROVAL', 'HOS_APPROVAL'].includes(stage) ? '/procurement/approvals' : '/inventory/requests'
         });
     }
 

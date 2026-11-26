@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 interface ProcurementRequestItem {
     id: string;
     requestedQty: number;
+    approvedQty?: number | null;
     make?: string | null;
     model?: string | null;
     suggestedVendor?: string | null;
@@ -299,6 +300,12 @@ export default function ProcurementOrdersPage() {
         setCreditDays("");
         setPayDueDate("");
     };
+    /** What is still to be ordered on a request line: the approved quantity less the live (not cancelled) POs, as the server checks it. */
+    const orderedQty = (req: ProcurementRequest, itemId: string) => (req.purchaseOrders ?? [])
+        .filter((po) => String(po.status ?? '').toUpperCase() !== 'CANCELLED')
+        .reduce((sum, po) => sum + (po.items ?? []).filter((pi) => pi.stockRequestItemId === itemId).reduce((s, pi) => s + Number(pi.quantity || 0), 0), 0);
+    const openQty = (req: ProcurementRequest, item: ProcurementRequestItem) =>
+        Math.max(0, (Number(item.approvedQty) > 0 ? Number(item.approvedQty) : Number(item.requestedQty)) - orderedQty(req, item.id));
     const openCreatePODialog = (req: ProcurementRequest) => {
         setSelectedRequest(req);
         // The PO number is issued by the server when the order is saved
@@ -312,11 +319,9 @@ export default function ProcurementOrdersPage() {
         const initQtys: Record<string, number> = {};
         const initPrices: Record<string, number> = {};
         (req.items || []).forEach((item) => {
-            const isAlreadyOrdered = req.purchaseOrders?.some(po =>
-                po.items?.some(pi => pi.stockRequestItemId === item.id)
-            );
-            initSelected[item.id] = !isAlreadyOrdered;
-            initQtys[item.id] = Number(item.requestedQty);
+            const open = openQty(req, item);
+            initSelected[item.id] = open > 0;
+            initQtys[item.id] = open;
             initPrices[item.id] = 0;
         });
         setSelectedItemIds(initSelected);
@@ -624,11 +629,7 @@ export default function ProcurementOrdersPage() {
                                                                 <>
                                                                     {(() => {
                                                                         const reqItems = req.items || [];
-                                                                        const coveredCount = reqItems.filter(item =>
-                                                                            req.purchaseOrders?.some(po =>
-                                                                                po.items?.some(pi => pi.stockRequestItemId === item.id)
-                                                                            )
-                                                                        ).length;
+                                                                        const coveredCount = reqItems.filter(item => openQty(req, item) <= 0).length;
                                                                         const isFullyCovered = reqItems.length > 0 && coveredCount === reqItems.length;
                                                                         const poStates = (req.purchaseOrders ?? []).map((po) => po.status ?? 'APPROVED');
                                                                         const coverLabel = poStates.includes('RETURNED') ? 'PO returned: needs changes' : poStates.includes('PENDING_APPROVAL') ? 'PO awaiting approval' : poStates.every((st) => ['ISSUED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CLOSED'].includes(st)) ? '✓ All POs Issued' : '✓ PO approved, not yet issued';
@@ -1230,8 +1231,9 @@ export default function ProcurementOrdersPage() {
                                                         const prevPO = selectedRequest.purchaseOrders?.find(po =>
                                                             po.items?.some(pi => pi.stockRequestItemId === item.id)
                                                         );
-                                                        const isChecked = selectedItemIds[item.id] ?? !prevPO;
-                                                        const qty = Number(itemOrderQtys[item.id] ?? item.requestedQty) || 0;
+                                                        const remaining = openQty(selectedRequest, item);
+                                                        const isChecked = selectedItemIds[item.id] ?? remaining > 0;
+                                                        const qty = Number(itemOrderQtys[item.id] ?? remaining) || 0;
                                                         const unitPrice = itemUnitPrices[item.id] ?? 0;
                                                         const lineTax = itemTaxes[item.id] ?? 0;
                                                         const lineTotal = qty * unitPrice + lineTax;
@@ -1250,7 +1252,7 @@ export default function ProcurementOrdersPage() {
                                                                         {item.item?.name}
                                                                         {prevPO && (
                                                                             <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[9px] font-bold">
-                                                                                Covered in {prevPO.poNumber}
+                                                                                {remaining > 0 ? `${orderedQty(selectedRequest, item.id).toLocaleString()} ordered · ${remaining.toLocaleString()} open` : `Covered in ${prevPO.poNumber}`}
                                                                             </Badge>
                                                                         )}
                                                                     </div>

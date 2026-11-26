@@ -3,7 +3,7 @@ import fs from 'node:fs';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Data for the company procure-to-pay browser pass (ZZTEST): C-Hook 1000 requested and reviewed by the Stores Manager, OSP Manager and Head of Section,
 // bought by HO from two vendors (PO-A 600, PO-B 400), handed to the stores; people with the real roles and the three finance designations.
-// usage: setup <password> | check | teardown [manifest]      (the password is chosen by the caller for these temporary test accounts only)
+// usage: setup <password> | setup-ui <password> (people, store, item and vendors only: the request and POs are made on the screens) | check | teardown [manifest]      (the password is chosen by the caller for these temporary test accounts only)
 const DIR = 'C:/Users/Prasad/AppData/Local/Temp/claude/e397d143faaeb6c1/cf013f60-1b45-4b69-8da2-52e9230f861d/scratchpad';
 const MANIFEST = `${DIR}/gui6-manifest.json`;
 const num = (v: any) => Number(v ?? 0);
@@ -46,6 +46,8 @@ async function main() {
 
     if (mode === 'check') {
         const m = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
+        const reqs: any[] = await prisma.stockRequest.findMany({ where: { fromStoreId: m.store }, include: { items: true, purchaseOrders: { include: { items: true } } }, orderBy: { createdAt: 'asc' } });
+        m.poIds = m.poIds ?? reqs.flatMap((r) => r.purchaseOrders.map((p: any) => p.id));
         const grns: any[] = await prisma.gRN.findMany({ where: { storeId: m.store }, include: { items: true }, orderBy: { createdAt: 'asc' } });
         const invoices: any[] = await prisma.supplierInvoice.findMany({ where: { storePoId: { in: m.poIds } }, orderBy: { createdAt: 'asc' } });
         const pvs: any[] = await prisma.paymentVoucher.findMany({ where: { supplierInvoiceId: { in: invoices.map((i) => i.id) } }, orderBy: { createdAt: 'asc' } });
@@ -58,8 +60,9 @@ async function main() {
         const notices: Record<string, string[]> = {};
         for (const n of notes) (notices[keyOf.get(n.userId) as string] ??= []).push(n.title);
         console.log('CHECK ' + JSON.stringify({
+            requests: reqs.map((r) => ({ requestNr: r.requestNr, status: r.status, stage: r.workflowStage, procurement: r.procurementStatus, qty: r.items.map((i: any) => num(i.requestedQty)) })),
             stock: num(stock?.quantity),
-            pos: pos.map((p) => ({ poNumber: p.poNumber, vendor: p.vendor, status: p.status, received: p.items.map((l: any) => num(l.receivedQty)) })),
+            pos: pos.map((p) => ({ poNumber: p.poNumber, vendor: p.vendor, status: p.status, ho: p.hoApprovalRef, creditDays: p.creditDays ?? null, ordered: p.items.map((l: any) => num(l.quantity)), received: p.items.map((l: any) => num(l.receivedQty)) })),
             grns: grns.map((g) => ({ grnNumber: g.grnNumber, oracle: g.oracleGrnNumber, invoiceNo: g.vendorInvoiceNumber, accepted: g.items.map((i: any) => num(i.quantity)), rejected: g.items.map((i: any) => num(i.rejectedQty)), reason: g.items.map((i: any) => i.rejectReason) })),
             invoices: invoices.map((i) => ({ invoiceNumber: i.invoiceNumber, grnLinked: !!i.grnId, status: i.status, match: i.matchStatus, total: num(i.totalAmount), paid: num(i.paidAmount), due: i.dueDate?.toISOString().slice(0, 10) ?? null })),
             pvs: pvs.map((p) => ({ status: p.status, amount: num(p.amount), hoPaid: num(p.hoPaidAmount), stage: p.approvalStage, docs: p.docsStatus })),
@@ -97,6 +100,11 @@ async function main() {
     await mk('ao', 'FINANCE_ASSISTANT', null, 'OSP_ACCOUNT_OFFICER_FINANCE_ASSISTANT');
     await mk('am', 'FINANCE_MANAGER', null, 'OSP_ACCOUNT_MANAGER_FINANCE_MANAGER');
     await mk('ae', 'FINANCE_ASSISTANT', null, 'HO_ACCOUNT_EXECUTIVE_FINANCE_ASSISTANT');
+    if (mode === 'setup-ui') {
+        fs.writeFileSync(MANIFEST, JSON.stringify({ tag: TAG, users, store: store.id, item: item.id, vendors: [vA.id, vB.id], vendorA: vA.name, vendorB: vB.name, storeName: store.name, itemName: item.name, itemCode: item.code }));
+        console.log('SETUP ' + JSON.stringify({ tag: TAG, store: store.name, item: item.name, vendorA: vA.name, vendorB: vB.name }));
+        process.exit(0);
+    }
 
     // the material request and its review chain: the OSP Manager first must be refused (the Stores Manager reviews first)
     const req: any = await InventoryService.createStockRequest({ fromStoreId: store.id, sourceType: 'LOCAL_PURCHASE', requestedById: users.so, priority: 'NORMAL', purpose: 'ZZG6 company flow: C-Hook', items: [{ itemId: item.id, requestedQty: 1000 }] } as any);

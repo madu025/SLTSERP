@@ -20,6 +20,8 @@ export interface EventMap {
             type?: string;
         };
         stage: string;
+        /** who the new request waits for, from the submission gate; null falls back to the request type's default */
+        audience?: NotificationAudienceId | null;
     };
     'inventory.stock_request_stage_changed': {
         request: { id: string; requestNr: string };
