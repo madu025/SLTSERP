@@ -14,7 +14,6 @@ const bodySchema = z.object({
     action: z.enum(['SIGNED', 'NOT_SIGNED', 'DOCS_SENT', 'DOCS_RECEIVED', 'DOCS_NOT_RECEIVED']),
     signedVoucherUrl: z.string().max(1000).nullish(),
     remarks: z.string().max(500).nullish(),
-    matchOverrideReason: z.string().max(500).nullish(),
 });
 
 // GET /api/procurement/payment-approvals
@@ -28,5 +27,5 @@ export const GET = apiHandler(async (_req, params) => {
 // Each action is checked by the service against the step the voucher waits at (OSP Account, HO Account Executive).
 export const POST = apiHandler(async (_req, params, body: z.infer<typeof bodySchema>) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
-    return PvChainService.act(body.voucherId, params._userId, body.action, body.remarks, { signedVoucherUrl: body.signedVoucherUrl, matchOverrideReason: body.matchOverrideReason });
+    return PvChainService.act(body.voucherId, params._userId, body.action, body.remarks, { signedVoucherUrl: body.signedVoucherUrl });
 }, { schema: bodySchema, permissions: STEP_HOLDERS, audit: { action: 'PV_CHAIN_ACTION', entity: 'PAYMENT_VOUCHER', entityIdParam: 'voucherId' } });

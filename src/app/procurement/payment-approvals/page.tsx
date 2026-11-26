@@ -33,21 +33,14 @@ export default function PaymentApprovalsPage() {
         },
     });
     const act = useMutation({
-        mutationFn: async (body: { voucherId: string; action: string; remarks?: string; matchOverrideReason?: string; signedVoucherUrl?: string }) => {
+        mutationFn: async (body: { voucherId: string; action: string; remarks?: string; signedVoucherUrl?: string }) => {
             const res = await fetch("/api/procurement/payment-approvals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
             const json = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(json?.error?.message || "The action failed");
             return json;
         },
         onSuccess: () => { toast.success("Done"); qc.invalidateQueries({ queryKey: ["pv-chain"] }); },
-        onError: (e: Error, vars) => {
-            if (vars.action === "SIGNED" && /MATCH_OVERRIDE_REASON_REQUIRED/.test(e.message)) {
-                const why = window.prompt("The vendor invoice does not match the order and the GRN. Reason for approving it:");
-                if (why && why.trim().length >= 5) act.mutate({ ...vars, matchOverrideReason: why.trim() });
-                return;
-            }
-            toast.error(e.message);
-        },
+        onError: (e: Error) => toast.error(e.message),
     });
     const uploadSigned = async (voucherId: string, file: File) => {
         const fd = new FormData();

@@ -62,3 +62,11 @@ test('the capabilities of the removed steps are gone', () => {
         assert.ok(!codes.includes(c), `${c} is gone`);
     }
 });
+
+test('signatures: only a stored scan is accepted, and a mismatched invoice is approved by a finance approver, not by the voucher maker (security review)', () => {
+    const chain = read('src/services/finance/pv-chain.service.ts');
+    assert.ok(chain.includes('if (!/^\\/api\\/(storage|files)\\/[^/]/.test(url))'), 'no outside or protocol-relative link');
+    assert.match(chain, /INVOICE_VARIANCE_NEEDS_FINANCE_APPROVAL/);
+    assert.match(chain, /if \(si\.status === 'MATCHED'\) await SupplierInvoiceService\.approve\(si\.id, userId, null, \{ viaVoucherChain: true \}\)/, 'no override reason through the signatures step');
+    assert.doesNotMatch(read('src/app/api/procurement/payment-approvals/route.ts'), /matchOverrideReason/);
+});

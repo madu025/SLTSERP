@@ -44,7 +44,7 @@ test('a GRN of an HO order needs the Oracle GRN number and the vendor invoice, a
 test('recording the signatures approves the GRN invoice with the voucher; the Account Executive records part payments (source check)', () => {
     const pv = read('src/services/finance/payment-voucher.service.ts');
     assert.match(pv, /const grnInvoiceAwaitingVoucher = !!si\.grnId && \['MATCHED', 'VARIANCE'\]\.includes\(si\.status\)/, 'a voucher can be raised from a GRN invoice before it is approved');
-    assert.match(read('src/services/finance/pv-chain.service.ts'), /await SupplierInvoiceService\.approve\(si\.id, userId, opts\?\.matchOverrideReason \?\? null, \{ viaVoucherChain: true \}\)/, 'the signatures approve the invoice first');
+    assert.match(read('src/services/finance/pv-chain.service.ts'), /await SupplierInvoiceService\.approve\(si\.id, userId, null, \{ viaVoucherChain: true \}\)/, 'the signatures approve the invoice first');
     const ho = read('src/services/procurement/ho-payment.service.ts');
     assert.match(ho, /pv\.createdById === input\.userId \|\| pv\.approvedById === input\.userId/, 'the maker and the approver cannot record the payment');
     assert.match(ho, /accountCode: ACCOUNTS\.AP_VENDOR, debit: amount/);

@@ -47,7 +47,7 @@ export class PvChainService {
         await assertVoucherAccess(pv.projectId, userId, pv.description);
     }
 
-    static async act(pvId: string, userId: string, action: PvChainAction, remarks?: string | null, opts?: { signedVoucherUrl?: string | null; matchOverrideReason?: string | null }) {
+    static async act(pvId: string, userId: string, action: PvChainAction, remarks?: string | null, opts?: { signedVoucherUrl?: string | null }) {
         const pv = await prisma.paymentVoucher.findUnique({ where: { id: pvId } });
         if (!pv) throw AppError.notFound('Payment voucher not found');
         await this.assertChainAccess(pv, userId);
@@ -66,11 +66,15 @@ export class PvChainService {
                 if (claim.count === 0) throw AppError.conflict('This voucher was just actioned by someone else');
             } else {
                 const url = (opts?.signedVoucherUrl ?? '').trim();
-                if (!url || !(url.startsWith('/') || /^https?:\/\//.test(url))) throw AppError.badRequest('SIGNED_VOUCHER_SCAN_REQUIRED: attach the scan of the voucher signed by the Account Manager, OSP Manager and Head of Section');
+                // only a file stored by the upload service (never an outside or protocol-relative link)
+                if (!/^\/api\/(storage|files)\/[^/]/.test(url)) throw AppError.badRequest('SIGNED_VOUCHER_SCAN_REQUIRED: attach the scan of the voucher signed by the Account Manager, OSP Manager and Head of Section');
                 // the vendor invoice is approved and posted (GR/IR -> vendor payable) together with the signatures
                 const { SupplierInvoiceService } = await import('@/services/procurement/supplier-invoice.service');
                 const si = await prisma.supplierInvoice.findUniqueOrThrow({ where: { id: pv.supplierInvoiceId! }, select: { id: true, status: true } });
-                if (['MATCHED', 'VARIANCE'].includes(si.status)) await SupplierInvoiceService.approve(si.id, userId, opts?.matchOverrideReason ?? null, { viaVoucherChain: true });
+                // an invoice that does not match the PO and GRN is approved by a finance approver on Supplier Invoices (a different person,
+                // with the reason), never by the voucher's maker here
+                if (si.status === 'VARIANCE') throw AppError.badRequest('INVOICE_VARIANCE_NEEDS_FINANCE_APPROVAL: the vendor invoice does not match the PO and GRN; a finance approver approves it on Supplier Invoices first');
+                if (si.status === 'MATCHED') await SupplierInvoiceService.approve(si.id, userId, null, { viaVoucherChain: true });
                 const after = await prisma.supplierInvoice.findUniqueOrThrow({ where: { id: si.id }, select: { status: true } });
                 if (!['APPROVED', 'PARTIALLY_PAID', 'PAID'].includes(after.status)) throw AppError.badRequest(`SUPPLIER_INVOICE_NOT_YET_APPROVED: the vendor invoice is ${after.status}`);
                 const claim = await prisma.paymentVoucher.updateMany({ where: { id: pvId, status: 'PENDING_APPROVAL', approvalStage: 'SIGNATURES' }, data: { status: 'APPROVED', approvalStage: null, approvedById: userId, approvedAt: new Date(), docsStatus: 'TO_SEND', signedVoucherUrl: url, approvalTrail: [...trail, entry('SIGNATURES', 'SIGNED', userId, note ?? 'Signed by the OSP Account Manager, OSP Manager and Head of Section')] as never } });
