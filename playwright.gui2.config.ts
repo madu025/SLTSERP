@@ -3,7 +3,7 @@ import { defineConfig } from '@playwright/test';
 /** Role-by-role browser pass of the inventory chain on localhost (the data comes from scripts/zz-gui2.ts; credentials are read from the environment). */
 export default defineConfig({
   testDir: './tests',
-  testMatch: /(inventory-roles|procurement-roles|procurement-company-flow).browser.spec.ts/,
+  testMatch: /(inventory-roles|procurement-company-flow).browser.spec.ts/,
   timeout: 180_000,
   expect: { timeout: 20_000 },
   workers: 1,

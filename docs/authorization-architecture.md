@@ -295,9 +295,9 @@ The tests in `tests/unit/authorization-rules.test.ts` and `tests/unit/menu-page-
 - The default rule of each report is in `src/config/automated-notices.ts` (`rule`); the administrator changes it on Administration > Automated Reports & Alerts, and the change is kept in the system settings (`AUTOMATED_NOTICE_RULES`) and audited. A person with no area receives none of an area report: the page lists them.
 - Send with `NoticeRulesService.notify(job, { title, message, ..., opmcId })` (`src/services/notification/notice-rules.service.ts`); pass `opmcId` when the report is about one area.
 
-## Purchase order approval steps (26 Nov 2026)
+## Purchase order approval steps (removed 26 Nov 2026)
 
-Four capabilities carry the approval chain: `procurement.po.approve.l1` (OSP Manager), `.l2` (Head of OSP), `.l3` (Finance Manager) and `procurement.invoice.approve.executive` (CEO, second approval of a supplier invoice above the admin threshold). They are catalogued in `src/config/rbac-permissions.ts`, granted in `rbac-bootstrap.ts` and checked in the service with `userHasPermission`, in addition to `procurement.write` on the route. Segregation of duties is part of the rule: the maker never approves, and no person holds two steps of one order or both approvals of one invoice.
+Purchase orders and large payments are approved in the HO ERP, not in Nexus. The capabilities `procurement.po.approve.l1/l2/l3` and `procurement.invoice.approve.executive` were removed from the catalog (the deploy seed drops their grants); recording an order needs `procurement.write`, approving a supplier invoice `finance.approve` (or the vendor voucher chain).
 
 ## HO payment capability (26 Nov 2026)
 

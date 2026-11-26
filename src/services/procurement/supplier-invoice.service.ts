@@ -10,8 +10,6 @@ import { getProcurementConfig } from '@/services/procurement/procurement-config'
 import { threeWayMatch, invoicePosting, dueDateFrom, type MatchLine, type MatchOutcome } from '@/lib/procurement-rules';
 import { PAYMENT_CATEGORIES, isServiceCategory, type ServiceCategory } from '@/config/payment-categories';
 import { ApprovalLimitService } from '@/services/procurement/approval-limit.service';
-import { SystemConfigService } from '@/services/core/system-config.service';
-import { DEFAULT_EXECUTIVE_PAYMENT_THRESHOLD, EXECUTIVE_THRESHOLD_KEY, needsExecutiveApproval } from '@/lib/po-approval-chain';
 
 export type PoKind = 'STORE' | 'PROJECT';
 
@@ -285,7 +283,7 @@ export class SupplierInvoiceService {
         const period = await prisma.fiscalPeriod.findUnique({ where: { year_month: { year: invDate.getFullYear(), month: invDate.getMonth() + 1 } } });
         const postingDate = !period || period.status === 'OPEN' ? invDate : new Date();
         return prisma.$transaction(async (tx) => {
-            const claim = await tx.supplierInvoice.updateMany({ where: { id: invoice.id, status: { in: ['MATCHED', 'VARIANCE', 'DRAFT', 'AWAITING_EXECUTIVE'] } }, data: { status: 'APPROVED', approvedById: userId, approvedAt: new Date() } });
+            const claim = await tx.supplierInvoice.updateMany({ where: { id: invoice.id, status: { in: ['MATCHED', 'VARIANCE', 'DRAFT'] } }, data: { status: 'APPROVED', approvedById: userId, approvedAt: new Date() } });
             if (claim.count === 0) throw AppError.conflict('This invoice has already been actioned');
             const lines = [
                 { accountCode: rule.expenseAccount!, debit: subtotal, credit: 0, description: `${rule.label}${invoice.periodMonth ? ' ' + invoice.periodMonth : ''}: ${invoice.invoiceNumber}` },
@@ -316,35 +314,13 @@ export class SupplierInvoiceService {
             AuditService.log({ userId, action: 'SOD_VIOLATION_BLOCKED', entity: 'SUPPLIER_INVOICE', entityId: id, newValue: { reason: 'creator tried to approve own invoice' } }).catch(() => undefined);
             throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: the person who entered an invoice cannot approve it');
         }
-        // A payment above the threshold in the admin settings needs two approvals: finance first, then the executive (a different person)
-        const settings = await SystemConfigService.getConfigs();
-        // a missing or unreadable setting falls back to the default; it never means "no executive approval needed"
-        const configured = Number(settings[EXECUTIVE_THRESHOLD_KEY] ?? DEFAULT_EXECUTIVE_PAYMENT_THRESHOLD);
-        const threshold = Number.isFinite(configured) && configured >= 0 ? configured : DEFAULT_EXECUTIVE_PAYMENT_THRESHOLD;
-        const needsExecutive = needsExecutiveApproval(Number(invoice.totalAmount), threshold);
-        // The second step is keyed on the invoice's state, not on the threshold: raising the threshold later cannot let a waiting invoice skip the executive
-        if (invoice.status === 'AWAITING_EXECUTIVE') {
-            if (!(await userHasPermission(userId, RBAC_PERMISSIONS.PROCUREMENT_INVOICE_APPROVE_EXECUTIVE))) {
-                throw AppError.forbidden('EXECUTIVE_APPROVAL_REQUIRED: this payment is above the executive threshold and is waiting for the executive approval, which you do not hold');
-            }
-            if (invoice.financeApprovedById === userId) throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: the executive approval must be given by a different person from the finance approval');
-        }
-        // the first (or only) approval is the finance approval; the executive capability alone only completes an invoice that waits for it
-        // (a voucher-chain approval was already checked step by step: the Head of Section signs the last step without finance.approve)
-        if (invoice.status !== 'AWAITING_EXECUTIVE' && !isAdmin && !opts?.viaVoucherChain && !(await userHasPermission(userId, RBAC_PERMISSIONS.FINANCE_APPROVE))) {
+        // One approval (owner, 26 Nov 2026: the CEO's approval of large payments is given in the HO system, not here).
+        // A voucher-chain approval was already checked step by step: the Head of Section signs the last step without finance.approve.
+        if (!isAdmin && !opts?.viaVoucherChain && !(await userHasPermission(userId, RBAC_PERMISSIONS.FINANCE_APPROVE))) {
             throw AppError.forbidden('Approving a supplier invoice needs finance approval access');
         }
-        if (invoice.category === 'PO_GOODS' && invoice.matchStatus !== 'MATCHED' && !(overrideReason && overrideReason.trim().length >= 5) && !(invoice.status === 'AWAITING_EXECUTIVE' && invoice.overrideReason)) {
+        if (invoice.category === 'PO_GOODS' && invoice.matchStatus !== 'MATCHED' && !(overrideReason && overrideReason.trim().length >= 5)) {
             throw AppError.badRequest('MATCH_OVERRIDE_REASON_REQUIRED: this invoice does not match the order and receipts; give a reason to approve it');
-        }
-        if (needsExecutive && invoice.status !== 'AWAITING_EXECUTIVE') {
-            const first = await prisma.supplierInvoice.updateMany({
-                where: { id, status: { in: ['MATCHED', 'VARIANCE', 'DRAFT'] } },
-                data: { status: 'AWAITING_EXECUTIVE', financeApprovedById: userId, financeApprovedAt: new Date(), overrideReason: overrideReason?.trim() || null },
-            });
-            if (first.count === 0) throw AppError.conflict('This invoice has already been actioned');
-            AuditService.log({ userId, action: 'FINANCE_APPROVE_SUPPLIER_INVOICE', entity: 'SUPPLIER_INVOICE', entityId: id, newValue: { total: Number(invoice.totalAmount), threshold, waitingFor: 'EXECUTIVE', override: overrideReason ?? null } }).catch(() => undefined);
-            return prisma.supplierInvoice.findUniqueOrThrow({ where: { id }, include: { items: true } });
         }
         if (invoice.category !== 'PO_GOODS') return this.approveService(invoice, userId);
 
@@ -359,7 +335,7 @@ export class SupplierInvoiceService {
         const postingDate = !period || period.status === 'OPEN' ? invDate : new Date();
 
         return prisma.$transaction(async (tx) => {
-            const claim = await tx.supplierInvoice.updateMany({ where: { id, status: { in: ['MATCHED', 'VARIANCE', 'DRAFT', 'AWAITING_EXECUTIVE'] } }, data: { status: 'APPROVED', approvedById: userId, approvedAt: new Date(), overrideReason: overrideReason?.trim() || invoice.overrideReason || null } });
+            const claim = await tx.supplierInvoice.updateMany({ where: { id, status: { in: ['MATCHED', 'VARIANCE', 'DRAFT'] } }, data: { status: 'APPROVED', approvedById: userId, approvedAt: new Date(), overrideReason: overrideReason?.trim() || invoice.overrideReason || null } });
             if (claim.count === 0) throw AppError.conflict('This invoice has already been actioned');
             const lines = [
                 { accountCode: ACCOUNTS.AP_ACCRUED, debit: accrued, credit: 0, description: 'GR/IR cleared: goods received, now invoiced' },
@@ -380,7 +356,7 @@ export class SupplierInvoiceService {
 
     static async reject(id: string, userId: string, reason: string) {
         if (!reason || reason.trim().length < 3) throw AppError.badRequest('A rejection reason is required');
-        const claim = await prisma.supplierInvoice.updateMany({ where: { id, status: { in: ['MATCHED', 'VARIANCE', 'DRAFT', 'AWAITING_EXECUTIVE'] } }, data: { status: 'REJECTED', rejectionReason: reason.trim() } });
+        const claim = await prisma.supplierInvoice.updateMany({ where: { id, status: { in: ['MATCHED', 'VARIANCE', 'DRAFT'] } }, data: { status: 'REJECTED', rejectionReason: reason.trim() } });
         if (claim.count === 0) throw AppError.conflict('Only an invoice that has not been approved can be rejected');
         AuditService.log({ userId, action: 'REJECT_SUPPLIER_INVOICE', entity: 'SUPPLIER_INVOICE', entityId: id, newValue: { reason: reason.trim() } }).catch(() => undefined);
         return prisma.supplierInvoice.findUniqueOrThrow({ where: { id }, include: { items: true } });

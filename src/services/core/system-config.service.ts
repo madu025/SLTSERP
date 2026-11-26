@@ -73,9 +73,6 @@ export class SystemConfigService {
                 FINANCE_APPROVAL_LIMIT_DIRECTOR: map.FINANCE_APPROVAL_LIMIT_DIRECTOR || '5000000',
                 FINANCE_MIN_INVOICE_BATCH_AMOUNT: map.FINANCE_MIN_INVOICE_BATCH_AMOUNT || '25000',
                 // A supplier invoice above this needs the executive's second approval (default 5 million; admins change it in Settings)
-                PROCUREMENT_CEO_APPROVAL_THRESHOLD: map.PROCUREMENT_CEO_APPROVAL_THRESHOLD || '5000000',
-                // HO_DOCUMENTS: purchase orders are approved in the HO system and recorded here with their evidence; NEXUS_CHAIN: three steps here
-                PROCUREMENT_PO_APPROVAL_MODE: map.PROCUREMENT_PO_APPROVAL_MODE || 'HO_DOCUMENTS',
 
                 // SOD Operational Defaults
                 SOD_SLA_FTTH_HOURS: map.SOD_SLA_FTTH_HOURS || '48',

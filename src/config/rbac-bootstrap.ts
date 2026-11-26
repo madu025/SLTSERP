@@ -155,10 +155,6 @@ const BASE_BOOTSTRAP_ROLE_GRANTS = {
         'SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'PROCUREMENT_OFFICER',
     ],
     // the purchase order chain: OSP Manager, then Head of OSP, then the Finance Manager. Nobody else holds a step, so no one can approve alone.
-    [RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L1]: ['OSP_MANAGER'],
-    [RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L2]: ['HEAD_OF_OSP'],
-    [RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L3]: ['FINANCE_MANAGER'],
-    [RBAC_PERMISSIONS.PROCUREMENT_INVOICE_APPROVE_EXECUTIVE]: ['CEO'],
     // HO payments on vouchers are recorded by the Account Executive designation only (see MODULE_DESIGNATION_GRANTS), never by a whole base role
     [RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD]: [],
     // the company's vendor voucher chain after the OSP Account Manager, and the documents check before HO

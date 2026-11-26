@@ -1,29 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { poApprovalMode } from '../../src/lib/po-approval-chain';
 
 const read = (p: string) => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8');
-
-test('HO mode is the default; only an explicit NEXUS_CHAIN turns the Nexus chain on', () => {
-    assert.equal(poApprovalMode(undefined), 'HO_DOCUMENTS');
-    assert.equal(poApprovalMode(''), 'HO_DOCUMENTS');
-    assert.equal(poApprovalMode('nexus_chain'), 'HO_DOCUMENTS', 'unknown text is read as the default');
-    assert.equal(poApprovalMode('NEXUS_CHAIN'), 'NEXUS_CHAIN');
-    assert.match(read('src/services/core/system-config.service.ts'), /PROCUREMENT_PO_APPROVAL_MODE: map\.PROCUREMENT_PO_APPROVAL_MODE \|\| 'HO_DOCUMENTS'/);
-    assert.match(read('src/app/admin/settings/page.tsx'), /PROCUREMENT_PO_APPROVAL_MODE/, 'the admin can switch it');
-});
-
-test('the service records an HO-approved order as approved with its payment terms and a log entry; no HO approval fields (source check)', () => {
-    const svc = read('src/services/procurement/purchase-order.service.ts');
-    assert.match(svc, /if \(mode === 'HO_DOCUMENTS'\) \{\s*\n\s*const termsErr = validateCreditTerms\(input\.credit\);/, 'the payment terms are required in HO mode');
-    assert.match(svc, /const recordedFromHo = mode === 'HO_DOCUMENTS';/);
-    assert.match(svc, /status: recordedFromHo \? 'APPROVED' : 'PENDING_APPROVAL'/);
-    assert.doesNotMatch(svc, /validateHoEvidence|hoDocumentUrl: ho/, 'no HO approval reference, approver or scan is asked (owner, 26 Nov 2026)');
-    assert.match(svc, /action: 'RECORDED'/, 'the approval log records where the approval came from');
-    assert.match(svc, /if \(valueChanged && \(po\.hoApprovalRef \|\| \(await this\.approvalMode\(\)\) === 'HO_DOCUMENTS'\)\)/, 'the vendor or value of an HO-approved order cannot be changed in Nexus');
-    assert.doesNotMatch(read('src/app/procurement/orders/page.tsx'), /data-testid="ho-ref"|Approved by \(name and designation\)/);
-});
 
 test('a GRN line names its PO line; a line-based GRN never mixes vendors or HO orders (source check)', () => {
     const grn = read('src/services/inventory/grn.service.ts');

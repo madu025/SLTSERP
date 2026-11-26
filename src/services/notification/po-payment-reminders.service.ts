@@ -12,7 +12,7 @@ const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
 export class PoPaymentReminderService {
     static async run(now: Date = new Date()): Promise<{ dueSoon: number; overdue: number; notified: boolean }> {
         const invoices = await prisma.supplierInvoice.findMany({
-            where: { dueDate: { not: null }, status: { in: ['MATCHED', 'VARIANCE', 'AWAITING_EXECUTIVE', 'APPROVED', 'PARTIALLY_PAID'] } },
+            where: { dueDate: { not: null }, status: { in: ['MATCHED', 'VARIANCE', 'APPROVED', 'PARTIALLY_PAID'] } },
             select: { invoiceNumber: true, dueDate: true, totalAmount: true, paidAmount: true, vendor: { select: { name: true } } },
             take: 5000,
         });

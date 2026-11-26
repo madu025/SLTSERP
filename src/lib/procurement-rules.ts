@@ -36,18 +36,6 @@ export function isPoEditable(status: string | null | undefined, anyReceived: boo
     return !anyReceived && (s === 'PENDING_APPROVAL' || s === 'RETURNED' || s === 'APPROVED' || s === 'ISSUED');
 }
 
-/**
- * Whether an amendment of vendor, quantity, price or tax is allowed, and whether it sends the order back to step 1.
- * An issued order is a commitment to the vendor, so its value cannot change (cancel it and raise a new one); an order that is
- * waiting or already approved restarts the chain when its value changes; a returned order is simply amended and resubmitted.
- */
-export function valueAmendment(status: string | null | undefined): 'ALLOWED' | 'RESTARTS_CHAIN' | 'NOT_ALLOWED' {
-    const s = normalizePoStatus(status);
-    if (s === 'RETURNED') return 'ALLOWED';
-    if (s === 'PENDING_APPROVAL' || s === 'APPROVED') return 'RESTARTS_CHAIN';
-    return 'NOT_ALLOWED';
-}
-
 /** The status a PO should hold after receipts: nothing received, some, or all lines complete (within tolerance). */
 export function poStatusFromReceipts(current: string | null | undefined, lines: { quantity: number; receivedQty: number }[]): PoStatus {
     const status = normalizePoStatus(current);

@@ -10,7 +10,7 @@ Owner decisions (26 Nov 2026):
 
 ## Phase A: record an HO-approved PO (Procurement Officer)
 
-- Admin setting `PROCUREMENT_PO_APPROVAL_MODE` = `HO_DOCUMENTS` (default) | `NEXUS_CHAIN` (the current three steps).
+- (26 Nov 2026) No mode setting: orders are always approved in the HO system; the Nexus three-step chain was removed.
 - In HO mode the PO form asks, in addition to vendor, lines, quantities, prices and tax:
   HO approval reference number, HO approval date, approved by (name and designation), and the scanned PO/approval document (PDF or image, required).
 - Saving makes the PO APPROVED at once; the approval log gets one entry "Recorded with HO approval <ref>" (the hash chain stays).
@@ -26,7 +26,7 @@ Owner decisions (26 Nov 2026):
 
 ## Phase C: money visible in Nexus without a finance step
 
-- The supplier invoice approval and the CEO threshold step are not used in HO mode (kept for `NEXUS_CHAIN` mode).
+- (26 Nov 2026) The CEO threshold step was removed; approvals belong to the HO ERP.
 - Nexus shows, from the PO prices: ordered value, received value (GRN quantity x PO price), still to receive (commitment), and stock value.
 - Optional information fields on the PO for OSP to follow payment: HO invoice number, HO payment reference and paid date (no approval).
 

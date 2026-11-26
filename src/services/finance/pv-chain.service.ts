@@ -101,7 +101,7 @@ export class PvChainService {
                 // last approval: the vendor invoice is approved and posted (GR/IR -> vendor payable), then the voucher is approved
                 const { SupplierInvoiceService } = await import('@/services/procurement/supplier-invoice.service');
                 const si = await prisma.supplierInvoice.findUniqueOrThrow({ where: { id: pv.supplierInvoiceId! }, select: { id: true, status: true } });
-                if (['MATCHED', 'VARIANCE', 'AWAITING_EXECUTIVE'].includes(si.status)) await SupplierInvoiceService.approve(si.id, userId, matchOverrideReason ?? null, { viaVoucherChain: true });
+                if (['MATCHED', 'VARIANCE'].includes(si.status)) await SupplierInvoiceService.approve(si.id, userId, matchOverrideReason ?? null, { viaVoucherChain: true });
                 const after = await prisma.supplierInvoice.findUniqueOrThrow({ where: { id: si.id }, select: { status: true } });
                 if (!['APPROVED', 'PARTIALLY_PAID', 'PAID'].includes(after.status)) throw AppError.badRequest(`SUPPLIER_INVOICE_NOT_YET_APPROVED: the vendor invoice is ${after.status}; it needs its remaining approval first`);
                 const claim = await prisma.paymentVoucher.updateMany({ where: { id: pvId, status: 'PENDING_APPROVAL', approvalStage: stage }, data: { status: 'APPROVED', approvalStage: null, approvedById: userId, approvedAt: new Date(), docsStatus: 'TO_SEND', approvalTrail: [...trail, entry(stage, 'APPROVED', userId, note)] as never } });

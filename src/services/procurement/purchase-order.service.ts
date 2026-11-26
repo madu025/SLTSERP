@@ -3,14 +3,12 @@ import { AppError } from '@/lib/error';
 import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
 import { StoreService } from '@/services/inventory/store.service';
 import { AuditService } from '@/services/audit/audit.service';
-import { canTransitionPo, computePoTotals, isPoEditable, normalizePoStatus, valueAmendment, validatePoLine, type PoStatus } from '@/lib/procurement-rules';
-import { FIRST_PO_STAGE, PO_APPROVAL_MODE_KEY, PO_STAGE_LABEL, PO_STAGE_PERMISSION, assertRemarks, hoClearingDelta, isPoStage, nextStage, poApprovalMode, previousStage, type PoApprovalAction, type PoApprovalMode, type PoStage } from '@/lib/po-approval-chain';
-import { SystemConfigService } from '@/services/core/system-config.service';
+import { canTransitionPo, computePoTotals, isPoEditable, normalizePoStatus, validatePoLine, type PoStatus } from '@/lib/procurement-rules';
+import { PO_HISTORY_STAGE_LABEL, type PoApprovalAction } from '@/lib/po-approval-chain';
 import { validateCreditTerms, type CreditTerms } from '@/lib/po-payables';
 import { LedgerService } from '@/services/finance/ledger.service';
 import { ACCOUNTS } from '@/services/finance/account-codes';
 import { approvalEntryHash, firstBrokenEntry } from '@/lib/po-approval-hash';
-import { userHasPermission } from '@/lib/user-permissions';
 
 export interface CreateStorePoInput {
     requestId: string;
@@ -22,8 +20,7 @@ export interface CreateStorePoInput {
     remarks?: string | null;
     currency?: string | null;
     lines: { requestItemId: string; quantity: number; unitPrice: number; taxAmount?: number }[];
-    /** HO mode: the approval given in the HO system (reference, date, approver, scanned document). Required in that mode. */
-    /** HO mode: how the order is paid (on credit with credit days or a due date, advance, on delivery). Required in that mode. */
+    /** How the order is paid (on credit with credit days or a due date, advance, on delivery). Required. */
     credit?: CreditTerms | null;
 }
 
@@ -33,8 +30,6 @@ export interface AmendStorePoInput {
     userId: string;
     expectedDelivery?: string | null;
     remarks?: string | null;
-    /** Required when the change restarts the approval chain. */
-    reason?: string | null;
     vendorId?: string | null;
     lines?: { poItemId: string; quantity?: number; unitPrice?: number; taxAmount?: number }[];
 }
@@ -53,12 +48,6 @@ export class PurchaseOrderService {
         if (!ids.some((id) => accessible.some((s) => s.id === id))) {
             throw AppError.forbidden('STORE_SCOPE_VIOLATION: this stock request is outside your store scope');
         }
-    }
-
-    /** How purchase orders are approved: in the HO system (default) or by the three-step chain in Nexus (admin setting). */
-    static async approvalMode(): Promise<PoApprovalMode> {
-        const c = await SystemConfigService.getConfigs();
-        return poApprovalMode(c[PO_APPROVAL_MODE_KEY]);
     }
 
     static async createStorePo(input: CreateStorePoInput) {
@@ -107,14 +96,10 @@ export class PurchaseOrderService {
 
         const totals = computePoTotals(lines.map((l) => ({ quantity: l.quantity, unitPrice: l.unitPrice, taxAmount: l.taxAmount })));
 
-        // HO mode: the order was approved in the HO system; it is recorded here as approved, with how it is paid
-        const mode = await this.approvalMode();
-        if (mode === 'HO_DOCUMENTS') {
-            const termsErr = validateCreditTerms(input.credit);
-            if (termsErr) throw AppError.badRequest(`CREDIT_TERMS_REQUIRED: ${termsErr}`);
-        }
-        const credit = input.credit && !validateCreditTerms(input.credit) ? input.credit : null;
-        const recordedFromHo = mode === 'HO_DOCUMENTS';
+        // The order was approved in the HO system: it is recorded here as approved, with how it is paid
+        const termsErr = validateCreditTerms(input.credit);
+        if (termsErr) throw AppError.badRequest(`CREDIT_TERMS_REQUIRED: ${termsErr}`);
+        const credit = input.credit!;
 
         const po = await prisma.$transaction(async (tx) => {
             const poNumber = await AuditLedgerService.getNextDocumentNumber('SPO', tx);
@@ -125,16 +110,14 @@ export class PurchaseOrderService {
                     vendorId,
                     expectedDelivery: input.expectedDelivery ? new Date(input.expectedDelivery) : undefined,
                     stockRequestId: requestId,
-                    // HO mode: approved in the HO system, recorded here as approved; Nexus chain mode: every order goes through the three steps
-                    status: recordedFromHo ? 'APPROVED' : 'PENDING_APPROVAL',
-                    approvalStage: recordedFromHo ? null : FIRST_PO_STAGE,
+                    // approved in the HO system, recorded here as approved
+                    status: 'APPROVED',
+                    approvalStage: null,
                     createdById: userId,
-                    ...(recordedFromHo ? { approvedAt: new Date() } : {}),
-                    ...(credit ? {
-                        paymentBasis: credit.basis,
-                        creditDays: credit.creditDays !== null && credit.creditDays !== undefined && String(credit.creditDays).trim() !== '' ? Number(credit.creditDays) : null,
-                        paymentDueDate: credit.dueDate ? new Date(credit.dueDate) : null,
-                    } : {}),
+                    approvedAt: new Date(),
+                    paymentBasis: credit.basis,
+                    creditDays: credit.creditDays !== null && credit.creditDays !== undefined && String(credit.creditDays).trim() !== '' ? Number(credit.creditDays) : null,
+                    paymentDueDate: credit.dueDate ? new Date(credit.dueDate) : null,
                     currency: (input.currency || 'LKR').toUpperCase().slice(0, 3),
                     subtotal: totals.subtotal,
                     taxAmount: totals.taxAmount,
@@ -155,12 +138,11 @@ export class PurchaseOrderService {
                 where: { id: requestId },
                 data: { procurementStatus: 'PO_CREATED', ...(input.remarks ? { remarks: input.remarks } : {}) },
             });
-            if (recordedFromHo) await this.appendApproval(tx, created.id, { stage: null, action: 'RECORDED', actorId: userId, amount: totals.totalAmount, remarks: 'Approved in the HO system; recorded by the Procurement Officer' });
-            else await this.appendApproval(tx, created.id, { stage: FIRST_PO_STAGE, action: 'SUBMITTED', actorId: userId, amount: totals.totalAmount, remarks: input.remarks ?? null });
+            await this.appendApproval(tx, created.id, { stage: null, action: 'RECORDED', actorId: userId, amount: totals.totalAmount, remarks: 'Approved in the HO system; recorded by the Procurement Officer' });
             return created;
         });
 
-        AuditService.log({ userId, action: 'CREATE_STORE_PO', entity: 'PURCHASE_ORDER', entityId: po.id, newValue: { poNumber: po.poNumber, vendor: vendorName, vendorId, total: totals.totalAmount, lines: lines.length, mode, recordedFromHo } }).catch(() => undefined);
+        AuditService.log({ userId, action: 'CREATE_STORE_PO', entity: 'PURCHASE_ORDER', entityId: po.id, newValue: { poNumber: po.poNumber, vendor: vendorName, vendorId, total: totals.totalAmount, lines: lines.length, recordedFromHo: true } }).catch(() => undefined);
         return po;
     }
 
@@ -213,22 +195,10 @@ export class PurchaseOrderService {
 
         const totals = computePoTotals(next.map((l) => ({ quantity: Number(l.quantity), unitPrice: Number(l.unitPrice), taxAmount: Number(l.taxAmount) })));
 
-        // A change of vendor or value after the order has been raised: allowed on a returned order, restarts the chain on a waiting or approved one, never on an issued one
+        // The HO approved this vendor and value: a different order is changed in the HO system, then this one is cancelled and the new one recorded
         const valueChanged = (vendorId ?? null) !== (po.vendorId ?? null) || (input.lines ?? []).length > 0;
-        let restart = false;
-        let resetRemarks: string | null = null;
-        if (valueChanged && (po.hoApprovalRef || (await this.approvalMode()) === 'HO_DOCUMENTS')) {
-            // the HO approved this vendor and value; a different order needs its own HO approval
-            throw AppError.badRequest('This order was approved in the HO system: change it there, then cancel this order and record the new one with its HO approval');
-        }
         if (valueChanged) {
-            const mode = valueAmendment(po.status);
-            if (mode === 'NOT_ALLOWED') throw AppError.badRequest('An issued order is a commitment to the vendor: cancel it and raise a new one to change the vendor or value');
-            if (mode === 'RESTARTS_CHAIN') {
-                resetRemarks = assertRemarks('RESET', input.reason);
-                if (!resetRemarks) throw AppError.badRequest('Give a reason: changing the vendor or value sends the order back to the first approval step');
-                restart = true;
-            }
+            throw AppError.badRequest('This order was approved in the HO system: change it there, then cancel this order and record the new one');
         }
 
         const before = { vendor: po.vendor, expectedDelivery: po.expectedDelivery, total: Number(po.totalAmount) };
@@ -243,12 +213,8 @@ export class PurchaseOrderService {
                     vendor: vendorName, vendorId,
                     ...(input.expectedDelivery !== undefined ? { expectedDelivery: input.expectedDelivery ? new Date(input.expectedDelivery) : null } : {}),
                     subtotal: totals.subtotal, taxAmount: totals.taxAmount, totalAmount: totals.totalAmount,
-                    ...(restart ? { status: 'PENDING_APPROVAL', approvalStage: FIRST_PO_STAGE, approvedById: null, approvedAt: null } : {}),
                 },
                 include: { items: true },
-            }).then(async (row) => {
-                if (restart) await this.appendApproval(tx, po.id, { stage: FIRST_PO_STAGE, action: 'RESET', actorId: input.userId, amount: totals.totalAmount, remarks: resetRemarks });
-                return row;
             });
         }, { maxWait: 10_000, timeout: 30_000 });
         AuditService.log({ userId: input.userId, action: 'AMEND_STORE_PO', entity: 'PURCHASE_ORDER', entityId: po.id, oldValue: before, newValue: { vendor: vendorName, expectedDelivery: updated.expectedDelivery, total: totals.totalAmount } }).catch(() => undefined);
@@ -281,91 +247,6 @@ export class PurchaseOrderService {
             if ((error as { code?: string }).code === 'P2002') throw AppError.conflict('This order was just actioned by someone else; reload and try again');
             throw error;
         }
-    }
-
-    /** The step the order waits at; orders from before the chain existed enter at step 1. */
-    private static currentStage(po: { approvalStage: string | null }): PoStage {
-        return isPoStage(po.approvalStage) ? po.approvalStage : FIRST_PO_STAGE;
-    }
-
-    /** Whoever acts on a step must hold that step's capability. */
-    private static async assertHoldsStage(userId: string, stage: PoStage, poId: string) {
-        if (await userHasPermission(userId, PO_STAGE_PERMISSION[stage])) return;
-        AuditService.log({ userId, action: 'PO_STAGE_NOT_PERMITTED', entity: 'PURCHASE_ORDER', entityId: poId, newValue: { stage } }).catch(() => undefined);
-        throw AppError.forbidden(`PO_STAGE_NOT_PERMITTED: this order is waiting at ${PO_STAGE_LABEL[stage]}; you do not hold that approval step`);
-    }
-
-    /**
-     * One step of the chain. The person who raised the order can never approve it, and nobody approves two steps of the same order,
-     * so three different people always sign. The approval and its log entry are written together.
-     */
-    static async approveStorePo(poId: string, userId: string, remarks?: string | null) {
-        const po = await this.loadEditable(poId);
-        await this.assertStoreAccess(userId, po.stockRequest.fromStoreId, po.stockRequest.toStoreId);
-        if (normalizePoStatus(po.status) !== 'PENDING_APPROVAL') throw AppError.badRequest('Only an order that is waiting for approval can be approved');
-        const stage = this.currentStage(po);
-        await this.assertHoldsStage(userId, stage, poId);
-        if (po.createdById && po.createdById === userId) {
-            AuditService.log({ userId, action: 'SOD_VIOLATION_BLOCKED', entity: 'PURCHASE_ORDER', entityId: poId, newValue: { reason: 'creator tried to approve own purchase order', stage } }).catch(() => undefined);
-            throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: the person who raised a purchase order cannot approve it');
-        }
-        // Within the current pass of the chain (since it was last submitted or restarted) one person signs one step only.
-        // Approving the same step again after a return is allowed: the order came back to that step.
-        const passStart = await prisma.purchaseOrderApproval.findFirst({ where: { purchaseOrderId: poId, action: { in: ['SUBMITTED', 'RESET'] } }, orderBy: { seq: 'desc' }, select: { seq: true } });
-        const otherStep = await prisma.purchaseOrderApproval.count({ where: { purchaseOrderId: poId, actorId: userId, action: 'APPROVED', seq: { gt: passStart?.seq ?? 0 }, stage: { not: stage } } });
-        if (otherStep > 0) throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: you have already approved another step of this order; this step needs a different person');
-        const next = nextStage(stage);
-        const amount = Number(po.totalAmount);
-        const note = assertRemarks('APPROVED', remarks);
-
-        await prisma.$transaction(async (tx) => {
-            const claim = await tx.purchaseOrder.updateMany({
-                where: { id: poId, status: 'PENDING_APPROVAL', approvalStage: po.approvalStage },
-                data: next ? { approvalStage: next } : { status: 'APPROVED', approvalStage: null, approvedById: userId, approvedAt: new Date() },
-            });
-            if (claim.count === 0) throw AppError.conflict('This order was already actioned');
-            await this.appendApproval(tx, poId, { stage, action: 'APPROVED', actorId: userId, amount, remarks: note });
-        }, { maxWait: 10_000, timeout: 30_000 });
-        AuditService.log({ userId, action: 'APPROVE_STORE_PO', entity: 'PURCHASE_ORDER', entityId: poId, oldValue: { status: 'PENDING_APPROVAL', stage }, newValue: { status: next ? 'PENDING_APPROVAL' : 'APPROVED', nextStage: next, total: amount, remarks: note } }).catch(() => undefined);
-        return prisma.purchaseOrder.findUniqueOrThrow({ where: { id: poId }, include: { items: true } });
-    }
-
-    /** A return, with remarks: the order goes one step back, and from step 1 back to the person who raised it. */
-    static async returnStorePo(poId: string, userId: string, remarks: string) {
-        const note = assertRemarks('RETURNED', remarks);
-        if (!note) throw AppError.badRequest('Remarks are required when an order is returned');
-        const po = await this.loadEditable(poId);
-        await this.assertStoreAccess(userId, po.stockRequest.fromStoreId, po.stockRequest.toStoreId);
-        if (normalizePoStatus(po.status) !== 'PENDING_APPROVAL') throw AppError.badRequest('Only an order that is waiting for approval can be returned');
-        const stage = this.currentStage(po);
-        await this.assertHoldsStage(userId, stage, poId);
-        const back = previousStage(stage);
-        const amount = Number(po.totalAmount);
-        await prisma.$transaction(async (tx) => {
-            const claim = await tx.purchaseOrder.updateMany({
-                where: { id: poId, status: 'PENDING_APPROVAL', approvalStage: po.approvalStage },
-                data: back ? { approvalStage: back } : { status: 'RETURNED', approvalStage: null },
-            });
-            if (claim.count === 0) throw AppError.conflict('This order was already actioned');
-            await this.appendApproval(tx, poId, { stage, action: 'RETURNED', actorId: userId, amount, remarks: note });
-        }, { maxWait: 10_000, timeout: 30_000 });
-        AuditService.log({ userId, action: 'RETURN_STORE_PO', entity: 'PURCHASE_ORDER', entityId: poId, oldValue: { status: 'PENDING_APPROVAL', stage }, newValue: { status: back ? 'PENDING_APPROVAL' : 'RETURNED', stage: back, remarks: note } }).catch(() => undefined);
-        return prisma.purchaseOrder.findUniqueOrThrow({ where: { id: poId }, include: { items: true } });
-    }
-
-    /** The returned order, amended, goes into the chain again at step 1. */
-    static async resubmitStorePo(poId: string, userId: string, remarks?: string | null) {
-        const po = await this.loadEditable(poId);
-        await this.assertStoreAccess(userId, po.stockRequest.fromStoreId, po.stockRequest.toStoreId);
-        if (normalizePoStatus(po.status) !== 'RETURNED') throw AppError.badRequest('Only a returned order can be sent for approval again');
-        const amount = Number(po.totalAmount);
-        await prisma.$transaction(async (tx) => {
-            const claim = await tx.purchaseOrder.updateMany({ where: { id: poId, status: 'RETURNED' }, data: { status: 'PENDING_APPROVAL', approvalStage: FIRST_PO_STAGE } });
-            if (claim.count === 0) throw AppError.conflict('This order was already actioned');
-            await this.appendApproval(tx, poId, { stage: FIRST_PO_STAGE, action: 'SUBMITTED', actorId: userId, amount, remarks: assertRemarks('SUBMITTED', remarks) });
-        }, { maxWait: 10_000, timeout: 30_000 });
-        AuditService.log({ userId, action: 'RESUBMIT_STORE_PO', entity: 'PURCHASE_ORDER', entityId: poId, oldValue: { status: 'RETURNED' }, newValue: { status: 'PENDING_APPROVAL', stage: FIRST_PO_STAGE } }).catch(() => undefined);
-        return prisma.purchaseOrder.findUniqueOrThrow({ where: { id: poId }, include: { items: true } });
     }
 
     static async issueStorePo(poId: string, userId: string) {
@@ -424,7 +305,7 @@ export class PurchaseOrderService {
         const broken = firstBrokenEntry(po.approvals.map((a) => ({ ...a, createdAt: a.createdAt })));
         return {
             po: {
-                id: po.id, poNumber: po.poNumber, status: normalizePoStatus(po.status), approvalStage: isPoStage(po.approvalStage) ? po.approvalStage : null,
+                id: po.id, poNumber: po.poNumber, status: normalizePoStatus(po.status), approvalStage: null,
                 vendor: po.vendor, currency: po.currency, subtotal: Number(po.subtotal), taxAmount: Number(po.taxAmount), totalAmount: Number(po.totalAmount),
                 orderDate: po.orderDate, expectedDelivery: po.expectedDelivery, requestNr: po.stockRequest.requestNr,
                 ho: po.hoApprovalRef ? { approvalRef: po.hoApprovalRef, approvalDate: po.hoApprovalDate, approvedBy: po.hoApprovedBy, documentUrl: po.hoDocumentUrl } : null,
@@ -440,7 +321,7 @@ export class PurchaseOrderService {
                 cancelledBy: name(po.cancelledById), cancelledAt: po.cancelledAt, cancellationReason: po.cancellationReason,
                 lines: po.items.map((l) => ({ code: l.stockRequestItem.item?.code ?? null, name: l.stockRequestItem.item?.name ?? null, unit: l.stockRequestItem.item?.unit ?? null, quantity: Number(l.quantity), receivedQty: Number(l.receivedQty), unitPrice: Number(l.unitPrice), taxAmount: Number(l.taxAmount), totalAmount: Number(l.totalAmount) })),
             },
-            approvals: po.approvals.map((a) => ({ seq: a.seq, stage: a.stage, stageLabel: isPoStage(a.stage) ? PO_STAGE_LABEL[a.stage] : null, action: a.action, actor: name(a.actorId), amount: Number(a.amount), remarks: a.remarks, at: a.createdAt, hash: a.hash })),
+            approvals: po.approvals.map((a) => ({ seq: a.seq, stage: a.stage, stageLabel: a.stage ? PO_HISTORY_STAGE_LABEL[a.stage] ?? null : null, action: a.action, actor: name(a.actorId), amount: Number(a.amount), remarks: a.remarks, at: a.createdAt, hash: a.hash })),
             chain: { entries: po.approvals.length, intact: broken === null, firstBrokenSeq: broken },
             receipts: po.grns.map((g) => ({ grnNumber: g.grnNumber, at: g.createdAt, receivedBy: name(g.receivedById) })),
             invoices: po.supplierInvoices.map((i) => ({ id: i.id, invoiceNumber: i.invoiceNumber, total: Number(i.totalAmount), status: i.status, match: i.matchStatus, enteredBy: name(i.createdById), financeApprovedBy: name(i.financeApprovedById), financeApprovedAt: i.financeApprovedAt, approvedBy: name(i.approvedById), approvedAt: i.approvedAt, overrideReason: i.overrideReason, rejectionReason: i.rejectionReason })),

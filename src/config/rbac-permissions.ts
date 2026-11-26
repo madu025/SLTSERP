@@ -40,11 +40,7 @@ export const RBAC_PERMISSIONS = {
     PROCUREMENT_READ: 'procurement.read',
     PROCUREMENT_WRITE: 'procurement.write',
     // the purchase order approval chain: each step is its own capability, in this order (see src/lib/po-approval-chain.ts)
-    PROCUREMENT_PO_APPROVE_L1: 'procurement.po.approve.l1',
-    PROCUREMENT_PO_APPROVE_L2: 'procurement.po.approve.l2',
-    PROCUREMENT_PO_APPROVE_L3: 'procurement.po.approve.l3',
     // second approval of a supplier payment above the threshold set in the admin settings
-    PROCUREMENT_INVOICE_APPROVE_EXECUTIVE: 'procurement.invoice.approve.executive',
     // the Account Executive at HO records the payments HO makes on OSP vendor payment vouchers (in full or in parts)
     PROCUREMENT_HO_PAYMENT_RECORD: 'procurement.ho.payment.record',
     // company flow: a vendor voucher is accepted by the OSP Account Manager (finance.approve), then these two, then the documents step
@@ -177,10 +173,6 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.INVENTORY_APPROVE, module: 'INVENTORY', action: 'APPROVE', scope: 'OPMC', description: 'Approve inventory workflows within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.PROCUREMENT_READ, module: 'PROCUREMENT', action: 'READ', scope: 'OPMC', description: 'Read procurement data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.PROCUREMENT_WRITE, module: 'PROCUREMENT', action: 'WRITE', scope: 'OPMC', description: 'Modify procurement data within the assigned OPMC scope' },
-    { code: RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L1, module: 'PROCUREMENT', action: 'PO_APPROVE_L1', scope: 'OPMC', description: 'Purchase order approval, step 1 of 3 (OSP Manager)' },
-    { code: RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L2, module: 'PROCUREMENT', action: 'PO_APPROVE_L2', scope: 'OPMC', description: 'Purchase order approval, step 2 of 3 (Head of OSP)' },
-    { code: RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L3, module: 'PROCUREMENT', action: 'PO_APPROVE_L3', scope: 'OPMC', description: 'Purchase order approval, step 3 of 3 (Finance Manager)' },
-    { code: RBAC_PERMISSIONS.PROCUREMENT_INVOICE_APPROVE_EXECUTIVE, module: 'PROCUREMENT', action: 'INVOICE_APPROVE_EXECUTIVE', scope: 'OPMC', description: 'Second approval of a supplier invoice above the executive payment threshold (CEO)' },
     { code: RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD, module: 'PROCUREMENT', action: 'HO_PAYMENT_RECORD', scope: 'OPMC', description: 'Record a payment HO made on an OSP vendor payment voucher, in full or in parts (Account Executive at HO)' },
     { code: RBAC_PERMISSIONS.FINANCE_PV_APPROVE_ACCOUNT, module: 'FINANCE', action: 'PV_APPROVE_ACCOUNT', scope: 'OPMC', description: 'Vendor payment voucher, step 1 of 3: OSP Account Manager acceptance' },
     { code: RBAC_PERMISSIONS.FINANCE_PV_APPROVE_OSP, module: 'FINANCE', action: 'PV_APPROVE_OSP', scope: 'OPMC', description: 'Vendor payment voucher, step 2 of 3: OSP Manager review (after the OSP Account Manager)' },
