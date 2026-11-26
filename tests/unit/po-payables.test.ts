@@ -44,7 +44,7 @@ test('a GRN of an HO order needs the Oracle GRN number and the vendor invoice, a
 test('the OSP Account Manager accepts the voucher and, with it, the GRN invoice; the Account Executive records part payments (source check)', () => {
     const pv = read('src/services/finance/payment-voucher.service.ts');
     assert.match(pv, /const grnInvoiceAwaitingVoucher = !!si\.grnId && \['MATCHED', 'VARIANCE'\]\.includes\(si\.status\)/, 'a voucher can be raised from a GRN invoice before it is approved');
-    assert.match(pv, /await SupplierInvoiceService\.approve\(si\.id, userId, options\?\.matchOverrideReason \?\? null\)/, 'accepting the voucher approves its invoice first');
+    assert.match(read('src/services/finance/pv-chain.service.ts'), /await SupplierInvoiceService\.approve\(si\.id, userId, matchOverrideReason \?\? null, \{ viaVoucherChain: true \}\)/, 'accepting the voucher approves its invoice first');
     const ho = read('src/services/procurement/ho-payment.service.ts');
     assert.match(ho, /pv\.createdById === input\.userId \|\| pv\.approvedById === input\.userId/, 'the maker and the approver cannot record the payment');
     assert.match(ho, /accountCode: ACCOUNTS\.AP_VENDOR, debit: amount/);
@@ -82,4 +82,34 @@ test('the voucher payments route checks the voucher scope like the status route 
 
 test('a request with an HO order cannot be received as a combined intake without choosing the PO (found while writing the browser pass)', () => {
     assert.match(read('src/services/inventory/grn.service.ts'), /HO_ORDER_PO_REQUIRED: choose the purchase order this delivery is for/);
+});
+
+test('vendor voucher chain: Account Manager, OSP Manager, Head of Section, invoice posted at the last step, documents before HO (source check)', () => {
+    const chain = read('src/services/finance/pv-chain.service.ts');
+    assert.match(chain, /export const PV_STAGES = \['ACCOUNT_MANAGER', 'OSP_MANAGER', 'HEAD_OF_SECTION'\] as const;/);
+    assert.match(chain, /pv\.createdById === userId \|\| trail\.some\(\(t\) => t\.action === 'APPROVED' && t\.userId === userId\)/, 'nobody signs two steps, the maker none');
+    assert.match(chain, /data: \{ status: 'DRAFT', approvalStage: null/, 'a rejection goes back to the Account Officer');
+    assert.match(chain, /docsStatus: 'NOT_RECEIVED'/);
+    assert.match(chain, /status: 'SUBMITTED_TO_HO', submittedToHoById: userId, submittedToHoAt: new Date\(\), docsStatus: 'RECEIVED'/, 'documents received: the voucher goes to HO');
+    const pv = read('src/services/finance/payment-voucher.service.ts');
+    assert.match(pv, /return PvChainService\.accountManagerStep\(id, userId\);/, 'the Account Manager approval is step 1, not the end');
+    assert.match(pv, /VENDOR_VOUCHER_DOCUMENTS_STEP/, 'a company-flow voucher cannot be sent to HO without the documents step');
+    assert.match(read('src/services/finance/ho-batch.service.ts'), /docsStatus: null/, 'never in an HO pack');
+    const boot = read('src/config/rbac-bootstrap.ts');
+    assert.match(boot, /FINANCE_PV_APPROVE_OSP\]: \['OSP_MANAGER'\]/);
+    assert.match(boot, /FINANCE_PV_APPROVE_HOS\]: \['HEAD_OF_SECTION'\]/);
+    assert.match(boot, /PROCUREMENT_PV_DOCUMENTS\]: \['PROCUREMENT_OFFICER'\]/);
+});
+
+test('the OSP Account confirms the documents were sent before Procurement checks them, and every step notifies the next (source check)', () => {
+    const chain = read('src/services/finance/pv-chain.service.ts');
+    assert.match(chain, /docsStatus: 'TO_SEND'/, 'after the last approval the OSP Account must send the documents');
+    assert.match(chain, /docsStatus: \{ in: \['TO_SEND', 'NOT_RECEIVED'\] \} \}, data: \{ docsStatus: 'SENT'/, 'Documents sent (also again after not received)');
+    assert.match(chain, /pv\.docsStatus !== 'SENT'\) throw AppError\.badRequest\('The OSP Account has not sent the documents/, 'Procurement checks only what was sent');
+    for (const a of ["notifyStep('PROCESS_GATE_OSP_MANAGER'", "notifyStep('PROCESS_GATE_HEAD_OF_SECTION'", "notifyStep('PROCESS_GATE_PROCUREMENT'", "'Vendor payment approved by the OSP Manager'", "'Vendor payment approved: send the documents to Procurement'", "'Voucher documents not received by Procurement'", "'Vendor payment sent to HO'", "'Vendor payment rejected'"]) {
+        assert.ok(chain.includes(a), `notice: ${a}`);
+    }
+    assert.match(read('src/services/finance/payment-voucher.service.ts'), /notifyStep\('FINANCE_APPROVERS', existing, 'Vendor payment to accept \(OSP Account Manager\)'/);
+    assert.match(read('src/services/procurement/ho-payment.service.ts'), /'Vendor payment fully paid by HO' : 'Part payment made by HO'/);
+    assert.match(read('src/services/inventory/grn.service.ts'), /title: 'GRN received with a vendor invoice: raise the payment voucher'/);
 });

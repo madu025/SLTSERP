@@ -558,6 +558,15 @@ model PaymentVoucher {
   hoPaidDate         DateTime?
   /// Paid so far by HO through part payments (HoPaymentInstallment); the voucher is PAID once this reaches its amount
   hoPaidAmount       Decimal         @default(0) @db.Decimal(14, 2)
+  /// Company flow (voucher for a GRN invoice): ACCOUNT_MANAGER -> OSP_MANAGER -> HEAD_OF_SECTION while PENDING_APPROVAL; null otherwise
+  approvalStage      String?
+  /// Every step of that chain: { stage, action, userId, at, remarks }
+  approvalTrail      Json            @default("[]")
+  /// After the last approval the Procurement Officer checks the documents: PENDING | RECEIVED | NOT_RECEIVED
+  docsStatus         String?
+  docsCheckedById    String?         @db.Uuid
+  docsCheckedAt      DateTime?
+  docsRemarks        String?
   confirmedById      String?         @db.Uuid
   recordedOnBehalf   Boolean         @default(false)
   createdAt          DateTime        @default(now())

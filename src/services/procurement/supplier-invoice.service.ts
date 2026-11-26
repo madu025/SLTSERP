@@ -306,7 +306,7 @@ export class SupplierInvoiceService {
      * Approve: a different person from the one who entered it (administrators are exempt), and a mismatched invoice needs a reason.
      * Posts DR accrued payable (the goods received at PO price) + DR/CR inventory for any price difference and tax, CR vendor payable.
      */
-    static async approve(id: string, userId: string, overrideReason?: string | null) {
+    static async approve(id: string, userId: string, overrideReason?: string | null, opts?: { viaVoucherChain?: boolean }) {
         const invoice = await prisma.supplierInvoice.findUnique({ where: { id }, include: { items: true } });
         if (!invoice) throw AppError.notFound('Supplier invoice not found');
         if (invoice.status === 'APPROVED' || invoice.status === 'PAID') throw AppError.conflict('This invoice has already been approved');
@@ -330,7 +330,8 @@ export class SupplierInvoiceService {
             if (invoice.financeApprovedById === userId) throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: the executive approval must be given by a different person from the finance approval');
         }
         // the first (or only) approval is the finance approval; the executive capability alone only completes an invoice that waits for it
-        if (invoice.status !== 'AWAITING_EXECUTIVE' && !isAdmin && !(await userHasPermission(userId, RBAC_PERMISSIONS.FINANCE_APPROVE))) {
+        // (a voucher-chain approval was already checked step by step: the Head of Section signs the last step without finance.approve)
+        if (invoice.status !== 'AWAITING_EXECUTIVE' && !isAdmin && !opts?.viaVoucherChain && !(await userHasPermission(userId, RBAC_PERMISSIONS.FINANCE_APPROVE))) {
             throw AppError.forbidden('Approving a supplier invoice needs finance approval access');
         }
         if (invoice.category === 'PO_GOODS' && invoice.matchStatus !== 'MATCHED' && !(overrideReason && overrideReason.trim().length >= 5) && !(invoice.status === 'AWAITING_EXECUTIVE' && invoice.overrideReason)) {

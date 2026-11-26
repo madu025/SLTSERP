@@ -31,7 +31,7 @@ export class HoBatchService {
     static async readyToSubmit(userId: string) {
         const scope = await resolveOpmcScope(userId, 'finance');
         return prisma.paymentVoucher.findMany({
-            where: { status: 'APPROVED', hoBatchId: null, ...(scope === undefined ? {} : { project: { opmcId: { in: scope } } }) },
+            where: { status: 'APPROVED', hoBatchId: null, docsStatus: null, ...(scope === undefined ? {} : { project: { opmcId: { in: scope } } }) },
             orderBy: { approvedAt: 'asc' }, take: 300,
             select: { id: true, pvNumber: true, payeeName: true, type: true, amount: true, netAmount: true, approvedAt: true, approvedById: true, project: { select: { name: true } } },
         });
@@ -52,7 +52,7 @@ export class HoBatchService {
             const batchNumber = await AuditLedgerService.getNextDocumentNumber('HOB', tx);
             const b = await tx.hoPaymentBatch.create({ data: { batchNumber, status: 'SUBMITTED', totalAmount: total, voucherCount: vouchers.length, note: note ?? null, createdById: userId } });
             const moved = await tx.paymentVoucher.updateMany({
-                where: { id: { in: ids }, status: 'APPROVED', hoBatchId: null },
+                where: { id: { in: ids }, status: 'APPROVED', hoBatchId: null, docsStatus: null },
                 data: { status: 'SUBMITTED_TO_HO', hoBatchId: b.id, submittedToHoAt: new Date(), submittedToHoById: userId },
             });
             if (moved.count !== ids.length) throw AppError.conflict('A voucher changed while the pack was being made; refresh and try again');

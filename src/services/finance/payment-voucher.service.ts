@@ -483,18 +483,15 @@ export class PaymentVoucherService {
     if (status === 'APPROVED' && !returningFromHo) {
       await ApprovalLimitService.assertCanApprove(userId, Number(existing.netAmount), 'PAYMENT_VOUCHER', id);
     }
-    // Company flow: the OSP Account Manager accepts the voucher and, with it, the vendor's invoice for that GRN (no separate invoice approval).
-    // The invoice approval runs first (maker-checker, 3-way match reason, ledger: GR/IR -> vendor payable); the voucher is approved only if it succeeds.
-    if (status === 'APPROVED' && !returningFromHo && existing.supplierInvoiceId) {
-      const si = await prisma.supplierInvoice.findUnique({ where: { id: existing.supplierInvoiceId }, select: { id: true, status: true, grnId: true } });
-      if (si?.grnId && ['MATCHED', 'VARIANCE', 'AWAITING_EXECUTIVE'].includes(si.status)) {
-        const { SupplierInvoiceService } = await import('@/services/procurement/supplier-invoice.service');
-        await SupplierInvoiceService.approve(si.id, userId, options?.matchOverrideReason ?? null);
-        const after = await prisma.supplierInvoice.findUnique({ where: { id: si.id }, select: { status: true } });
-        if (!after || !['APPROVED', 'PARTIALLY_PAID', 'PAID'].includes(after.status)) {
-          throw AppError.badRequest(`SUPPLIER_INVOICE_NOT_YET_APPROVED: the vendor invoice is ${after?.status ?? 'missing'}; it needs its remaining approval before the voucher can be accepted`);
-        }
-      }
+    // Company flow (a voucher for a GRN invoice): the OSP Account Manager's approval is step 1 of 3; the OSP Manager and the Head of Section follow on
+    // the Vendor Payment Approvals screen, the invoice is posted at the last step, and the Procurement Officer sends it to HO after the documents check.
+    const { PvChainService } = await import('./pv-chain.service');
+    const chainVoucher = await PvChainService.isChainVoucher(existing.supplierInvoiceId);
+    if (chainVoucher && status === 'APPROVED' && !returningFromHo) {
+      return PvChainService.accountManagerStep(id, userId);
+    }
+    if (chainVoucher && status === 'SUBMITTED_TO_HO') {
+      throw AppError.badRequest('VENDOR_VOUCHER_DOCUMENTS_STEP: the Procurement Officer sends this voucher to HO after checking its documents');
     }
 
     // the contractor invoices that this payment completed: their contractors are told once the payment is committed
@@ -522,6 +519,10 @@ export class PaymentVoucherService {
       } else if (status === 'SUBMITTED_TO_HO') {
         updateData.submittedToHoById = userId;
         updateData.submittedToHoAt = new Date();
+      } else if (status === 'PENDING_APPROVAL' && chainVoucher) {
+        // submitted into the company chain: it waits for the OSP Account Manager
+        updateData.approvalStage = 'ACCOUNT_MANAGER';
+        updateData.approvalTrail = [...(Array.isArray(existing.approvalTrail) ? existing.approvalTrail : []), { stage: null, action: 'SUBMITTED', userId, at: new Date().toISOString(), remarks: null }];
       } else if (status === 'PAID') {
         const paidOn = new Date(options!.hoPaidDate!);
         if (Number.isNaN(paidOn.getTime())) throw AppError.badRequest('HO_PAID_DATE_INVALID');
@@ -624,6 +625,10 @@ export class PaymentVoucherService {
     for (const invoiceId of paidContractorInvoiceIds) {
       const inv = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { invoiceNumber: true, contractorId: true } });
       if (inv) await notifyContractorUsers(inv.contractorId, { invoiceId, step: 'PAID', priority: 'HIGH', title: 'Invoice paid', message: `Invoice ${inv.invoiceNumber} is paid by Head Office. The retention is released after the warranty period.` });
+    }
+    if (status === 'PENDING_APPROVAL' && chainVoucher) {
+      const { notifyStep } = await import('./pv-chain.service');
+      notifyStep('FINANCE_APPROVERS', existing, 'Vendor payment to accept (OSP Account Manager)', 'raised by the OSP Account Officer from the GRN invoice; waiting for your acceptance', '/finance/ho-payments');
     }
     return result;
   }

@@ -101,3 +101,9 @@ Replaces Phase D's payments on the PO. Relations: material request 1 -> n PO (on
 | Record HO's full or part payments | Account Executive at HO (designation, only holder of procurement.ho.payment.record) | same: Record HO payment |
 
 Ledger: GRN accept INV-1010 DR / GR/IR AP-2010 CR; voucher acceptance GR/IR DR (+ input VAT) / Vendor payable AP-VEND-2010 CR; each HO payment Vendor payable DR / HO current HO-2020 CR.
+
+## Section F (26 Nov 2026): the polished diagram
+
+After the OSP Account Officer raises the voucher: OSP Account Manager -> OSP Manager -> Head of Section (invoice posted at the last approval) -> Procurement Officer marks the documents received (sent to HO) or not received (back to the Account Officer with remarks) -> HO OSP Account Executive records full or part payments with the reference. Rejections go back to the Account Officer with remarks.
+
+After the Head of Section approves, the OSP Account sends the documents to the Procurement Officer and confirms it with "Documents sent"; only then can Procurement mark them received (to HO) or not received (back to the OSP Account). Each step notifies the next one in-app by its notification audience.

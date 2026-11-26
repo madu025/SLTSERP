@@ -88,6 +88,8 @@ export class HoPaymentService {
             return inst;
         }, { maxWait: 10_000, timeout: 30_000 });
         AuditService.log({ userId: input.userId, action: 'RECORD_HO_PAYMENT', entity: 'PAYMENT_VOUCHER', entityId: pv.id, newValue: { installmentId: row.id, amount, reference, paidDate, completes } }).catch(() => undefined);
+        const { notifyStep } = await import('@/services/finance/pv-chain.service');
+        notifyStep('FINANCE_ALL', pv, completes ? 'Vendor payment fully paid by HO' : 'Part payment made by HO', `HO paid ${amount.toLocaleString('en-US')} (${reference})${completes ? '; the voucher is fully paid' : `; ${(remaining - amount).toLocaleString('en-US')} still to pay`}`, '/finance/ho-payments');
         return row;
     }
 

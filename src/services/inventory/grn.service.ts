@@ -66,7 +66,8 @@ export class GRNService {
         // Store-Scope Enforcement: caller must be authorized for the receiving store
         await StoreService.assertStoreWriteAccess(receivedById, storeId);
 
-        return await prisma.$transaction(async (tx: TransactionClient) => {
+        let grnInvoiceNotice: { grnNumber: string; invoiceNumber: string; vendor: string } | null = null;
+        const created = await prisma.$transaction(async (tx: TransactionClient) => {
             // Promote CUSTOM/Unregistered items to standard SLTS type
             const rawItemIds = items.map((i) => i.itemId);
             const dbItems = await tx.inventoryItem.findMany({
@@ -502,10 +503,20 @@ export class GRNService {
                     goods: Number(vendorInvoiceGoods), tax: Number(vendorInvoiceTax ?? 0), dueDate: due,
                     lines: items.map((i) => ({ poItemId: poLineByItem.get(i.itemId)!.id, quantity: Number(i.quantity) })),
                 });
+                grnInvoiceNotice = { grnNumber, invoiceNumber: vendorInvoiceNumber!, vendor: supplier || '' };
             }
 
             emitSystemEvent('INVENTORY_UPDATE');
             return tx.gRN.findUniqueOrThrow({ where: { id: grn.id }, include: { items: true } });
         }, { timeout: 30000 });
+        if (grnInvoiceNotice) {
+            const n = grnInvoiceNotice as { grnNumber: string; invoiceNumber: string; vendor: string };
+            NotificationService.notifyByAudience({
+                audience: 'FINANCE_ALL', title: 'GRN received with a vendor invoice: raise the payment voucher', type: 'FINANCE', priority: 'MEDIUM', link: '/finance/ho-payments',
+                message: `${n.grnNumber}: vendor invoice ${n.invoiceNumber}${n.vendor ? ' (' + n.vendor + ')' : ''} is ready for its payment voucher.`,
+                metadata: { grnId: created.id }, dedupKey: `grn-invoice:${created.id}`,
+            }).catch(() => undefined);
+        }
+        return created;
     }
 }

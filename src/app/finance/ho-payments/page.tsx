@@ -11,7 +11,7 @@ import { Loader2, Send } from 'lucide-react';
 import { Panel, compact } from '@/app/dashboard/components/health/HealthCharts';
 
 interface Invoice { id: string; invoiceNumber: string; status: string; grnId?: string | null; matchStatus?: string; totalAmount: number | string; paidAmount: number | string; dueDate: string | null; vendor: { name: string; code: string } }
-interface Voucher { id: string; pvNumber: string; status: string; type: string; amount: number | string; netAmount: number | string; taxWithheld: number | string; payeeName: string; supplierInvoiceId: string | null; hoPaidAmount?: number | string; hoBatchId: string | null; hoReference: string | null; createdAt: string }
+interface Voucher { id: string; pvNumber: string; status: string; type: string; amount: number | string; netAmount: number | string; taxWithheld: number | string; payeeName: string; supplierInvoiceId: string | null; hoPaidAmount?: number | string; approvalStage?: string | null; docsStatus?: string | null; hoBatchId: string | null; hoReference: string | null; createdAt: string }
 interface Pack { id: string; batchNumber: string; status: string; totalAmount: number; voucherCount: number; paid: number; submittedAt: string }
 interface PackLine { category: string; pvNumber: string; payee: string; type: string; amount: number; taxWithheld: number; retention: number; net: number; status: string; hoReference: string | null; hoPaidDate: string | null; invoiceNumber: string | null; invoiceDate: string | null; dueDate: string | null; matchStatus: string | null; poNumber: string | null; grnNumbers: string[]; approvedBy: string | null; project: string | null }
 
@@ -98,7 +98,8 @@ function Inner() {
     };
 
     const rows = vouchers.data ?? [];
-    const approved = rows.filter((v) => v.status === 'APPROVED' && !v.hoBatchId);
+    // a company-flow voucher (documents step) goes to HO from Vendor Payment Approvals, never in a pack
+    const approved = rows.filter((v) => v.status === 'APPROVED' && !v.hoBatchId && !v.docsStatus);
     const pickedTotal = approved.filter((v) => picked.includes(v.id)).reduce((a, v) => a + Number(v.netAmount), 0);
     const next: Record<string, { label: string; status: string }[]> = {
         DRAFT: [{ label: 'Submit', status: 'PENDING_APPROVAL' }, { label: 'Cancel', status: 'CANCELLED' }],
@@ -161,10 +162,10 @@ function Inner() {
                                         {rows.length === 0 && <tr><td colSpan={8} className="py-3 text-slate-700">No payment requests yet.</td></tr>}
                                         {rows.map((v) => (
                                             <tr key={v.id} className="border-b border-slate-200 text-slate-900" data-testid="vp-voucher">
-                                                <td className="py-2 pr-2">{v.status === 'APPROVED' && !v.hoBatchId && <input data-testid="vp-pick" type="checkbox" checked={picked.includes(v.id)} onChange={(e) => setPicked(e.target.checked ? [...picked, v.id] : picked.filter((x) => x !== v.id))} />}</td>
+                                                <td className="py-2 pr-2">{v.status === 'APPROVED' && !v.hoBatchId && !v.docsStatus && <input data-testid="vp-pick" type="checkbox" checked={picked.includes(v.id)} onChange={(e) => setPicked(e.target.checked ? [...picked, v.id] : picked.filter((x) => x !== v.id))} />}</td>
                                                 <td className="py-2 pr-3 font-medium">{v.pvNumber}</td><td className="py-2 pr-3">{v.payeeName}</td><td className="py-2 pr-3">{v.type}</td>
                                                 <td className="py-2 pr-3 text-right">{Number(v.netAmount).toLocaleString()}</td>
-                                                <td className="py-2 pr-3"><span className={`rounded px-2 py-0.5 font-semibold ${TONE[v.status] ?? ''}`} data-testid="vp-status">{LABEL[v.status] ?? v.status.replace('_', ' ')}</span></td>
+                                                <td className="py-2 pr-3"><span className={`rounded px-2 py-0.5 font-semibold ${TONE[v.status] ?? ''}`} data-testid="vp-status">{LABEL[v.status] ?? v.status.replace('_', ' ')}</span>{v.approvalStage && v.approvalStage !== 'ACCOUNT_MANAGER' ? <span className="ml-1 text-xs font-semibold text-slate-700">waiting: {v.approvalStage === 'OSP_MANAGER' ? 'OSP Manager' : 'Head of Section'}</span> : null}{v.docsStatus === 'TO_SEND' ? <span className="ml-1 text-xs font-semibold text-indigo-900">send the documents to Procurement (Vendor Payment Approvals)</span> : v.docsStatus === 'SENT' ? <span className="ml-1 text-xs font-semibold text-slate-700">documents with Procurement</span> : v.docsStatus === 'NOT_RECEIVED' ? <span className="ml-1 text-xs font-semibold text-red-800">documents not received: send again</span> : null}</td>
                                                 <td className="py-2 pr-3" data-testid="vp-ho">{v.hoReference ?? '—'}{v.supplierInvoiceId && Number(v.hoPaidAmount ?? 0) > 0 ? ` · paid ${Number(v.hoPaidAmount).toLocaleString()} of ${Number(v.amount).toLocaleString()}` : ''}</td>
                                                 <td className="py-2 text-right whitespace-nowrap">
                                                     {(next[v.status] ?? []).map((a) => <button key={a.status} data-testid={`vp-${a.label.toLowerCase()}`} onClick={() => move.mutate({ id: v.id, status: a.status })} disabled={move.isPending} className="ml-1.5 rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-bold text-slate-900 hover:bg-slate-100 disabled:opacity-50">{a.label}</button>)}

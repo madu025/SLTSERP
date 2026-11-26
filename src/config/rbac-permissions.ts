@@ -47,6 +47,12 @@ export const RBAC_PERMISSIONS = {
     PROCUREMENT_INVOICE_APPROVE_EXECUTIVE: 'procurement.invoice.approve.executive',
     // the Account Executive at HO records the payments HO makes on OSP vendor payment vouchers (in full or in parts)
     PROCUREMENT_HO_PAYMENT_RECORD: 'procurement.ho.payment.record',
+    // company flow: a vendor voucher is accepted by the OSP Account Manager (finance.approve), then these two, then the documents step
+    FINANCE_PV_APPROVE_OSP: 'finance.pv.approve.osp',
+    FINANCE_PV_APPROVE_HOS: 'finance.pv.approve.hos',
+    PROCUREMENT_PV_DOCUMENTS: 'procurement.pv.documents',
+    // see the vendor voucher flow (Vendor Payment Approvals): everyone who signs a step of it
+    PROCUREMENT_PV_CHAIN_READ: 'procurement.pv.chain.read',
     CONTRACTOR_READ: 'contractor.read',
     CONTRACTOR_WRITE: 'contractor.write',
     HELPDESK_READ: 'helpdesk.read',
@@ -174,6 +180,10 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L3, module: 'PROCUREMENT', action: 'PO_APPROVE_L3', scope: 'OPMC', description: 'Purchase order approval, step 3 of 3 (Finance Manager)' },
     { code: RBAC_PERMISSIONS.PROCUREMENT_INVOICE_APPROVE_EXECUTIVE, module: 'PROCUREMENT', action: 'INVOICE_APPROVE_EXECUTIVE', scope: 'OPMC', description: 'Second approval of a supplier invoice above the executive payment threshold (CEO)' },
     { code: RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD, module: 'PROCUREMENT', action: 'HO_PAYMENT_RECORD', scope: 'OPMC', description: 'Record a payment HO made on an OSP vendor payment voucher, in full or in parts (Account Executive at HO)' },
+    { code: RBAC_PERMISSIONS.FINANCE_PV_APPROVE_OSP, module: 'FINANCE', action: 'PV_APPROVE_OSP', scope: 'OPMC', description: 'Vendor payment voucher, step 2 of 3: OSP Manager review (after the OSP Account Manager)' },
+    { code: RBAC_PERMISSIONS.FINANCE_PV_APPROVE_HOS, module: 'FINANCE', action: 'PV_APPROVE_HOS', scope: 'OPMC', description: 'Vendor payment voucher, step 3 of 3: Head of Section review (posts the vendor invoice)' },
+    { code: RBAC_PERMISSIONS.PROCUREMENT_PV_CHAIN_READ, module: 'PROCUREMENT', action: 'PV_CHAIN_READ', scope: 'OPMC', description: 'See the vendor payment vouchers of the company flow and where each one waits (Vendor Payment Approvals)' },
+    { code: RBAC_PERMISSIONS.PROCUREMENT_PV_DOCUMENTS, module: 'PROCUREMENT', action: 'PV_DOCUMENTS', scope: 'OPMC', description: 'Mark the documents of an approved vendor voucher received or not, and send it to HO (Procurement Officer)' },
     { code: RBAC_PERMISSIONS.CONTRACTOR_READ, module: 'CONTRACTOR', action: 'READ', scope: 'OPMC', description: 'Read contractor data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.CONTRACTOR_WRITE, module: 'CONTRACTOR', action: 'WRITE', scope: 'OPMC', description: 'Submit contractor portal work, stock, and return actions within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.HELPDESK_READ, module: 'HELPDESK', action: 'READ', scope: 'OPMC', description: 'Read helpdesk tickets, assets, telemetry, and support data within the assigned OPMC scope' },
