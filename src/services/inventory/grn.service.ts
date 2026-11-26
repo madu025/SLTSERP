@@ -113,8 +113,9 @@ export class GRNService {
                 }
                 requestId = po.stockRequestId;
                 poId = po.id;
-                // an order approved in the HO system is received with its Oracle GRN number and the vendor's invoice for this delivery
-                if (po.hoApprovalRef) {
+                // an order approved in the HO system (recorded with its payment terms; earlier ones with their HO reference) is received with its
+                // Oracle GRN number and the vendor's invoice for this delivery
+                if (po.hoApprovalRef || po.paymentBasis) {
                     if ((oracleGrnNumber ?? '').trim().length < 3) throw AppError.badRequest('ORACLE_GRN_NUMBER_REQUIRED: enter the GRN number from the Oracle system');
                     if ((vendorInvoiceNumber ?? '').trim().length < 1 || !vendorInvoiceDate || Number.isNaN(new Date(vendorInvoiceDate).getTime())) throw AppError.badRequest('VENDOR_INVOICE_REQUIRED: enter the vendor invoice number and date for this delivery');
                     if (!(Number(vendorInvoiceGoods) >= 0) || !(Number(vendorInvoiceTax ?? 0) >= 0)) throw AppError.badRequest('VENDOR_INVOICE_REQUIRED: enter the invoice goods value and tax');
@@ -147,7 +148,7 @@ export class GRNService {
                 const ids = [...new Set(items.map((i) => i.poItemId as string))];
                 const poLines = await tx.purchaseOrderItem.findMany({
                     where: { id: { in: ids } },
-                    include: { purchaseOrder: { select: { id: true, poNumber: true, status: true, vendor: true, vendorId: true, stockRequestId: true, hoApprovalRef: true, stockRequest: { select: { fromStoreId: true } } } }, stockRequestItem: { select: { itemId: true } } },
+                    include: { purchaseOrder: { select: { id: true, poNumber: true, status: true, vendor: true, vendorId: true, stockRequestId: true, hoApprovalRef: true, paymentBasis: true, stockRequest: { select: { fromStoreId: true } } } }, stockRequestItem: { select: { itemId: true } } },
                 });
                 const byId = new Map(poLines.map((l) => [l.id, l]));
                 const vendors = new Set<string>();
@@ -156,7 +157,7 @@ export class GRNService {
                     const l = byId.get(i.poItemId as string);
                     if (!l) throw AppError.badRequest('PURCHASE_ORDER_LINE_NOT_FOUND');
                     // an order approved in the HO system is received one PO per GRN, with the vendor's invoice for that delivery
-                    if (l.purchaseOrder.hoApprovalRef) throw AppError.badRequest(`HO_ORDER_ONE_PO_PER_GRN: receive ${l.purchaseOrder.poNumber} on its own GRN with its vendor invoice`);
+                    if (l.purchaseOrder.hoApprovalRef || l.purchaseOrder.paymentBasis) throw AppError.badRequest(`HO_ORDER_ONE_PO_PER_GRN: receive ${l.purchaseOrder.poNumber} on its own GRN with its vendor invoice`);
                     // the goods of an order are received into the store that raised it (the caller's access to that store was checked above)
                     if (l.purchaseOrder.stockRequest.fromStoreId !== storeId) throw AppError.forbidden(`PURCHASE_ORDER_LINE_NOT_IN_STORE: ${l.purchaseOrder.poNumber} belongs to another store`);
                     const st = normalizePoStatus(l.purchaseOrder.status);
@@ -181,7 +182,7 @@ export class GRNService {
             };
             // a request with an order approved in the HO system is received per PO (with that PO's vendor invoice), never as a combined intake
             if (!poId && !lineMode && requestIdInput) {
-                const hoOrders = await tx.purchaseOrder.count({ where: { stockRequestId: requestIdInput, hoApprovalRef: { not: null }, status: { not: 'CANCELLED' } } });
+                const hoOrders = await tx.purchaseOrder.count({ where: { stockRequestId: requestIdInput, OR: [{ hoApprovalRef: { not: null } }, { paymentBasis: { not: null } }], status: { not: 'CANCELLED' } } });
                 if (hoOrders > 0) throw AppError.badRequest('HO_ORDER_PO_REQUIRED: choose the purchase order this delivery is for; each delivery is received against its own PO with its vendor invoice');
             }
             const poIdsTouched = lineMode ? [...new Set([...lineAlloc.values()].map((a) => a.poId))] : (poId ? [poId] : []);

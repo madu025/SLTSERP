@@ -64,6 +64,12 @@ test('retired capabilities are never in the catalog, and the deploy seed switche
     assert.match(seed, /prisma\.permissionDefinition\.updateMany\(\{ where: \{ code: \{ in: \[\.\.\.RETIRED_PERMISSION_CODES\] \}, isActive: true \}, data: \{ isActive: false \} \}\)/);
 });
 
+test('a GRN of a PO recorded with its payment terms needs the Oracle GRN number and the vendor invoice, and creates the invoice (found by the browser QA)', () => {
+    const grn = read('src/services/inventory/grn.service.ts');
+    assert.ok(grn.includes('if (po.hoApprovalRef || po.paymentBasis) {'), 'the HO reference was removed from the PO form, so the payment terms mark an HO order');
+    assert.ok(grn.includes('OR: [{ hoApprovalRef: { not: null } }, { paymentBasis: { not: null } }]'));
+});
+
 test('the capabilities of the removed steps are gone', () => {
     const codes = RBAC_PERMISSION_DEFINITIONS.map((p) => p.code as string);
     for (const c of ['finance.pv.approve.account', 'finance.pv.approve.osp', 'finance.pv.approve.hos', 'procurement.pv.documents', 'notification.audience.pv-account-managers']) {
