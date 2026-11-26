@@ -83,4 +83,7 @@ test('signatures: only a stored scan is accepted, and a mismatched invoice is ap
     assert.match(chain, /INVOICE_VARIANCE_NEEDS_FINANCE_APPROVAL/);
     assert.match(chain, /if \(si\.status === 'MATCHED'\) await SupplierInvoiceService\.approve\(si\.id, userId, null, \{ viaVoucherChain: true \}\)/, 'no override reason through the signatures step');
     assert.doesNotMatch(read('src/app/api/procurement/payment-approvals/route.ts'), /matchOverrideReason/);
+    // found by the browser QA: the upload API refused the bucket the page asked for
+    const bucket = /fd\.append\("bucket", "([^"]+)"\)/.exec(read('src/app/procurement/payment-approvals/page.tsx'))?.[1];
+    assert.ok(bucket && read('src/app/api/upload/route.ts').includes(`'${bucket}'`), `the signed voucher goes to an allowed upload bucket (${bucket})`);
 });

@@ -45,7 +45,8 @@ export default function PaymentApprovalsPage() {
     const uploadSigned = async (voucherId: string, file: File) => {
         const fd = new FormData();
         fd.append("file", file);
-        fd.append("bucket", "finance");
+        // an allowed upload bucket (the upload API refuses any other)
+        fd.append("bucket", "invoices");
         const res = await fetch("/api/upload", { method: "POST", body: fd });
         const json = await res.json().catch(() => ({}));
         const url = json?.url ?? json?.data?.url;
