@@ -39,6 +39,12 @@ export const RBAC_PERMISSIONS = {
     INVENTORY_APPROVE: 'inventory.approve',
     PROCUREMENT_READ: 'procurement.read',
     PROCUREMENT_WRITE: 'procurement.write',
+    // the purchase order approval chain: each step is its own capability, in this order (see src/lib/po-approval-chain.ts)
+    PROCUREMENT_PO_APPROVE_L1: 'procurement.po.approve.l1',
+    PROCUREMENT_PO_APPROVE_L2: 'procurement.po.approve.l2',
+    PROCUREMENT_PO_APPROVE_L3: 'procurement.po.approve.l3',
+    // second approval of a supplier payment above the threshold set in the admin settings
+    PROCUREMENT_INVOICE_APPROVE_EXECUTIVE: 'procurement.invoice.approve.executive',
     CONTRACTOR_READ: 'contractor.read',
     CONTRACTOR_WRITE: 'contractor.write',
     HELPDESK_READ: 'helpdesk.read',
@@ -161,6 +167,10 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.INVENTORY_APPROVE, module: 'INVENTORY', action: 'APPROVE', scope: 'OPMC', description: 'Approve inventory workflows within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.PROCUREMENT_READ, module: 'PROCUREMENT', action: 'READ', scope: 'OPMC', description: 'Read procurement data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.PROCUREMENT_WRITE, module: 'PROCUREMENT', action: 'WRITE', scope: 'OPMC', description: 'Modify procurement data within the assigned OPMC scope' },
+    { code: RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L1, module: 'PROCUREMENT', action: 'PO_APPROVE_L1', scope: 'OPMC', description: 'Purchase order approval, step 1 of 3 (OSP Manager)' },
+    { code: RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L2, module: 'PROCUREMENT', action: 'PO_APPROVE_L2', scope: 'OPMC', description: 'Purchase order approval, step 2 of 3 (Head of OSP)' },
+    { code: RBAC_PERMISSIONS.PROCUREMENT_PO_APPROVE_L3, module: 'PROCUREMENT', action: 'PO_APPROVE_L3', scope: 'OPMC', description: 'Purchase order approval, step 3 of 3 (Finance Manager)' },
+    { code: RBAC_PERMISSIONS.PROCUREMENT_INVOICE_APPROVE_EXECUTIVE, module: 'PROCUREMENT', action: 'INVOICE_APPROVE_EXECUTIVE', scope: 'OPMC', description: 'Second approval of a supplier invoice above the executive payment threshold (CEO)' },
     { code: RBAC_PERMISSIONS.CONTRACTOR_READ, module: 'CONTRACTOR', action: 'READ', scope: 'OPMC', description: 'Read contractor data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.CONTRACTOR_WRITE, module: 'CONTRACTOR', action: 'WRITE', scope: 'OPMC', description: 'Submit contractor portal work, stock, and return actions within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.HELPDESK_READ, module: 'HELPDESK', action: 'READ', scope: 'OPMC', description: 'Read helpdesk tickets, assets, telemetry, and support data within the assigned OPMC scope' },

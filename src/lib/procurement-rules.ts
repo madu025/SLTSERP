@@ -5,11 +5,13 @@
 
 // ---- purchase order lifecycle ---------------------------------------------------------------------------------------
 
-export const PO_STATUSES = ['PENDING_APPROVAL', 'APPROVED', 'ISSUED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CLOSED', 'CANCELLED'] as const;
+export const PO_STATUSES = ['PENDING_APPROVAL', 'RETURNED', 'APPROVED', 'ISSUED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CLOSED', 'CANCELLED'] as const;
 export type PoStatus = (typeof PO_STATUSES)[number];
 
 const PO_TRANSITIONS: Record<PoStatus, PoStatus[]> = {
-    PENDING_APPROVAL: ['APPROVED', 'CANCELLED'],
+    PENDING_APPROVAL: ['APPROVED', 'RETURNED', 'CANCELLED'],
+    // returned from step 1 to the person who raised it: amended, then sent into the chain again
+    RETURNED: ['PENDING_APPROVAL', 'CANCELLED'],
     APPROVED: ['ISSUED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED'],
     ISSUED: ['PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED'],
     PARTIALLY_RECEIVED: ['RECEIVED', 'CLOSED'],
@@ -31,13 +33,25 @@ export function canTransitionPo(from: string | null | undefined, to: PoStatus): 
 /** Lines can still be amended or the order cancelled only while nothing has been received. */
 export function isPoEditable(status: string | null | undefined, anyReceived: boolean): boolean {
     const s = normalizePoStatus(status);
-    return !anyReceived && (s === 'PENDING_APPROVAL' || s === 'APPROVED' || s === 'ISSUED');
+    return !anyReceived && (s === 'PENDING_APPROVAL' || s === 'RETURNED' || s === 'APPROVED' || s === 'ISSUED');
+}
+
+/**
+ * Whether an amendment of vendor, quantity, price or tax is allowed, and whether it sends the order back to step 1.
+ * An issued order is a commitment to the vendor, so its value cannot change (cancel it and raise a new one); an order that is
+ * waiting or already approved restarts the chain when its value changes; a returned order is simply amended and resubmitted.
+ */
+export function valueAmendment(status: string | null | undefined): 'ALLOWED' | 'RESTARTS_CHAIN' | 'NOT_ALLOWED' {
+    const s = normalizePoStatus(status);
+    if (s === 'RETURNED') return 'ALLOWED';
+    if (s === 'PENDING_APPROVAL' || s === 'APPROVED') return 'RESTARTS_CHAIN';
+    return 'NOT_ALLOWED';
 }
 
 /** The status a PO should hold after receipts: nothing received, some, or all lines complete (within tolerance). */
 export function poStatusFromReceipts(current: string | null | undefined, lines: { quantity: number; receivedQty: number }[]): PoStatus {
     const status = normalizePoStatus(current);
-    if (status === 'CANCELLED' || status === 'CLOSED' || status === 'PENDING_APPROVAL') return status;
+    if (status === 'CANCELLED' || status === 'CLOSED' || status === 'PENDING_APPROVAL' || status === 'RETURNED') return status;
     const any = lines.some((l) => l.receivedQty > 0);
     if (!any) return status === 'ISSUED' ? 'ISSUED' : 'APPROVED';
     const complete = lines.every((l) => l.receivedQty >= l.quantity - 1e-9);

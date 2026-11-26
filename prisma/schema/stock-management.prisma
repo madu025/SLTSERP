@@ -547,7 +547,12 @@ model PurchaseOrder {
   cancelledById      String?           @db.Uuid
   cancellationReason String?
   closedAt           DateTime?
+  /// Who raised the order; null on orders raised before the approval chain. The raiser can never approve it.
+  createdById        String?           @db.Uuid
+  /// Where the order waits in the chain while PENDING_APPROVAL: L1 -> L2 -> L3 (src/lib/po-approval-chain.ts); null otherwise.
+  approvalStage      String?
   supplierInvoices   SupplierInvoice[]
+  approvals          PurchaseOrderApproval[]
 
   stockRequestId String       @db.Uuid
   stockRequest   StockRequest @relation(fields: [stockRequestId], references: [id], onDelete: Restrict)
@@ -559,6 +564,30 @@ model PurchaseOrder {
   updatedAt DateTime @updatedAt
 
   @@index([stockRequestId])
+}
+
+/// Append-only, hash-chained record of every step of a purchase order's approval (a database trigger blocks update and delete).
+model PurchaseOrderApproval {
+  id              String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  purchaseOrderId String   @db.Uuid
+  /// 1, 2, 3 ... per order; (purchaseOrderId, seq) is unique so two writers cannot both take the same place in the chain
+  seq             Int
+  /// L1 | L2 | L3 the order was waiting at; null for entries not tied to a step
+  stage           String?
+  /// SUBMITTED | APPROVED | RETURNED | RESET | CANCELLED
+  action          String
+  actorId         String   @db.Uuid
+  /// The order total at that moment, as text
+  amount          String
+  remarks         String?
+  previousHash    String?
+  hash            String
+  createdAt       DateTime @default(now())
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+
+  @@unique([purchaseOrderId, seq])
+  @@index([actorId])
 }
 
 model PurchaseOrderItem {

@@ -1,4 +1,5 @@
 "use client";
+import { PO_STAGE_LABEL, type PoStage } from '@/lib/po-approval-chain';
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Sidebar from '@/components/Sidebar';
@@ -43,6 +44,8 @@ interface ProcurementRequest {
         id?: string;
         poNumber: string;
         status?: string | null;
+        /** L1 | L2 | L3 while the order waits in the approval chain */
+        approvalStage?: string | null;
         vendor: string;
         expectedDelivery?: string | null;
         totalAmount?: number | null;
@@ -140,7 +143,7 @@ export default function ProcurementOrdersPage() {
     });
     // Issue / cancel / close an existing purchase order
     const poActionMutation = useMutation({
-        mutationFn: async (payload: { action: "ISSUE" | "CANCEL" | "CLOSE" | "APPROVE"; poId: string; reason?: string }) => {
+        mutationFn: async (payload: { action: "ISSUE" | "CANCEL" | "CLOSE" | "APPROVE" | "RETURN" | "RESUBMIT"; poId: string; reason?: string; remarks?: string }) => {
             const res = await fetch("/api/procurement/purchase-orders", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -151,7 +154,7 @@ export default function ProcurementOrdersPage() {
             return json;
         },
         onSuccess: (_d, v) => {
-            toast.success(v.action === "ISSUE" ? "Purchase order issued to the vendor" : v.action === "APPROVE" ? "Purchase order approved" : v.action === "CANCEL" ? "Purchase order cancelled" : "Purchase order closed");
+            toast.success(v.action === "ISSUE" ? "Purchase order issued to the vendor" : v.action === "APPROVE" ? "Approval recorded" : v.action === "RETURN" ? "Purchase order returned with your remarks" : v.action === "RESUBMIT" ? "Purchase order sent for approval again" : v.action === "CANCEL" ? "Purchase order cancelled" : "Purchase order closed");
             queryClient.invalidateQueries({ queryKey: ["procurement-orders"] });
             setSelectedRequest(null);
         },
@@ -567,7 +570,7 @@ export default function ProcurementOrdersPage() {
                                                                         ).length;
                                                                         const isFullyCovered = reqItems.length > 0 && coveredCount === reqItems.length;
                                                                         const poStates = (req.purchaseOrders ?? []).map((po) => po.status ?? 'APPROVED');
-                                                                        const coverLabel = poStates.includes('PENDING_APPROVAL') ? 'PO awaiting approval' : poStates.every((st) => ['ISSUED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CLOSED'].includes(st)) ? '✓ All POs Issued' : '✓ PO approved, not yet issued';
+                                                                        const coverLabel = poStates.includes('RETURNED') ? 'PO returned: needs changes' : poStates.includes('PENDING_APPROVAL') ? 'PO awaiting approval' : poStates.every((st) => ['ISSUED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CLOSED'].includes(st)) ? '✓ All POs Issued' : '✓ PO approved, not yet issued';
                                                                         if (isFullyCovered) {
                                                                             return (
                                                                                 <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold whitespace-nowrap px-2 py-1">
@@ -742,17 +745,24 @@ export default function ProcurementOrdersPage() {
                                                                  <div className="flex items-center gap-2">
                                                                      <span className="font-mono font-black text-blue-600 dark:text-blue-400 text-sm">{po.poNumber}</span>
                                                                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] font-bold" data-testid="po-status">
-                                                                         {(po.status || 'APPROVED').replace(/_/g, ' ')}
+                                                                         {(po.status || 'APPROVED').replace(/_/g, ' ')}{po.status === 'PENDING_APPROVAL' && po.approvalStage ? ` · ${PO_STAGE_LABEL[po.approvalStage as PoStage] ?? po.approvalStage}` : ''}
                                                                      </Badge>
                                                                      {po.id && !['CANCELLED', 'CLOSED'].includes(po.status || '') && (
                                                                          <span className="flex items-center gap-1.5 ml-2">
                                                                              {po.status === 'PENDING_APPROVAL' && (
-                                                                                 <button type="button" data-testid="po-approve" onClick={() => poActionMutation.mutate({ action: "APPROVE", poId: po.id! })} className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100">Approve PO</button>
+                                                                                 <button type="button" data-testid="po-approve" onClick={() => poActionMutation.mutate({ action: "APPROVE", poId: po.id! })} className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100">Approve this step</button>
                                                                              )}
+                                                                             {po.status === 'PENDING_APPROVAL' && (
+                                                                                 <button type="button" data-testid="po-return" onClick={() => { const remarks = window.prompt("Remarks for returning this purchase order one step back (required):"); if (remarks && remarks.trim().length >= 3) poActionMutation.mutate({ action: "RETURN", poId: po.id!, remarks }); }} className="rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-900 hover:bg-amber-100">Return</button>
+                                                                             )}
+                                                                             {po.status === 'RETURNED' && (
+                                                                                 <button type="button" data-testid="po-resubmit" onClick={() => poActionMutation.mutate({ action: "RESUBMIT", poId: po.id! })} className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100">Send for approval again</button>
+                                                                             )}
+                                                                             <a href={`/procurement/orders/${po.id}`} data-testid="po-dossier" className="rounded-md border border-slate-300 bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-800 hover:bg-slate-100">History and documents</a>
                                                                              {['APPROVED', 'PENDING', undefined, null].includes(po.status as any) && (
                                                                                  <button type="button" data-testid="po-issue" onClick={() => poActionMutation.mutate({ action: "ISSUE", poId: po.id! })} className="rounded-md border border-blue-300 bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-800 hover:bg-blue-100">Mark issued</button>
                                                                              )}
-                                                                             {['PENDING_APPROVAL', 'APPROVED', 'ISSUED', 'PENDING', undefined, null].includes(po.status as any) && (
+                                                                             {['PENDING_APPROVAL', 'RETURNED', 'APPROVED', 'ISSUED', 'PENDING', undefined, null].includes(po.status as any) && (
                                                                                  <button type="button" data-testid="po-cancel" onClick={() => { const reason = window.prompt("Reason for cancelling this purchase order?"); if (reason && reason.trim().length >= 3) poActionMutation.mutate({ action: "CANCEL", poId: po.id!, reason }); }} className="rounded-md border border-red-300 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-800 hover:bg-red-100">Cancel PO</button>
                                                                              )}
                                                                              {['PARTIALLY_RECEIVED', 'RECEIVED'].includes(po.status || '') && (

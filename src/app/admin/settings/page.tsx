@@ -335,6 +335,18 @@ function FinanceSectionCard() {
                         />
                         <p className="text-[10px] text-slate-400">Max voucher amount approved by GM.</p>
                     </div>
+
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                        <Label className="text-xs font-bold text-slate-800">Executive Approval Threshold, Supplier Payments (LKR)</Label>
+                        <Input
+                            type="number"
+                            data-testid="setting-ceo-threshold"
+                            defaultValue={configs['PROCUREMENT_CEO_APPROVAL_THRESHOLD'] || '5000000'}
+                            onBlur={(e) => handleValidatedUpdate('PROCUREMENT_CEO_APPROVAL_THRESHOLD', e.target.value, 0)}
+                            className="h-9 bg-white font-mono font-bold text-xs"
+                        />
+                        <p className="text-[10px] text-slate-400">A supplier invoice above this amount needs the CEO&apos;s second approval after the Finance Manager.</p>
+                    </div>
                 </div>
             </CardContent>
         </Card>

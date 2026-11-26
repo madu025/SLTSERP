@@ -30,13 +30,16 @@ const amendSchema = z.object({
     poId: databaseUuidSchema,
     vendorId: databaseUuidSchema.nullish(),
     expectedDelivery: z.string().nullish(),
+    reason: z.string().max(500).nullish(),
     lines: z.array(z.object({ poItemId: databaseUuidSchema, quantity: z.number().positive().optional(), unitPrice: z.number().min(0).optional(), taxAmount: z.number().min(0).optional() })).optional(),
 });
 
-const simple = z.object({ action: z.enum(['ISSUE', 'CLOSE', 'APPROVE']), poId: databaseUuidSchema });
+const simple = z.object({ action: z.enum(['ISSUE', 'CLOSE']), poId: databaseUuidSchema });
+const approveSchema = z.object({ action: z.enum(['APPROVE', 'RESUBMIT']), poId: databaseUuidSchema, remarks: z.string().max(500).nullish() });
+const returnSchema = z.object({ action: z.literal('RETURN'), poId: databaseUuidSchema, remarks: z.string().min(3).max(500) });
 const cancelSchema = z.object({ action: z.literal('CANCEL'), poId: databaseUuidSchema, reason: z.string().min(3).max(500) });
 
-const bodySchema = z.discriminatedUnion('action', [createSchema, amendSchema, simple, cancelSchema]);
+const bodySchema = z.discriminatedUnion('action', [createSchema, amendSchema, simple, approveSchema, returnSchema, cancelSchema]);
 
 // GET /api/procurement/purchase-orders?status=&vendorId=
 // Store purchase orders in the caller's stores, newest first.
@@ -52,7 +55,9 @@ export const POST = apiHandler(async (_req, params, body: z.infer<typeof bodySch
     switch (body.action) {
         case 'CREATE': return PurchaseOrderService.createStorePo({ ...body, userId });
         case 'AMEND': return PurchaseOrderService.amendStorePo({ ...body, userId });
-        case 'APPROVE': return PurchaseOrderService.approveStorePo(body.poId, userId);
+        case 'APPROVE': return PurchaseOrderService.approveStorePo(body.poId, userId, body.remarks);
+        case 'RESUBMIT': return PurchaseOrderService.resubmitStorePo(body.poId, userId, body.remarks);
+        case 'RETURN': return PurchaseOrderService.returnStorePo(body.poId, userId, body.remarks);
         case 'ISSUE': return PurchaseOrderService.issueStorePo(body.poId, userId);
         case 'CANCEL': return PurchaseOrderService.cancelStorePo(body.poId, userId, body.reason);
         case 'CLOSE': return PurchaseOrderService.closeStorePo(body.poId, userId);
