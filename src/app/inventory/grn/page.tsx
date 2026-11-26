@@ -426,6 +426,7 @@ export default function GRNPage() {
                         <div className="space-y-0.5">
                             <h1 className="text-xl font-black text-slate-900 tracking-tight">Goods Receipt Note (GRN)</h1>
                             <p className="text-xs text-slate-500">Receive goods and update stock levels</p>
+                            <a href="/inventory/grn/po-receipt" data-testid="grn-multi-po-link" className="inline-block rounded-md border border-emerald-700 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900 hover:bg-emerald-100">One delivery, several purchase orders: receive against PO lines</a>
                         </div>
 
                         {/* Tabs */}

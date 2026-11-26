@@ -347,6 +347,21 @@ function FinanceSectionCard() {
                         />
                         <p className="text-[10px] text-slate-400">A supplier invoice above this amount needs the CEO&apos;s second approval after the Finance Manager.</p>
                     </div>
+
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                        <Label htmlFor="po-approval-mode" className="text-xs font-bold text-slate-800">Purchase Order Approval</Label>
+                        <select
+                            id="po-approval-mode"
+                            data-testid="setting-po-approval-mode"
+                            value={configs['PROCUREMENT_PO_APPROVAL_MODE'] || 'HO_DOCUMENTS'}
+                            onChange={(e) => mutation.mutate({ key: 'PROCUREMENT_PO_APPROVAL_MODE', value: e.target.value })}
+                            className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-xs font-bold text-slate-900"
+                        >
+                            <option value="HO_DOCUMENTS">Approved in the HO system (record with HO reference and document)</option>
+                            <option value="NEXUS_CHAIN">Approved in Nexus (OSP Manager, Head of OSP, Finance Manager)</option>
+                        </select>
+                        <p className="text-[10px] text-slate-500">HO mode: the Procurement Officer records the approved order with its HO reference and scanned document.</p>
+                    </div>
                 </div>
             </CardContent>
         </Card>
@@ -549,7 +564,7 @@ function SODOperationsSectionCard() {
 
                     <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5 sm:col-span-2">
                         <Label className="text-xs font-bold text-slate-800">Offline Order Types (Comma-separated)</Label>
-                        <Input 
+                        <Input
                             defaultValue={configs['OFFLINE_ORDER_TYPES'] || 'MODIFY-LOCATION'}
                             onBlur={(e) => {
                                 const val = e.target.value.trim();

@@ -37,7 +37,7 @@ export function previousStage(stage: PoStage): PoStage | null {
     return i > 0 ? PO_STAGES[i - 1] : null;
 }
 
-export const PO_APPROVAL_ACTIONS = ['SUBMITTED', 'APPROVED', 'RETURNED', 'RESET', 'CANCELLED'] as const;
+export const PO_APPROVAL_ACTIONS = ['SUBMITTED', 'APPROVED', 'RETURNED', 'RESET', 'CANCELLED', 'RECORDED', 'HO_PAYMENT'] as const;
 export type PoApprovalAction = (typeof PO_APPROVAL_ACTIONS)[number];
 
 /** Remarks are required whenever the chain does not move forward: a return, a cancellation and a reset. */
@@ -45,10 +45,41 @@ export function remarksRequired(action: PoApprovalAction): boolean {
     return action === 'RETURNED' || action === 'CANCELLED' || action === 'RESET';
 }
 
+/** The cleaned remarks; null when there are none, and also null when remarks are required but too short (callers refuse a null). */
 export function assertRemarks(action: PoApprovalAction, remarks: string | null | undefined): string | null {
     const text = (remarks ?? '').trim();
-    if (remarksRequired(action) && text.length < 3) return 'Remarks are required (at least 3 characters)';
+    if (remarksRequired(action) && text.length < 3) return null;
     return text || null;
+}
+
+// ---- HO mode: the order is approved in the HO system and recorded in Nexus with its evidence ----------------------------
+
+export const PO_APPROVAL_MODE_KEY = 'PROCUREMENT_PO_APPROVAL_MODE';
+export type PoApprovalMode = 'HO_DOCUMENTS' | 'NEXUS_CHAIN';
+
+/** HO_DOCUMENTS unless the admin chose the Nexus chain; anything unknown is read as HO_DOCUMENTS (the default). */
+export function poApprovalMode(value: string | null | undefined): PoApprovalMode {
+    return value === 'NEXUS_CHAIN' ? 'NEXUS_CHAIN' : 'HO_DOCUMENTS';
+}
+
+export interface HoEvidence { ref?: string | null; date?: string | Date | null; approvedBy?: string | null; documentUrl?: string | null }
+
+/** The HO approval must carry its reference, a date that is not in the future, who approved it, and the scanned document. */
+export function validateHoEvidence(e: HoEvidence | null | undefined, now = new Date()): string | null {
+    if (!e) return 'HO approval details are required: reference number, date, approved by and the scanned document';
+    if ((e.ref ?? '').trim().length < 3) return 'Enter the HO approval reference number';
+    const d = e.date ? new Date(e.date) : null;
+    if (!d || Number.isNaN(d.getTime())) return 'Enter the HO approval date';
+    if (d.getTime() > now.getTime() + 86_400_000) return 'The HO approval date cannot be in the future';
+    if ((e.approvedBy ?? '').trim().length < 3) return 'Enter who approved the order at HO (name and designation)';
+    const url = (e.documentUrl ?? '').trim();
+    if (!url || !(url.startsWith('/') || /^https?:\/\//.test(url))) return 'Attach the scanned HO approval document';
+    return null;
+}
+
+/** What recording (or re-recording) the HO payment clears: the received value not yet cleared. Never negative. */
+export function hoClearingDelta(receivedValue: number, alreadyCleared: number): number {
+    return Math.max(0, Math.round((receivedValue - alreadyCleared) * 100) / 100);
 }
 
 // ---- the supplier payment threshold -------------------------------------------------------------------------------------

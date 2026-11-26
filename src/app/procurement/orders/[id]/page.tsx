@@ -7,6 +7,9 @@ interface Dossier {
     po: {
         id: string; poNumber: string; status: string; approvalStage: string | null; vendor: string; currency: string;
         subtotal: number; taxAmount: number; totalAmount: number; orderDate: string; expectedDelivery: string | null; requestNr: string | null;
+        ho: { approvalRef: string; approvalDate: string | null; approvedBy: string | null; documentUrl: string | null } | null;
+        hoPayment: { invoiceRef: string | null; paymentRef: string; paidAt: string | null; cleared: number } | null;
+        values: { orderedGoods: number; tax: number; receivedValue: number; stillToReceive: number };
         createdBy: string | null; approvedBy: string | null; approvedAt: string | null; cancelledBy: string | null; cancelledAt: string | null; cancellationReason: string | null;
         lines: { code: string | null; name: string | null; unit: string | null; quantity: number; receivedQty: number; unitPrice: number; taxAmount: number; totalAmount: number }[];
     };
@@ -20,7 +23,7 @@ interface Dossier {
 const money = (n: number, c = "LKR") => `${c} ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const when = (d: string | null) => (d ? new Date(d).toLocaleString() : "-");
 
-const ACTION_LABEL: Record<string, string> = { SUBMITTED: "Sent for approval", APPROVED: "Approved", RETURNED: "Returned with remarks", RESET: "Sent back to step 1 after a change", CANCELLED: "Cancelled" };
+const ACTION_LABEL: Record<string, string> = { SUBMITTED: "Sent for approval", APPROVED: "Approved", RETURNED: "Returned with remarks", RESET: "Sent back to step 1 after a change", CANCELLED: "Cancelled", RECORDED: "Recorded as approved in the HO system", HO_PAYMENT: "HO payment recorded" };
 
 /** One purchase order with its whole history: approval steps with remarks, receipts, supplier invoices and the audit trail. Printable for audit. */
 export default function PurchaseOrderDossierPage() {
@@ -54,6 +57,25 @@ export default function PurchaseOrderDossierPage() {
                     <button type="button" onClick={() => window.print()} className="rounded-md border border-slate-400 bg-white px-3 py-1 text-xs font-bold text-slate-900 hover:bg-slate-100 print:hidden">Print</button>
                 </div>
             </div>
+
+            {po.ho && (
+                <section className={card} data-testid="dossier-ho">
+                    <h2 className="mb-2 text-sm font-black text-slate-900">HO approval</h2>
+                    <p className="text-xs text-slate-900">Reference <b>{po.ho.approvalRef}</b> · dated {po.ho.approvalDate ? new Date(po.ho.approvalDate).toLocaleDateString() : "-"} · approved by {po.ho.approvedBy ?? "-"}</p>
+                    {po.ho.documentUrl && <a href={po.ho.documentUrl} target="_blank" rel="noreferrer" data-testid="dossier-ho-doc" className="mt-1 inline-block text-xs font-bold text-blue-800 underline">Open the scanned HO approval document</a>}
+                </section>
+            )}
+
+            <section className={card} data-testid="dossier-values">
+                <h2 className="mb-2 text-sm font-black text-slate-900">Value (at the PO prices)</h2>
+                <div className="grid grid-cols-2 gap-2 text-xs text-slate-900 sm:grid-cols-4">
+                    <p>Ordered goods <b className="block">{money(po.values.orderedGoods, po.currency)}</b></p>
+                    <p>Tax on the order <b className="block">{money(po.values.tax, po.currency)}</b></p>
+                    <p>Received so far <b className="block">{money(po.values.receivedValue, po.currency)}</b></p>
+                    <p>Still to receive <b className="block">{money(po.values.stillToReceive, po.currency)}</b></p>
+                </div>
+                <p className="mt-2 text-xs text-slate-900" data-testid="dossier-ho-payment">{po.hoPayment ? `Paid by HO: payment ${po.hoPayment.paymentRef}${po.hoPayment.invoiceRef ? ', invoice ' + po.hoPayment.invoiceRef : ''}, ${po.hoPayment.paidAt ? new Date(po.hoPayment.paidAt).toLocaleDateString() : ''} (cleared ${money(po.hoPayment.cleared, po.currency)} of goods received)` : "No HO payment recorded yet."}</p>
+            </section>
 
             <section className={card}>
                 <h2 className="mb-2 text-sm font-black text-slate-900">Approval steps</h2>

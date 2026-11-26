@@ -46,6 +46,10 @@ interface ProcurementRequest {
         status?: string | null;
         /** L1 | L2 | L3 while the order waits in the approval chain */
         approvalStage?: string | null;
+        /** HO mode: the HO approval reference and scanned document; the HO payment reference once recorded */
+        hoApprovalRef?: string | null;
+        hoDocumentUrl?: string | null;
+        hoPaymentRef?: string | null;
         vendor: string;
         expectedDelivery?: string | null;
         totalAmount?: number | null;
@@ -86,6 +90,40 @@ export default function ProcurementOrdersPage() {
     const [selectedItemIds, setSelectedItemIds] = useState<Record<string, boolean>>({});
     const [itemUnitPrices, setItemUnitPrices] = useState<Record<string, number>>({});
     const [itemOrderQtys, setItemOrderQtys] = useState<Record<string, number>>({});
+    // HO mode: the approval given in the HO system (reference, date, approver, scanned document)
+    const [hoRef, setHoRef] = useState("");
+    const [hoDate, setHoDate] = useState("");
+    const [hoApprovedBy, setHoApprovedBy] = useState("");
+    const [hoDocUrl, setHoDocUrl] = useState("");
+    const [hoUploading, setHoUploading] = useState(false);
+    const { data: poMode = 'HO_DOCUMENTS' } = useQuery<string>({
+        queryKey: ["po-approval-mode"],
+        queryFn: async () => {
+            const res = await fetch("/api/procurement/purchase-orders?meta=mode");
+            const json = await res.json().catch(() => ({}));
+            return json?.data?.mode ?? json?.mode ?? 'HO_DOCUMENTS';
+        },
+        staleTime: 5 * 60_000,
+    });
+    const hoMode = poMode !== 'NEXUS_CHAIN';
+    const uploadHoDocument = async (file: File) => {
+        setHoUploading(true);
+        try {
+            const fd = new FormData();
+            fd.append("file", file);
+            fd.append("bucket", "procurement");
+            const res = await fetch("/api/upload", { method: "POST", body: fd });
+            const json = await res.json().catch(() => ({}));
+            const url = json?.url ?? json?.data?.url;
+            if (!res.ok || !url) throw new Error(json?.error?.message || "Upload failed");
+            setHoDocUrl(url);
+            toast.success("HO approval document attached");
+        } catch (e: any) {
+            toast.error(e?.message || "Upload failed");
+        } finally {
+            setHoUploading(false);
+        }
+    };
     // Toolbar Filters
     const [searchQuery, setSearchQuery] = useState("");
     const [priorityFilter, setPriorityFilter] = useState("ALL");
@@ -143,7 +181,7 @@ export default function ProcurementOrdersPage() {
     });
     // Issue / cancel / close an existing purchase order
     const poActionMutation = useMutation({
-        mutationFn: async (payload: { action: "ISSUE" | "CANCEL" | "CLOSE" | "APPROVE" | "RETURN" | "RESUBMIT"; poId: string; reason?: string; remarks?: string }) => {
+        mutationFn: async (payload: { action: "ISSUE" | "CANCEL" | "CLOSE" | "APPROVE" | "RETURN" | "RESUBMIT" | "RECORD_HO_PAYMENT"; poId: string; reason?: string; remarks?: string; paymentRef?: string; invoiceRef?: string; paidAt?: string }) => {
             const res = await fetch("/api/procurement/purchase-orders", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -154,7 +192,7 @@ export default function ProcurementOrdersPage() {
             return json;
         },
         onSuccess: (_d, v) => {
-            toast.success(v.action === "ISSUE" ? "Purchase order issued to the vendor" : v.action === "APPROVE" ? "Approval recorded" : v.action === "RETURN" ? "Purchase order returned with your remarks" : v.action === "RESUBMIT" ? "Purchase order sent for approval again" : v.action === "CANCEL" ? "Purchase order cancelled" : "Purchase order closed");
+            toast.success(v.action === "ISSUE" ? "Purchase order issued to the vendor" : v.action === "APPROVE" ? "Approval recorded" : v.action === "RETURN" ? "Purchase order returned with your remarks" : v.action === "RESUBMIT" ? "Purchase order sent for approval again" : v.action === "RECORD_HO_PAYMENT" ? "HO payment recorded" : v.action === "CANCEL" ? "Purchase order cancelled" : "Purchase order closed");
             queryClient.invalidateQueries({ queryKey: ["procurement-orders"] });
             setSelectedRequest(null);
         },
@@ -162,7 +200,7 @@ export default function ProcurementOrdersPage() {
     });
     // Create PO Mutation
     const createPOMutation = useMutation({
-        mutationFn: async (data: { poNumber: string, vendor: string, vendorId?: string, expectedDelivery?: string, remarks?: string, items: any[] }) => {
+        mutationFn: async (data: { poNumber: string, vendor: string, vendorId?: string, expectedDelivery?: string, remarks?: string, items: any[], ho?: { ref: string; date: string; approvedBy: string; documentUrl: string } | null }) => {
             if (!selectedRequest) throw new Error("No request selected");
             const res = await fetch("/api/inventory/requests", {
                 method: "PATCH",
@@ -175,7 +213,8 @@ export default function ProcurementOrdersPage() {
                     vendorId: data.vendorId || undefined,
                     expectedDelivery: data.expectedDelivery,
                     remarks: data.remarks,
-                    items: data.items
+                    items: data.items,
+                    ho: data.ho ?? null
                 })
             });
             if (!res.ok) {
@@ -247,6 +286,10 @@ export default function ProcurementOrdersPage() {
         setSelectedItemIds({});
         setItemUnitPrices({});
         setItemOrderQtys({});
+        setHoRef("");
+        setHoDate("");
+        setHoApprovedBy("");
+        setHoDocUrl("");
     };
     const openCreatePODialog = (req: ProcurementRequest) => {
         setSelectedRequest(req);
@@ -296,8 +339,13 @@ export default function ProcurementOrdersPage() {
             toast.error("Please select at least one item to include in this Purchase Order");
             return;
         }
+        if (hoMode && (hoRef.trim().length < 3 || !hoDate || hoApprovedBy.trim().length < 3 || !hoDocUrl)) {
+            toast.error("Enter the HO approval reference, date, approved by, and attach the scanned HO approval document");
+            return;
+        }
         const chosen = vendorList.find((v) => v.id === vendorId);
         createPOMutation.mutate({
+            ho: hoMode ? { ref: hoRef.trim(), date: hoDate, approvedBy: hoApprovedBy.trim(), documentUrl: hoDocUrl } : null,
             poNumber,
             vendor: chosen ? chosen.name : vendor,
             vendorId: chosen ? chosen.id : undefined,
@@ -319,7 +367,7 @@ export default function ProcurementOrdersPage() {
     };
     const filteredRequests = requests.filter((req: ProcurementRequest) => {
         // Search filter: requestNr, vendor, poNumber, purpose, requestedBy name, suggestedVendor
-        const matchesSearch = !searchQuery || 
+        const matchesSearch = !searchQuery ||
             req.requestNr.toLowerCase().includes(searchQuery.toLowerCase()) ||
             req.purchaseOrders?.some(po => po.vendor.toLowerCase().includes(searchQuery.toLowerCase())) ||
             req.purchaseOrders?.some(po => po.poNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -327,11 +375,11 @@ export default function ProcurementOrdersPage() {
             req.requestedBy?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             req.items?.some(item => item.suggestedVendor?.toLowerCase().includes(searchQuery.toLowerCase()));
         // Priority filter
-        const matchesPriority = 
-            priorityFilter === "ALL" || 
+        const matchesPriority =
+            priorityFilter === "ALL" ||
             req.priority === priorityFilter;
         // Source Type filter
-        const matchesType = 
+        const matchesType =
             typeFilter === "ALL" ||
             (typeFilter === "SLT" && req.sourceType === "SLT") ||
             (typeFilter === "LOCAL" && req.sourceType === "LOCAL_PURCHASE");
@@ -635,7 +683,7 @@ export default function ProcurementOrdersPage() {
             </main>
             {/* Page Level Controlled Request Details Drawer - Premium Enterprise Redesign */}
             <Dialog open={!!selectedRequest && !showPODialog} onOpenChange={(open) => { if (!open) setSelectedRequest(null); }}>
-                <DialogContent 
+                <DialogContent
                     showCloseButton={false}
                     className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[65vw] !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none"
                 >
@@ -644,8 +692,8 @@ export default function ProcurementOrdersPage() {
                             {/* Header Banner - Enterprise SAP/Dynamics Style */}
                             <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
                                 <div className="absolute top-0 right-0 p-5">
-                                    <button 
-                                        onClick={() => setSelectedRequest(null)} 
+                                    <button
+                                        onClick={() => setSelectedRequest(null)}
                                         className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
                                     >
                                         <X className="w-4 h-4" />
@@ -758,6 +806,9 @@ export default function ProcurementOrdersPage() {
                                                                              {po.status === 'RETURNED' && (
                                                                                  <button type="button" data-testid="po-resubmit" onClick={() => poActionMutation.mutate({ action: "RESUBMIT", poId: po.id! })} className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100">Send for approval again</button>
                                                                              )}
+                                                                             {po.hoApprovalRef && ['APPROVED', 'ISSUED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CLOSED'].includes(po.status || '') && (
+                                                                                 <button type="button" data-testid="po-ho-payment" onClick={() => { const paymentRef = window.prompt("HO payment reference (cheque / transfer no.):"); if (!paymentRef || paymentRef.trim().length < 3) return; const invoiceRef = window.prompt("Supplier invoice number (as entered at HO), optional:") || ""; const paidAt = window.prompt("Payment date (YYYY-MM-DD):", new Date().toISOString().slice(0, 10)); if (!paidAt) return; poActionMutation.mutate({ action: "RECORD_HO_PAYMENT", poId: po.id!, paymentRef: paymentRef.trim(), invoiceRef: invoiceRef.trim() || undefined, paidAt }); }} className="rounded-md border border-violet-300 bg-violet-50 px-2 py-0.5 text-[10px] font-bold text-violet-900 hover:bg-violet-100">{po.hoPaymentRef ? 'Update HO payment' : 'Record HO payment'}</button>
+                                                                             )}
                                                                              <a href={`/procurement/orders/${po.id}`} data-testid="po-dossier" className="rounded-md border border-slate-300 bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-800 hover:bg-slate-100">History and documents</a>
                                                                              {['APPROVED', 'PENDING', undefined, null].includes(po.status as any) && (
                                                                                  <button type="button" data-testid="po-issue" onClick={() => poActionMutation.mutate({ action: "ISSUE", poId: po.id! })} className="rounded-md border border-blue-300 bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-800 hover:bg-blue-100">Mark issued</button>
@@ -773,6 +824,7 @@ export default function ProcurementOrdersPage() {
                                                                  </div>
                                                                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
                                                                      <User className="w-3.5 h-3.5 text-slate-400" /> Vendor: <span className="font-bold text-slate-900 dark:text-white">{po.vendor}</span>
+                                                                     {po.hoApprovalRef && <span className="text-slate-800 dark:text-slate-200" data-testid="po-ho-ref">· HO approval {po.hoApprovalRef}{po.hoDocumentUrl ? <> · <a href={po.hoDocumentUrl} target="_blank" rel="noreferrer" className="font-bold text-blue-800 underline dark:text-blue-300">document</a></> : null}{po.hoPaymentRef ? ` · paid by HO (${po.hoPaymentRef})` : ''}</span>}
                                                                  </div>
                                                              </div>
                                                              <div className="text-right space-y-0.5">
@@ -953,8 +1005,8 @@ export default function ProcurementOrdersPage() {
                             </div>
                              {/* Sticky Drawer Footer */}
                              <div className="px-6 py-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center flex-shrink-0 gap-3">
-                                 <Button 
-                                     variant="outline" 
+                                 <Button
+                                     variant="outline"
                                      onClick={() => setSelectedRequest(null)}
                                      className="h-9 px-4 text-xs font-bold rounded-xl border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5"
                                  >
@@ -994,7 +1046,7 @@ export default function ProcurementOrdersPage() {
             </Dialog>
             {/* Create PO Form Drawer */}
             <Dialog open={showPODialog} onOpenChange={setShowPODialog}>
-                <DialogContent 
+                <DialogContent
                     showCloseButton={false}
                     className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[65vw] !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none"
                 >
@@ -1003,8 +1055,8 @@ export default function ProcurementOrdersPage() {
                             {/* Header Banner - Enterprise Style */}
                             <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
                                 <div className="absolute top-0 right-0 p-5">
-                                    <button 
-                                        onClick={() => setShowPODialog(false)} 
+                                    <button
+                                        onClick={() => setShowPODialog(false)}
                                         className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
                                     >
                                         <X className="w-4 h-4" />
@@ -1102,6 +1154,30 @@ export default function ProcurementOrdersPage() {
                                             </div>
                                         </div>
                                     </div>
+                                    {hoMode && (
+                                        <div className="bg-white border border-slate-300 p-5 rounded-2xl shadow-sm space-y-3" data-testid="ho-approval-block">
+                                            <h4 className="text-xs font-black text-slate-900">HO approval (the order was approved in the HO system)</h4>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="hoRef" className="text-[11px] font-bold text-slate-800">HO approval reference no.</Label>
+                                                    <Input id="hoRef" data-testid="ho-ref" value={hoRef} onChange={(e) => setHoRef(e.target.value)} className="h-9 text-xs bg-white text-slate-900" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="hoDate" className="text-[11px] font-bold text-slate-800">HO approval date</Label>
+                                                    <Input id="hoDate" data-testid="ho-date" type="date" value={hoDate} onChange={(e) => setHoDate(e.target.value)} className="h-9 text-xs bg-white text-slate-900" />
+                                                </div>
+                                                <div className="space-y-1 sm:col-span-2">
+                                                    <Label htmlFor="hoBy" className="text-[11px] font-bold text-slate-800">Approved by (name and designation)</Label>
+                                                    <Input id="hoBy" data-testid="ho-by" value={hoApprovedBy} onChange={(e) => setHoApprovedBy(e.target.value)} className="h-9 text-xs bg-white text-slate-900" />
+                                                </div>
+                                                <div className="space-y-1 sm:col-span-2">
+                                                    <Label htmlFor="hoDoc" className="text-[11px] font-bold text-slate-800">Scanned HO approval document (PDF or image)</Label>
+                                                    <input id="hoDoc" data-testid="ho-doc" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadHoDocument(f); }} className="block w-full text-xs text-slate-900" />
+                                                    <p className="text-[11px] font-semibold text-slate-700" data-testid="ho-doc-state">{hoUploading ? "Uploading…" : hoDocUrl ? "Document attached" : "No document attached yet"}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                     {/* Item Selection & Unit Pricing Table */}
                                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm space-y-3">
                                         <div className="flex items-center justify-between">

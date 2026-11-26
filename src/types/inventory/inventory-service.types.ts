@@ -54,6 +54,8 @@ export interface GRNItemInput {
     serials?: string[];
     expiryDate?: string | Date;
     locator?: string;
+    /** The PO line this receipt line is for: lets one GRN receive the goods of several purchase orders */
+    poItemId?: string | null;
 }
 
 export interface CreateGRNData {
@@ -110,6 +112,8 @@ export interface StockRequestActionData {
     /** Vendor record chosen on the purchase-order screen (preferred over the typed name). */
     vendorId?: string;
     currency?: string;
+    /** HO mode: the approval given in the HO system for the purchase order being created */
+    ho?: { ref?: string | null; date?: string | null; approvedBy?: string | null; documentUrl?: string | null } | null;
     expectedDelivery?: string;
     irNumber?: string;
     isCoveringPO?: boolean;

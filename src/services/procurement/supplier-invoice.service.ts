@@ -282,6 +282,10 @@ export class SupplierInvoiceService {
             AuditService.log({ userId, action: 'FINANCE_APPROVE_SUPPLIER_INVOICE', entity: 'SUPPLIER_INVOICE', entityId: id, newValue: { total: Number(invoice.totalAmount), threshold, waitingFor: 'EXECUTIVE', override: overrideReason ?? null } }).catch(() => undefined);
             return prisma.supplierInvoice.findUniqueOrThrow({ where: { id }, include: { items: true } });
         }
+        if (invoice.storePoId) {
+            const paidByHo = await prisma.purchaseOrder.findUnique({ where: { id: invoice.storePoId }, select: { hoPaymentRef: true, poNumber: true } });
+            if (paidByHo?.hoPaymentRef) throw AppError.badRequest(`HO_ALREADY_PAID: ${paidByHo.poNumber} was paid by HO (${paidByHo.hoPaymentRef}); its payable was cleared there`);
+        }
         if (invoice.category !== 'PO_GOODS') return this.approveService(invoice, userId);
 
         const ctx = await this.getPoContext(invoice.storePoId ? 'STORE' : 'PROJECT', (invoice.storePoId ?? invoice.projectPoId)!);

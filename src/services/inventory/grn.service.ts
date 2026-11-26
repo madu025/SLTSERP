@@ -77,7 +77,7 @@ export class GRNService {
                         data: {
                             type: 'SLTS',
                             code: newCode,
-                            description: dbItem.description 
+                            description: dbItem.description
                                 ? `${dbItem.description} (Registered via GRN)`
                                 : `Registered via GRN`
                         }
@@ -122,34 +122,69 @@ export class GRNService {
                 }
             }
 
-            // 1. Create GRN with an atomic document number
+            // 0b. One GRN for several purchase orders: every line names its PO line. Each PO must be approved and open, all from one vendor,
+            //     the item must be the PO line's item, and each PO line may only be received up to its balance.
+            const lineMode = items.some((i) => i.poItemId);
+            const lineAlloc = new Map<number, { poItemId: string; poId: string; requestId: string; unitPrice: number }>();
+            let vendorLabel: string | null = null;
+            if (lineMode) {
+                if (purchaseOrderId) throw AppError.badRequest('GRN_PO_MODE_CONFLICT: give either one purchase order for the whole GRN or a PO line on every line, not both');
+                if (items.some((i) => !i.poItemId)) throw AppError.badRequest('GRN_PO_LINE_REQUIRED: when receiving against several purchase orders, every line must name its PO line');
+                const ids = [...new Set(items.map((i) => i.poItemId as string))];
+                const poLines = await tx.purchaseOrderItem.findMany({
+                    where: { id: { in: ids } },
+                    include: { purchaseOrder: { select: { id: true, poNumber: true, status: true, vendor: true, vendorId: true, stockRequestId: true, stockRequest: { select: { fromStoreId: true } } } }, stockRequestItem: { select: { itemId: true } } },
+                });
+                const byId = new Map(poLines.map((l) => [l.id, l]));
+                const vendors = new Set<string>();
+                const receiving = new Map<string, number>();
+                items.forEach((i, idx) => {
+                    const l = byId.get(i.poItemId as string);
+                    if (!l) throw AppError.badRequest('PURCHASE_ORDER_LINE_NOT_FOUND');
+                    // the goods of an order are received into the store that raised it (the caller's access to that store was checked above)
+                    if (l.purchaseOrder.stockRequest.fromStoreId !== storeId) throw AppError.forbidden(`PURCHASE_ORDER_LINE_NOT_IN_STORE: ${l.purchaseOrder.poNumber} belongs to another store`);
+                    const st = normalizePoStatus(l.purchaseOrder.status);
+                    if (st === 'PENDING_APPROVAL' || st === 'RETURNED') throw AppError.badRequest(`PURCHASE_ORDER_NOT_APPROVED: ${l.purchaseOrder.poNumber} is not approved and cannot receive goods`);
+                    if (st === 'CANCELLED' || st === 'CLOSED') throw AppError.badRequest(`PURCHASE_ORDER_NOT_OPEN: ${l.purchaseOrder.poNumber} is ${st}`);
+                    if (l.stockRequestItem.itemId !== i.itemId) throw AppError.badRequest(`ITEM_NOT_ON_PURCHASE_ORDER_LINE: the item does not match the line of ${l.purchaseOrder.poNumber}`);
+                    vendors.add(l.purchaseOrder.vendorId ?? l.purchaseOrder.vendor);
+                    vendorLabel = l.purchaseOrder.vendor;
+                    receiving.set(l.id, (receiving.get(l.id) ?? 0) + Number(i.quantity));
+                    lineAlloc.set(idx, { poItemId: l.id, poId: l.purchaseOrder.id, requestId: l.purchaseOrder.stockRequestId, unitPrice: Number(l.unitPrice) });
+                });
+                if (vendors.size > 1) throw AppError.badRequest('GRN_MIXED_VENDORS: one GRN receives the goods of one vendor; the purchase orders chosen are from different vendors');
+                for (const [lineId, qty] of receiving) {
+                    const l = byId.get(lineId)!;
+                    const check = overReceiptCheck(Number(l.quantity), Number(l.receivedQty), qty, cfg.overReceiptTolerancePct);
+                    if (!check.ok) throw AppError.badRequest(`GRN_QUANTITY_EXCEEDS_PO: receiving ${qty} but only ${Number(check.remaining.toFixed(4))} remain on ${l.purchaseOrder.poNumber} for this item`);
+                }
+            }
+            const lineOf = (itemId: string, idx: number): { id: string; unitPrice: number } | undefined => {
+                if (lineMode) { const a = lineAlloc.get(idx); return a ? { id: a.poItemId, unitPrice: a.unitPrice } : undefined; }
+                return poLineByItem.get(itemId);
+            };
+            const poIdsTouched = lineMode ? [...new Set([...lineAlloc.values()].map((a) => a.poId))] : (poId ? [poId] : []);
+            const requestIdsTouched = lineMode ? [...new Set([...lineAlloc.values()].map((a) => a.requestId))] : (requestId ? [requestId] : []);
+
+            // 1. Create GRN with an atomic document number (its lines are written with their batch below, so the same item on two POs stays two lines)
             const grnNumber = await AuditLedgerService.getNextDocumentNumber('GRN', tx);
             const grn = await tx.gRN.create({
                 data: {
                     grnNumber,
                     storeId,
                     sourceType,
-                    supplier,
+                    supplier: supplier || vendorLabel,
                     receivedById,
-                    requestId: requestId || null,
-                    purchaseOrderId: purchaseOrderId || null,
+                    requestId: lineMode ? (requestIdsTouched.length === 1 ? requestIdsTouched[0] : null) : (requestId || null),
+                    purchaseOrderId: lineMode ? (poIdsTouched.length === 1 ? poIdsTouched[0] : null) : (purchaseOrderId || null),
                     reference: reference || sltReferenceId || null,
                     documentUrl: documentUrl || null,
-                    items: {
-                        create: items.map((i) => {
-                            const line = poLineByItem.get(i.itemId);
-                            const master = dbItems.find((d) => d.id === i.itemId);
-                            const price = line && line.unitPrice > 0 ? line.unitPrice : Number(master?.costPrice ?? 0);
-                            return { itemId: i.itemId, quantity: i.quantity, poItemId: line?.id ?? null, unitPrice: price };
-                        })
-                    }
                 },
-                include: { items: true }
             });
 
             // 2. Fetch Item Metadata for Pricing
             const itemIds = items.map((i) => i.itemId);
-            
+
             const itemMetadata = await tx.inventoryItem.findMany({
                 where: { id: { in: itemIds } },
                 select: { id: true, costPrice: true, unitPrice: true }
@@ -159,13 +194,14 @@ export class GRNService {
             const transactionItems: { itemId: string; quantity: number; batchId?: string }[] = [];
             let totalGrnCost = 0;
 
-            for (const item of items) {
+            for (const [idx, item] of items.entries()) {
                 const qty = StockService.round(item.quantity);
-                
+                const poLine = lineOf(item.itemId, idx);
+
                 const meta = itemMetadata.find((m) => m.id === item.itemId);
                 const masterCost = Number(meta?.costPrice ?? 0);
                 // The price actually paid: the PO line price when the receipt is against a PO, otherwise the item master cost
-                const poPrice = poLineByItem.get(item.itemId)?.unitPrice ?? 0;
+                const poPrice = poLine?.unitPrice ?? 0;
                 const costPrice = poPrice > 0 ? poPrice : masterCost;
                 totalGrnCost += costPrice * qty;
                 const unitPrice = meta?.unitPrice || 0;
@@ -198,14 +234,10 @@ export class GRNService {
                     }
                 });
 
-                // B. Link GRN Item to Batch
-                const grnLine = grn.items.find((gi) => gi.itemId === item.itemId);
-                if (grnLine) {
-                    await tx.gRNItem.update({
-                        where: { id: grnLine.id },
-                        data: { batchId: batch.id }
-                    });
-                }
+                // B. The GRN line, with its PO line, the price it was received at and its batch
+                await tx.gRNItem.create({
+                    data: { grnId: grn.id, itemId: item.itemId, quantity: qty, poItemId: poLine?.id ?? null, unitPrice: costPrice, batchId: batch.id },
+                });
 
                 // C. Initialize Batch Stock in Store
                 await tx.inventoryBatchStock.create({
@@ -325,17 +357,20 @@ export class GRNService {
             }
 
             // 3.1 Record what was received against each PO line and move the PO status with it (same transaction)
-            if (poId) {
+            if (lineMode) {
+                const byLine = new Map<string, number>();
+                items.forEach((i, idx) => { const a = lineAlloc.get(idx)!; byLine.set(a.poItemId, (byLine.get(a.poItemId) ?? 0) + Number(i.quantity)); });
+                for (const [lineId, qty] of byLine) await tx.purchaseOrderItem.update({ where: { id: lineId }, data: { receivedQty: { increment: qty } } });
+            } else if (poId) {
                 for (const [itemId, line] of poLineByItem) {
                     const qty = items.filter((i) => i.itemId === itemId).reduce((a, i) => a + Number(i.quantity), 0);
-                    if (qty > 0) {
-                        await tx.purchaseOrderItem.update({ where: { id: line.id }, data: { receivedQty: { increment: qty } } });
-                        line.receivedQty += qty;
-                    }
+                    if (qty > 0) await tx.purchaseOrderItem.update({ where: { id: line.id }, data: { receivedQty: { increment: qty } } });
                 }
-                const currentPo = await tx.purchaseOrder.findUnique({ where: { id: poId }, select: { status: true } });
-                const nextStatus = poStatusFromReceipts(currentPo?.status, [...poLineByItem.values()].map((l) => ({ quantity: l.quantity, receivedQty: l.receivedQty })));
-                await tx.purchaseOrder.update({ where: { id: poId }, data: { status: nextStatus } });
+            }
+            for (const id of poIdsTouched) {
+                const p = await tx.purchaseOrder.findUnique({ where: { id }, select: { status: true, items: { select: { quantity: true, receivedQty: true } } } });
+                const nextStatus = poStatusFromReceipts(p?.status, (p?.items ?? []).map((l) => ({ quantity: Number(l.quantity), receivedQty: Number(l.receivedQty) })));
+                await tx.purchaseOrder.update({ where: { id }, data: { status: nextStatus } });
             }
 
             // 4. Create Transaction Log
@@ -355,8 +390,14 @@ export class GRNService {
             // 3.5 Log receipt in General Ledger (real-time double-entry)
             await LedgerService.logGrnReceipt(tx, grn.id, totalGrnCost);
 
-            // 4. Update Request Status if linked
-            if (requestId) {
+            // 4. Update the status of every stock request this GRN receives against (one, or one per purchase order)
+            for (const requestId of requestIdsTouched) {
+                // the quantities of this GRN that belong to this request, per item
+                const qtyForRequest = new Map<string, number>();
+                items.forEach((i, idx) => {
+                    if (lineMode && lineAlloc.get(idx)?.requestId !== requestId) return;
+                    qtyForRequest.set(i.itemId, (qtyForRequest.get(i.itemId) ?? 0) + Number(i.quantity));
+                });
                 // Lock the StockRequest row to prevent concurrent race conditions
                 // Explicit ::uuid cast — Prisma binds the parameter as text and Postgres
                 // has no implicit text->uuid operator, which would fail the whole transaction
@@ -374,11 +415,11 @@ export class GRNService {
 
                     // Update received quantities for each item
                     for (const reqItem of request.items) {
-                        const grnItem = items.find((gi) => gi.itemId === reqItem.itemId);
+                        const receivedNow = qtyForRequest.get(reqItem.itemId) ?? 0;
                         const limitQty = Number(reqItem.approvedQty) > 0 ? Number(reqItem.approvedQty) : Number(reqItem.requestedQty);
-                        
-                        if (grnItem) {
-                            const newReceivedQty = reqItem.receivedQty.toNumber() + parseFloat(grnItem.quantity.toString());
+
+                        if (receivedNow > 0) {
+                            const newReceivedQty = reqItem.receivedQty.toNumber() + receivedNow;
                             if (newReceivedQty > limitQty) {
                                 throw AppError.badRequest(`GRN_QUANTITY_EXCEEDS_APPROVED_LIMIT: Received quantity of ${newReceivedQty} exceeds approved limit of ${limitQty} for item ${reqItem.itemId}`);
                             }
@@ -428,7 +469,7 @@ export class GRNService {
             }
 
             emitSystemEvent('INVENTORY_UPDATE');
-            return grn;
+            return tx.gRN.findUniqueOrThrow({ where: { id: grn.id }, include: { items: true } });
         }, { timeout: 30000 });
     }
 }

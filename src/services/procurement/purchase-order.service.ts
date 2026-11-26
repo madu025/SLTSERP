@@ -4,7 +4,10 @@ import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
 import { StoreService } from '@/services/inventory/store.service';
 import { AuditService } from '@/services/audit/audit.service';
 import { canTransitionPo, computePoTotals, isPoEditable, normalizePoStatus, valueAmendment, validatePoLine, type PoStatus } from '@/lib/procurement-rules';
-import { FIRST_PO_STAGE, PO_STAGE_LABEL, PO_STAGE_PERMISSION, assertRemarks, isPoStage, nextStage, previousStage, type PoApprovalAction, type PoStage } from '@/lib/po-approval-chain';
+import { FIRST_PO_STAGE, PO_APPROVAL_MODE_KEY, PO_STAGE_LABEL, PO_STAGE_PERMISSION, assertRemarks, hoClearingDelta, isPoStage, nextStage, poApprovalMode, previousStage, validateHoEvidence, type HoEvidence, type PoApprovalAction, type PoApprovalMode, type PoStage } from '@/lib/po-approval-chain';
+import { SystemConfigService } from '@/services/core/system-config.service';
+import { LedgerService } from '@/services/finance/ledger.service';
+import { ACCOUNTS } from '@/services/finance/account-codes';
 import { approvalEntryHash, firstBrokenEntry } from '@/lib/po-approval-hash';
 import { userHasPermission } from '@/lib/user-permissions';
 
@@ -18,7 +21,11 @@ export interface CreateStorePoInput {
     remarks?: string | null;
     currency?: string | null;
     lines: { requestItemId: string; quantity: number; unitPrice: number; taxAmount?: number }[];
+    /** HO mode: the approval given in the HO system (reference, date, approver, scanned document). Required in that mode. */
+    ho?: HoEvidence | null;
 }
+
+export interface HoPaymentInput { poId: string; userId: string; invoiceRef?: string | null; paymentRef: string; paidAt: string }
 
 export interface AmendStorePoInput {
     poId: string;
@@ -45,6 +52,12 @@ export class PurchaseOrderService {
         if (!ids.some((id) => accessible.some((s) => s.id === id))) {
             throw AppError.forbidden('STORE_SCOPE_VIOLATION: this stock request is outside your store scope');
         }
+    }
+
+    /** How purchase orders are approved: in the HO system (default) or by the three-step chain in Nexus (admin setting). */
+    static async approvalMode(): Promise<PoApprovalMode> {
+        const c = await SystemConfigService.getConfigs();
+        return poApprovalMode(c[PO_APPROVAL_MODE_KEY]);
     }
 
     static async createStorePo(input: CreateStorePoInput) {
@@ -93,6 +106,15 @@ export class PurchaseOrderService {
 
         const totals = computePoTotals(lines.map((l) => ({ quantity: l.quantity, unitPrice: l.unitPrice, taxAmount: l.taxAmount })));
 
+        // HO mode: the order was approved in the HO system; it is recorded here, with the evidence, as approved
+        const mode = await this.approvalMode();
+        const ho = input.ho ?? null;
+        if (mode === 'HO_DOCUMENTS') {
+            const err = validateHoEvidence(ho);
+            if (err) throw AppError.badRequest(`HO_APPROVAL_EVIDENCE_REQUIRED: ${err}`);
+        }
+        const recordedFromHo = mode === 'HO_DOCUMENTS' && ho;
+
         const po = await prisma.$transaction(async (tx) => {
             const poNumber = await AuditLedgerService.getNextDocumentNumber('SPO', tx);
             const created = await tx.purchaseOrder.create({
@@ -102,10 +124,17 @@ export class PurchaseOrderService {
                     vendorId,
                     expectedDelivery: input.expectedDelivery ? new Date(input.expectedDelivery) : undefined,
                     stockRequestId: requestId,
-                    // every order goes through the three approval steps, whatever its value
-                    status: 'PENDING_APPROVAL',
-                    approvalStage: FIRST_PO_STAGE,
+                    // HO mode: approved in the HO system, recorded here as approved; Nexus chain mode: every order goes through the three steps
+                    status: recordedFromHo ? 'APPROVED' : 'PENDING_APPROVAL',
+                    approvalStage: recordedFromHo ? null : FIRST_PO_STAGE,
                     createdById: userId,
+                    ...(recordedFromHo ? {
+                        approvedAt: new Date(ho!.date as string),
+                        hoApprovalRef: ho!.ref!.trim(),
+                        hoApprovalDate: new Date(ho!.date as string),
+                        hoApprovedBy: ho!.approvedBy!.trim(),
+                        hoDocumentUrl: ho!.documentUrl!.trim(),
+                    } : {}),
                     currency: (input.currency || 'LKR').toUpperCase().slice(0, 3),
                     subtotal: totals.subtotal,
                     taxAmount: totals.taxAmount,
@@ -126,11 +155,12 @@ export class PurchaseOrderService {
                 where: { id: requestId },
                 data: { procurementStatus: 'PO_CREATED', ...(input.remarks ? { remarks: input.remarks } : {}) },
             });
-            await this.appendApproval(tx, created.id, { stage: FIRST_PO_STAGE, action: 'SUBMITTED', actorId: userId, amount: totals.totalAmount, remarks: input.remarks ?? null });
+            if (recordedFromHo) await this.appendApproval(tx, created.id, { stage: null, action: 'RECORDED', actorId: userId, amount: totals.totalAmount, remarks: `HO approval ${ho!.ref!.trim()} dated ${new Date(ho!.date as string).toISOString().slice(0, 10)} by ${ho!.approvedBy!.trim()}` });
+            else await this.appendApproval(tx, created.id, { stage: FIRST_PO_STAGE, action: 'SUBMITTED', actorId: userId, amount: totals.totalAmount, remarks: input.remarks ?? null });
             return created;
         });
 
-        AuditService.log({ userId, action: 'CREATE_STORE_PO', entity: 'PURCHASE_ORDER', entityId: po.id, newValue: { poNumber: po.poNumber, vendor: vendorName, vendorId, total: totals.totalAmount, lines: lines.length } }).catch(() => undefined);
+        AuditService.log({ userId, action: 'CREATE_STORE_PO', entity: 'PURCHASE_ORDER', entityId: po.id, newValue: { poNumber: po.poNumber, vendor: vendorName, vendorId, total: totals.totalAmount, lines: lines.length, mode, hoApprovalRef: recordedFromHo ? ho!.ref : null } }).catch(() => undefined);
         return po;
     }
 
@@ -187,6 +217,10 @@ export class PurchaseOrderService {
         const valueChanged = (vendorId ?? null) !== (po.vendorId ?? null) || (input.lines ?? []).length > 0;
         let restart = false;
         let resetRemarks: string | null = null;
+        if (valueChanged && po.hoApprovalRef) {
+            // the HO approved this vendor and value; a different order needs its own HO approval
+            throw AppError.badRequest('This order was approved in the HO system: change it there, then cancel this order and record the new one with its HO approval');
+        }
         if (valueChanged) {
             const mode = valueAmendment(po.status);
             if (mode === 'NOT_ALLOWED') throw AppError.badRequest('An issued order is a commitment to the vendor: cancel it and raise a new one to change the vendor or value');
@@ -393,6 +427,14 @@ export class PurchaseOrderService {
                 id: po.id, poNumber: po.poNumber, status: normalizePoStatus(po.status), approvalStage: isPoStage(po.approvalStage) ? po.approvalStage : null,
                 vendor: po.vendor, currency: po.currency, subtotal: Number(po.subtotal), taxAmount: Number(po.taxAmount), totalAmount: Number(po.totalAmount),
                 orderDate: po.orderDate, expectedDelivery: po.expectedDelivery, requestNr: po.stockRequest.requestNr,
+                ho: po.hoApprovalRef ? { approvalRef: po.hoApprovalRef, approvalDate: po.hoApprovalDate, approvedBy: po.hoApprovedBy, documentUrl: po.hoDocumentUrl } : null,
+                hoPayment: po.hoPaymentRef ? { invoiceRef: po.hoInvoiceRef, paymentRef: po.hoPaymentRef, paidAt: po.hoPaidAt, cleared: Number(po.hoClearedAmount) } : null,
+                values: (() => {
+                    const ordered = po.items.reduce((a, l) => a + Number(l.quantity) * Number(l.unitPrice), 0);
+                    const received = po.items.reduce((a, l) => a + Number(l.receivedQty) * Number(l.unitPrice), 0);
+                    const r2 = (n: number) => Math.round(n * 100) / 100;
+                    return { orderedGoods: r2(ordered), tax: Number(po.taxAmount), receivedValue: r2(received), stillToReceive: r2(ordered - received) };
+                })(),
                 createdBy: name(po.createdById), approvedBy: name(po.approvedById), approvedAt: po.approvedAt,
                 cancelledBy: name(po.cancelledById), cancelledAt: po.cancelledAt, cancellationReason: po.cancellationReason,
                 lines: po.items.map((l) => ({ code: l.stockRequestItem.item?.code ?? null, name: l.stockRequestItem.item?.name ?? null, unit: l.stockRequestItem.item?.unit ?? null, quantity: Number(l.quantity), receivedQty: Number(l.receivedQty), unitPrice: Number(l.unitPrice), taxAmount: Number(l.taxAmount), totalAmount: Number(l.totalAmount) })),
@@ -403,6 +445,84 @@ export class PurchaseOrderService {
             invoices: po.supplierInvoices.map((i) => ({ id: i.id, invoiceNumber: i.invoiceNumber, total: Number(i.totalAmount), status: i.status, match: i.matchStatus, enteredBy: name(i.createdById), financeApprovedBy: name(i.financeApprovedById), financeApprovedAt: i.financeApprovedAt, approvedBy: name(i.approvedById), approvedAt: i.approvedAt, overrideReason: i.overrideReason, rejectionReason: i.rejectionReason })),
             auditTrail: trail.map((t) => ({ at: t.createdAt, action: t.action, entity: t.entity, by: name(t.userId), detail: t.newValue })),
         };
+    }
+
+    /** Value received against the order: each receipt line at the price it was received at (the PO price). */
+    private static async receivedValue(poId: string): Promise<number> {
+        const ids = (await prisma.purchaseOrderItem.findMany({ where: { purchaseOrderId: poId }, select: { id: true } })).map((i) => i.id);
+        const lines = await prisma.gRNItem.findMany({ where: { poItemId: { in: ids } }, select: { quantity: true, unitPrice: true } });
+        return Math.round(lines.reduce((a, l) => a + Number(l.quantity) * Number(l.unitPrice ?? 0), 0) * 100) / 100;
+    }
+
+    /**
+     * HO paid the supplier: record the HO invoice and payment reference on the order (information for OSP and stores), and clear the
+     * goods-received-not-invoiced balance of what has been received so far against the HO current account. Recording again after more
+     * goods arrive clears only the difference. Not allowed when the order was already invoiced and approved in Nexus (that clears it too).
+     */
+    static async recordHoPayment(input: HoPaymentInput) {
+        const paymentRef = (input.paymentRef ?? '').trim();
+        if (paymentRef.length < 3) throw AppError.badRequest('Enter the HO payment reference');
+        const paidAt = new Date(input.paidAt);
+        if (Number.isNaN(paidAt.getTime()) || paidAt.getTime() > Date.now() + 86_400_000) throw AppError.badRequest('Enter a valid payment date (not in the future)');
+        const po = await this.loadEditable(input.poId);
+        await this.assertStoreAccess(input.userId, po.stockRequest.fromStoreId, po.stockRequest.toStoreId);
+        if (['CANCELLED', 'PENDING_APPROVAL', 'RETURNED'].includes(normalizePoStatus(po.status))) throw AppError.badRequest('A payment can only be recorded on an approved order');
+        const invoiced = await prisma.supplierInvoice.count({ where: { storePoId: po.id, status: { in: ['AWAITING_EXECUTIVE', 'APPROVED', 'PARTIALLY_PAID', 'PAID'] } } });
+        if (invoiced > 0) throw AppError.badRequest('This order was invoiced and approved in Nexus; its payable is handled there');
+        const received = await this.receivedValue(po.id);
+        const delta = hoClearingDelta(received, Number(po.hoClearedAmount ?? 0));
+        const cleared = Math.round((Number(po.hoClearedAmount ?? 0) + delta) * 100) / 100;
+        await prisma.$transaction(async (tx) => {
+            await tx.purchaseOrder.update({ where: { id: po.id }, data: { hoInvoiceRef: input.invoiceRef?.trim() || po.hoInvoiceRef || null, hoPaymentRef: paymentRef, hoPaidAt: paidAt, hoClearedAmount: cleared } });
+            if (delta > 0) {
+                await LedgerService.postTransaction(tx, {
+                    referenceId: po.id, referenceType: 'PURCHASE_ORDER', idempotencyKey: `HO_PAYMENT_${po.id}_${cleared.toFixed(2)}`, isAutoGenerated: true, date: paidAt,
+                    description: `HO paid ${po.vendor} for ${po.poNumber} (${paymentRef})`,
+                    lines: [
+                        { accountCode: ACCOUNTS.AP_ACCRUED, debit: delta, credit: 0, description: `Goods received on ${po.poNumber}, paid by HO` },
+                        { accountCode: ACCOUNTS.HO_CURRENT, debit: 0, credit: delta, description: `Owed to HO: payment ${paymentRef}` },
+                    ],
+                });
+            }
+            await this.appendApproval(tx, po.id, { stage: null, action: 'HO_PAYMENT', actorId: input.userId, amount: Number(po.totalAmount), remarks: `HO payment ${paymentRef}${input.invoiceRef ? ', invoice ' + input.invoiceRef.trim() : ''}, cleared ${delta.toFixed(2)} of ${received.toFixed(2)} received` });
+        }, { maxWait: 10_000, timeout: 30_000 });
+        AuditService.log({ userId: input.userId, action: 'RECORD_HO_PAYMENT', entity: 'PURCHASE_ORDER', entityId: po.id, newValue: { paymentRef, invoiceRef: input.invoiceRef ?? null, paidAt, received, cleared, delta } }).catch(() => undefined);
+        return prisma.purchaseOrder.findUniqueOrThrow({ where: { id: po.id }, include: { items: true } });
+    }
+
+    /**
+     * Lines still to receive on approved, open purchase orders of the caller's stores, for a GRN that receives several orders at once.
+     * One row per PO line with what is left to receive; the receiving store is the store that raised the request.
+     */
+    static async openLinesForReceipt(userId: string) {
+        const stores = await StoreService.getAccessibleStores(userId);
+        const ids = stores.map((s) => s.id);
+        const pos = await prisma.purchaseOrder.findMany({
+            where: { status: { in: ['APPROVED', 'ISSUED', 'PARTIALLY_RECEIVED', 'PENDING', 'COMPLETED'] }, stockRequest: { fromStoreId: { in: ids } } },
+            orderBy: { createdAt: 'asc' },
+            take: 300,
+            select: {
+                id: true, poNumber: true, status: true, vendor: true, vendorId: true, hoApprovalRef: true,
+                stockRequest: { select: { fromStoreId: true, fromStore: { select: { name: true } } } },
+                items: { select: { id: true, quantity: true, receivedQty: true, unitPrice: true, stockRequestItem: { select: { item: { select: { id: true, code: true, name: true, unit: true, hasSerial: true } } } } } },
+            },
+        });
+        const rows = [];
+        for (const po of pos) {
+            if (normalizePoStatus(po.status) === 'RECEIVED') continue;
+            for (const l of po.items) {
+                const remaining = Math.round((Number(l.quantity) - Number(l.receivedQty)) * 10_000) / 10_000;
+                if (remaining <= 0) continue;
+                const item = l.stockRequestItem.item;
+                rows.push({
+                    poId: po.id, poNumber: po.poNumber, vendor: po.vendor, vendorKey: po.vendorId ?? po.vendor, hoApprovalRef: po.hoApprovalRef,
+                    storeId: po.stockRequest.fromStoreId, storeName: po.stockRequest.fromStore?.name ?? null,
+                    poItemId: l.id, itemId: item.id, code: item.code, name: item.name, unit: item.unit, hasSerial: item.hasSerial,
+                    ordered: Number(l.quantity), received: Number(l.receivedQty), remaining, unitPrice: Number(l.unitPrice),
+                });
+            }
+        }
+        return rows;
     }
 
     static async listStorePos(userId: string, filter: { status?: string; vendorId?: string } = {}) {

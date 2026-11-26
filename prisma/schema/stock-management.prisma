@@ -551,6 +551,17 @@ model PurchaseOrder {
   createdById        String?           @db.Uuid
   /// Where the order waits in the chain while PENDING_APPROVAL: L1 -> L2 -> L3 (src/lib/po-approval-chain.ts); null otherwise.
   approvalStage      String?
+  /// HO mode (PROCUREMENT_PO_APPROVAL_MODE = HO_DOCUMENTS): the order was approved in the HO system; its reference, date, approver and scanned document
+  hoApprovalRef      String?
+  hoApprovalDate     DateTime?
+  hoApprovedBy       String?
+  hoDocumentUrl      String?
+  /// Payment by HO, recorded for information; recording it clears the goods-received-not-invoiced balance against the HO current account
+  hoInvoiceRef       String?
+  hoPaymentRef       String?
+  hoPaidAt           DateTime?
+  /// Received value already cleared against the HO current account (so a later receipt clears only the difference)
+  hoClearedAmount    Decimal           @default(0) @db.Decimal(14, 2)
   supplierInvoices   SupplierInvoice[]
   approvals          PurchaseOrderApproval[]
 

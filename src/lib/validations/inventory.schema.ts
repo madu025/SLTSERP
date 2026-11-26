@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { databaseUuidSchema } from './uuid.schema';
 
 /**
  * Inventory quantities are physical movements, so zero, negative, NaN and
@@ -58,6 +59,8 @@ export const grnSchema = z.object({
         serials: z.array(z.string()).optional(),
         expiryDate: z.union([z.string(), z.date()]).optional(),
         locator: z.string().optional(),
+        // one GRN may receive the goods of several purchase orders: each line names its PO line
+        poItemId: databaseUuidSchema.nullish(),
     })).min(1)
 });
 

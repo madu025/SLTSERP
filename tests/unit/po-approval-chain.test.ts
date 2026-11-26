@@ -34,10 +34,10 @@ test('every step is its own capability and each capability is in the catalog', (
 });
 
 test('a return, a cancellation and a reset need remarks; an approval does not', () => {
-    assert.ok(assertRemarks('RETURNED', ' ab '), 'too short is refused');
+    assert.equal(assertRemarks('RETURNED', ' ab '), null, 'too short is refused (null), never passed on as remarks');
     assert.equal(assertRemarks('RETURNED', 'price too high'), 'price too high');
-    assert.ok(assertRemarks('CANCELLED', null));
-    assert.ok(assertRemarks('RESET', ''));
+    assert.equal(assertRemarks('CANCELLED', null), null);
+    assert.equal(assertRemarks('RESET', ''), null);
     assert.equal(assertRemarks('APPROVED', null), null);
     assert.equal(assertRemarks('APPROVED', 'ok'), 'ok');
 });
@@ -89,7 +89,7 @@ test('the approval log is tamper-evident: any changed or removed entry is found'
 
 test('the service enforces maker-checker, distinct approvers, remarks and the step capability (source check)', () => {
     const svc = read('src/services/procurement/purchase-order.service.ts');
-    assert.match(svc, /status: 'PENDING_APPROVAL',\s*\n\s*approvalStage: FIRST_PO_STAGE,\s*\n\s*createdById: userId/, 'every new order enters the chain at step 1 whatever its value');
+    assert.match(svc, /status: recordedFromHo \? 'APPROVED' : 'PENDING_APPROVAL',\s*\n\s*approvalStage: recordedFromHo \? null : FIRST_PO_STAGE,\s*\n\s*createdById: userId/, 'in Nexus chain mode every new order enters the chain at step 1 whatever its value; the raiser is always recorded');
     assert.doesNotMatch(svc, /autoApproves/, 'no order is approved on creation any more');
     assert.match(svc, /po\.createdById && po\.createdById === userId/, 'the person who raised the order cannot approve it');
     assert.match(svc, /actorId: userId, action: 'APPROVED', seq: \{ gt: passStart\?\.seq \?\? 0 \}, stage: \{ not: stage \}/, 'nobody approves two different steps in one pass; re-approving the same step after a return is allowed');
@@ -127,7 +127,7 @@ test('the step approvers can reach the order screen and act without procurement.
     const route = read('src/app/api/procurement/purchase-orders/route.ts');
     assert.match(route, /const isStepAction = body\.action === 'APPROVE' \|\| body\.action === 'RETURN';/);
     assert.match(route, /!isStepAction && !perms\.includes\(RBAC_PERMISSIONS\.PROCUREMENT_WRITE\)/, 'raising, issuing and cancelling still need procurement.write');
-    assert.match(route, /PROCUREMENT_PO_APPROVE_L3\]/, 'a step holder passes the route guard');
+    assert.match(route, /PROCUREMENT_PO_APPROVE_L3, RBAC_PERMISSIONS\.FINANCE_WRITE\]/, 'a step holder passes the route guard');
     const inv = read('src/app/procurement/invoices/page.tsx');
     assert.match(inv, /\['MATCHED', 'VARIANCE', 'DRAFT', 'AWAITING_EXECUTIVE'\]\.includes\(r\.status\)/, 'the CEO sees the approve button on an invoice that waits for them');
 });
