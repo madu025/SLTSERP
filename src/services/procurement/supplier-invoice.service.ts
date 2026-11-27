@@ -6,8 +6,7 @@ import { LedgerService } from '@/services/finance/ledger.service';
 import { ACCOUNTS } from '@/services/finance/account-codes';
 import { userHasPermission } from '@/lib/user-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
-import { getProcurementConfig } from '@/services/procurement/procurement-config';
-import { threeWayMatch, invoicePosting, dueDateFrom, type MatchLine, type MatchOutcome } from '@/lib/procurement-rules';
+import { threeWayMatch, invoicePosting, dueDateFrom, isAbovePoPrice, type MatchLine, type MatchOutcome } from '@/lib/procurement-rules';
 import { PAYMENT_CATEGORIES, isServiceCategory, type ServiceCategory } from '@/config/payment-categories';
 import { ApprovalLimitService } from '@/services/procurement/approval-limit.service';
 
@@ -127,6 +126,9 @@ export class SupplierInvoiceService {
         const poValue = entries.reduce((a, [id, q]) => a + q * Number(byId.get(id)!.unitPrice), 0);
         const goods = round2(input.goods);
         const tax = round2(input.tax);
+        if (goods > round2(poValue) + 0.01) {
+            throw AppError.badRequest(`INVOICE_ABOVE_PO_PRICE: the vendor invoice value of the goods (Rs. ${goods.toLocaleString('en-LK')}) is above the PO value of the accepted goods (Rs. ${round2(poValue).toLocaleString('en-LK')}). The PO price approved by HO is the most that can be paid: ask the vendor for an invoice at the PO price`);
+        }
         // spread goods and tax over the lines by PO value; the last line takes the rounding remainder
         let goodsLeft = goods;
         let taxLeft = tax;
@@ -141,11 +143,10 @@ export class SupplierInvoiceService {
         });
         const billedRows = await tx.supplierInvoiceItem.groupBy({ by: ['poItemId'], where: { poItemId: { in: [...merged.keys()] }, invoice: { status: { not: 'REJECTED' } } }, _sum: { quantity: true } });
         const billed = new Map(billedRows.map((r) => [r.poItemId as string, Number(r._sum.quantity ?? 0)]));
-        const cfg = await getProcurementConfig(tx as unknown as typeof prisma);
         const outcome: MatchOutcome = threeWayMatch(lines.map((l) => {
             const p = byId.get(l.poItemId)!;
             return { poItemId: l.poItemId, description: `${p.stockRequestItem.item.code} ${p.stockRequestItem.item.name}`, orderedQty: Number(p.quantity), orderedPrice: Number(p.unitPrice), receivedQty: Number(p.receivedQty), invoicedBefore: billed.get(l.poItemId) ?? 0, invoiceQty: l.quantity, invoicePrice: l.unitPrice };
-        }), cfg.matchPriceTolerancePct, cfg.matchPriceToleranceAmount);
+        }));
         try {
             const invoice = await tx.supplierInvoice.create({
                 data: {
@@ -153,7 +154,7 @@ export class SupplierInvoiceService {
                     invoiceDate: input.invoiceDate, dueDate: input.dueDate, currency: po.currency,
                     subtotal: goods, taxAmount: tax, totalAmount: round2(goods + tax),
                     status: outcome.status === 'MATCHED' ? 'MATCHED' : 'VARIANCE', matchStatus: outcome.status,
-                    matchDetail: JSON.parse(JSON.stringify({ tolerancePct: cfg.matchPriceTolerancePct, toleranceAmount: cfg.matchPriceToleranceAmount, lines: outcome.lines, grnNumber: input.grnNumber })),
+                    matchDetail: JSON.parse(JSON.stringify({ lines: outcome.lines, grnNumber: input.grnNumber })),
                     createdById: input.userId,
                     items: { create: lines.map((l) => ({ poItemId: l.poItemId, description: `${byId.get(l.poItemId)!.stockRequestItem.item.code} ${byId.get(l.poItemId)!.stockRequestItem.item.name}`, quantity: l.quantity, unitPrice: l.unitPrice, taxAmount: l.taxAmount, amount: l.amount })) },
                 },
@@ -182,13 +183,16 @@ export class SupplierInvoiceService {
             merged.set(l.poItemId, { quantity: (prev?.quantity ?? 0) + l.quantity, unitPrice: l.unitPrice, taxAmount: (prev?.taxAmount ?? 0) + (l.taxAmount ?? 0) });
         }
 
+        const above = [...merged.entries()].filter(([poItemId, m]) => isAbovePoPrice(m.unitPrice, byId.get(poItemId)!.orderedPrice));
+        if (above.length > 0) {
+            throw AppError.badRequest(`INVOICE_ABOVE_PO_PRICE: the PO price approved by HO is the most that can be paid; above it: ${above.map(([poItemId, m]) => `${byId.get(poItemId)!.description} invoiced at ${m.unitPrice}, PO price ${byId.get(poItemId)!.orderedPrice}`).join('; ')}`);
+        }
         const vendorTerms = (await prisma.vendor.findUnique({ where: { id: ctx.vendorId }, select: { paymentTerms: true } }))?.paymentTerms;
-        const cfg = await getProcurementConfig();
         const matchLines: MatchLine[] = [...merged.entries()].map(([poItemId, m]) => {
             const c = byId.get(poItemId)!;
             return { poItemId, description: c.description, orderedQty: c.orderedQty, orderedPrice: c.orderedPrice, receivedQty: c.receivedQty, invoicedBefore: c.invoicedBefore, invoiceQty: m.quantity, invoicePrice: m.unitPrice };
         });
-        const outcome: MatchOutcome = threeWayMatch(matchLines, cfg.matchPriceTolerancePct, cfg.matchPriceToleranceAmount);
+        const outcome: MatchOutcome = threeWayMatch(matchLines);
 
         const subtotal = round2([...merged.values()].reduce((a, m) => a + m.quantity * m.unitPrice, 0));
         const tax = round2([...merged.values()].reduce((a, m) => a + m.taxAmount, 0));
@@ -206,7 +210,7 @@ export class SupplierInvoiceService {
                     subtotal, taxAmount: tax, totalAmount: round2(subtotal + tax),
                     status: outcome.status === 'MATCHED' ? 'MATCHED' : 'VARIANCE',
                     matchStatus: outcome.status,
-                    matchDetail: JSON.parse(JSON.stringify({ tolerancePct: cfg.matchPriceTolerancePct, toleranceAmount: cfg.matchPriceToleranceAmount, lines: outcome.lines })),
+                    matchDetail: JSON.parse(JSON.stringify({ lines: outcome.lines })),
                     createdById: userId,
                     items: {
                         create: [...merged.entries()].map(([poItemId, m]) => ({
@@ -327,15 +331,17 @@ export class SupplierInvoiceService {
         const ctxLine = new Map(ctx.lines.map((l) => [l.poItemId, l]));
         const ownQty = new Map<string, number>();
         for (const i of invoice.items) if (i.poItemId) ownQty.set(i.poItemId, (ownQty.get(i.poItemId) ?? 0) + Number(i.quantity));
-        const cfg = await getProcurementConfig();
         const recheck = threeWayMatch(invoice.items.filter((i) => i.poItemId && ctxLine.has(i.poItemId)).map((i) => {
             const c = ctxLine.get(i.poItemId!)!;
             return { poItemId: c.poItemId, description: c.description, orderedQty: c.orderedQty, orderedPrice: c.orderedPrice, receivedQty: c.receivedQty, invoicedBefore: Math.max(0, c.invoicedBefore - (ownQty.get(c.poItemId) ?? 0)), invoiceQty: Number(i.quantity), invoicePrice: Number(i.unitPrice) };
-        }), cfg.matchPriceTolerancePct, cfg.matchPriceToleranceAmount);
+        }));
+        if (recheck.lines.some((l) => l.result === 'ABOVE_PO_PRICE')) {
+            throw AppError.badRequest('INVOICE_ABOVE_PO_PRICE: this invoice bills above the PO price approved by HO and cannot be approved, with or without a reason; reject it and ask the vendor for an invoice at the PO price');
+        }
         if (recheck.status !== 'MATCHED' && !(overrideReason && overrideReason.trim().length >= 5)) {
             // Saved as a variance so the Supplier Invoices screen asks the finance approver for the reason
             if (invoice.status === 'MATCHED') {
-                await prisma.supplierInvoice.updateMany({ where: { id, status: 'MATCHED' }, data: { status: 'VARIANCE', matchStatus: recheck.status, matchDetail: JSON.parse(JSON.stringify({ tolerancePct: cfg.matchPriceTolerancePct, toleranceAmount: cfg.matchPriceToleranceAmount, lines: recheck.lines, recheckedAtApproval: true })) } });
+                await prisma.supplierInvoice.updateMany({ where: { id, status: 'MATCHED' }, data: { status: 'VARIANCE', matchStatus: recheck.status, matchDetail: JSON.parse(JSON.stringify({ lines: recheck.lines, recheckedAtApproval: true })) } });
             }
             throw AppError.badRequest(invoice.matchStatus === 'MATCHED'
                 ? 'MATCH_CHANGED_SINCE_ENTRY: the receipts or other invoices of this order changed since the invoice was entered and it no longer matches; check it, then give a reason to approve it'
@@ -351,7 +357,7 @@ export class SupplierInvoiceService {
         const postingDate = !period || period.status === 'OPEN' ? invDate : new Date();
 
         return prisma.$transaction(async (tx) => {
-            const claim = await tx.supplierInvoice.updateMany({ where: { id, status: { in: ['MATCHED', 'VARIANCE', 'DRAFT'] } }, data: { status: 'APPROVED', approvedById: userId, approvedAt: new Date(), overrideReason: overrideReason?.trim() || invoice.overrideReason || null, matchStatus: recheck.status, matchDetail: JSON.parse(JSON.stringify({ tolerancePct: cfg.matchPriceTolerancePct, toleranceAmount: cfg.matchPriceToleranceAmount, lines: recheck.lines, recheckedAtApproval: true })) } });
+            const claim = await tx.supplierInvoice.updateMany({ where: { id, status: { in: ['MATCHED', 'VARIANCE', 'DRAFT'] } }, data: { status: 'APPROVED', approvedById: userId, approvedAt: new Date(), overrideReason: overrideReason?.trim() || invoice.overrideReason || null, matchStatus: recheck.status, matchDetail: JSON.parse(JSON.stringify({ lines: recheck.lines, recheckedAtApproval: true })) } });
             if (claim.count === 0) throw AppError.conflict('This invoice has already been actioned');
             const lines = [
                 { accountCode: ACCOUNTS.AP_ACCRUED, debit: accrued, credit: 0, description: 'GR/IR cleared: goods received, now invoiced' },

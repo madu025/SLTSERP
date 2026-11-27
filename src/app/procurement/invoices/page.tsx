@@ -26,7 +26,7 @@ const STATUS_TONE: Record<string, string> = {
     MATCHED: 'bg-emerald-100 text-emerald-900', VARIANCE: 'bg-amber-100 text-amber-900', APPROVED: 'bg-blue-100 text-blue-900',
     PAID: 'bg-slate-200 text-slate-900', PARTIALLY_PAID: 'bg-indigo-100 text-indigo-900', REJECTED: 'bg-red-100 text-red-900', DRAFT: 'bg-slate-100 text-slate-900',
 };
-const RESULT_TONE: Record<string, string> = { MATCHED: 'text-emerald-800', PRICE_VARIANCE: 'text-amber-800', QTY_OVER_RECEIVED: 'text-red-800', NOT_RECEIVED: 'text-red-800' };
+const RESULT_TONE: Record<string, string> = { MATCHED: 'text-emerald-800', ABOVE_PO_PRICE: 'text-red-800', PRICE_VARIANCE: 'text-amber-800', QTY_OVER_RECEIVED: 'text-red-800', NOT_RECEIVED: 'text-red-800' };
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await fetch(url, { cache: 'no-store', ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) } });
@@ -163,7 +163,7 @@ export default function SupplierInvoicesPage() {
                                                 <td className="py-2 pr-3 text-right">{compact(Number(r.totalAmount))}</td>
                                                 <td className="py-2 pr-3">
                                                     <span className={`rounded px-2 py-0.5 font-semibold ${STATUS_TONE[r.matchStatus] ?? ''}`} data-testid="inv-match">{r.matchStatus}</span>
-                                                    {r.matchStatus !== 'MATCHED' && r.matchDetail?.lines?.filter((l) => l.result !== 'MATCHED').map((l) => <div key={l.poItemId} className={`text-[11px] ${RESULT_TONE[l.result] ?? ''}`}>{l.description}: {l.result.replace(/_/g, ' ').toLowerCase()}{l.priceVariancePct !== null && l.result === 'PRICE_VARIANCE' ? ` (${l.priceVariancePct}%)` : ''}</div>)}
+                                                    {r.matchStatus !== 'MATCHED' && r.matchDetail?.lines?.filter((l) => l.result !== 'MATCHED').map((l) => <div key={l.poItemId} className={`text-[11px] ${RESULT_TONE[l.result] ?? ''}`}>{l.description}: {l.result.replace(/_/g, ' ').toLowerCase()}{l.priceVariancePct !== null && (l.result === 'PRICE_VARIANCE' || l.result === 'ABOVE_PO_PRICE') ? ` (${l.priceVariancePct}%)` : ''}</div>)}
                                                 </td>
                                                 <td className="py-2 pr-3"><span className={`rounded px-2 py-0.5 font-semibold ${STATUS_TONE[r.status] ?? ''}`} data-testid="inv-status">{r.status}</span></td>
                                                 <td className="py-2 text-right whitespace-nowrap">

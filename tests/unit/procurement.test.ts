@@ -81,13 +81,13 @@ test('3-way match: clean invoice matches', () => {
   assert.equal(m.lines[0].result, 'MATCHED');
 });
 
-test('3-way match: price within tolerance matches, above it does not', () => {
-  assert.equal(threeWayMatch([line({ invoicePrice: 101.5 })], 2).status, 'MATCHED');
-  const bad = threeWayMatch([line({ invoicePrice: 105 })], 2);
+test('3-way match: the PO price is the ceiling (owner, 27 Nov 2026), a lower price matches', () => {
+  assert.equal(threeWayMatch([line({ invoicePrice: 100.004 })]).status, 'MATCHED', 'rounding to the cent');
+  const bad = threeWayMatch([line({ invoicePrice: 100.01 })]);
   assert.equal(bad.status, 'VARIANCE');
-  assert.equal(bad.lines[0].result, 'PRICE_VARIANCE');
-  assert.equal(bad.lines[0].priceVariancePct, 5);
-  assert.equal(threeWayMatch([line({ invoicePrice: 95 })], 2).lines[0].result, 'PRICE_VARIANCE', 'cheaper than the order is also reported');
+  assert.equal(bad.lines[0].result, 'ABOVE_PO_PRICE');
+  assert.equal(threeWayMatch([line({ invoicePrice: 105 })]).lines[0].priceVariancePct, 5);
+  assert.equal(threeWayMatch([line({ invoicePrice: 95 })]).lines[0].result, 'MATCHED', 'cheaper than the order is fine');
 });
 
 test('3-way match: cannot bill more than received and not yet billed', () => {
