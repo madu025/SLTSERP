@@ -1,4 +1,6 @@
 import { validateQtyAdjustment } from '@/lib/stock-request-adjust';
+import { requestGate, approvalSodBlocked, firstFailure, REASON_MIN } from '@/lib/purchase-flow-gates';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { AppError } from '@/lib/error';
 import { assertPositiveLines } from '@/lib/quantity-guard';
 import { safe } from '@/utils/safe-await.util';
@@ -54,6 +56,21 @@ export class StockRequestService {
         const { fromStoreId, toStoreId, requestedById, items, priority, requiredDate, purpose, sourceType, projectTypes, maintenanceMonths, irNumber, sltReferenceId } = data;
 
         assertPositiveLines(items, 'requestedQty', (l) => `requested item ${String(l.itemId ?? l.customName ?? '')}`);
+
+        // A purchase request (material request to Procurement) meets the same checks its screen shows (lib/purchase-flow-gates.ts)
+        if (['LOCAL_PURCHASE', 'EMERGENCY_LOCAL', 'SLT', 'PROCUREMENT', 'LOCAL'].includes(String(sourceType ?? ''))) {
+            const known = await prisma.inventoryItem.findMany({ where: { id: { in: items.filter((i) => !i.isCustom && i.itemId).map((i) => i.itemId) } }, select: { id: true, name: true, unit: true } });
+            const byId = new Map(known.map((k) => [k.id, k]));
+            const today = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10); // Sri Lanka date
+            const failed = firstFailure(requestGate({
+                storeChosen: !!fromStoreId,
+                purpose: String(purpose ?? ''),
+                requiredDate: requiredDate ? String(requiredDate).slice(0, 10) : null,
+                today,
+                lines: items.map((i) => ({ key: i.isCustom ? `custom:${String(i.customName ?? '').trim().toLowerCase()}` : i.itemId, name: byId.get(i.itemId)?.name ?? String(i.customName ?? 'item'), unit: byId.get(i.itemId)?.unit ?? null, quantity: Number(i.requestedQty) })),
+            }));
+            if (failed) throw AppError.badRequest(`PURCHASE_REQUEST_CHECK: ${failed.text}`);
+        }
 
         const fromStore = await InventoryRepository.findStoreById(fromStoreId);
         if (!fromStore) throw AppError.badRequest("INVALID_STORE");
@@ -466,6 +483,24 @@ export class StockRequestService {
             // A request that was rejected, returned or already released cannot be approved again
             if (stockReq.status !== 'PENDING') {
                 throw AppError.badRequest(`INVALID_STATE: Request is ${stockReq.status}; only pending requests can pass an approval gate.`);
+            }
+
+            // Segregation of duties (lib/purchase-flow-gates.ts, the approval screen shows the same): the requester does not review their
+            // own request, and a person who signed an earlier step does not sign this one (administrators excepted)
+            const isAdmin = (await getUserEffectivePermissions(userId)).includes(RBAC_PERMISSIONS.ADMIN_RBAC);
+            const sod = approvalSodBlocked({ actorId: userId, requesterId: stockReq.requestedById, earlierSignerIds: [stockReq.storesManagerApprovedById, stockReq.armApprovedById], isAdmin });
+            if (sod) {
+                throw AppError.badRequest(sod === 'requester'
+                    ? 'SEGREGATION_OF_DUTIES_VIOLATION: You raised this request, so another person reviews it.'
+                    : 'SEGREGATION_OF_DUTIES_VIOLATION: You signed an earlier step of this request, so another person signs this one.');
+            }
+            // a quantity reduced at approval needs its reason
+            const reduced = (items ?? []).some((it) => {
+                const line = (stockReq as unknown as { items?: Array<{ id: string; requestedQty: unknown }> }).items?.find((x) => x.id === it.id);
+                return line && it.approvedQty !== undefined && Number(it.approvedQty) < Number(line.requestedQty) - 1e-9;
+            });
+            if (reduced && String(remarks ?? '').trim().length < REASON_MIN) {
+                throw AppError.badRequest('APPROVAL_REASON_REQUIRED: Say why the quantity is reduced.');
             }
 
             // Review and approval are two different people: whoever adjusted the quantities of this request cannot approve it

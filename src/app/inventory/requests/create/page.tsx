@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Plus, Trash2, Send, Loader2, Paperclip, CheckCircle2, AlertCircle, AlertTriangle } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
+import GatePanel from "@/components/purchase/GatePanel";
+import PurchaseRoute from "@/components/purchase/PurchaseRoute";
+import { requestGate, isWholeUnit, type GateCheck } from "@/lib/purchase-flow-gates";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import { cn } from "@/lib/utils";
 
 interface InventoryItem {
     id: string;
@@ -146,7 +145,7 @@ export default function MaterialRequestPage() {
         enabled: !!selectedStore
     });
 
-    const { data: pendingBalances = [], isLoading: isLoadingBalances } = useQuery({
+    const { data: pendingBalances = [] } = useQuery({
         queryKey: ["pending-balances", selectedStore],
         queryFn: async () => {
             if (!selectedStore) return [];
@@ -177,7 +176,7 @@ export default function MaterialRequestPage() {
             return resData;
         },
         onSuccess: (data) => {
-            toast.success(`Request created! #${data.requestNr || data.id || ''}`);
+            toast.success(`Request ${data.requestNr || ''} submitted to the Stores Manager`);
             queryClient.invalidateQueries({ queryKey: ["material-requests"] });
             // Reset
             setRequestItems([]);
@@ -239,29 +238,52 @@ export default function MaterialRequestPage() {
         }
     };
 
+    // ---- the checks of this screen: the same rules the server applies (lib/purchase-flow-gates.ts) ----
+    const isPurchase = ['LOCAL_PURCHASE', 'EMERGENCY_LOCAL', 'SLT', 'PROCUREMENT', 'LOCAL'].includes(sourceType);
+    const purposeDesc = [
+        ...projectTypes,
+        maintenanceMonths ? `Maintenance: ${maintenanceMonths}` : '',
+        otherReason ? `Other: ${otherReason}` : ''
+    ].filter(Boolean).join(', ');
+    const lineOf = (item: RequestItem) => {
+        const meta = items.find((i) => i.id === item.itemId);
+        return {
+            key: item.isCustom ? `custom:${(item.customName ?? '').trim().toLowerCase()}` : item.itemId,
+            name: item.isCustom ? (item.customName || 'unregistered item') : (meta?.name ?? 'item'),
+            unit: item.isCustom ? null : meta?.unit ?? null,
+            quantity: parseFloat(item.requestedQty),
+        };
+    };
+    const chosenLines = requestItems.filter((i) => i.itemId || (i.isCustom && i.customName));
+    const today = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
+    const checks: GateCheck[] = [
+        ...requestGate({ storeChosen: !!selectedStore, purpose: purposeDesc, requiredDate: requiredDate || null, today, lines: chosenLines.map(lineOf) }),
+        ...(sourceType === 'EMERGENCY_LOCAL' ? [{ key: 'memo', ok: !!attachmentUrl, text: attachmentUrl ? 'Memo approval attached' : 'Attach the memo approval (needed for an emergency purchase)' }] : []),
+    ];
+    const qtyError = (item: RequestItem) => {
+        if (!(item.itemId || (item.isCustom && item.customName))) return null;
+        const l = lineOf(item);
+        if (!(l.quantity > 0)) return 'Enter a quantity above zero';
+        if (isWholeUnit(l.unit) && !Number.isInteger(l.quantity)) return `Whole numbers only (${l.unit})`;
+        return null;
+    };
+    const duplicateKeys = (() => {
+        const seen = new Set<string>(); const dup = new Set<string>();
+        for (const i of chosenLines) { const k = lineOf(i).key; if (seen.has(k)) dup.add(k); seen.add(k); }
+        return dup;
+    })();
+    const sortedItems = [...items].sort((a, b) => (a.type === 'SLT') === (b.type === 'SLT') ? a.name.localeCompare(b.name) : a.type === 'SLT' ? -1 : 1);
+    const selectedStoreType = stores.find((s: StoreOption) => s.id === selectedStore)?.type;
+    const nextPerson = sourceType === 'MAIN_STORE' ? 'the Stores Manager (internal transfer)' : 'the Stores Manager';
+
     const handleSubmit = () => {
-        if (!selectedStore) { toast.error("Please select a store"); return; }
         const user = localStorage.getItem('user');
-        if (!user) { toast.error("Authenticated user required"); return; }
-
-        if (sourceType === 'EMERGENCY_LOCAL' && !attachmentUrl) {
-            toast.error("Emergency Local Purchase requires a Memo Approval Attachment! Please upload a PDF or Image memo before submitting.");
-            return;
-        }
-
-        const validItems = requestItems.filter(i => (i.itemId || (i.isCustom && i.customName)) && parseFloat(i.requestedQty) > 0);
-        if (validItems.length === 0) { toast.error("Add at least one item with Quantity"); return; }
-
-        const purposeDesc = [
-            ...projectTypes,
-            maintenanceMonths ? `Maintenance: ${maintenanceMonths}` : '',
-            otherReason ? `Other: ${otherReason}` : ''
-        ].filter(Boolean).join(', ');
+        if (!user) { toast.error("Sign in again: your session has ended"); return; }
+        if (checks.some((c) => !c.ok)) return;
 
         const mainStore = stores.find((s: StoreOption) => s.type === 'MAIN');
         const targetToStoreId = sourceType === 'MAIN_STORE' ? (mainStore?.id || null) : null;
-
-        const payload = {
+        createRequestMutation.mutate({
             fromStoreId: selectedStore,
             toStoreId: targetToStoreId,
             requestedById: JSON.parse(user).id,
@@ -270,10 +292,10 @@ export default function MaterialRequestPage() {
             sourceType,
             projectTypes,
             maintenanceMonths,
-            irNumber: sourceType === 'SLT' ? irNumber : null, // Only for SLT requests
+            irNumber: sourceType === 'SLT' ? irNumber : null,
             purpose: purposeDesc,
-            sltReferenceId: attachmentUrl || null, // Stores uploaded attachment URL
-            items: validItems.map(item => ({
+            sltReferenceId: attachmentUrl || null,
+            items: chosenLines.map(item => ({
                 itemId: item.isCustom ? 'custom' : item.itemId,
                 requestedQty: parseFloat(item.requestedQty),
                 remarks: item.remarks,
@@ -283,309 +305,163 @@ export default function MaterialRequestPage() {
                 isCustom: item.isCustom,
                 customName: item.isCustom ? item.customName : undefined
             }))
-        };
-
-        createRequestMutation.mutate(payload);
+        });
     };
-
 
     return (
         <div className="erp-page-wrapper flex-row overflow-hidden">
             <Sidebar />
             <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
                 <Header />
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
-                    <div className="max-w-7xl mx-auto space-y-4">
-
-                        <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                            <div className="space-y-0.5">
-                                <h1 className="text-xl font-black text-slate-900 tracking-tight">New Material Requisition</h1>
-                                <p className="text-xs text-slate-500">Create new purchase or transfer request for approvals</p>
-                            </div>
-                            <Button onClick={handleSubmit} disabled={createRequestMutation.isPending} size="sm" className="bg-blue-600 hover:bg-blue-700 h-8 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5">
-                                {createRequestMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                                Submit Request
-                            </Button>
+                <div className="pf pf-page flex-1 overflow-y-auto p-4 md:p-6">
+                    <div className="max-w-7xl mx-auto flex flex-col gap-4">
+                        <div className="pf-title">
+                            <h1>New material request</h1>
+                            <p>{isPurchase ? 'A purchase through HO: the Stores Manager reviews it first.' : 'A transfer from the main store.'}</p>
                         </div>
+                        {isPurchase && <PurchaseRoute station="REQUEST" note="After you submit, it goes to the Stores Manager." />}
 
                         {pendingBalances.length > 0 && (
-                            <div className="bg-amber-50 border-l-4 border-amber-500 p-3 rounded-r-xl shadow-sm">
-                                <div className="flex gap-3">
-                                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                                    <div className="space-y-1.5 w-full">
-                                        <h3 className="text-xs font-bold text-amber-800">Outstanding Backorders Detected</h3>
-                                        <p className="text-[11px] text-amber-700">
-                                            This store has <strong>{pendingBalances.length}</strong> partially fulfilled items awaiting dispatch. 
-                                            Please verify these backorders before requesting new stock.
-                                        </p>
-                                        <div className="mt-2 text-[10px] space-y-1 max-h-32 overflow-y-auto pr-2">
-                                            {pendingBalances.map((b: any, i: number) => (
-                                                <div key={i} className="flex justify-between items-center bg-white/60 px-2.5 py-1.5 rounded border border-amber-200/50">
-                                                    <span className="font-semibold text-amber-900">{b.itemName} <span className="text-amber-600 font-normal">({b.itemCode})</span></span>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-amber-700 font-mono font-medium">Req: #{b.requestNr}</span>
-                                                        <span className="bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded font-bold">Pending Balance: {b.balanceQty}</span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
+                            <div className="pf-note" role="note">
+                                <strong>{pendingBalances.length} item(s) of this store are still waiting from earlier requests.</strong> Check them before asking again:
+                                <ul className="mt-1 list-disc pl-5">
+                                    {pendingBalances.slice(0, 6).map((b: { itemName: string; itemCode: string; requestNr: string; balanceQty: number }, i: number) => (
+                                        <li key={i}>{b.itemName} ({b.itemCode}): {b.balanceQty} still to come on {b.requestNr}</li>
+                                    ))}
+                                </ul>
                             </div>
                         )}
 
-                        {/* COMPACT CONFIGURATION */}
-                        <Card className="border border-slate-200 bg-white rounded-xl shadow-sm">
-                            <CardContent className="p-3 space-y-3">
-                                {/* Top Row Inputs */}
-                                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Requesting Store</label>
-                                        <select className="flex h-8 w-full rounded border-slate-200 border bg-white px-2 text-xs focus:ring-1 focus:ring-blue-500" value={selectedStore} onChange={e => {
-                                            const newStoreId = e.target.value;
-                                            setSelectedStore(newStoreId);
-                                            const store = stores.find((s: StoreOption) => s.id === newStoreId);
-                                            if (store) {
-                                                if (store.type === 'SUB' && sourceType === 'SLT') {
-                                                    setSourceType('MAIN_STORE');
-                                                } else if (store.type === 'MAIN' && sourceType === 'MAIN_STORE') {
-                                                    setSourceType('SLT');
-                                                }
-                                            }
-                                        }}>
-                                            <option value="">Select Store...</option>
-                                            {stores.map((s: StoreOption) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Source</label>
-                                        <select className="flex h-8 w-full rounded border-slate-200 border bg-white px-2 text-xs focus:ring-1 focus:ring-blue-500 font-semibold" value={sourceType} onChange={e => setSourceType(e.target.value)}>
-                                            {stores.find((s: StoreOption) => s.id === selectedStore)?.type === 'MAIN' && (
-                                                <option value="SLT">SLT (Head Office)</option>
-                                            )}
-                                            {stores.find((s: StoreOption) => s.id === selectedStore)?.type === 'SUB' && (
-                                                <option value="MAIN_STORE">Main Store (Internal Request)</option>
-                                            )}
-                                            <option value="LOCAL_PURCHASE">Local Purchase (Standard Vendor)</option>
-                                            <option value="EMERGENCY_LOCAL">🚨 Emergency Local Purchase (Fast-Track Petty Cash)</option>
-                                        </select>
-                                    </div>
-                                    {sourceType === 'SLT' && (
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">IR Number (Optional)</label>
-                                            <Input
-                                                placeholder="IR-2024-001"
-                                                className="h-8 text-xs border-slate-200 rounded"
-                                                value={irNumber}
-                                                onChange={e => setIrNumber(e.target.value)}
-                                            />
+                        <div className="pf-layout">
+                            <div className="pf-steps">
+                                {/* 1. where from and when */}
+                                <section className="pf-step" aria-labelledby="mr-1">
+                                    <div className="pf-step-title" id="mr-1"><b>1</b>Store and source</div>
+                                    <p className="pf-step-note">The store that needs the items, where they come from, and by when.</p>
+                                    <div className="pf-grid">
+                                        <div className="pf-field">
+                                            <label htmlFor="mr-store">Requesting store</label>
+                                            <select id="mr-store" className="pf-input" aria-invalid={requestItems.length > 0 && !selectedStore} value={selectedStore} onChange={e => {
+                                                const newStoreId = e.target.value;
+                                                setSelectedStore(newStoreId);
+                                                const store = stores.find((s: StoreOption) => s.id === newStoreId);
+                                                if (store?.type === 'SUB' && sourceType === 'SLT') setSourceType('MAIN_STORE');
+                                                else if (store?.type === 'MAIN' && sourceType === 'MAIN_STORE') setSourceType('SLT');
+                                            }}>
+                                                <option value="">Select store...</option>
+                                                {stores.map((s: StoreOption) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                            </select>
                                         </div>
-                                    )}
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Required Date</label>
-                                        <Input type="date" className="h-8 text-xs border-slate-200 rounded" value={requiredDate} onChange={e => setRequiredDate(e.target.value)} />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Priority</label>
-                                        <select className="flex h-8 w-full rounded border-slate-200 border bg-white px-2 text-xs focus:ring-1 focus:ring-blue-500" value={priority} onChange={e => setPriority(e.target.value)}>
-                                            <option value="MEDIUM">Medium</option>
-                                            <option value="HIGH">High</option>
-                                            <option value="URGENT">Urgent</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Memo Approval Attachment</label>
-                                        <div className="flex items-center gap-1.5 h-8 bg-slate-50 border border-slate-200 rounded px-2 relative cursor-pointer hover:bg-slate-100 transition-colors">
-                                            {isUploading ? (
-                                                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />
-                                            ) : attachmentUrl ? (
-                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                                            ) : (
-                                                <Paperclip className="w-3.5 h-3.5 text-slate-400" />
-                                            )}
-                                            <span className="text-[10px] text-slate-650 font-bold truncate max-w-[100px]">
-                                                {attachmentUrl ? "Memo Attached" : "Upload Memo..."}
-                                            </span>
-                                            <input 
-                                                type="file" 
-                                                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                                                accept="application/pdf,image/*"
-                                                onChange={handleFileUpload}
-                                                disabled={isUploading}
-                                            />
+                                        <div className="pf-field">
+                                            <label htmlFor="mr-source">Source</label>
+                                            <select id="mr-source" className="pf-input" value={sourceType} onChange={e => setSourceType(e.target.value)}>
+                                                {selectedStoreType === 'MAIN' && <option value="SLT">SLT (Head Office)</option>}
+                                                {selectedStoreType === 'SUB' && <option value="MAIN_STORE">Main store (internal transfer)</option>}
+                                                <option value="LOCAL_PURCHASE">Local purchase (vendor)</option>
+                                                <option value="EMERGENCY_LOCAL">Emergency local purchase (memo needed)</option>
+                                            </select>
                                         </div>
-                                    </div>
-                                </div>
-
-                                {sourceType === 'EMERGENCY_LOCAL' && (
-                                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2.5">
-                                        <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                                        <div>
-                                            <span className="font-bold block">🚨 Emergency Fast-Track Petty Cash Purchase (Attachment Required)</span>
-                                            <span>
-                                                This request requires a mandatory Memo/Receipt approval attachment. Once submitted, it routes to OSP Manager for Fast-Track approval.
-                                            </span>
+                                        <div className="pf-field">
+                                            <label htmlFor="mr-date">Needed by</label>
+                                            <input id="mr-date" type="date" min={today} className="pf-input" aria-invalid={!requiredDate || requiredDate < today} value={requiredDate} onChange={e => setRequiredDate(e.target.value)} />
+                                            {requiredDate && requiredDate < today && <span className="pf-err">Choose today or later</span>}
                                         </div>
-                                    </div>
-                                )}
-
-                                {/* Approval Workflow Route Preview (Gap 5) */}
-                                <div className="p-2.5 bg-blue-50/70 border border-blue-200/80 rounded-xl text-xs text-blue-900 flex items-center justify-between shadow-xs">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[10px] uppercase font-black text-blue-700 tracking-wider bg-blue-100 px-2 py-0.5 rounded">Approval Workflow Path:</span>
-                                        <span className="font-semibold text-slate-800">
-                                            {sourceType === 'MAIN_STORE' ? (
-                                                <>Requester <span className="text-blue-500 font-bold">➔</span> Stores Manager Approval <span className="text-blue-500 font-bold">➔</span> Main Store Release <span className="text-blue-500 font-bold">➔</span> Receiving Store</>
-                                            ) : (
-                                                <>Requester <span className="text-blue-500 font-bold">➔</span> OSP Manager Approval <span className="text-blue-500 font-bold">➔</span> Procurement Officer Processing</>
-                                            )}
-                                        </span>
-                                    </div>
-                                    <span className="text-[10px] text-blue-600 font-bold italic">
-                                        {sourceType === 'MAIN_STORE' ? 'Internal Transfer Flow' : 'Procurement Requisition (PRN) Flow'}
-                                    </span>
-                                </div>
-
-                                {/* Project / Reason Grid */}
-                                <div className="bg-slate-50/60 p-2 rounded border border-slate-100">
-                                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-2 text-xs text-slate-700">
-                                        <label className="flex items-center gap-2 cursor-pointer hover:bg-slate-100 rounded px-1 -ml-1">
-                                            <input type="checkbox" checked={projectTypes.includes('OSP_FTTH')} onChange={() => toggleProject('OSP_FTTH')} className="rounded border-slate-300 text-blue-600 focus:ring-0 w-3 h-3" />
-                                            <span>OSP FTTH</span>
-                                        </label>
-                                        <label className="flex items-center gap-2 cursor-pointer hover:bg-slate-100 rounded px-1 -ml-1">
-                                            <input type="checkbox" checked={projectTypes.includes('OSP_PSTN')} onChange={() => toggleProject('OSP_PSTN')} className="rounded border-slate-300 text-blue-600 focus:ring-0 w-3 h-3" />
-                                            <span>OSP PSTN</span>
-                                        </label>
-                                        <label className="flex items-center gap-2 cursor-pointer hover:bg-slate-100 rounded px-1 -ml-1">
-                                            <input type="checkbox" checked={projectTypes.includes('OSP_PEOTV')} onChange={() => toggleProject('OSP_PEOTV')} className="rounded border-slate-300 text-blue-600 focus:ring-0 w-3 h-3" />
-                                            <span>OSP PEOTV</span>
-                                        </label>
-                                        <label className="flex items-center gap-2 cursor-pointer hover:bg-slate-100 rounded px-1 -ml-1">
-                                            <input type="checkbox" checked={projectTypes.includes('OSP_HRB')} onChange={() => toggleProject('OSP_HRB')} className="rounded border-slate-300 text-blue-600 focus:ring-0 w-3 h-3" />
-                                            <span>OSP HRB</span>
-                                        </label>
-
-                                        <div className="flex items-center gap-1 col-span-3">
-                                            <span className="text-slate-500 whitespace-nowrap text-[10px] uppercase font-bold">Stocks Maint:</span>
-                                            <div className="flex gap-2">
-                                                {['1M', '2M', '3M'].map(m => (
-                                                    <label key={m} className="flex items-center gap-1 cursor-pointer">
-                                                        <input type="radio" name="maint" checked={maintenanceMonths === m} onChange={() => setMaintenanceMonths(m)} className="text-blue-600 w-3 h-3" />
-                                                        {m}
-                                                    </label>
-                                                ))}
+                                        <div className="pf-field">
+                                            <label htmlFor="mr-priority">Priority</label>
+                                            <select id="mr-priority" className="pf-input" value={priority} onChange={e => setPriority(e.target.value)}>
+                                                <option value="MEDIUM">Normal</option>
+                                                <option value="HIGH">High</option>
+                                                <option value="URGENT">Urgent</option>
+                                            </select>
+                                        </div>
+                                        {sourceType === 'SLT' && (
+                                            <div className="pf-field">
+                                                <label htmlFor="mr-ir">IR number (optional)</label>
+                                                <input id="mr-ir" className="pf-input" placeholder="IR-2024-001" value={irNumber} onChange={e => setIrNumber(e.target.value)} />
                                             </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-1 col-span-3">
-                                            <span className="text-slate-500 whitespace-nowrap text-[10px] uppercase font-bold">Other:</span>
-                                            <Input placeholder="Specify..." className="h-6 w-full text-xs border-slate-200" value={otherReason} onChange={e => setOtherReason(e.target.value)} />
+                                        )}
+                                        <div className="pf-field">
+                                            <label htmlFor="mr-memo">Memo approval {sourceType === 'EMERGENCY_LOCAL' ? '(required)' : '(optional)'}</label>
+                                            <input id="mr-memo" type="file" accept="application/pdf,image/*" className="pf-input py-1" aria-invalid={sourceType === 'EMERGENCY_LOCAL' && !attachmentUrl} onChange={handleFileUpload} disabled={isUploading} />
+                                            <span className="pf-hint">{isUploading ? 'Uploading...' : attachmentUrl ? 'Memo attached' : 'PDF or image'}</span>
                                         </div>
                                     </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                                </section>
 
-                        {/* ITEMS TABLE WITH ADD BUTTON IN FOOTER */}
-                        <div className="erp-table-container flex flex-col bg-white overflow-hidden">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-xs text-left border-collapse">
-                                    <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
-                                        <tr>
-                                            <th className="px-3 py-2 w-8 text-center">#</th>
-                                            <th className="px-2 py-2 min-w-[200px]">Item Description</th>
-                                            <th className="px-2 py-2 w-[70px]">Stock</th>
-                                            <th className="px-2 py-2 w-[100px]">Make</th>
-                                            <th className="px-2 py-2 w-[100px]">Model</th>
-                                            <th className="px-2 py-2 w-[120px] text-right bg-blue-50/30">Qty</th>
-                                            <th className="px-2 py-2 w-[120px]">Suggested Vendor</th>
-                                            <th className="px-2 py-2 w-[150px]">Remarks / Custom Name</th>
-                                            <th className="px-2 py-2 w-8"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {requestItems.map((item, idx) => {
-                                            const stock = item.itemId ? getCurrentStock(item.itemId) : '-';
-                                            const sortedItems = [...items].sort((a, b) => {
-                                                const aIsSLT = a.type === 'SLT';
-                                                const bIsSLT = b.type === 'SLT';
-                                                if (aIsSLT && !bIsSLT) return -1;
-                                                if (!aIsSLT && bIsSLT) return 1;
-                                                return a.name.localeCompare(b.name);
-                                            });
-                                            return (
-                                                <tr key={idx} className="hover:bg-slate-50/50 transition-colors duration-150">
-                                                    <td className="px-3 py-1 text-center text-slate-400">{idx + 1}</td>
-                                                    <td className="px-2 py-1">
-                                                        <div className="flex gap-2 items-center w-full">
-                                                            {item.isCustom ? (
-                                                                <Input 
-                                                                    className="h-7 text-xs bg-white border border-slate-200 focus:border-blue-500 w-full"
-                                                                    placeholder="Type unregistered item name..."
-                                                                    value={item.customName}
-                                                                    onChange={e => updateItem(idx, 'customName', e.target.value)}
-                                                                />
-                                                            ) : (
-                                                                <select className="w-full h-7 rounded border-transparent bg-transparent hover:border-slate-200 focus:border-blue-500 focus:bg-white text-xs px-1 -ml-1 focus:outline-none" value={item.itemId} onChange={e => updateItem(idx, 'itemId', e.target.value)}>
-                                                                    <option value="">Select Item...</option>
-                                                                    {sortedItems.map(i => (
-                                                                        <option
-                                                                            key={i.id}
-                                                                            value={i.id}
-                                                                            style={{ backgroundColor: i.type === 'SLT' ? '#dbeafe' : 'white' }}
-                                                                        >
-                                                                            {i.name} ({i.code})
-                                                                        </option>
-                                                                    ))}
-                                                                </select>
-                                                            )}
-                                                            <label className={cn("flex items-center gap-1 text-[10px] font-bold shrink-0 cursor-pointer px-1 rounded hover:bg-slate-100", item.isCustom ? "text-blue-600" : "text-slate-400 hover:text-slate-650")}>
-                                                                <input 
-                                                                    type="checkbox" 
-                                                                    checked={item.isCustom || false} 
-                                                                    onChange={(e) => {
-                                                                        const val = e.target.checked;
-                                                                        updateItem(idx, 'isCustom', val);
-                                                                        if (val) {
-                                                                            updateItem(idx, 'itemId', 'custom');
-                                                                        } else {
-                                                                            updateItem(idx, 'itemId', '');
-                                                                        }
-                                                                    }}
-                                                                    className="rounded w-3 h-3 text-blue-650" 
-                                                                />
-                                                                Unreg.
-                                                            </label>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-2 py-1 text-slate-500 font-mono text-[10px]">{stock}</td>
-                                                    <td className="px-2 py-1"><Input className="h-6 text-xs px-2 border-transparent hover:border-slate-200 focus:border-blue-500 bg-transparent focus:bg-white" placeholder="-" value={item.make} onChange={e => updateItem(idx, 'make', e.target.value)} /></td>
-                                                    <td className="px-2 py-1"><Input className="h-6 text-xs px-2 border-transparent hover:border-slate-200 focus:border-blue-500 bg-transparent focus:bg-white" placeholder="-" value={item.model} onChange={e => updateItem(idx, 'model', e.target.value)} /></td>
-                                                    <td className="px-2 py-1 bg-blue-50/20"><Input type="number" className="h-6 text-xs text-right font-bold border-transparent bg-transparent focus:bg-white focus:border-blue-500" value={item.requestedQty} onChange={e => updateItem(idx, 'requestedQty', e.target.value)} /></td>
-                                                    <td className="px-2 py-1"><Input className="h-6 text-xs px-2 border-transparent hover:border-slate-200 focus:border-blue-500 bg-transparent focus:bg-white" placeholder="-" value={item.suggestedVendor} onChange={e => updateItem(idx, 'suggestedVendor', e.target.value)} /></td>
-                                                    <td className="px-2 py-1"><Input className="h-6 text-xs px-2 border-transparent hover:border-slate-200 focus:border-blue-500 bg-transparent focus:bg-white" placeholder="-" value={item.remarks} onChange={e => updateItem(idx, 'remarks', e.target.value)} /></td>
-                                                    <td className="px-2 py-1 text-center">
-                                                        <button onClick={() => removeItem(idx)} className="text-slate-400 hover:text-rose-600 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                        {/* ADD BUTTON ROW */}
-                                        <tr>
-                                            <td colSpan={9} className="p-1">
-                                                <Button
-                                                    variant="ghost"
-                                                    onClick={addNewRow}
-                                                    className="w-full h-8 border border-dashed border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-slate-500 hover:text-blue-600 text-xs font-semibold flex items-center justify-center gap-1 rounded-lg"
-                                                >
-                                                    <Plus className="w-3.5 h-3.5" /> Add New Item Line
-                                                </Button>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                                {/* 2. what for */}
+                                <section className="pf-step" aria-labelledby="mr-2">
+                                    <div className="pf-step-title" id="mr-2"><b>2</b>What the items are for</div>
+                                    <p className="pf-step-note">Tick the work, or write the purpose.</p>
+                                    <div className="pf-choices" role="group" aria-label="Work">
+                                        {[['OSP_FTTH', 'OSP FTTH'], ['OSP_PSTN', 'OSP PSTN'], ['OSP_PEOTV', 'OSP PEOTV'], ['OSP_HRB', 'OSP HRB']].map(([v, l]) => (
+                                            <label key={v}><input type="checkbox" className="pf-check" checked={projectTypes.includes(v)} onChange={() => toggleProject(v)} />{l}</label>
+                                        ))}
+                                    </div>
+                                    <div className="pf-choices mt-3" role="radiogroup" aria-label="Stock for maintenance">
+                                        <span className="pf-label">Stock for maintenance:</span>
+                                        {['1M', '2M', '3M'].map(m => (
+                                            <label key={m}><input type="radio" name="maint" className="pf-check" checked={maintenanceMonths === m} onChange={() => setMaintenanceMonths(m)} />{m.replace('M', ' month' + (m === '1M' ? '' : 's'))}</label>
+                                        ))}
+                                    </div>
+                                    <div className="pf-field mt-3">
+                                        <label htmlFor="mr-other">Other purpose</label>
+                                        <input id="mr-other" className="pf-input" aria-invalid={requestItems.length > 0 && purposeDesc.trim().length < 3} placeholder="For example: new connections in Kandy town" value={otherReason} onChange={e => setOtherReason(e.target.value)} />
+                                    </div>
+                                </section>
+
+                                {/* 3. the items */}
+                                <section className="pf-step" aria-labelledby="mr-3">
+                                    <div className="pf-step-title" id="mr-3"><b>3</b>Items</div>
+                                    <p className="pf-step-note">One line per item. Items counted in Nos take whole numbers.</p>
+                                    <div className="overflow-x-auto">
+                                        <table className="pf-table">
+                                            <thead><tr><th>Item</th><th className="num">In store</th><th>Quantity</th><th>Make</th><th>Model</th><th>Suggested vendor</th><th>Remarks</th><th><span className="sr-only">Remove</span></th></tr></thead>
+                                            <tbody>
+                                                {requestItems.map((item, idx) => {
+                                                    const meta = items.find((i) => i.id === item.itemId);
+                                                    const err = qtyError(item);
+                                                    const dup = (item.itemId || item.customName) && duplicateKeys.has(lineOf(item).key);
+                                                    return (
+                                                        <tr key={idx}>
+                                                            <td style={{ minWidth: '16rem' }}>
+                                                                {item.isCustom ? (
+                                                                    <input className="pf-input" aria-label="Unregistered item name" placeholder="Name of the unregistered item" value={item.customName} onChange={e => updateItem(idx, 'customName', e.target.value)} />
+                                                                ) : (
+                                                                    <select className="pf-input" aria-label="Item" aria-invalid={!!dup} value={item.itemId} onChange={e => updateItem(idx, 'itemId', e.target.value)}>
+                                                                        <option value="">Select item...</option>
+                                                                        {sortedItems.map(i => <option key={i.id} value={i.id}>{i.name} ({i.code})</option>)}
+                                                                    </select>
+                                                                )}
+                                                                <label className="mt-1 inline-flex items-center gap-1 text-xs" style={{ color: 'var(--pf-ink-2)' }}>
+                                                                    <input type="checkbox" className="pf-check" checked={item.isCustom || false} onChange={(e) => { updateItem(idx, 'isCustom', e.target.checked); updateItem(idx, 'itemId', e.target.checked ? 'custom' : ''); }} />
+                                                                    Not in the item list
+                                                                </label>
+                                                                {dup && <div className="pf-err">Listed twice: put the total on one line</div>}
+                                                            </td>
+                                                            <td className="num">{item.itemId && !item.isCustom ? getCurrentStock(item.itemId) : '-'}</td>
+                                                            <td>
+                                                                <span className="inline-flex items-center">
+                                                                    <input type="number" min={0} step={isWholeUnit(meta?.unit) ? 1 : 'any'} aria-label="Quantity" aria-invalid={!!err} className="pf-input pf-qty" value={item.requestedQty} onChange={e => updateItem(idx, 'requestedQty', e.target.value)} />
+                                                                    <span className="pf-unit">{meta?.unit ?? ''}</span>
+                                                                </span>
+                                                                {err && <div className="pf-err">{err}</div>}
+                                                            </td>
+                                                            <td><input className="pf-input" aria-label="Make" value={item.make} onChange={e => updateItem(idx, 'make', e.target.value)} /></td>
+                                                            <td><input className="pf-input" aria-label="Model" value={item.model} onChange={e => updateItem(idx, 'model', e.target.value)} /></td>
+                                                            <td><input className="pf-input" aria-label="Suggested vendor" value={item.suggestedVendor} onChange={e => updateItem(idx, 'suggestedVendor', e.target.value)} /></td>
+                                                            <td><input className="pf-input" aria-label="Remarks" value={item.remarks} onChange={e => updateItem(idx, 'remarks', e.target.value)} /></td>
+                                                            <td><button type="button" className="pf-icon-btn" aria-label={`Remove line ${idx + 1}`} onClick={() => removeItem(idx)}><Trash2 className="h-4 w-4" /></button></td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <button type="button" className="pf-add" onClick={addNewRow}><Plus className="mr-1 inline h-4 w-4" />Add new item line</button>
+                                </section>
                             </div>
+
+                            <GatePanel checks={checks} action={`Submit request to ${nextPerson.replace(' (internal transfer)', '')}`} onAction={handleSubmit} busy={createRequestMutation.isPending} testId="mr-submit" />
                         </div>
                     </div>
                 </div>

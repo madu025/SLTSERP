@@ -1,0 +1,19 @@
+/* Compact purchase route (route-board tokens). The current station is the only accent. */
+.pr {
+    --pr-ink: #0e2a47; --pr-ink-2: #3a4e66; --pr-route: #1d5fa8; --pr-wait: #b45309; --pr-line: #d5dce5; --pr-panel: #ffffff;
+    background: var(--pr-panel); border: 1px solid var(--pr-line); border-radius: 10px; padding: 0.75rem 1rem 0.625rem;
+}
+.dark .pr { --pr-ink: #e8eef6; --pr-ink-2: #a9b8ca; --pr-route: #6ea8e8; --pr-wait: #f0a14a; --pr-line: #24405e; --pr-panel: #10243a; }
+.pr ol { position: relative; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
+.pr ol::before { content: ''; position: absolute; left: 5px; right: 5px; top: 5px; height: 2px; background: var(--pr-line); }
+.pr li { position: relative; padding-top: 1.125rem; font-size: 0.8125rem; color: var(--pr-ink-2); }
+.pr-dot { position: absolute; top: 0; left: 0; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--pr-line); background: var(--pr-panel); box-sizing: border-box; }
+.pr li[data-state='passed'] .pr-dot { border-color: var(--pr-route); background: var(--pr-route); }
+.pr li[data-state='passed'] { color: var(--pr-ink); }
+.pr li[data-state='here'] .pr-dot { width: 16px; height: 16px; top: -2px; left: -2px; border-color: var(--pr-wait); background: var(--pr-wait); }
+.pr li[data-state='here'] .pr-label { color: var(--pr-ink); font-weight: 700; }
+.pr-note { margin: 0.5rem 0 0; font-size: 0.875rem; color: var(--pr-ink); }
+@media (max-width: 767px) {
+    .pr ol { grid-template-columns: repeat(4, minmax(0, 1fr)); row-gap: 0.625rem; }
+    .pr ol::before { display: none; }
+}
