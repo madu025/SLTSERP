@@ -32,9 +32,22 @@ function asBullMQ(client: Redis): ConnectionOptions {
     return client as unknown as ConnectionOptions;
 }
 
-function connect(label: string): Redis {
+/**
+ * A worker must come back after a dropped socket. BullMQ copies the worker connection for its blocking
+ * job fetch; with `retryStrategy: () => null` that copy never reconnected after one drop, so every worker
+ * stopped taking jobs while its other socket stayed up and the app looked healthy (production, 27 Nov
+ * 2026: the SOD sync, notifications and stats stalled from 03:01 with 43 sweeps overdue). Workers retry
+ * with a capped backoff for as long as it takes; the producer keeps failing fast (ensureQueueConnection
+ * reconnects it on demand).
+ */
+export function workerRetryDelay(times: number): number {
+    return Math.min(500 * 2 ** Math.min(times - 1, 4), 8000); // 0.5s, 1s, 2s, 4s, 8s, then every 8s
+}
+
+function connect(label: string, opts: { reconnect?: boolean } = {}): Redis {
     const client = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
         ...QUEUE_OPTIONS,
+        ...(opts.reconnect ? { retryStrategy: workerRetryDelay } : {}),
         connectionName: label,
     });
     // BullMQ attaches its own handlers to the client it wraps. This covers the window before
@@ -93,7 +106,7 @@ export async function ensureQueueConnection(timeoutMs = 2500): Promise<boolean> 
     });
 }
 
-/** A dedicated socket per worker. ioredis connects eagerly; BullMQ waits for 'ready'. */
+/** A dedicated socket per worker, which reconnects after a drop (its blocking copy too). BullMQ waits for 'ready'. */
 export function createQueueConnection(label: string): ConnectionOptions {
-    return asBullMQ(connect(label));
+    return asBullMQ(connect(label, { reconnect: true }));
 }
