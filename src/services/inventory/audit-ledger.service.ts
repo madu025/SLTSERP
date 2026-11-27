@@ -7,8 +7,8 @@ export interface CreateLedgerEntryInput {
     storeId: string;
     itemId: string;
     batchId?: string | null;
-    transactionType: 'GRN_RECEIPT' | 'CONTRACTOR_ISSUE' | 'CONTRACTOR_RETURN' | 'MRN_APPROVAL' | 'SOD_INSTALLATION' | 'WASTAGE_ADJUSTMENT' | 'CYCLE_COUNT_CORRECTION' | 'PROJECT_ISSUE' | 'PROJECT_RETURN' | 'VIRTUAL_SWAP' | 'STOCK_ISSUE' | 'STORE_TRANSFER_OUT' | 'STORE_TRANSFER_IN' | 'EMERGENCY_LOCAL_PURCHASE' | 'DAMAGED_RETURN_RECEIVED';
-    referenceType: 'GRN' | 'ContractorMaterialIssue' | 'SOD' | 'MRN' | 'CycleCount' | 'Adjustment' | 'StockIssue' | 'ProjectIR' | 'VirtualSwap' | 'ContractorWastage' | 'StockRequest';
+    transactionType: 'GRN_RECEIPT' | 'CONTRACTOR_ISSUE' | 'CONTRACTOR_RETURN' | 'MRN_APPROVAL' | 'SOD_INSTALLATION' | 'WASTAGE_ADJUSTMENT' | 'CYCLE_COUNT_CORRECTION' | 'PROJECT_ISSUE' | 'PROJECT_RETURN' | 'VIRTUAL_SWAP' | 'STOCK_ISSUE' | 'STORE_TRANSFER_OUT' | 'STORE_TRANSFER_IN' | 'EMERGENCY_LOCAL_PURCHASE' | 'DAMAGED_RETURN_RECEIVED' | 'OPENING_BALANCE';
+    referenceType: 'GRN' | 'ContractorMaterialIssue' | 'SOD' | 'MRN' | 'CycleCount' | 'Adjustment' | 'StockIssue' | 'ProjectIR' | 'VirtualSwap' | 'ContractorWastage' | 'StockRequest' | 'OpeningStockLoad';
     referenceId: string;
     quantityBefore: number | Decimal;
     quantityChange: number | Decimal;

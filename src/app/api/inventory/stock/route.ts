@@ -47,7 +47,9 @@ export const POST = apiHandler(async (_req, params, body) => {
     return { message: 'Stock updated successfully', itemsUpdated: result };
 }, {
     // Overwriting on-hand quantities bypasses the GRN/issue trail, so it is an approver action, not a storekeeper one
-    permissions: [RBAC_PERMISSIONS.INVENTORY_APPROVE],
+    // setting a store's stock directly skips the second person: opening stock goes through Opening stock (submit, then approve);
+    // this direct route stays for administrators only
+    permissions: [RBAC_PERMISSIONS.ADMIN_RBAC],
     audit: { action: 'STOCK_INITIALIZE', entity: 'STOCK' },
     rawResponse: true
 });

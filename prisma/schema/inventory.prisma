@@ -44,6 +44,7 @@ model InventoryStore {
   ledgers                  InventoryLedger[]
   projectMaterialReservations ProjectMaterialReservation[]
   projectMaterialSupplyAllocations ProjectMaterialSupplyAllocation[]
+  openingStockLoads        OpeningStockLoad[]
 
   @@index([type])
   @@index([managerId])
@@ -101,6 +102,7 @@ model InventoryItem {
   ledgers               InventoryLedger[]
   materialRequirements   ProjectMaterialRequirement[]
   materialReservationLines ProjectMaterialReservationLine[]
+  openingStockLines        OpeningStockLine[]
 
   @@index([code])
   @@index([type])
@@ -423,4 +425,53 @@ model InventoryLedger {
   @@index([transactionType])
   @@index([batchId])
   @@index([performedById])
+}
+
+/// Opening stock of a store at go-live (owner, 27 Nov 2026): the physical count, uploaded from Excel with its cost, submitted by store staff and
+/// approved by another person (lib/opening-stock-rules.ts). Approval creates one FIFO batch per line at its cost, the store stock and an
+/// OPENING_BALANCE ledger entry. An item is loaded once per store: later corrections are cycle counts.
+model OpeningStockLoad {
+  id              String             @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  /// OSL-YYYY-MM-NNNN
+  loadNumber      String             @unique
+  storeId         String             @db.Uuid
+  /// the day the stock was counted
+  countDate       DateTime
+  /// scan of the signed physical count sheet
+  countSheetUrl   String
+  /// SUBMITTED -> APPROVED, or REJECTED (with the reason)
+  status          String             @default("SUBMITTED")
+  remarks         String?
+  totalQty        Decimal            @default(0) @db.Decimal(14, 4)
+  totalValue      Decimal            @default(0) @db.Decimal(16, 2)
+  createdById     String             @db.Uuid
+  createdAt       DateTime           @default(now())
+  approvedById    String?            @db.Uuid
+  approvedAt      DateTime?
+  rejectedById    String?            @db.Uuid
+  rejectedAt      DateTime?
+  rejectionReason String?
+  store           InventoryStore     @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  lines           OpeningStockLine[]
+
+  @@index([storeId, status])
+  @@index([status])
+}
+
+model OpeningStockLine {
+  id          String           @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  loadId      String           @db.Uuid
+  itemId      String           @db.Uuid
+  quantity    Decimal          @db.Decimal(12, 4)
+  unitCost    Decimal          @db.Decimal(14, 2)
+  /// the supplier's batch or lot number when known; otherwise the system gives one at approval
+  batchNumber String?
+  expiryDate  DateTime?
+  /// the FIFO batch created at approval
+  batchId     String?          @db.Uuid
+  load        OpeningStockLoad @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  item        InventoryItem    @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@unique([loadId, itemId])
+  @@index([itemId])
 }

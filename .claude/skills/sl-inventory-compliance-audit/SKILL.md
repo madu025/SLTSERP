@@ -26,7 +26,7 @@ Read only. The audit never changes data; any correction it suggests is a separat
 | Id | Check | Data |
 |---|---|---|
 | L1 | Costing method: store stock equals the sum of its FIFO batches (Nexus values by FIFO batches; weighted average is not used) | `InventoryStock` vs `InventoryBatchStock` |
-| L2 | Every batch in stock carries a cost price | `InventoryBatch.costPrice` |
+| L2 | Every batch in stock carries a cost price (opening stock carries the cost given on its load) | `InventoryBatch.costPrice` |
 | L3 | NRV review: no movement for more than 90 days (observation for finance, not an automatic write-down) | last `InventoryLedger` row per store/item |
 | L4 | Damaged returns received in the last 12 months, to value at NRV or write off | ledger `DAMAGED_RETURN_RECEIVED` |
 | L5 | Tax recorded once: GRN vendor-invoice tax equals the supplier invoice tax, and no invoice above VAT 18% + SSCL 2.5% | `GRN.vendorInvoiceTax`, `SupplierInvoice.taxAmount` |
@@ -47,7 +47,7 @@ Read only. The audit never changes data; any correction it suggests is a separat
 | Id | Check | Data |
 |---|---|---|
 | S1 | Stock adjustments posted outside 07:00-19:00 Colombo or on Sunday (observation: confirm each was authorised) | ledger `WASTAGE_ADJUSTMENT`, `CYCLE_COUNT_CORRECTION`, `VIRTUAL_SWAP` |
-| S2 | Every adjustment approved by a second person | `CycleCountHeader.countedById/approvedById`, `MaterialVarianceAdjustment`, count corrections without an approved count |
+| S2 | Every adjustment approved by a second person | `CycleCountHeader.countedById/approvedById`, `MaterialVarianceAdjustment`, count corrections without an approved count, `OpeningStockLoad` approved by its submitter |
 | S3 | No GRN received by the person who recorded its PO (the server refuses this since 27 Nov 2026) | `GRN.receivedById` vs `PurchaseOrder.createdById` |
 | S4 | Role segregation: active non-admin users holding both `procurement.write` (record a PO) and `inventory.grn` (receive) | `getUserEffectivePermissions` (role, designations and overrides, as the app decides) |
 | S5 | The stock ledger's SHA-256 checksum chain is unbroken (a break is a security incident) | `fn_verify_ledger_integrity()` |

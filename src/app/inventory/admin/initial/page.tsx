@@ -1,259 +1,281 @@
 "use client";
-
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
+import { Fragment, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import * as XLSX from "xlsx";
 import { toast } from "sonner";
-import { Loader2, Save, Search } from "lucide-react";
-import Sidebar from '@/components/Sidebar';
-import Header from '@/components/Header';
-import { Badge } from "@/components/ui/badge";
-import RoleGuard from '@/components/RoleGuard';
-import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import Sidebar from "@/components/Sidebar";
+import Header from "@/components/Header";
+import RoleGuard from "@/components/RoleGuard";
+import GatePanel from "@/components/purchase/GatePanel";
+import { RBAC_PERMISSIONS } from "@/config/rbac-permissions";
+import { OPENING_TEMPLATE_HEADERS, readOpeningRows, openingSubmitGate, openingApproveGate, linesTotal, type OpeningItem, type OpeningRow } from "@/lib/opening-stock-rules";
 
-interface InventoryItem {
-    id: string;
-    code: string;
-    name: string;
-    category: string;
-    unit: string;
+interface Store { id: string; name: string }
+interface Load {
+    id: string; loadNumber: string; storeId: string; store: string; status: string; countDate: string; countSheetUrl: string; remarks: string | null;
+    totalQty: number; totalValue: number; createdById: string; createdBy: string | null; createdAt: string; approvedBy: string | null; approvedAt: string | null;
+    rejectedBy: string | null; rejectionReason: string | null;
+    lines: { code: string; name: string; unit: string | null; quantity: number; unitCost: number; batchNumber: string | null; expiryDate: string | null }[];
 }
 
-interface StockRecord {
-    itemId: string;
-    quantity: number;
+const money = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const qtyText = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 4 });
+const today = () => new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
+const day = (s: string | null) => (s ? new Date(s).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Colombo" }) : "-");
+const STATUS_STYLE: Record<string, string> = { SUBMITTED: "border-amber-300 bg-amber-50 text-amber-900", APPROVED: "border-emerald-300 bg-emerald-50 text-emerald-900", REJECTED: "border-red-300 bg-red-50 text-red-900" };
+const STATUS_LABEL: Record<string, string> = { SUBMITTED: "Waiting for approval", APPROVED: "Approved: in stock", REJECTED: "Rejected" };
+
+async function getJson<T>(url: string): Promise<T> {
+    const res = await fetch(url, { cache: "no-store" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.error?.message || "Could not load");
+    const d = json.data ?? json;
+    return (Array.isArray(d) ? d : d.items ?? d.data ?? d.stores ?? d.stock ?? d) as T;
 }
 
-export default function InitialStockPage() {
-    const queryClient = useQueryClient();
-    const [selectedStore, setSelectedStore] = useState<string>("");
-    const [searchTerm, setSearchTerm] = useState("");
-    const [stockValues, setStockValues] = useState<Record<string, string>>({});
-    // Key: itemId, Value: string input (to allow empty)
+/**
+ * Opening stock (go-live): the store's physical count is uploaded from Excel with its cost, submitted, and approved by another person
+ * (lib/opening-stock-rules.ts, the server checks the same). Approval creates the FIFO batches, the store stock and the ledger entries.
+ */
+export default function OpeningStockPage() {
+    const qc = useQueryClient();
+    const [me] = useState<{ id: string; canApprove: boolean }>(() => {
+        if (typeof window === "undefined") return { id: "", canApprove: false };
+        try { const u = JSON.parse(localStorage.getItem("user") || "{}"); return { id: String(u.id ?? ""), canApprove: Array.isArray(u.permissions) && u.permissions.includes(RBAC_PERMISSIONS.INVENTORY_APPROVE) }; } catch { return { id: "", canApprove: false }; }
+    });
+    const [storeId, setStoreId] = useState("");
+    const [countDate, setCountDate] = useState("");
+    const [rows, setRows] = useState<OpeningRow[]>([]);
+    const [fileName, setFileName] = useState("");
+    const [sheetUrl, setSheetUrl] = useState("");
+    const [uploading, setUploading] = useState(false);
+    const [remarks, setRemarks] = useState("");
+    const [open, setOpen] = useState<string | null>(null);
+    const [decision, setDecision] = useState<"APPROVE" | "REJECT">("APPROVE");
+    const [reason, setReason] = useState("");
 
-    // Fetch Stores
-    const { data: stores = [] } = useQuery({
-        queryKey: ["stores"],
-        queryFn: async () => {
-            const res = await fetch("/api/stores?page=1&limit=1000");
-            const data = await res.json();
-            return Array.isArray(data) ? data : (data.stores || []);
-        }
+    const { data: stores = [] } = useQuery<Store[]>({ queryKey: ["os-stores"], queryFn: () => getJson<Store[]>("/api/stores?page=1&limit=1000") });
+    const { data: items = [] } = useQuery<OpeningItem[]>({ queryKey: ["os-items"], queryFn: () => getJson<OpeningItem[]>("/api/inventory/items?page=1&limit=5000") });
+    const { data: loads = [], isLoading } = useQuery<Load[]>({ queryKey: ["opening-loads"], queryFn: () => getJson<Load[]>("/api/inventory/opening-stock") });
+    const { data: storeStock = [] } = useQuery<{ itemId: string; quantity: number | string }[]>({
+        queryKey: ["os-stock", storeId], enabled: !!storeId,
+        queryFn: () => getJson<{ itemId: string; quantity: number | string }[]>(`/api/inventory/stock?storeId=${storeId}`),
     });
 
-    // Fetch All Items
-    const { data: items = [], isLoading: isLoadingItems } = useQuery<InventoryItem[]>({
-        queryKey: ["inventory-items"],
-        queryFn: async () => {
-            const res = await fetch("/api/inventory/items?page=1&limit=1000");
-            const data = await res.json();
-            return Array.isArray(data) ? data : (data.items || []);
-        }
-    });
+    const lines = useMemo(() => readOpeningRows(rows, items), [rows, items]);
+    const already = useMemo(() => {
+        const inStock = (Array.isArray(storeStock) ? storeStock : []).filter((s) => Number(s.quantity) !== 0).map((s) => s.itemId);
+        const pending = loads.filter((l) => l.storeId === storeId && l.status === "SUBMITTED").flatMap((l) => l.lines.map((x) => items.find((i) => i.code === x.code)?.id)).filter((x): x is string => !!x);
+        return [...new Set([...inStock, ...pending])];
+    }, [storeStock, loads, storeId, items]);
+    const checks = openingSubmitGate({ storeChosen: !!storeId, lines, countDate: countDate || null, today: today(), countSheetAttached: !!sheetUrl, alreadyLoaded: already });
+    const totals = linesTotal(lines);
 
-    // Fetch Current Stock when store changes
-    const { data: currentStocks = [], isLoading: isLoadingStock, refetch: refetchStock } = useQuery<any[]>({
-        queryKey: ["current-stock", selectedStore],
-        queryFn: async () => {
-            if (!selectedStore) return [];
-            const res = await fetch(`/api/inventory/stock?storeId=${selectedStore}`, { cache: 'no-store' });
-            const data = await res.json();
-            return Array.isArray(data) ? data : (data.stock || data.data || []);
-        },
-        enabled: !!selectedStore
-    });
-
-    // Initialize inputs when current stock loads
-    useEffect(() => {
-        if (selectedStore && currentStocks && items.length > 0) {
-            const initialValues: Record<string, string> = {};
-            items.forEach(item => {
-                const stock = currentStocks.find((s: any) => s.itemId === item.id);
-                initialValues[item.id] = stock ? stock.quantity.toString() : "0";
-            });
-            setStockValues(initialValues);
-        } else if (!selectedStore) {
-            // Clear when no store selected
-            setStockValues({});
-        }
-        // Only run when selectedStore changes or when data first loads
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedStore]);
-
-
-    const saveMutation = useMutation({
-        mutationFn: async (payload: any) => {
-            const res = await fetch("/api/inventory/stock", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(payload)
-            });
-            if (!res.ok) throw new Error("Failed to update stock");
-            return res.json();
-        },
-        onSuccess: (data) => {
-            toast.success(`Stock updated successfully. ${data.itemsUpdated} items affected.`);
-            refetchStock();
-        },
-        onError: () => toast.error("Failed to update stock")
-    });
-
-    const handleQuantityChange = (itemId: string, val: string) => {
-        setStockValues(prev => ({ ...prev, [itemId]: val }));
+    const downloadTemplate = () => {
+        // every item of the item list, with its unit and its master cost as a starting value; the store fills in what was counted
+        const data = [OPENING_TEMPLATE_HEADERS as unknown as string[], ...items.map((i) => [i.code, i.name, i.unit ?? "", "", Number(i.costPrice ?? 0) > 0 ? Number(i.costPrice) : "", "", ""])];
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        ws["!cols"] = [{ wch: 18 }, { wch: 40 }, { wch: 8 }, { wch: 10 }, { wch: 14 }, { wch: 16 }, { wch: 12 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Opening stock");
+        XLSX.writeFile(wb, `opening-stock-template-${today()}.xlsx`);
     };
 
-    const handleSave = () => {
-        if (!selectedStore) {
-            toast.error("Please select a store");
-            return;
-        }
-
-        // Prepare changes
-        // We send ALL items or just changed ones?
-        // Bulk update API handles all. Let's send all non-empty ones to be safe/consistent.
-        const itemsToUpdate = items.map(item => ({
-            itemId: item.id,
-            quantity: parseFloat(stockValues[item.id] || "0")
-        })).filter(i => !isNaN(i.quantity));
-
-        saveMutation.mutate({
-            storeId: selectedStore,
-            items: itemsToUpdate,
-            reason: "Initial Stock Setup / Adjustment"
-        });
+    const readSheet = async (file: File) => {
+        const wb = XLSX.read(await file.arrayBuffer(), { cellDates: true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const grid = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: "" });
+        const head = (grid[0] ?? []).map((h) => String(h).trim().toLowerCase());
+        const col = (name: string) => head.findIndex((h) => h.startsWith(name));
+        const [c, q, u, b, e] = [col("item code"), col("quantity"), col("unit cost"), col("batch"), col("expiry")];
+        if (c < 0 || q < 0 || u < 0) { toast.error("The sheet needs the columns Item code, Quantity and Unit cost (Rs.): use the template"); return; }
+        // rows with no quantity are items the store does not hold: they are left out
+        const read: OpeningRow[] = grid.slice(1).map((r, i) => ({ row: i + 2, code: String(r[c] ?? ""), quantity: r[q], unitCost: r[u], batchNumber: b >= 0 ? r[b] : "", expiryDate: e >= 0 ? r[e] : "" }))
+            .filter((r) => String(r.quantity ?? "").trim() !== "" && String(r.quantity) !== "0");
+        setRows(read);
+        setFileName(file.name);
     };
 
-    const filteredItems = items.filter(item =>
-        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.code.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const uploadScan = async (file: File) => {
+        setUploading(true);
+        try {
+            const fd = new FormData();
+            fd.append("file", file);
+            fd.append("bucket", "inventory");
+            const res = await fetch("/api/upload", { method: "POST", body: fd });
+            const json = await res.json().catch(() => ({}));
+            const url = json?.url ?? json?.data?.url;
+            if (!res.ok || !url) throw new Error(json?.error?.message || "Upload failed");
+            setSheetUrl(url);
+        } catch (e) { toast.error((e as Error).message); setSheetUrl(""); } finally { setUploading(false); }
+    };
+
+    const submit = useMutation({
+        mutationFn: async () => {
+            const res = await fetch("/api/inventory/opening-stock", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ storeId, countDate, countSheetUrl: sheetUrl, remarks: remarks || null, rows: rows.map((r) => ({ row: r.row, code: r.code, quantity: r.quantity === "" ? null : (r.quantity as string | number), unitCost: r.unitCost === "" ? null : (r.unitCost as string | number), batchNumber: (r.batchNumber as string | number) || null, expiryDate: r.expiryDate instanceof Date ? r.expiryDate.toISOString().slice(0, 10) : (r.expiryDate as string | number) || null })) }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json?.error?.message || "Could not submit");
+            return json.data ?? json;
+        },
+        onSuccess: (d) => { toast.success(`${d.loadNumber} submitted: another person approves it`); setRows([]); setFileName(""); setSheetUrl(""); setRemarks(""); qc.invalidateQueries({ queryKey: ["opening-loads"] }); },
+        onError: (e: Error) => toast.error(e.message),
+    });
+    const decide = useMutation({
+        mutationFn: async (v: { id: string; action: "APPROVE" | "REJECT"; reason?: string }) => {
+            const res = await fetch(`/api/inventory/opening-stock/${v.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: v.action, reason: v.reason }) });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json?.error?.message || "The action failed");
+            return json;
+        },
+        onSuccess: (_d, v) => { toast.success(v.action === "APPROVE" ? "Approved: the stock is in the store" : "Rejected: the submitter is told why"); setOpen(null); setReason(""); qc.invalidateQueries({ queryKey: ["opening-loads"] }); qc.invalidateQueries({ queryKey: ["os-stock"] }); },
+        onError: (e: Error) => toast.error(e.message),
+    });
+
+    const th = "px-2 py-1.5 text-left text-xs font-bold !bg-slate-100 !text-slate-800";
+    const thNum = `${th} !text-right`;
+    const td = "px-2 py-1.5 text-sm text-slate-900 align-top";
+    const tdNum = `${td} text-right tabular-nums whitespace-nowrap`;
 
     return (
-        <RoleGuard permissionId={RBAC_PERMISSIONS.INVENTORY_APPROVE}>
-        <div className="erp-page-wrapper flex-row overflow-hidden">
-            <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-                <Header />
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
-                    <div className="max-w-7xl mx-auto space-y-4">
+        <RoleGuard>
+        <div className="flex h-screen overflow-hidden bg-slate-50">
+        <Sidebar />
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <Header />
+        <main className="flex-1 overflow-y-auto">
+        <div className="pf mx-auto max-w-7xl space-y-4 p-4 sm:p-6" data-testid="opening-stock-page">
+            <div>
+                <h1 className="text-xl font-black text-slate-900">Opening stock</h1>
+                <p className="max-w-3xl text-sm text-slate-700">Load what each store holds when it starts on Nexus: count the store, fill the template, upload it with the signed count sheet. Another person checks and approves it; only then does the stock enter the store, valued at the cost you give. An item is loaded once per store; later differences are corrected with a cycle count.</p>
+            </div>
 
-                        <div className="flex justify-between items-center">
-                            <div className="space-y-0.5">
-                                <h1 className="text-xl font-black text-slate-900 tracking-tight">Initial Stock Setup</h1>
-                                <p className="text-xs text-slate-500">Set physical stock counts for stores (Fresh Start)</p>
-                            </div>
-                            <Button onClick={handleSave} disabled={saveMutation.isPending || !selectedStore} size="sm" className="h-8 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-all flex items-center gap-1.5 shadow-sm">
-                                {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                                Update All Stock
-                            </Button>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+                <div className="space-y-4">
+                    <section className="pf-step">
+                        <div className="pf-step-title"><b>1</b>Store and count date</div>
+                        <p className="pf-step-note">The store that was counted, and the day it was counted.</p>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div className="pf-field"><label htmlFor="os-store">Store</label>
+                                <select id="os-store" className="pf-input" aria-invalid={!storeId && rows.length > 0} value={storeId} onChange={(e) => setStoreId(e.target.value)}>
+                                    <option value="">Select store...</option>
+                                    {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                </select></div>
+                            <div className="pf-field"><label htmlFor="os-date">Count date</label>
+                                <input id="os-date" type="date" max={today()} className="pf-input" aria-invalid={!!countDate && countDate > today()} value={countDate} onChange={(e) => setCountDate(e.target.value)} /></div>
                         </div>
+                    </section>
 
-                        {/* Controls */}
-                        <Card className="border border-slate-200 bg-white rounded-xl shadow-sm">
-                            <CardContent className="p-3 flex flex-col sm:flex-row gap-4 items-center">
-                                <div className="w-full sm:w-1/2 flex items-center gap-2">
-                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider min-w-[80px]">Store:</span>
-                                    <select
-                                        className="h-8 w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                        value={selectedStore}
-                                        onChange={(e) => setSelectedStore(e.target.value)}
-                                    >
-                                        <option value="" disabled>Select Store...</option>
-                                        {stores.map((store: any) => (
-                                            <option key={store.id} value={store.id}>{store.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="w-full sm:w-1/2 flex items-center gap-2">
-                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider min-w-[80px]">Search:</span>
-                                    <div className="relative w-full">
-                                        <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-slate-400" />
-                                        <Input
-                                            placeholder="Search by code or name..."
-                                            className="pl-8 h-8 text-xs rounded-md"
-                                            value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Table */}
-                        <div className="erp-table-container flex flex-col bg-white overflow-hidden">
-                            <div className="max-h-[600px] overflow-y-auto relative">
-                                {!selectedStore ? (
-                                    <div className="p-12 text-center text-slate-400 text-xs font-semibold">
-                                        Please select a store to view stock
-                                    </div>
-                                ) : isLoadingItems || isLoadingStock ? (
-                                    <div className="p-12 text-center flex justify-center">
-                                        <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-                                    </div>
-                                ) : (
-                                    <table className="w-full text-xs text-left border-collapse">
-                                        <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 sticky top-0 z-10">
-                                            <tr>
-                                                <th className="px-4 py-2 font-semibold">Code</th>
-                                                <th className="px-3 py-2 font-semibold min-w-[200px]">Item Name</th>
-                                                <th className="px-3 py-2 font-semibold">Category</th>
-                                                <th className="px-3 py-2 font-semibold text-right">Current System Qty</th>
-                                                <th className="px-4 py-2 font-semibold text-right bg-blue-50/50">New Physical Qty</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100">
-                                            {filteredItems.map((item) => {
-                                                const currentStock = currentStocks?.find((s: any) => s.itemId === item.id);
-                                                const currentQty = currentStock ? currentStock.quantity : 0;
-                                                const inputValue = stockValues[item.id] ?? "0";
-                                                const isChanged = parseFloat(inputValue) !== currentQty;
-
-                                                return (
-                                                    <tr key={item.id} className="hover:bg-slate-50/50 transition-colors duration-150">
-                                                        <td className="px-4 py-1.5 font-mono text-[11px] text-slate-700">{item.code}</td>
-                                                        <td className="px-3 py-1.5 font-semibold text-slate-900">{item.name}</td>
-                                                        <td className="px-3 py-1.5 text-slate-500">{item.category}</td>
-                                                        <td className="px-3 py-1.5 text-right font-mono">
-                                                            <Badge variant="outline" className="bg-slate-100 text-[10px] px-1.5 py-0 text-slate-600">
-                                                                {currentQty} {item.unit}
-                                                            </Badge>
-                                                        </td>
-                                                        <td className={`px-4 py-1.5 text-right ${isChanged ? 'bg-blue-50/30' : ''}`}>
-                                                            <div className="flex justify-end items-center gap-2">
-                                                                <Input
-                                                                    type="number"
-                                                                    className={`w-24 text-right h-7 text-xs ${isChanged ? 'border-blue-400 font-bold bg-blue-50/50' : 'border-slate-200'}`}
-                                                                    value={inputValue}
-                                                                    onChange={(e) => handleQuantityChange(item.id, e.target.value)}
-                                                                />
-                                                                <span className="text-slate-500 w-8 text-[10px] text-left">{item.unit}</span>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                            {filteredItems.length === 0 && (
-                                                <tr>
-                                                    <td colSpan={5} className="text-center py-8 text-slate-400 font-semibold">
-                                                        No items found
-                                                    </td>
+                    <section className="pf-step">
+                        <div className="pf-step-title"><b>2</b>Count sheet (Excel)</div>
+                        <p className="pf-step-note">Download the template: it lists every item with its unit and its cost from the item list. Fill in Quantity and check the Unit cost for what the store holds; leave the other rows empty. Batch number and expiry date are optional.</p>
+                        <div className="flex flex-wrap items-end gap-3">
+                            <button type="button" data-testid="os-template" onClick={downloadTemplate} disabled={items.length === 0} className="rounded-md border border-slate-400 bg-white px-3 py-2 text-sm font-bold text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700 disabled:opacity-50">Download template</button>
+                            <div className="pf-field"><label htmlFor="os-file">Filled count sheet (.xlsx)</label>
+                                <input id="os-file" data-testid="os-file" type="file" accept=".xlsx,.xls,.csv" className="pf-input py-1" onChange={(e) => { const f = e.target.files?.[0]; if (f) void readSheet(f); }} /></div>
+                        </div>
+                        {lines.length > 0 && (
+                            <div className="mt-3 overflow-x-auto rounded-md border border-slate-300">
+                                <table className="w-full min-w-[44rem]" data-testid="os-preview">
+                                    <caption className="px-2 py-1.5 text-left text-xs font-semibold text-slate-800">{fileName}: {lines.length} item(s), {qtyText(totals.qty)} units, Rs. {money(totals.value)}</caption>
+                                    <thead><tr><th className={th}>Row</th><th className={th}>Item</th><th className={thNum}>Quantity</th><th className={thNum}>Unit cost (Rs.)</th><th className={thNum}>Value (Rs.)</th><th className={th}>Batch / expiry</th></tr></thead>
+                                    <tbody>
+                                        {lines.map((l) => {
+                                            const dup = l.itemId && already.includes(l.itemId);
+                                            const bad = l.errors.length > 0 || dup;
+                                            return (
+                                                <tr key={l.row} className={`border-t border-slate-200 ${bad ? "bg-red-50" : ""}`} data-testid="os-line">
+                                                    <td className={td}>{l.row}</td>
+                                                    <td className={td}><b>{l.code}</b> {l.name}{bad && <span className="block text-xs font-semibold text-red-800">{[...l.errors, ...(dup ? ["Already has stock or an open load in this store"] : [])].join("; ")}</span>}</td>
+                                                    <td className={tdNum}>{qtyText(l.quantity)} <span className="text-xs text-slate-700">{l.unit ?? ""}</span></td>
+                                                    <td className={tdNum}>{money(l.unitCost)}</td>
+                                                    <td className={tdNum}>{money(l.quantity * l.unitCost)}</td>
+                                                    <td className={td}>{l.batchNumber ?? "Given at approval"}{l.expiryDate ? <span className="block text-xs text-slate-700">Expires {l.expiryDate}</span> : null}</td>
                                                 </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                )}
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             </div>
-                        </div>
+                        )}
+                    </section>
 
-                    </div>
+                    <section className="pf-step">
+                        <div className="pf-step-title"><b>3</b>Signed count sheet</div>
+                        <p className="pf-step-note">The printed count sheet signed by the people who counted. It stays with the load as the evidence.</p>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div className="pf-field"><label htmlFor="os-scan">Scan of the signed count sheet</label>
+                                <input id="os-scan" data-testid="os-scan" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" className="pf-input py-1" onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadScan(f); }} />
+                                <span className="text-xs text-slate-700">{uploading ? "Uploading..." : sheetUrl ? "Attached" : "PDF or image"}</span></div>
+                            <div className="pf-field"><label htmlFor="os-remarks">Remarks (optional)</label>
+                                <input id="os-remarks" className="pf-input" value={remarks} onChange={(e) => setRemarks(e.target.value)} /></div>
+                        </div>
+                    </section>
                 </div>
-            </main>
+                <div className="lg:sticky lg:top-4 lg:self-start">
+                    <GatePanel testId="os-submit" checks={checks} action="Submit for approval" busy={submit.isPending || uploading} onAction={() => submit.mutate()} />
+                </div>
+            </div>
+
+            <section className="rounded-lg border border-slate-300 bg-white">
+                <h2 className="px-3 pt-3 text-base font-black text-slate-900">Opening stock loads</h2>
+                <div className="overflow-x-auto p-3">
+                    <table className="w-full min-w-[52rem]">
+                        <thead><tr><th className={th}>Load</th><th className={th}>Store</th><th className={th}>Counted</th><th className={th}>Status</th><th className={thNum}>Items</th><th className={thNum}>Value (Rs.)</th><th className={th}>Submitted / decided</th><th className={th}><span className="sr-only">Open</span></th></tr></thead>
+                        <tbody>
+                            {isLoading && <tr><td className={td} colSpan={8}>Loading…</td></tr>}
+                            {!isLoading && loads.length === 0 && <tr><td className={td} colSpan={8}>No opening stock has been loaded yet.</td></tr>}
+                            {loads.map((l) => {
+                                const isOpen = open === l.id;
+                                const approveChecks = openingApproveGate({ status: l.status, actorId: me.id, createdById: l.createdById, isAdmin: false, rejecting: decision === "REJECT", reason, alreadyLoaded: [] });
+                                return (
+                                    <Fragment key={l.id}>
+                                        <tr className="border-t border-slate-200" data-testid="os-load">
+                                            <td className={td}><b>{l.loadNumber}</b></td>
+                                            <td className={td}>{l.store}</td>
+                                            <td className={td}>{day(l.countDate)}</td>
+                                            <td className={td}><span className={`inline-block rounded border px-2 py-0.5 text-xs font-bold ${STATUS_STYLE[l.status] ?? ""}`}>{STATUS_LABEL[l.status] ?? l.status}</span>{l.rejectionReason && <span className="block text-xs text-red-800">{l.rejectionReason}</span>}</td>
+                                            <td className={tdNum}>{l.lines.length}</td>
+                                            <td className={tdNum}>{money(l.totalValue)}</td>
+                                            <td className={td}>{l.createdBy ?? "-"}<span className="block text-xs text-slate-700">{l.approvedBy ? `Approved by ${l.approvedBy}` : l.rejectedBy ? `Rejected by ${l.rejectedBy}` : "Not decided yet"}</span></td>
+                                            <td className={`${td} whitespace-nowrap`}><button type="button" aria-expanded={isOpen} data-testid="os-open" onClick={() => { setOpen(isOpen ? null : l.id); setDecision("APPROVE"); setReason(""); }} className="rounded border border-slate-400 bg-white px-2 py-1 text-xs font-bold text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700">{isOpen ? "Close" : l.status === "SUBMITTED" && me.canApprove ? "Check and decide" : "View"}</button></td>
+                                        </tr>
+                                        {isOpen && (
+                                            <tr data-testid="os-detail"><td colSpan={8} className="bg-slate-50 px-2 pb-3">
+                                                <div className="grid grid-cols-1 gap-3 pt-2 lg:grid-cols-[minmax(0,1fr)_20rem]">
+                                                    <div>
+                                                        <table className="w-full">
+                                                            <thead><tr><th className={th}>Item</th><th className={thNum}>Quantity</th><th className={thNum}>Unit cost (Rs.)</th><th className={thNum}>Value (Rs.)</th><th className={th}>Batch</th></tr></thead>
+                                                            <tbody>{l.lines.map((x) => <tr key={x.code} className="border-t border-slate-200"><td className={td}><b>{x.code}</b> {x.name}</td><td className={tdNum}>{qtyText(x.quantity)} <span className="text-xs text-slate-700">{x.unit ?? ""}</span></td><td className={tdNum}>{money(x.unitCost)}</td><td className={tdNum}>{money(x.quantity * x.unitCost)}</td><td className={td}>{x.batchNumber ?? "Given at approval"}</td></tr>)}</tbody>
+                                                        </table>
+                                                        <p className="mt-2 text-sm text-slate-800"><a href={l.countSheetUrl} target="_blank" rel="noreferrer" className="font-semibold text-blue-800 underline">Signed count sheet</a>{l.remarks ? ` · ${l.remarks}` : ""}</p>
+                                                    </div>
+                                                    {l.status === "SUBMITTED" && me.canApprove && (
+                                                        <div className="space-y-2">
+                                                            <fieldset className="rounded-md border border-slate-300 bg-white p-3">
+                                                                <legend className="px-1 text-sm font-bold text-slate-900">Your decision</legend>
+                                                                <label className="mr-4 text-sm text-slate-900"><input type="radio" name={`d-${l.id}`} checked={decision === "APPROVE"} onChange={() => setDecision("APPROVE")} className="mr-1" />Approve</label>
+                                                                <label className="text-sm text-slate-900"><input type="radio" name={`d-${l.id}`} checked={decision === "REJECT"} onChange={() => setDecision("REJECT")} className="mr-1" />Reject</label>
+                                                                {decision === "REJECT" && <div className="pf-field mt-2"><label htmlFor={`r-${l.id}`}>Why it is rejected</label><textarea id={`r-${l.id}`} data-testid="os-reason" rows={2} className="pf-input" value={reason} onChange={(e) => setReason(e.target.value)} /></div>}
+                                                            </fieldset>
+                                                            <GatePanel testId="os-decide" checks={approveChecks} busy={decide.isPending} action={decision === "APPROVE" ? "Approve: put the stock in the store" : "Reject and tell the submitter"} onAction={() => decide.mutate({ id: l.id, action: decision, reason })} />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td></tr>
+                                        )}
+                                    </Fragment>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+        </main>
+        </div>
         </div>
         </RoleGuard>
     );

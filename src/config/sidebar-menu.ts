@@ -522,7 +522,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                         permissionId: RBAC_PERMISSIONS.INVENTORY_MASTER, // the item master: the Executive, the Manager and above, not the officers
                     },
                     {
-                        title: 'Initial Stock Setup',
+                        title: 'Opening Stock',
                         level: 'operate',
                         path: '/inventory/admin/initial',
                         icon: BarChart3,
