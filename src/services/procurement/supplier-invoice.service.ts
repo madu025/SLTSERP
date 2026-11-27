@@ -6,6 +6,7 @@ import { LedgerService } from '@/services/finance/ledger.service';
 import { ACCOUNTS } from '@/services/finance/account-codes';
 import { userHasPermission } from '@/lib/user-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { isGrnInvoiceAbovePo } from '@/lib/grn-gate';
 import { threeWayMatch, invoicePosting, dueDateFrom, isAbovePoPrice, type MatchLine, type MatchOutcome } from '@/lib/procurement-rules';
 import { PAYMENT_CATEGORIES, isServiceCategory, type ServiceCategory } from '@/config/payment-categories';
 import { ApprovalLimitService } from '@/services/procurement/approval-limit.service';
@@ -126,7 +127,7 @@ export class SupplierInvoiceService {
         const poValue = entries.reduce((a, [id, q]) => a + q * Number(byId.get(id)!.unitPrice), 0);
         const goods = round2(input.goods);
         const tax = round2(input.tax);
-        if (goods > round2(poValue) + 0.01) {
+        if (isGrnInvoiceAbovePo(goods, poValue)) {
             throw AppError.badRequest(`INVOICE_ABOVE_PO_PRICE: the vendor invoice value of the goods (Rs. ${goods.toLocaleString('en-LK')}) is above the PO value of the accepted goods (Rs. ${round2(poValue).toLocaleString('en-LK')}). The PO price approved by HO is the most that can be paid: ask the vendor for an invoice at the PO price`);
         }
         // spread goods and tax over the lines by PO value; the last line takes the rounding remainder

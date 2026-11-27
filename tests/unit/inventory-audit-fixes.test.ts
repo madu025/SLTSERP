@@ -19,7 +19,7 @@ test('no invoice above the PO price: the PO is what HO approved (owner, 27 Nov 2
 test('an invoice above the PO price is refused when entered, at the GRN, and at approval even with a reason', () => {
     const svc = read('src/services/procurement/supplier-invoice.service.ts');
     const grn = svc.slice(svc.indexOf('static async createFromGrnTx('), svc.indexOf('static async create('));
-    assert.match(grn, /if \(goods > round2\(poValue\) \+ 0\.01\) \{\s+throw AppError\.badRequest\(`INVOICE_ABOVE_PO_PRICE/);
+    assert.match(grn, /if \(isGrnInvoiceAbovePo\(goods, poValue\)\) \{\s+throw AppError\.badRequest\(`INVOICE_ABOVE_PO_PRICE/);
     const create = svc.slice(svc.indexOf('static async create('), svc.indexOf('static async createService('));
     assert.match(create, /isAbovePoPrice\(m\.unitPrice, byId\.get\(poItemId\)!\.orderedPrice\)/);
     const approve = svc.slice(svc.indexOf('static async approve('), svc.indexOf('static async reject('));

@@ -6,10 +6,11 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Package, Eye, Info, Calendar, Building2, AlertCircle, Tag, TrendingUp, X, Clock, ClipboardList, Loader2, CheckCircle2 } from "lucide-react";
+import { Package, Eye, Info, Calendar, Building2, AlertCircle, Tag, TrendingUp, X, Clock, ClipboardList, CheckCircle2, XCircle } from "lucide-react";
+import { grnGateChecks, poValueOfAccepted, GRN_REJECT_REASON_MIN } from "@/lib/grn-gate";
+import { RBAC_PERMISSIONS } from "@/config/rbac-permissions";
+import "./grn.css";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { createGRN } from "@/actions/inventory-actions";
@@ -28,13 +29,25 @@ interface GRNItem {
     /** Delivered but rejected by the Stores Manager (not taken into stock, not paid) */
     rejectedQty?: number;
     rejectReason?: string;
+    /** Still open on the chosen PO line (ordered - received); null when receiving the whole request */
+    open?: number | null;
+    /** PO unit price, for the PO value of the accepted goods */
+    unitPrice?: number | null;
+    prevReceivedQty?: number;
+    remainingQty?: number;
 }
 
 interface PORefItem {
     id?: string;
     poNumber?: string;
     vendor?: string | { name?: string };
+    status?: string;
+    createdById?: string | null;
+    paymentBasis?: string | null;
+    hoApprovalRef?: string | null;
     items?: Array<{
+        receivedQty?: number | string;
+        unitPrice?: number | string;
         id?: string;
         requisitionItemId?: string;
         stockRequestItemId?: string;
@@ -239,6 +252,7 @@ export default function GRNPage() {
         const req = requestOverride || selectedRequest;
         setSelectedPOId(poNumber);
         if (!req) return;
+        if (!poNumber) { setReceivedItems([]); return; }
 
         const allItems: GRNItem[] = req.items.map((item) => {
             const reqQty = item.approvedQty && item.approvedQty > 0 ? item.approvedQty : (item.requestedQty || 0);
@@ -266,6 +280,24 @@ export default function GRNPage() {
         }
 
         const targetPO = req.purchaseOrders?.find(p => p.poNumber === poNumber || p.id === poNumber);
+
+        // a PO line that names its request line gives the open quantity and price of this delivery
+        if (targetPO && Array.isArray(targetPO.items) && targetPO.items.length > 0 && targetPO.items.every((pi) => pi.stockRequestItemId)) {
+            const lines: GRNItem[] = [];
+            for (const pi of targetPO.items) {
+                const ri = req.items.find((x) => x.id === pi.stockRequestItemId);
+                if (!ri) continue;
+                const open = Math.max(0, Number(pi.quantity ?? 0) - Number(pi.receivedQty ?? 0));
+                if (open <= 0) continue;
+                lines.push({
+                    itemId: ri.itemId, itemName: ri.item?.name || 'Unknown Item', requestedQty: Number(pi.quantity ?? 0), receivedQty: open, open,
+                    unitPrice: Number(pi.unitPrice ?? 0), remarks: '', unit: ri.item?.unit || '', hasSerial: ri.item?.hasSerial || false,
+                    serials: Array(Math.ceil(open)).fill(''), expiryDate: '',
+                });
+            }
+            setReceivedItems(lines);
+            return;
+        }
 
         if (targetPO && Array.isArray(targetPO.items) && targetPO.items.length > 0) {
             const poItemsList = targetPO.items;
@@ -299,7 +331,8 @@ export default function GRNPage() {
 
     const handleOpenGRNDialog = (request: InventoryRequest) => {
         setSelectedRequest(request);
-        handleSelectPO('ALL', request);
+        const hoPos = (request.purchaseOrders ?? []).some((p) => p.paymentBasis || p.hoApprovalRef);
+        if (hoPos) { setSelectedPOId(''); setReceivedItems([]); } else handleSelectPO('ALL', request);
         setShowGRNDialog(true);
     };
 
@@ -415,27 +448,42 @@ export default function GRNPage() {
         setReceivedItems(updated);
     };
 
-    const estimatorSummaries = useMemo(() => {
-        const totalItems = receivedItems.length;
-        
-        const groupedOrdered = receivedItems.reduce((acc, item) => {
-            const unit = item.unit || 'Nos';
-            acc[unit] = (acc[unit] || 0) + (Number(item.requestedQty) || 0);
-            return acc;
-        }, {} as Record<string, number>);
-
-        const groupedReceived = receivedItems.reduce((acc, item) => {
-            const unit = item.unit || 'Nos';
-            acc[unit] = (acc[unit] || 0) + (Number(item.receivedQty) || 0);
-            return acc;
-        }, {} as Record<string, number>);
-
+    // who is receiving (segregation of duties is shown before saving, and checked again by the server)
+    const [me] = useState<{ id: string | null; isAdmin: boolean }>(() => {
+        if (typeof window === 'undefined') return { id: null, isAdmin: false };
+        try {
+            const u = JSON.parse(localStorage.getItem('user') || '{}');
+            return { id: u.id ?? null, isAdmin: Array.isArray(u.permissions) && u.permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC) };
+        } catch { return { id: null, isAdmin: false }; /* the server decides */ }
+    });
+    const poList: PORefItem[] = useMemo(() => (selectedRequest?.purchaseOrders && selectedRequest.purchaseOrders.length > 0)
+        ? selectedRequest.purchaseOrders.filter((p) => String(p.status ?? '').toUpperCase() !== 'CANCELLED')
+        : (selectedRequest?.poNumber && selectedRequest.poNumber !== 'N/A' && selectedRequest.poNumber !== '-')
+            ? [{ id: selectedRequest.poNumber, poNumber: selectedRequest.poNumber, vendor: selectedRequest.vendor }]
+            : [], [selectedRequest]);
+    const gate = useMemo(() => {
+        const chosen = poList.find((p) => p.poNumber === selectedPOId || p.id === selectedPOId) ?? null;
+        const poRequired = poList.some((p) => p.paymentBasis || p.hoApprovalRef);
+        const lines = receivedItems.map((i) => ({
+            name: i.itemName, unit: i.unit, open: i.open ?? null, unitPrice: i.unitPrice ?? null,
+            accepted: Number(i.receivedQty) || 0, rejected: Number(i.rejectedQty) || 0, rejectReason: i.rejectReason ?? '',
+            serialsNeeded: i.hasSerial ? Math.ceil(Number(i.receivedQty) || 0) : 0,
+            serialsGiven: i.hasSerial ? (i.serials || []).filter((x) => x && x.trim() !== '').length : 0,
+        }));
+        const checks = grnGateChecks({
+            poRequired, poChosen: !!chosen, hoOrder: !!(chosen && (chosen.paymentBasis || chosen.hoApprovalRef)),
+            receiverId: me.id, poRecordedById: chosen?.createdById ?? null, isAdmin: me.isAdmin, lines,
+            oracleGrnNumber: oracleNo, invoiceNumber, invoiceDate: invDate,
+            invoiceGoods: invGoods === '' ? null : Number(invGoods), invoiceTax: invTax === '' ? null : Number(invTax),
+            scanAttached: !!(selectedFile || documentUrl),
+        });
+        const left = checks.filter((c) => !c.ok).length;
         return {
-            totalItems,
-            groupedOrdered,
-            groupedReceived
+            checks, left, ok: left === 0, poRequired, poChosen: !!chosen, hoOrder: !!(chosen && (chosen.paymentBasis || chosen.hoApprovalRef)),
+            poValue: poValueOfAccepted(lines), accepted: lines.reduce((a, l) => a + l.accepted, 0), rejected: lines.reduce((a, l) => a + l.rejected, 0),
         };
-    }, [receivedItems]);
+    }, [poList, selectedPOId, receivedItems, me, oracleNo, invoiceNumber, invDate, invGoods, invTax, selectedFile, documentUrl]);
+
 
     return (
         <div className="erp-page-wrapper flex-row overflow-hidden">
@@ -635,366 +683,160 @@ export default function GRNPage() {
             <Dialog open={showGRNDialog} onOpenChange={setShowGRNDialog}>
                 <DialogContent 
                     showCloseButton={false}
-                    className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[65vw] !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none"
+                    className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[min(1180px,94vw)] !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none"
                 >
                     {selectedRequest && (
-                        <>
-                            {/* Header Banner */}
-                            <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
-                                <div className="absolute top-0 right-0 p-5">
-                                    <button 
-                                        onClick={handleCloseGRNDialog} 
-                                        className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                                    >
-                                        <X className="w-4 h-4" />
-                                    </button>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Inventory Ledger Update</span>
-                                        <Badge className="bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-955/20 text-[9px] px-2 py-0 font-bold rounded-full">
-                                            Goods Receipt Note
-                                        </Badge>
-                                    </div>
-                                    <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight">
-                                        Record Goods Receipt (GRN)
-                                    </h2>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                                        Verify ordered materials and register them to store inventory.
-                                    </p>
-                                </div>
+                        <div className="grn flex h-full min-h-0 flex-col">
+                            <div className="grn-head relative">
+                                <button onClick={handleCloseGRNDialog} aria-label="Close" className="absolute right-4 top-4 rounded-full p-2 text-slate-600 hover:bg-slate-100">
+                                    <X className="h-4 w-4" />
+                                </button>
+                                <h2>Receive goods (GRN)</h2>
+                                <p>{selectedRequest.requestNr} &middot; {grnNumber || 'GRN number assigned when saved'}</p>
                             </div>
 
-                            {/* Split Panels Body */}
-                            <div className="flex-1 flex overflow-hidden bg-slate-50/50 dark:bg-slate-950/20">
-                                
-                                {/* LEFT PANEL (65% Scrollable Form) */}
-                                <div className="w-[65%] h-full overflow-y-auto p-6 space-y-6 border-r border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
-                                    
-                                    {/* GRN References */}
-                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm space-y-4">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">GRN Reference</label>
-                                                <Input
-                                                    className="h-9 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-mono font-bold text-slate-500 cursor-not-allowed border-dashed"
-                                                    value={grnNumber}
-                                                    readOnly
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Received Date</label>
-                                                <Input
-                                                    type="date"
-                                                    className="h-9 rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-semibold px-3 focus-visible:ring-1 focus-visible:ring-blue-500"
-                                                    value={receivedDate}
-                                                    onChange={e => setReceivedDate(e.target.value)}
-                                                />
-                                            </div>
-
-                                        </div>
-                                    </div>
-
-                                     {/* Target PO Selector Card (Multi-PO Partial GRN Support) */}
-                                     {(() => {
-                                         const poList = (selectedRequest.purchaseOrders && selectedRequest.purchaseOrders.length > 0)
-                                             ? selectedRequest.purchaseOrders
-                                             : (selectedRequest.poNumber && selectedRequest.poNumber !== 'N/A' && selectedRequest.poNumber !== '-')
-                                                 ? [{ id: selectedRequest.poNumber, poNumber: selectedRequest.poNumber, vendor: selectedRequest.vendor }]
-                                                 : [];
-
-                                         if (poList.length === 0) return null;
-
-                                         return (
-                                             <div className="bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 p-4 rounded-2xl space-y-2">
-                                                 <div className="flex justify-between items-center">
-                                                     <label className="text-[10px] font-black uppercase tracking-wider text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
-                                                         <ClipboardList className="w-3.5 h-3.5" /> Target PO Delivery Filter
-                                                     </label>
-                                                     <Badge className="bg-blue-600 text-white text-[9px] px-2 py-0 font-bold rounded">
-                                                         {poList.length} PO Reference{poList.length > 1 ? 's' : ''}
-                                                     </Badge>
-                                                 </div>
-                                                 <select
-                                                     className="h-9 w-full rounded-lg bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 text-xs font-bold text-slate-700 dark:text-slate-300 px-3 outline-none focus:ring-2 focus:ring-blue-500/50"
-                                                     value={selectedPOId}
-                                                     onChange={e => handleSelectPO(e.target.value)}
-                                                 >
-                                                     <option value="ALL">📦 Intake All Outstanding PO Items (Combined)</option>
-                                                     {poList.map((po) => (
-                                                         <option key={po.id || po.poNumber} value={po.poNumber}>
-                                                             📄 {po.poNumber} — {typeof po.vendor === 'object' ? po.vendor?.name : (po.vendor || 'Vendor')}
-                                                         </option>
-                                                     ))}
-                                                 </select>
-
-                                                 <div className="grid grid-cols-2 gap-4 mt-3">
-                                                     <div className="space-y-1.5">
-                                                         <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Invoice / Delivery Note</label>
-                                                         <Input
-                                                             type="text"
-                                                             placeholder="E.g. INV-2024-001"
-                                                             className="h-9 rounded-lg bg-white dark:bg-slate-900 border border-blue-200/50 dark:border-blue-800/50 text-xs font-semibold px-3 focus-visible:ring-1 focus-visible:ring-blue-500"
-                                                             value={invoiceNumber}
-                                                             onChange={e => setInvoiceNumber(e.target.value)}
-                                                         />
-                                                     </div>
-                                                     <div className="space-y-1.5">
-                                                         <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Upload Invoice</label>
-                                                         <div className="flex gap-2 items-center">
-                                                             <Input
-                                                                 type="file"
-                                                                 accept=".pdf,image/*"
-                                                                 className="h-9 rounded-lg bg-white dark:bg-slate-900 border border-blue-200/50 dark:border-blue-800/50 text-xs font-semibold px-3 py-1 cursor-pointer focus-visible:ring-1 focus-visible:ring-blue-500 flex-1"
-                                                                 onChange={handleFileSelection}
-                                                                 disabled={isUploading || createGRNMutation.isPending}
-                                                             />
-                                                             {isUploading && <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />}
-                                                             {(selectedFile || documentUrl) && !isUploading && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-                                                         </div>
-                                                     </div>
-                                                 </div>
-
-                                                 <div className="grid grid-cols-2 gap-4 mt-3" data-testid="grn-ho-fields">
-                                                     <div className="space-y-1.5">
-                                                         <label htmlFor="grn-oracle" className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Oracle GRN number</label>
-                                                         <Input id="grn-oracle" data-testid="grn-oracle" value={oracleNo} onChange={(e) => setOracleNo(e.target.value)} className="h-9 text-xs bg-white text-slate-900" />
-                                                     </div>
-                                                     <div className="space-y-1.5">
-                                                         <label htmlFor="grn-inv-date" className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Vendor invoice date</label>
-                                                         <Input id="grn-inv-date" data-testid="grn-inv-date" type="date" value={invDate} onChange={(e) => setInvDate(e.target.value)} className="h-9 text-xs bg-white text-slate-900" />
-                                                     </div>
-                                                     <div className="space-y-1.5">
-                                                         <label htmlFor="grn-inv-goods" className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Invoice value of the goods (without tax)</label>
-                                                         <Input id="grn-inv-goods" data-testid="grn-inv-goods" type="number" min={0} step="0.01" value={invGoods} onChange={(e) => setInvGoods(e.target.value)} className="h-9 text-xs bg-white text-slate-900" />
-                                                     </div>
-                                                     <div className="space-y-1.5">
-                                                         <label htmlFor="grn-inv-tax" className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Invoice tax</label>
-                                                         <Input id="grn-inv-tax" data-testid="grn-inv-tax" type="number" min={0} step="0.01" value={invTax} onChange={(e) => setInvTax(e.target.value)} className="h-9 text-xs bg-white text-slate-900" />
-                                                     </div>
-                                                 </div>
-                                                 <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">For an order approved in the HO system, the Oracle GRN number and the vendor invoice (number, date, values, scan) are required: the invoice is created with this GRN for the payment voucher.</p>
-
-                                                 <p className="text-[10px] text-blue-600/80 dark:text-blue-400/80 font-medium">
-                                                     Selecting a specific PO filters the checklist to show ONLY the materials authorized under that supplier&apos;s purchase order.
-                                                 </p>
-                                             </div>
-                                         );
-                                     })()}
-
-                                     {/* Received Items Checklist */}
-                                    <div className="space-y-3">
-                                        <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                            <Package className="w-3.5 h-3.5 text-blue-500" /> Items Verification List
-                                        </h3>
-
-                                        <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm bg-white dark:bg-slate-950">
-                                            <table className="w-full text-xs text-left border-collapse">
-                                                <thead className="bg-slate-50/80 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase tracking-wider">
-                                                    <tr>
-                                                        <th className="px-4 py-3">Material Description</th>
-                                                        <th className="px-4 py-3 text-center w-28">Ordered Qty</th>
-                                                        <th className="px-4 py-3 text-center w-36">Accepted Qty</th>
-                                                        <th className="px-4 py-3 text-center w-48">Rejected Qty / reason</th>
-                                                        <th className="px-4 py-3">Expiry &amp; Serial Registry</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                                    {receivedItems.map((item, idx) => (
-                                                        <tr key={idx} className="hover:bg-slate-50/30 dark:hover:bg-slate-900/20 transition-colors">
-                                                            <td className="px-4 py-3.5">
-                                                                <div className="font-bold text-slate-900 dark:text-white">{item.itemName}</div>
-                                                                <div className="text-[9px] text-slate-400 mt-0.5">Item Registry Code</div>
-                                                            </td>
-                                                            <td className="px-4 py-3.5 text-center font-black text-slate-600 dark:text-slate-400">
-                                                                {item.requestedQty} <span className="text-[9px] font-semibold text-slate-400">{item.unit || 'Nos'}</span>
-                                                            </td>
-                                                            <td className="px-4 py-3.5 relative">
-                                                                <div className="relative flex items-center">
-                                                                    <Input
-                                                                        type="number"
-                                                                        step="any"
-                                                                        className={cn("h-8 text-right font-black text-xs pr-10", item.receivedQty > item.requestedQty ? "text-red-500 border-red-200 focus-visible:ring-red-500" : "")}
-                                                                        value={item.receivedQty}
-                                                                        onChange={e => updateReceivedQty(idx, e.target.value)}
-                                                                    />
-                                                                    <span className={cn("absolute right-3 text-[10px] font-bold pointer-events-none", item.receivedQty > item.requestedQty ? "text-red-400" : "text-slate-400")}>
-                                                                        {item.unit || 'Nos'}
-                                                                    </span>
-                                                                </div>
-                                                                {item.receivedQty > item.requestedQty && (
-                                                                    <div className="absolute top-1 right-2 text-[8px] text-red-500 font-bold bg-white px-1">
-                                                                        Over
-                                                                    </div>
-                                                                )}
-                                                            </td>
-                                                            <td className="px-4 py-3.5">
-                                                                <Input type="number" min={0} step="any" data-testid="grn-rejected" aria-label="Rejected quantity" className="h-8 text-right text-xs bg-white text-slate-900" value={item.rejectedQty ?? ''} onChange={(e) => { const u = [...receivedItems]; u[idx] = { ...u[idx], rejectedQty: parseFloat(e.target.value) || 0 }; setReceivedItems(u); }} />
-                                                                {Number(item.rejectedQty || 0) > 0 && <Input data-testid="grn-reject-reason" aria-label="Reason for rejecting" placeholder="Reason" className="mt-1 h-8 text-xs bg-white text-slate-900" value={item.rejectReason ?? ''} onChange={(e) => { const u = [...receivedItems]; u[idx] = { ...u[idx], rejectReason: e.target.value }; setReceivedItems(u); }} />}
-                                                            </td>
-                                                            <td className="px-4 py-3.5 space-y-3">
-                                                                <div className="space-y-1">
-                                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Expiry Date</span>
-                                                                    <Input
-                                                                        type="date"
-                                                                        className="h-8 text-xs font-mono font-semibold"
-                                                                        value={item.expiryDate || ''}
-                                                                        onChange={e => {
-                                                                            const updated = [...receivedItems];
-                                                                            updated[idx].expiryDate = e.target.value;
-                                                                            setReceivedItems(updated);
-                                                                        }}
-                                                                    />
-                                                                </div>
-                                                                {item.hasSerial && (
-                                                                    <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 space-y-2">
-                                                                        <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Assign Serial Numbers:</span>
-                                                                        <div className="space-y-1.5">
-                                                                            {Array.from({ length: Math.ceil(item.receivedQty) || 0 }).map((_, sIdx) => (
-                                                                                <Input
-                                                                                    key={sIdx}
-                                                                                    className="h-8 text-[10px] font-mono bg-white dark:bg-slate-950 font-bold"
-                                                                                    placeholder={`Serial #${sIdx + 1}`}
-                                                                                    value={item.serials?.[sIdx] || ''}
-                                                                                    onChange={e => {
-                                                                                        const updatedSerials = [...(item.serials || [])];
-                                                                                        updatedSerials[sIdx] = e.target.value;
-                                                                                        const updatedItems = [...receivedItems];
-                                                                                        updatedItems[idx].serials = updatedSerials;
-                                                                                        setReceivedItems(updatedItems);
-                                                                                    }}
-                                                                                />
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-                                                                )}
-                                                            </td>
-                                                        </tr>
+                            <div className="grn-body">
+                                <div className="grn-form">
+                                    {/* 1. the purchase order this delivery is for */}
+                                    <section className="grn-step" aria-labelledby="grn-step-po">
+                                        <div className="grn-step-title" id="grn-step-po"><b>1</b>Purchase order</div>
+                                        <p className="grn-step-note">{gate.poRequired ? 'Each delivery is received against its own PO, with that vendor\'s invoice.' : 'Choose the PO, or receive everything still open on the request.'}</p>
+                                        <div className="grn-grid">
+                                            <div className="grn-field">
+                                                <label htmlFor="grn-po">Purchase order</label>
+                                                <select id="grn-po" className="grn-input" value={selectedPOId} aria-invalid={gate.poRequired && !gate.poChosen} onChange={(e) => handleSelectPO(e.target.value)}>
+                                                    {gate.poRequired ? <option value="">Choose the purchase order...</option> : <option value="ALL">All open items of the request</option>}
+                                                    {poList.map((po) => (
+                                                        <option key={po.id || po.poNumber} value={po.poNumber}>
+                                                            {po.poNumber} &middot; {typeof po.vendor === 'object' ? po.vendor?.name : (po.vendor || 'Vendor')}
+                                                        </option>
                                                     ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-
-                                    {/* Remarks */}
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Additional Notes / Quality Inspection</label>
-                                        <Textarea
-                                            rows={2}
-                                            value={grnRemarks}
-                                            onChange={e => setGRNRemarks(e.target.value)}
-                                            placeholder="Write any comments regarding quality checking, visual inspect status, damaged goods if any..."
-                                            className="text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-xl resize-none focus-visible:ring-1 focus-visible:ring-blue-500"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* RIGHT PANEL (35% Sticky Request Details) */}
-                                <div className="w-[35%] h-full overflow-y-auto p-6 space-y-6 bg-slate-50/50 dark:bg-slate-900/10 border-l border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
-                                    
-                                    {/* Request Context Info */}
-                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
-                                        <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                                            <Info className="w-3.5 h-3.5 text-blue-500" /> Reference Information
-                                        </h4>
-                                        {(() => {
-                                            const poList = selectedRequest.purchaseOrders || [];
-                                            let displayPO = selectedRequest.poNumber || 'N/A';
-                                            let displayVendor = (selectedRequest.vendor as string) || 'N/A';
-
-                                            if (poList.length > 0) {
-                                                if (selectedPOId === 'ALL') {
-                                                    displayPO = `Multiple POs (${poList.length})`;
-                                                    const vendors = Array.from(new Set(poList.map(p => typeof p.vendor === 'object' ? p.vendor?.name : p.vendor).filter(Boolean)));
-                                                    displayVendor = vendors.length > 1 ? 'Multiple Suppliers' : ((vendors[0] as string) || 'N/A');
-                                                } else {
-                                                    const target = poList.find(p => p.poNumber === selectedPOId || p.id === selectedPOId);
-                                                    if (target) {
-                                                        displayPO = target.poNumber || 'N/A';
-                                                        displayVendor = typeof target.vendor === 'object' ? (target.vendor?.name || 'N/A') : (target.vendor || 'N/A');
-                                                    }
-                                                }
-                                            }
-
-                                            return (
-                                                <div className="space-y-3.5 text-xs">
-                                                    <div className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
-                                                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Request No</span>
-                                                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">{selectedRequest.requestNr}</span>
-                                                    </div>
-                                                    <div className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
-                                                        <span className="text-[9px] font-bold text-slate-400 block uppercase">PO Reference</span>
-                                                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">{displayPO}</span>
-                                                    </div>
-                                                    <div className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
-                                                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Supplier Partner</span>
-                                                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">{displayVendor}</span>
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Source Type</span>
-                                                        <Badge className="bg-blue-500/10 text-blue-600 border border-blue-500/20 text-[9px] font-bold px-2 py-0 mt-0.5 rounded">{selectedRequest.sourceType}</Badge>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })()}
-                                    </div>
-
-                                    {/* Verification Metrics */}
-                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
-                                        <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                                            <TrendingUp className="w-3.5 h-3.5 text-blue-500" /> Intake Estimator
-                                        </h4>
-                                        <div className="space-y-3 text-xs">
-                                            <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80 font-semibold">
-                                                <span className="text-slate-400">Materials In GRN</span>
-                                                <span className="text-slate-800 dark:text-slate-200 font-bold">{estimatorSummaries.totalItems}</span>
+                                                </select>
                                             </div>
-                                            
-                                            <div className="space-y-1 py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                                                <div className="font-semibold text-slate-400 mb-1">Total Ordered Qty</div>
-                                                {Object.entries(estimatorSummaries.groupedOrdered).map(([unit, qty]) => (
-                                                    <div key={unit} className="flex justify-between items-center text-slate-800 dark:text-slate-200">
-                                                        <span className="text-[10px] uppercase font-bold text-slate-400">{unit}</span>
-                                                        <span className="font-black">{qty.toLocaleString()}</span>
-                                                    </div>
-                                                ))}
-                                                {Object.keys(estimatorSummaries.groupedOrdered).length === 0 && (
-                                                    <span className="text-slate-400 text-xs">0</span>
-                                                )}
-                                            </div>
-
-                                            <div className="space-y-1 py-1.5">
-                                                <div className="font-semibold text-slate-400 mb-1">Total Received Qty</div>
-                                                {Object.entries(estimatorSummaries.groupedReceived).map(([unit, qty]) => (
-                                                    <div key={unit} className="flex justify-between items-center text-blue-600 dark:text-blue-400">
-                                                        <span className="text-[10px] uppercase font-bold text-blue-400/70">{unit}</span>
-                                                        <span className="font-black">{qty.toLocaleString()}</span>
-                                                    </div>
-                                                ))}
-                                                {Object.keys(estimatorSummaries.groupedReceived).length === 0 && (
-                                                    <span className="text-slate-400 text-xs">0</span>
-                                                )}
+                                            <div className="grn-field">
+                                                <label htmlFor="grn-date">Received date</label>
+                                                <input id="grn-date" type="date" className="grn-input" value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} />
                                             </div>
                                         </div>
-                                    </div>
+                                    </section>
+
+                                    {/* 2. what arrived: accepted into stock and rejected */}
+                                    <section className="grn-step" aria-labelledby="grn-step-lines">
+                                        <div className="grn-step-title" id="grn-step-lines"><b>2</b>Delivery</div>
+                                        <p className="grn-step-note">Only the accepted quantity enters the stock and is paid. Rejected goods go back to the vendor, with the reason.</p>
+                                        {receivedItems.length === 0 ? (
+                                            <p className="text-sm" style={{ color: 'var(--g-ink-2)' }}>{gate.poRequired && !gate.poChosen ? 'Choose the purchase order to see its items.' : 'Nothing is open to receive on this request.'}</p>
+                                        ) : (
+                                            <div className="overflow-x-auto">
+                                                <table className="grn-lines">
+                                                    <thead><tr><th>Item</th><th className="num">Ordered</th><th className="num">Open</th><th>Accepted</th><th>Rejected</th><th>Reason</th><th>Expiry</th></tr></thead>
+                                                    <tbody>
+                                                        {receivedItems.map((item, idx) => {
+                                                            const over = item.open !== null && item.open !== undefined && item.receivedQty > item.open + 1e-9;
+                                                            const needsReason = Number(item.rejectedQty || 0) > 0 && (item.rejectReason ?? '').trim().length < GRN_REJECT_REASON_MIN;
+                                                            return (
+                                                                <tr key={idx}>
+                                                                    <td className="font-semibold">{item.itemName}</td>
+                                                                    <td className="num">{item.requestedQty}<span className="grn-unit">{item.unit || 'Nos'}</span></td>
+                                                                    <td className="num">{item.open ?? item.remainingQty ?? '-'}</td>
+                                                                    <td>
+                                                                        <input type="number" min={0} step="any" aria-label={`Accepted ${item.itemName}`} aria-invalid={over} className="grn-input grn-qty" value={item.receivedQty} onChange={(e) => updateReceivedQty(idx, e.target.value)} />
+                                                                    </td>
+                                                                    <td>
+                                                                        <input type="number" min={0} step="any" data-testid="grn-rejected" aria-label="Rejected quantity" className="grn-input grn-qty" value={item.rejectedQty ?? ''} onChange={(e) => { const u = [...receivedItems]; u[idx] = { ...u[idx], rejectedQty: parseFloat(e.target.value) || 0 }; setReceivedItems(u); }} />
+                                                                    </td>
+                                                                    <td>
+                                                                        {Number(item.rejectedQty || 0) > 0 ? (
+                                                                            <input data-testid="grn-reject-reason" aria-label="Reason for rejecting" aria-invalid={needsReason} placeholder="Why rejected" className="grn-input" value={item.rejectReason ?? ''} onChange={(e) => { const u = [...receivedItems]; u[idx] = { ...u[idx], rejectReason: e.target.value }; setReceivedItems(u); }} />
+                                                                        ) : <span style={{ color: 'var(--g-ink-2)' }}>-</span>}
+                                                                    </td>
+                                                                    <td>
+                                                                        <input type="date" aria-label={`Expiry ${item.itemName}`} className="grn-input" value={item.expiryDate || ''} onChange={(e) => { const u = [...receivedItems]; u[idx] = { ...u[idx], expiryDate: e.target.value }; setReceivedItems(u); }} />
+                                                                        {item.hasSerial && (
+                                                                            <div className="mt-2 flex flex-col gap-1">
+                                                                                {Array.from({ length: Math.ceil(item.receivedQty) || 0 }).map((_, sIdx) => (
+                                                                                    <input key={sIdx} className="grn-input" placeholder={`Serial ${sIdx + 1}`} value={item.serials?.[sIdx] || ''} onChange={(e) => { const serials = [...(item.serials || [])]; serials[sIdx] = e.target.value; const u = [...receivedItems]; u[idx] = { ...u[idx], serials }; setReceivedItems(u); }} />
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </section>
+
+                                    {/* 3. the vendor's invoice for this delivery */}
+                                    <section className="grn-step" aria-labelledby="grn-step-invoice">
+                                        <div className="grn-step-title" id="grn-step-invoice"><b>3</b>Vendor invoice and Oracle GRN</div>
+                                        <p className="grn-step-note">{gate.hoOrder ? 'Required for an order approved in HO: the invoice is created with this GRN for the payment voucher. Its goods value cannot be above the PO price.' : 'The delivery note or invoice of this delivery.'}</p>
+                                        <div className="grn-grid" data-testid="grn-ho-fields">
+                                            <div className="grn-field">
+                                                <label htmlFor="grn-inv-no">Vendor invoice number</label>
+                                                <input id="grn-inv-no" className="grn-input" placeholder="E.g. INV-2024-001" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} />
+                                            </div>
+                                            <div className="grn-field">
+                                                <label htmlFor="grn-inv-date">Vendor invoice date</label>
+                                                <input id="grn-inv-date" data-testid="grn-inv-date" type="date" className="grn-input" value={invDate} onChange={(e) => setInvDate(e.target.value)} />
+                                            </div>
+                                            <div className="grn-field">
+                                                <label htmlFor="grn-inv-goods">Goods value, without tax (Rs.)</label>
+                                                <input id="grn-inv-goods" data-testid="grn-inv-goods" type="number" min={0} step="0.01" className="grn-input" aria-invalid={gate.checks.some((c) => c.key === 'price' && !c.ok)} value={invGoods} onChange={(e) => setInvGoods(e.target.value)} />
+                                                <span className="grn-hint">PO value of the accepted goods: Rs. {gate.poValue.toLocaleString('en-LK', { minimumFractionDigits: 2 })}</span>
+                                            </div>
+                                            <div className="grn-field">
+                                                <label htmlFor="grn-inv-tax">Tax (Rs.)</label>
+                                                <input id="grn-inv-tax" data-testid="grn-inv-tax" type="number" min={0} step="0.01" className="grn-input" value={invTax} onChange={(e) => setInvTax(e.target.value)} />
+                                            </div>
+                                            <div className="grn-field">
+                                                <label htmlFor="grn-oracle">Oracle GRN number</label>
+                                                <input id="grn-oracle" data-testid="grn-oracle" className="grn-input" value={oracleNo} onChange={(e) => setOracleNo(e.target.value)} />
+                                            </div>
+                                            <div className="grn-field">
+                                                <label htmlFor="grn-scan">Scanned vendor invoice</label>
+                                                <input id="grn-scan" type="file" accept=".pdf,image/*" className="grn-input py-1" onChange={handleFileSelection} disabled={isUploading || createGRNMutation.isPending} />
+                                                {isUploading && <span className="grn-hint">Uploading...</span>}
+                                            </div>
+                                        </div>
+                                        <div className="grn-field mt-3">
+                                            <label htmlFor="grn-notes">Notes on the delivery (optional)</label>
+                                            <textarea id="grn-notes" rows={2} className="grn-input py-2" style={{ height: 'auto' }} value={grnRemarks} onChange={(e) => setGRNRemarks(e.target.value)} />
+                                        </div>
+                                    </section>
                                 </div>
+
+                                {/* the Gate: what the server checks, live */}
+                                <aside className="grn-gate" aria-label="Checks before saving">
+                                    <h3>Before you confirm</h3>
+                                    <p>The same checks the system makes when you save.</p>
+                                    <ul className="grn-checks" aria-live="polite">
+                                        {gate.checks.map((c) => (
+                                            <li key={c.key} className="grn-check" data-ok={c.ok}>
+                                                {c.ok ? <CheckCircle2 aria-hidden="true" /> : <XCircle aria-hidden="true" />}
+                                                <span>{c.text}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    <dl className="grn-sum">
+                                        <dt>Accepted</dt><dd>{gate.accepted.toLocaleString('en-LK')}</dd>
+                                        <dt>Rejected</dt><dd>{gate.rejected.toLocaleString('en-LK')}</dd>
+                                        <dt>PO value accepted</dt><dd>Rs. {gate.poValue.toLocaleString('en-LK', { minimumFractionDigits: 2 })}</dd>
+                                        {invGoods !== '' && <><dt>Invoice goods</dt><dd>Rs. {Number(invGoods || 0).toLocaleString('en-LK', { minimumFractionDigits: 2 })}</dd></>}
+                                    </dl>
+                                </aside>
                             </div>
 
-                            {/* Sticky Footer */}
-                            <div className="px-6 py-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-end items-center flex-shrink-0 gap-3">
-                                <Button variant="outline" onClick={handleCloseGRNDialog} className="h-9 px-4 text-xs font-bold rounded-xl border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5">
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={handleCreateGRN}
-                                    disabled={createGRNMutation.isPending}
-                                    className="h-9 px-5 text-xs font-bold bg-green-600 hover:bg-green-700 text-white rounded-xl flex items-center gap-1.5 shadow-sm shadow-green-500/10 font-sans"
-                                >
-                                    {createGRNMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><CheckCircle2 className="w-3.5 h-3.5" /> Confirm Receipt</>}
-                                </Button>
+                            <div className="grn-foot">
+                                <span className="grn-foot-status" data-ok={gate.ok} role="status">{gate.ok ? 'Ready to save' : `${gate.left} check${gate.left === 1 ? '' : 's'} to complete`}</span>
+                                <button type="button" className="grn-btn" onClick={handleCloseGRNDialog}>Cancel</button>
+                                <button type="button" className="grn-btn grn-btn-go" onClick={handleCreateGRN} disabled={!gate.ok || createGRNMutation.isPending || isUploading}>
+                                    {createGRNMutation.isPending ? 'Saving...' : 'Confirm receipt'}
+                                </button>
                             </div>
-                        </>
+                        </div>
                     )}
                 </DialogContent>
             </Dialog>

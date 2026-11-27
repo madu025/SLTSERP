@@ -15,6 +15,9 @@ import { getProcurementConfig } from '@/services/procurement/procurement-config'
 import { overReceiptCheck, poStatusFromReceipts, weightedAverageCost, normalizePoStatus } from '@/lib/procurement-rules';
 import { ACCOUNTS } from '@/services/finance/account-codes';
 import { PUBLIC_USER_SELECT } from '@/lib/public-user-select';
+import { GRN_REJECT_REASON_MIN, ORACLE_GRN_MIN, grnSodBlocked } from '@/lib/grn-gate';
+import { userHasPermission } from '@/lib/user-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export class GRNService {
     static async getGRNs(storeId?: string, allowedStoreIds?: string[]) {
@@ -56,7 +59,7 @@ export class GRNService {
 
         const { storeId, sourceType, supplier, items, requestId: requestIdInput, purchaseOrderId, sltReferenceId, reference, documentUrl, oracleGrnNumber, vendorInvoiceNumber, vendorInvoiceDate, vendorInvoiceGoods, vendorInvoiceTax, vendorInvoiceUrl } = parsed.data;
         // a rejected quantity needs its reason (the goods go back to the vendor and are not paid)
-        for (const i of items) if (Number(i.rejectedQty ?? 0) > 0 && (i.rejectReason ?? '').trim().length < 3) throw AppError.badRequest('GRN_REJECT_REASON_REQUIRED: give the reason for the rejected quantity');
+        for (const i of items) if (Number(i.rejectedQty ?? 0) > 0 && (i.rejectReason ?? '').trim().length < GRN_REJECT_REASON_MIN) throw AppError.badRequest('GRN_REJECT_REASON_REQUIRED: give the reason for the rejected quantity');
         // A receipt against a PO is a receipt against that PO's stock request, even if the caller did not say so
         let requestId: string | null | undefined = requestIdInput;
 
@@ -111,12 +114,16 @@ export class GRNService {
                 if (requestIdInput && requestIdInput !== po.stockRequestId) {
                     throw AppError.badRequest(`PURCHASE_ORDER_REQUEST_MISMATCH: ${po.poNumber} belongs to a different stock request`);
                 }
+                // segregation of duties (lib/grn-gate.ts, the screen checks the same): who recorded the PO does not receive its goods
+                if (grnSodBlocked(receivedById, po.createdById, await userHasPermission(receivedById, RBAC_PERMISSIONS.ADMIN_RBAC))) {
+                    throw AppError.badRequest(`SEGREGATION_OF_DUTIES_VIOLATION: you recorded ${po.poNumber}, so another person must receive its goods`);
+                }
                 requestId = po.stockRequestId;
                 poId = po.id;
                 // an order approved in the HO system (recorded with its payment terms; earlier ones with their HO reference) is received with its
                 // Oracle GRN number and the vendor's invoice for this delivery
                 if (po.hoApprovalRef || po.paymentBasis) {
-                    if ((oracleGrnNumber ?? '').trim().length < 3) throw AppError.badRequest('ORACLE_GRN_NUMBER_REQUIRED: enter the GRN number from the Oracle system');
+                    if ((oracleGrnNumber ?? '').trim().length < ORACLE_GRN_MIN) throw AppError.badRequest('ORACLE_GRN_NUMBER_REQUIRED: enter the GRN number from the Oracle system');
                     if ((vendorInvoiceNumber ?? '').trim().length < 1 || !vendorInvoiceDate || Number.isNaN(new Date(vendorInvoiceDate).getTime())) throw AppError.badRequest('VENDOR_INVOICE_REQUIRED: enter the vendor invoice number and date for this delivery');
                     if (!(Number(vendorInvoiceGoods) >= 0) || !(Number(vendorInvoiceTax ?? 0) >= 0)) throw AppError.badRequest('VENDOR_INVOICE_REQUIRED: enter the invoice goods value and tax');
                     if (!(vendorInvoiceUrl ?? '').trim()) throw AppError.badRequest('VENDOR_INVOICE_REQUIRED: attach the scanned vendor invoice');
