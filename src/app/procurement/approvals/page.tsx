@@ -7,15 +7,26 @@ import Header from '@/components/Header';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Eye, Search, X, ClipboardList, Info, Building2, User, Check, Ban, DollarSign, Package, Clock, AlertCircle, PenSquare, Tag, TrendingUp, Paperclip, FileText } from "lucide-react";
+import { Loader2, Eye, Search, X } from "lucide-react";
 import {
     Dialog,
     DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import GatePanel from "@/components/purchase/GatePanel";
+import PurchaseRoute from "@/components/purchase/PurchaseRoute";
+import { approvalGate, purchaseStation } from "@/lib/purchase-flow-gates";
+import { RBAC_PERMISSIONS } from "@/config/rbac-permissions";
+
+/** The step a request waits at, and who it goes to next. */
+const STEP_OF: Record<string, { name: string; next: string }> = {
+    STORES_MANAGER_APPROVAL: { name: 'Stores Manager review', next: 'the OSP Manager' },
+    OSP_MANAGER_APPROVAL: { name: 'OSP Manager approval', next: 'Procurement' },
+    HOS_APPROVAL: { name: 'Head of Section approval', next: 'Procurement' },
+    ARM_APPROVAL: { name: 'Area Manager approval', next: 'the main store for release' },
+};
+const SOURCE_LABEL: Record<string, string> = { LOCAL_PURCHASE: 'local purchase', EMERGENCY_LOCAL: 'emergency local purchase', SLT: 'SLT (Head Office)', MAIN_STORE: 'main store transfer' };
 
 interface ApprovalRequestItem {
     id: string;
@@ -45,6 +56,11 @@ interface ApprovalRequest {
     status: string;
     workflowStage: string;
     managerAction?: string | null;
+    requestedById?: string | null;
+    storesManagerApprovedById?: string | null;
+    armApprovedById?: string | null;
+    procurementDocsSubmittedAt?: string | null;
+    sltReferenceId?: string | null;
     projectTypes?: string[] | null;
     requestedBy?: {
         id: string;
@@ -64,6 +80,16 @@ export default function ApprovalsPage() {
 
     // States for quantity editing and warehouse stocks
     const [approvedQuantities, setApprovedQuantities] = useState<Record<string, number>>({});
+    const [decision, setDecision] = useState<'APPROVE' | 'REJECT'>('APPROVE');
+    const [actionError, setActionError] = useState<string | null>(null);
+    // who is acting: segregation of duties is shown before typing (the server checks the same)
+    const [me] = useState<{ id: string | null; isAdmin: boolean }>(() => {
+        if (typeof window === 'undefined') return { id: null, isAdmin: false };
+        try {
+            const u = JSON.parse(localStorage.getItem('user') || '{}');
+            return { id: u.id ?? null, isAdmin: Array.isArray(u.permissions) && u.permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC) };
+        } catch { return { id: null, isAdmin: false }; }
+    });
     const [stockLevels, setStockLevels] = useState<Record<string, number>>({});
 
     // Fetch Requests with filtering
@@ -90,40 +116,31 @@ export default function ApprovalsPage() {
 
     const requests = Array.isArray(rawRequests) ? rawRequests : [];
 
-    // Initialize edited quantities and fetch stock levels when selection changes
+    // Opening a request starts the approved quantities at the requested ones (set by openRequest); the store's stock is fetched here
     useEffect(() => {
-        if (selectedRequest && selectedRequest.items) {
-            const initialQuantities: Record<string, number> = {};
-            selectedRequest.items.forEach(item => {
-                initialQuantities[item.id] = item.requestedQty;
-            });
-            setApprovedQuantities(initialQuantities);
-
-            if (selectedRequest.toStoreId) {
-                fetch(`/api/inventory/stock?storeId=${selectedRequest.toStoreId}&_t=${Date.now()}`, { cache: 'no-store' })
-                    .then(res => {
-                        if (!res.ok) throw new Error("Failed to fetch stock levels");
-                        return res.json();
-                    })
-                    .then((data: any[]) => {
-                        const levels: Record<string, number> = {};
-                        data.forEach(stock => {
-                            levels[stock.itemId] = stock.quantity;
-                        });
-                        setStockLevels(levels);
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        setStockLevels({});
-                    });
-            } else {
-                setStockLevels({});
-            }
-        } else {
-            setApprovedQuantities({});
-            setStockLevels({});
-        }
+        if (!selectedRequest?.toStoreId) return;
+        let live = true;
+        fetch(`/api/inventory/stock?storeId=${selectedRequest.toStoreId}&_t=${Date.now()}`, { cache: 'no-store' })
+            .then(res => {
+                if (!res.ok) throw new Error("Failed to fetch stock levels");
+                return res.json();
+            })
+            .then((data: Array<{ itemId: string; quantity: number }>) => {
+                const levels: Record<string, number> = {};
+                data.forEach(stock => { levels[stock.itemId] = stock.quantity; });
+                if (live) setStockLevels(levels);
+            })
+            .catch(() => { if (live) setStockLevels({}); });
+        return () => { live = false; };
     }, [selectedRequest]);
+    const openRequest = (req: ApprovalRequest) => {
+        setSelectedRequest(req);
+        setApprovedQuantities(Object.fromEntries((req.items ?? []).map((it) => [it.id, Number(it.requestedQty)])));
+        setStockLevels({});
+        setRemarks('');
+        setDecision('APPROVE');
+        setActionError(null);
+    };
 
     const approveMutation = useMutation({
         mutationFn: async ({ id, action, remarks, items }: { id: string, action: string, remarks?: string, items?: { id: string, approvedQty: number }[] }) => {
@@ -132,16 +149,17 @@ export default function ApprovalsPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ requestId: id, action, remarks, items })
             });
-            if (!res.ok) throw new Error("Action failed");
-            return res.json();
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(String(json?.error?.message ?? json?.error ?? json?.message ?? `The action failed (${res.status})`).replace(/^[A-Z_]+: /, ''));
+            return json;
         },
-        onSuccess: () => {
-            toast.success("Request processed successfully");
+        onSuccess: (_d, v) => {
+            toast.success(v.action === 'REJECT' ? 'Request rejected; the requester is told' : 'Approved and sent on');
             queryClient.invalidateQueries({ queryKey: ["approvals"] });
             setSelectedRequest(null);
             setRemarks("");
         },
-        onError: () => toast.error("Operation failed")
+        onError: (e: Error) => setActionError(e.message)
     });
 
     const handleAction = (id: string, action: 'APPROVE' | 'REJECT', remarks?: string, items?: { id: string, approvedQty: number }[]) => {
@@ -338,7 +356,8 @@ export default function ApprovalsPage() {
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            onClick={() => { setSelectedRequest(req); setRemarks(""); }}
+                                                            onClick={() => openRequest(req)}
+                                                            aria-label={`Open ${req.requestNr}`}
                                                             className="h-7 w-7 p-0 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
                                                         >
                                                             <Eye className="w-4 h-4" />
@@ -359,376 +378,95 @@ export default function ApprovalsPage() {
             <Dialog open={!!selectedRequest} onOpenChange={(open) => { if (!open) setSelectedRequest(null); }}>
                 <DialogContent 
                     showCloseButton={false}
-                    className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[65vw] !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none"
+                    className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[min(1180px,94vw)] !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none"
                 >
-                    {selectedRequest && (
-                        <>
-                            {/* Header Banner - Enterprise SAP/Dynamics Style */}
-                            <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
-                                <div className="absolute top-0 right-0 p-5">
-                                    <button 
-                                        onClick={() => setSelectedRequest(null)} 
-                                        className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                                    >
-                                        <X className="w-4 h-4" />
-                                    </button>
+                    {selectedRequest && (() => {
+                        const r = selectedRequest;
+                        const step = STEP_OF[r.workflowStage] ?? { name: 'Approval', next: 'the next step' };
+                        const lines = (r.items ?? []).map((it) => ({ id: it.id, name: it.item?.name ?? 'Item', unit: it.item?.unit ?? '', requested: Number(it.requestedQty), approved: approvedQuantities[it.id] ?? Number(it.requestedQty) }));
+                        const pendingHere = activeTab === 'PENDING' && r.status === 'PENDING';
+                        const checks = approvalGate({
+                            actorId: me.id, requesterId: r.requestedBy?.id ?? r.requestedById ?? null, earlierSignerIds: [r.storesManagerApprovedById, r.armApprovedById],
+                            waitingHere: pendingHere, rejecting: decision === 'REJECT', reason: remarks, lines, isAdmin: me.isAdmin,
+                        });
+                        const isPurchase = !r.toStoreId;
+                        return (
+                            <div className="pf flex h-full min-h-0 flex-col" style={{ background: 'var(--pf-paper)' }}>
+                                <div className="relative border-b px-6 pb-4 pt-5" style={{ background: 'var(--pf-panel)', borderColor: 'var(--pf-line)' }}>
+                                    <button onClick={() => setSelectedRequest(null)} aria-label="Close" className="absolute right-4 top-4 rounded-full p-2 hover:bg-slate-100"><X className="h-4 w-4" /></button>
+                                    <h2 className="text-[1.375rem] font-bold leading-tight">{step.name}: {r.requestNr}</h2>
+                                    <p className="mt-0.5 text-sm" style={{ color: 'var(--pf-ink-2)' }}>
+                                        Raised by {r.requestedBy?.name ?? 'unknown'} on {new Date(r.createdAt).toLocaleDateString('en-GB')}{r.requiredDate ? `, needed by ${new Date(r.requiredDate).toLocaleDateString('en-GB')}` : ''}{r.priority && r.priority !== 'MEDIUM' && r.priority !== 'NORMAL' ? `, ${r.priority.toLowerCase()} priority` : ''}
+                                    </p>
                                 </div>
+                                <div className="flex-1 overflow-y-auto p-5">
+                                    <div className="flex flex-col gap-4">
+                                        {isPurchase && <PurchaseRoute station={purchaseStation(r)} />}
+                                        <div className="pf-layout">
+                                            <div className="pf-steps">
+                                                <section className="pf-step" aria-labelledby="ap-1">
+                                                    <div className="pf-step-title" id="ap-1"><b>1</b>Check the request</div>
+                                                    <p className="pf-step-note">{r.purpose ? `For: ${r.purpose.replace(/_/g, ' ')}.` : 'No purpose was given.'}{r.sourceType ? ` Source: ${SOURCE_LABEL[r.sourceType] ?? r.sourceType}.` : ''}</p>
+                                                    <div className="overflow-x-auto">
+                                                        <table className="pf-table">
+                                                            <thead><tr><th>Item</th><th className="num">In store</th><th className="num">Requested</th><th>Approve</th></tr></thead>
+                                                            <tbody>
+                                                                {lines.map((l) => {
+                                                                    const over = l.approved > l.requested + 1e-9 || l.approved < 0;
+                                                                    return (
+                                                                        <tr key={l.id}>
+                                                                            <td className="font-semibold">{l.name}</td>
+                                                                            <td className="num">{stockLevels[(r.items ?? []).find((x) => x.id === l.id)?.itemId ?? ''] ?? '-'}</td>
+                                                                            <td className="num">{l.requested}<span className="pf-unit">{l.unit}</span></td>
+                                                                            <td>
+                                                                                <span className="inline-flex items-center">
+                                                                                    <input type="number" min={0} step="any" aria-label={`Approved quantity ${l.name}`} aria-invalid={over} disabled={decision === 'REJECT' || !pendingHere} className="pf-input pf-qty" value={l.approved} onChange={(e) => setApprovedQuantities({ ...approvedQuantities, [l.id]: parseFloat(e.target.value) || 0 })} />
+                                                                                    <span className="pf-unit">{l.unit}</span>
+                                                                                </span>
+                                                                                {over && <div className="pf-err">At most {l.requested}</div>}
+                                                                            </td>
+                                                                        </tr>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                    {r.sltReferenceId && <p className="mt-2 text-sm">Memo approval: <a className="underline" style={{ color: 'var(--pf-route)' }} href={r.sltReferenceId} target="_blank" rel="noreferrer">open the attachment</a></p>}
+                                                </section>
 
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Procurement Approval</span>
-                                            <Badge className="bg-blue-50/80 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50 text-[9px] px-2 py-0 font-bold rounded-full">
-                                                {activeTab === "PENDING" ? "Awaiting Review" : "Processed"}
-                                            </Badge>
-                                            {selectedRequest.priority === 'URGENT' && (
-                                                <Badge className="bg-red-600 text-white border-none font-bold text-[9px] px-2 py-0 rounded-full flex items-center gap-1 shadow-sm">
-                                                    <AlertCircle className="w-2.5 h-2.5" /> URGENT
-                                                </Badge>
-                                            )}
+                                                <section className="pf-step" aria-labelledby="ap-2">
+                                                    <div className="pf-step-title" id="ap-2"><b>2</b>Your decision</div>
+                                                    <p className="pf-step-note">Approve sends it to {step.next}. Reject closes it and tells the requester why.</p>
+                                                    <div className="pf-choices" role="radiogroup" aria-label="Decision">
+                                                        <label><input type="radio" className="pf-check" name="decision" checked={decision === 'APPROVE'} onChange={() => setDecision('APPROVE')} disabled={!pendingHere} />Approve</label>
+                                                        <label><input type="radio" className="pf-check" name="decision" checked={decision === 'REJECT'} onChange={() => setDecision('REJECT')} disabled={!pendingHere} />Reject</label>
+                                                    </div>
+                                                    <div className="pf-field mt-3">
+                                                        <label htmlFor="ap-reason">{decision === 'REJECT' ? 'Why it is rejected' : 'Comments (needed when you reduce a quantity)'}</label>
+                                                        <textarea id="ap-reason" rows={3} maxLength={500} className="pf-input" aria-invalid={checks.some((c) => c.key === 'reason' && !c.ok)} value={remarks} onChange={(e) => setRemarks(e.target.value)} disabled={!pendingHere} />
+                                                    </div>
+                                                    {r.remarks && <p className="mt-2 text-sm" style={{ color: 'var(--pf-ink-2)' }}>Earlier comments: &ldquo;{r.remarks}&rdquo;</p>}
+                                                    {actionError && <p className="pf-err mt-2" role="alert">{actionError}</p>}
+                                                </section>
+                                            </div>
+
+                                            <GatePanel
+                                                checks={checks}
+                                                action={decision === 'REJECT' ? 'Reject and tell the requester' : `Approve and send to ${step.next}`}
+                                                busy={approveMutation.isPending}
+                                                testId="ap-go"
+                                                onAction={() => {
+                                                    setActionError(null);
+                                                    if (decision === 'REJECT') { handleAction(r.id, 'REJECT', remarks); return; }
+                                                    handleAction(r.id, 'APPROVE', remarks, lines.map((l) => ({ id: l.id, approvedQty: l.approved })));
+                                                }}
+                                            />
                                         </div>
-                                        <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight">
-                                            {selectedRequest.requestNr}
-                                        </h2>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                                            Requested by <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedRequest.requestedBy?.name || 'Super Admin'}</span> • Required {selectedRequest.requiredDate ? new Date(selectedRequest.requiredDate).toLocaleDateString() : 'N/A'}
-                                        </p>
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Split Panels Body */}
-                            <div className="flex-1 flex overflow-hidden bg-slate-50/50 dark:bg-slate-950/20">
-                                
-                                {/* LEFT PANEL (65% Scrollable) */}
-                                <div className="w-[65%] h-full overflow-y-auto p-6 space-y-6 border-r border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
-                                    
-                                    {/* Request Information - 6 Cards */}
-                                    <div className="space-y-3">
-                                        <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                            <Info className="w-3.5 h-3.5 text-blue-500" /> Request Information
-                                        </h3>
-                                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
-                                                <Tag className="w-4 h-4 text-slate-400" />
-                                                <div className="min-w-0">
-                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Purpose</span>
-                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.purpose || 'OSP FTTH deployment'}</span>
-                                                </div>
-                                            </div>
-                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
-                                                <Building2 className="w-4 h-4 text-slate-400" />
-                                                <div className="min-w-0">
-                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Warehouse</span>
-                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">Central Warehouse</span>
-                                                </div>
-                                            </div>
-                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
-                                                <ClipboardList className="w-4 h-4 text-slate-400" />
-                                                <div className="min-w-0">
-                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Project Types</span>
-                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block font-sans">
-                                                        {selectedRequest.projectTypes?.join(', ') || 'General OSP'}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
-                                                <User className="w-4 h-4 text-slate-400" />
-                                                <div className="min-w-0">
-                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Requester</span>
-                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.requestedBy?.name || 'Super Admin'}</span>
-                                                </div>
-                                            </div>
-                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
-                                                <DollarSign className="w-4 h-4 text-emerald-500" />
-                                                <div className="min-w-0">
-                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Budget Status</span>
-                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">Within Budget</span>
-                                                </div>
-                                            </div>
-                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
-                                                <AlertCircle className="w-4 h-4 text-red-500" />
-                                                <div className="min-w-0">
-                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Priority</span>
-                                                    <Badge className="bg-red-500/10 text-red-600 border border-red-500/20 text-[9px] font-bold px-2 py-0 rounded">{selectedRequest.priority || 'NORMAL'}</Badge>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Requested Materials Table */}
-                                    <div className="space-y-3">
-                                        <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                            <Package className="w-3.5 h-3.5 text-blue-500" /> Requested Materials
-                                        </h3>
-                                        <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm bg-white dark:bg-slate-950">
-                                            <table className="w-full text-xs text-left border-collapse">
-                                                <thead className="bg-slate-50/80 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase tracking-wider sticky top-0 z-10 backdrop-blur">
-                                                    <tr>
-                                                        <th className="px-4 py-3">Item Name &amp; Code</th>
-                                                        <th className="px-4 py-3 text-right">Warehouse Stock</th>
-                                                        <th className="px-4 py-3 text-right">Requested Qty</th>
-                                                        {activeTab === "HISTORY" && <th className="px-4 py-3 text-right">Approved Qty</th>}
-                                                        {activeTab === "PENDING" && <th className="px-4 py-3 text-right w-32">Approved Qty</th>}
-                                                        <th className="px-4 py-3">Make / Model</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                                    {selectedRequest.items?.map((item: ApprovalRequestItem) => {
-                                                        const itemId = item.itemId || item.item?.id || '';
-                                                        const stock = stockLevels[itemId] !== undefined ? stockLevels[itemId] : 0;
-                                                        return (
-                                                            <tr key={item.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-900/40 transition-colors duration-150 group">
-                                                                <td className="px-4 py-3.5">
-                                                                    <div className="flex items-center gap-2.5">
-                                                                        <div className="w-7 h-7 bg-slate-100 dark:bg-slate-900 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-800 font-black text-slate-500 dark:text-slate-400 text-[9px]">
-                                                                            {item.item?.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                                                                        </div>
-                                                                        <div>
-                                                                            <div className="font-bold text-slate-900 dark:text-white text-xs">{item.item?.name}</div>
-                                                                            <div className="text-[10px] text-slate-400 font-mono mt-0.5">{item.item?.code || 'N/A'}</div>
-                                                                        </div>
-                                                                    </div>
-                                                                </td>
-                                                                <td className={cn(
-                                                                    "px-4 py-3.5 text-right font-bold",
-                                                                    stock === 0 ? "text-rose-600 dark:text-rose-500" :
-                                                                    stock < item.requestedQty ? "text-amber-600 dark:text-amber-500" :
-                                                                    "text-emerald-600 dark:text-emerald-500"
-                                                                )}>
-                                                                    {stock} {item.item?.unit}
-                                                                </td>
-                                                                <td className="px-4 py-3.5 text-right font-bold text-slate-900 dark:text-slate-200">
-                                                                    {item.requestedQty} {item.item?.unit}
-                                                                </td>
-                                                                {activeTab === "HISTORY" && (
-                                                                    <td className="px-4 py-3.5 text-right font-bold text-emerald-600 dark:text-emerald-500">
-                                                                        {item.approvedQty !== null && item.approvedQty !== undefined ? item.approvedQty : '-'} {item.item?.unit}
-                                                                    </td>
-                                                                )}
-                                                                {activeTab === "PENDING" && (
-                                                                    <td className="px-4 py-3.5 text-right">
-                                                                        <Input
-                                                                            type="number"
-                                                                            min={0}
-                                                                            max={item.requestedQty}
-                                                                            value={approvedQuantities[item.id] !== undefined ? approvedQuantities[item.id] : item.requestedQty}
-                                                                            onChange={(e) => {
-                                                                                const val = parseFloat(e.target.value);
-                                                                                setApprovedQuantities(prev => ({
-                                                                                    ...prev,
-                                                                                    [item.id]: isNaN(val) ? 0 : val
-                                                                                }));
-                                                                            }}
-                                                                            className="h-8 w-24 text-right inline-block text-xs bg-white dark:bg-slate-900 border-blue-200 focus-visible:ring-1 focus-visible:ring-blue-500"
-                                                                        />
-                                                                    </td>
-                                                                )}
-                                                                <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400 font-medium">
-                                                                    {item.make || '-'} / {item.model || '-'}
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-
-                                    {/* Action Remarks / Comments Feed */}
-                                    <div className="space-y-4">
-                                        <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                            <PenSquare className="w-3.5 h-3.5 text-blue-500" /> Decision Logs &amp; Comments
-                                        </h3>
-                                        
-                                        <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm space-y-4">
-                                            {activeTab === "PENDING" && (
-                                                <div className="space-y-2">
-                                                    <div className="flex justify-between items-center">
-                                                        <Label htmlFor="remarks" className="text-xs font-bold text-slate-700 dark:text-slate-300">Approval Comments</Label>
-                                                        <span className="text-[10px] font-mono text-slate-400">{remarks.length} / 500</span>
-                                                    </div>
-                                                    <Textarea
-                                                        id="remarks"
-                                                        placeholder="Add comments or justification for approval/rejection decision..."
-                                                        maxLength={500}
-                                                        className="bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-xl resize-none shadow-inner text-xs"
-                                                        value={remarks}
-                                                        onChange={(e) => setRemarks(e.target.value)}
-                                                        rows={3}
-                                                    />
-                                                </div>
-                                            )}
-
-                                            <div className="space-y-3 pt-2">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Activity Log</span>
-                                                <div className="space-y-3">
-                                                    {selectedRequest.remarks && (
-                                                        <div className="flex gap-3 text-xs bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800/80">
-                                                            <div className="h-6 w-6 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-[10px] font-bold text-blue-600 dark:text-blue-400">A</div>
-                                                            <div>
-                                                                <div className="font-bold text-slate-700 dark:text-slate-300">Approver Decision Log</div>
-                                                                <div className="text-slate-500 dark:text-slate-400 mt-1 italic">"{selectedRequest.remarks}"</div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                    <div className="flex gap-3 text-xs">
-                                                        <div className="h-6 w-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400">P</div>
-                                                        <div>
-                                                            <div className="font-bold text-slate-700 dark:text-slate-300">Procurement Department</div>
-                                                            <div className="text-slate-400 text-[10px]">Loaded for regional approval matching stock check.</div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* RIGHT PANEL (35% Sticky) */}
-                                <div className="w-[35%] h-full overflow-y-auto p-6 space-y-6 bg-slate-50/50 dark:bg-slate-900/10 border-l border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
-                                    
-                                    {/* Summary Dashboard */}
-                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
-                                        <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                                            <TrendingUp className="w-3.5 h-3.5 text-blue-500" /> Summary Metrics
-                                        </h4>
-                                        
-                                        {(() => {
-                                            const totalItems = selectedRequest.items?.length || 0;
-                                            const totalQty = selectedRequest.items?.reduce((sum, item) => sum + (Number(item.requestedQty) || 0), 0) || 0;
-                                            const estimatedCost = totalQty * 3800;
-                                            return (
-                                                <div className="space-y-3 text-xs">
-                                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                                                        <span className="text-slate-500 dark:text-slate-400">Total Items</span>
-                                                        <span className="font-black text-slate-800 dark:text-slate-200">{totalItems}</span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                                                        <span className="text-slate-500 dark:text-slate-400">Total Requested Qty</span>
-                                                        <span className="font-black text-slate-800 dark:text-slate-200">{totalQty.toLocaleString()}</span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                                                        <span className="text-slate-500 dark:text-slate-400">Est. PO Value (LKR)</span>
-                                                        <span className="font-black text-blue-600 dark:text-blue-400">LKR {estimatedCost.toLocaleString()}</span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                                                        <span className="text-slate-500 dark:text-slate-400">Priority Status</span>
-                                                        <Badge className={cn(
-                                                            "text-[9px] font-bold px-2 py-0",
-                                                            selectedRequest.priority === 'URGENT' ? 'bg-red-500/10 text-red-600 border border-red-500/20' : 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
-                                                        )}>
-                                                            {selectedRequest.priority}
-                                                        </Badge>
-                                                    </div>
-                                                    <div className="flex justify-between items-center py-1.5">
-                                                        <span className="text-slate-500 dark:text-slate-400">Budget Checks</span>
-                                                        <Badge className="bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 text-[9px] font-bold px-2 py-0">Approved</Badge>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })()}
-                                    </div>                                    {/* Attachments Section */}
-                                    {(() => {
-                                        const requestAttachments = selectedRequest.requestNr === 'REQ-20260702-6207'
-                                            ? ['BOQ_Procurement.pdf', 'SupplierQuote.xlsx']
-                                            : [];
-                                        if (requestAttachments.length === 0) return null;
-                                        return (
-                                            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
-                                                <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                                                    <Paperclip className="w-3.5 h-3.5 text-blue-500" /> Attachments
-                                                </h4>
-                                                <div className="space-y-2">
-                                                    {requestAttachments.map(file => (
-                                                        <div key={file} className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-850 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 border border-slate-200/50 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer transition-colors">
-                                                            <span className="flex items-center gap-2">
-                                                                <FileText className="w-3.5 h-3.5 text-slate-400" />
-                                                                {file}
-                                                            </span>
-                                                            <span className="text-[9px] text-slate-400 font-normal">2.4 MB</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {/* Approval Timeline */}
-                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
-                                        <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                                            <Clock className="w-3.5 h-3.5 text-blue-500" /> Approval Timeline
-                                        </h4>
-                                        <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800 text-xs">
-                                            <div className="relative">
-                                                <span className="absolute -left-6 top-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900"></span>
-                                                <div className="font-bold text-slate-800 dark:text-slate-200">PO Draft Generated</div>
-                                                <div className="text-[10px] text-slate-400">by Super Admin</div>
-                                            </div>
-                                            <div className="relative">
-                                                <span className="absolute -left-6 top-0.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-white dark:border-slate-900 animate-pulse"></span>
-                                                <div className="font-bold text-slate-800 dark:text-slate-200">Procurement Regional Approval</div>
-                                                <div className="text-[10px] text-blue-500 font-semibold">Awaiting Review</div>
-                                            </div>
-                                            <div className="relative opacity-60">
-                                                <span className="absolute -left-6 top-0.5 w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-700 border-2 border-white dark:border-slate-900"></span>
-                                                <div className="font-bold text-slate-500 dark:text-slate-400">Final Release</div>
-                                                <div className="text-[10px] text-slate-400">Pending approval</div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                            {/* Sticky Drawer Footer */}
-                            <div className="px-6 py-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center flex-shrink-0 gap-3">
-                                <Button 
-                                    variant="outline" 
-                                    onClick={() => setSelectedRequest(null)}
-                                    className="h-9 px-4 text-xs font-bold rounded-xl border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5"
-                                >
-                                    <X className="w-3.5 h-3.5" /> Cancel
-                                </Button>
-                                {activeTab === "PENDING" && (
-                                    <div className="flex gap-2">
-                                        <Button
-                                            variant="destructive"
-                                            disabled={approveMutation.isPending}
-                                            onClick={() => handleAction(selectedRequest.id, 'REJECT', remarks)}
-                                            className="h-9 px-4 text-xs font-bold rounded-xl flex items-center gap-1.5"
-                                        >
-                                            {approveMutation.isPending && approveMutation.variables?.action === 'REJECT' ? (
-                                                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                                            ) : (
-                                                <Ban className="w-3.5 h-3.5" />
-                                            )}
-                                            Reject
-                                        </Button>
-                                        <Button
-                                            disabled={approveMutation.isPending}
-                                            onClick={() => {
-                                                const itemsPayload = selectedRequest.items?.map(item => ({
-                                                    id: item.id,
-                                                    approvedQty: approvedQuantities[item.id] !== undefined ? approvedQuantities[item.id] : item.requestedQty
-                                                }));
-                                                handleAction(selectedRequest.id, 'APPROVE', remarks, itemsPayload);
-                                            }}
-                                            className="h-9 px-4 text-xs font-bold bg-green-600 hover:bg-green-700 text-white rounded-xl flex items-center gap-1.5 shadow-md transition-transform active:scale-95"
-                                        >
-                                            {approveMutation.isPending && approveMutation.variables?.action === 'APPROVE' ? (
-                                                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                                            ) : (
-                                                <Check className="w-3.5 h-3.5" />
-                                            )}
-                                            Approve &amp; Forward
-                                        </Button>
-                                    </div>
-                                )}
-                            </div>
-                        </>
-                    )}
+                        );
+                    })()}
                 </DialogContent>
             </Dialog>
         </div>
