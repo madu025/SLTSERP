@@ -302,10 +302,7 @@ function LoginContent() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <div className="slt-label-row">
-                      <FormLabel className="slt-label" htmlFor="login-password">Password</FormLabel>
-                      <Link href="/forgot-password" className="slt-forgot">Forgot password?</Link>
-                    </div>
+                    <FormLabel className="slt-label" htmlFor="login-password">Password</FormLabel>
                     <FormControl>
                       <div className="slt-input-wrap">
                         <svg className="slt-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -348,6 +345,11 @@ function LoginContent() {
                   </>
                 )}
               </Button>
+
+              {/* Below Sign In, so Tab goes Username -> Password -> Sign In */}
+              <div className="slt-forgot-row">
+                <Link href="/forgot-password" className="slt-forgot">Forgot password?</Link>
+              </div>
             </form>
           </Form>
 

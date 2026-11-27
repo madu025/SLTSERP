@@ -272,8 +272,8 @@
   color: rgba(255,255,255,0.7) !important;
   letter-spacing: 0.03em;
 }
-.slt-label-row { display: flex; align-items: center; justify-content: space-between; }
-.slt-forgot { font-size: 0.75rem; color: #00AEEF; font-weight: 500; text-decoration: none; transition: color 0.2s; }
+.slt-forgot-row { text-align: center; }
+.slt-forgot { font-size: 0.8rem; color: #00AEEF; font-weight: 500; text-decoration: none; transition: color 0.2s; }
 .slt-forgot:hover { color: #fff; }
 
 .slt-input-wrap { position: relative; }
