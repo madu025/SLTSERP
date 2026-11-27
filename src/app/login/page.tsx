@@ -3,26 +3,24 @@
 import Link from "next/link";
 import {  useState, useEffect, Suspense  } from 'react';
 import { NexusLogoMaster } from "@/components/ui/NexusLogo";
-import "./login.css";
+import "./route-login.css";
+import { Barlow, Barlow_Semi_Condensed } from "next/font/google";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { landingPath } from "@/config/landing";
 import * as z from "zod";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Form,
   FormControl,
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from "@/components/ui/form";
 
-// Static premium quotes (Performance Boost)
-const premiumQuotes = [
+// Staff motivation quotes, one at a time on the route panel
+const staffQuotes = [
   { content: "Quality means doing it right when no one is looking.", author: "Henry Ford" },
   { content: "Innovation distinguishes between a leader and a follower.", author: "Steve Jobs" },
   { content: "The details are not the details. They make the design.", author: "Charles Eames" },
@@ -30,6 +28,9 @@ const premiumQuotes = [
   { content: "Good design is good business.", author: "Thomas Watson Jr." },
   { content: "Excellence is not a skill, it is an attitude.", author: "Ralph Marston" },
 ];
+
+const bodyFont = Barlow({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-lg-body", display: "swap" });
+const displayFont = Barlow_Semi_Condensed({ subsets: ["latin"], weight: ["600", "700"], variable: "--font-lg-display", display: "swap" });
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -40,7 +41,6 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 function LoginContent() {
   const [error, setError] = useState("");
-  const [quoteIndex, setQuoteIndex] = useState(0);
   const searchParams = useSearchParams();
 
   // Session expired banner (set by global 401 interceptor in SessionManager)
@@ -91,14 +91,6 @@ function LoginContent() {
         }).catch(() => {});
       }).catch(() => {});
     }
-  }, []);
-
-  // Cycle through quotes
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setQuoteIndex((prev) => (prev + 1) % premiumQuotes.length);
-    }, 5000);
-    return () => clearInterval(interval);
   }, []);
 
   const onSubmit = async (values: LoginFormValues) => {
@@ -185,114 +177,97 @@ function LoginContent() {
     }
   };
 
+  // Next quote every 8 seconds
+  const [quoteIndex, setQuoteIndex] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setQuoteIndex((i) => (i + 1) % staffQuotes.length), 8000);
+    return () => clearInterval(t);
+  }, []);
+
+  const usernameError = form.formState.errors.username?.message;
+  const passwordError = form.formState.errors.password?.message;
+
   return (
-    <div className="slt-login-root">
-      {/* Animated BG blobs */}
-      <div className="slt-blob slt-blob-1" />
-      <div className="slt-blob slt-blob-2" />
-      <div className="slt-blob slt-blob-3" />
+    <div className={`lg-root ${bodyFont.variable} ${displayFont.variable}`}>
+      {/* Route panel: the fibre route from the exchange to the customer */}
+      <section className="lg-route-panel" aria-label="SLTS Nexus">
+        {/* The headline names the system, so the logo carries no subtitle */}
+        <NexusLogoMaster iconSize={52} subtitle="" />
 
-      {/* Main 2-column grid */}
-      <div className="slt-card">
-
-        {/* ── LEFT PANEL ── */}
-        <div className="slt-left-panel">
-          {/* Noise overlay */}
-          <div className="slt-noise" />
-
-          {/* Branding */}
-          <div className="slt-brand mb-8">
-            <NexusLogoMaster iconSize={60} subtitle="WORKFLOW MANAGEMENT SYSTEM" />
-          </div>
-
-          {/* Hero text */}
-          <div className="slt-hero">
-            <h1 className="slt-hero-title">
-              Enterprise<br />
-              <span className="slt-hero-accent">Resource</span><br />
-              Management
-            </h1>
-            <p className="slt-hero-sub">
-              Streamline OSP workflows with SLT&apos;s next-generation Nexus enterprise platform.
-            </p>
-          </div>
-
-          {/* Quote carousel */}
-          <div className="slt-quote-area">
-            <div key={quoteIndex} className="slt-quote-fade">
-              <p className="slt-quote-text">&ldquo;{premiumQuotes[quoteIndex].content}&rdquo;</p>
-              <p className="slt-quote-author">&mdash; {premiumQuotes[quoteIndex].author}</p>
-            </div>
-            <div className="slt-quote-dots">
-              {premiumQuotes.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setQuoteIndex(i)}
-                  className={`slt-dot${i === quoteIndex ? " slt-dot-active" : ""}`}
-                  aria-label={`Quote ${i + 1}`}
-                />
-              ))}
-            </div>
-          </div>
+        <div className="lg-headline-block">
+          <h1 className="lg-headline">Workflow Management System</h1>
+          <p className="lg-lede">Outside plant work, start to finish: projects, stores, procurement and finance for SLT Services, in one place.</p>
+          <figure className="lg-quote" aria-live="polite">
+            <blockquote key={quoteIndex} className="lg-quote-text">&ldquo;{staffQuotes[quoteIndex].content}&rdquo;</blockquote>
+            <figcaption className="lg-quote-author">{staffQuotes[quoteIndex].author}</figcaption>
+          </figure>
         </div>
 
-        {/* ── RIGHT PANEL (Login form) ── */}
-        <div className="slt-right-panel">
-          {/* Mobile-only top branding */}
-          <div className="slt-mobile-brand flex justify-center mb-6">
-            <NexusLogoMaster iconSize={52} subtitle="WORKFLOW MANAGEMENT SYSTEM" />
-          </div>
+        <svg className="lg-route" viewBox="0 0 600 210" role="img" aria-label="A fibre route from the exchange, through a cabinet and poles, to the customer">
+          <line className="lg-route-ground" x1="0" y1="180" x2="600" y2="180" />
+          {/* Exchange */}
+          <path className="lg-route-plant" d="M22 180 V132 H82 V180 M22 132 L52 114 L82 132 M38 150 H50 M58 150 H70 M38 164 H50 M58 164 H70" />
+          {/* Cabinet */}
+          <path className="lg-route-plant" d="M200 180 V146 H230 V180 M206 154 H224" />
+          {/* Poles */}
+          <path className="lg-route-plant" d="M300 180 V88 M288 95 H312 M390 180 V88 M378 95 H402 M480 180 V88 M468 95 H492" />
+          {/* Customer */}
+          <path className="lg-route-plant" d="M540 180 V148 H582 V180 M534 152 L561 130 L588 152 M555 180 V164 H567 V180" />
+          {/* The fibre: underground to the cabinet, then aerial over the poles, then the drop */}
+          <path className="lg-route-fibre" pathLength={1} d="M60 170 H215 L300 95 Q345 122 390 95 Q435 122 480 95 Q522 108 552 150" />
+          <circle className="lg-route-pulse" r="4" />
+          <text className="lg-route-label" x="52" y="200" textAnchor="middle">Exchange</text>
+          <text className="lg-route-label" x="215" y="200" textAnchor="middle">Cabinet</text>
+          <text className="lg-route-label" x="390" y="200" textAnchor="middle">Poles</text>
+          <text className="lg-route-label" x="561" y="200" textAnchor="middle">Customer</text>
+        </svg>
+      </section>
 
-          {/* Desktop heading */}
-          <div className="slt-desktop-heading">
-            <h2 className="slt-form-title">Welcome back</h2>
-            <p className="slt-form-sub">Sign in to your SLTS account to continue</p>
-          </div>
+      {/* Form panel */}
+      <main className="lg-form-panel">
+        <div className="lg-form-column">
+          <h2 className="lg-title">Sign in</h2>
+          <p className="lg-sub">Use your SLTS Nexus username and password.</p>
 
-          {/* Session expired banner */}
           {sessionExpired && (
-            <div className="p-3 mb-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <div className="lg-alert lg-alert-expired" role="status">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
-              <span>Your session has expired. Please sign in again to continue.</span>
+              <span>Your session has ended. Sign in again to continue.</span>
             </div>
           )}
 
-          {/* Error alert */}
           {error && (
-            <div className="slt-error">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <div className="lg-alert lg-alert-error" role="alert">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
               <span>{error}</span>
             </div>
           )}
 
-          {/* Form */}
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="slt-form">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="lg-form" noValidate>
               <FormField
                 control={form.control}
                 name="username"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="slt-label" htmlFor="login-username">Username</FormLabel>
+                  <FormItem className="gap-0">
+                    <FormLabel className="lg-label" htmlFor="login-username">Username</FormLabel>
                     <FormControl>
-                      <div className="slt-input-wrap">
-                        <svg className="slt-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-                        </svg>
-                        <Input
-                          id="login-username"
-                          autoComplete="username"
-                          placeholder="Enter your username"
-                          className="slt-input"
-                          {...field}
-                        />
-                      </div>
+                      <input
+                        id="login-username"
+                        autoComplete="username"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        className="lg-input"
+                        aria-invalid={!!usernameError}
+                        aria-describedby={usernameError ? "login-username-error" : undefined}
+                        {...field}
+                      />
                     </FormControl>
-                    <FormMessage />
+                    {usernameError && <p id="login-username-error" className="lg-field-error">{usernameError}</p>}
                   </FormItem>
                 )}
               />
@@ -301,79 +276,65 @@ function LoginContent() {
                 control={form.control}
                 name="password"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="slt-label" htmlFor="login-password">Password</FormLabel>
+                  <FormItem className="gap-0">
+                    <FormLabel className="lg-label" htmlFor="login-password">Password</FormLabel>
                     <FormControl>
-                      <div className="slt-input-wrap">
-                        <svg className="slt-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                        </svg>
-                        <Input
-                          id="login-password"
-                          autoComplete="current-password"
-                          type="password"
-                          placeholder="••••••••"
-                          className="slt-input"
-                          {...field}
-                        />
-                      </div>
+                      <input
+                        id="login-password"
+                        autoComplete="current-password"
+                        type="password"
+                        className="lg-input"
+                        aria-invalid={!!passwordError}
+                        aria-describedby={passwordError ? "login-password-error" : undefined}
+                        {...field}
+                      />
                     </FormControl>
-                    <FormMessage />
+                    {passwordError && <p id="login-password-error" className="lg-field-error">{passwordError}</p>}
                   </FormItem>
                 )}
               />
 
-              <Button
+              <button
                 type={hydrated ? "submit" : "button"}
                 disabled={!hydrated || isSubmitting}
                 id="login-submit-btn"
-                className="slt-submit-btn"
+                className="lg-submit"
               >
                 {isSubmitting ? (
                   <>
-                    <svg className="slt-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg className="lg-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                       <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                     </svg>
                     Signing in…
                   </>
                 ) : (
-                  <>
-                    Sign In
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                  </>
+                  "Sign in"
                 )}
-              </Button>
+              </button>
 
-              {/* Below Sign In, so Tab goes Username -> Password -> Sign In */}
-              <div className="slt-forgot-row">
-                <Link href="/forgot-password" className="slt-forgot">Forgot password?</Link>
-              </div>
+              {/* Below Sign in, so Tab goes Username -> Password -> Sign in */}
+              <Link href="/forgot-password" className="lg-forgot">Forgot password?</Link>
             </form>
           </Form>
 
-          {/* Quick Test Login (Development environment only) */}
+          {/* Quick test login (development server only) */}
           {process.env.NODE_ENV === "development" && (
-            <div className="slt-test-section">
-              <div className="slt-test-header">
-                <span className="slt-test-badge">🧪 Quick Test Login</span>
-                <span className="slt-test-note">Development &amp; Testing Phase Only</span>
-              </div>
-              <div className="slt-test-grid">
+            <div className="lg-dev">
+              <p className="lg-dev-title">Quick test login (development only)</p>
+              <div className="lg-dev-grid">
                 {[
-                  { username: 'admin',        role: 'Super Admin',  cls: 'slt-role-violet'  },
-                  { username: 'testadmin',    role: 'Admin',        cls: 'slt-role-blue'    },
-                  { username: 'ospmanager',   role: 'OSP Manager',  cls: 'slt-role-emerald' },
-                  { username: 'areamanager',  role: 'Area Manager', cls: 'slt-role-orange'  },
-                  { username: 'storesmanager',role: 'Stores Mgr',   cls: 'slt-role-cyan'    },
-                  { username: 'coordinator',  role: 'Coordinator',  cls: 'slt-role-pink'    },
-                  { username: 'qcofficer',    role: 'QC Officer',   cls: 'slt-role-indigo'  },
+                  { username: 'admin',         role: 'Super Admin'  },
+                  { username: 'testadmin',     role: 'Admin'        },
+                  { username: 'ospmanager',    role: 'OSP Manager'  },
+                  { username: 'areamanager',   role: 'Area Manager' },
+                  { username: 'storesmanager', role: 'Stores Mgr'   },
+                  { username: 'coordinator',   role: 'Coordinator'  },
+                  { username: 'qcofficer',     role: 'QC Officer'   },
                 ].map((u) => (
                   <button
                     key={u.username}
                     type="button"
-                    className={`slt-role-btn ${u.cls}`}
+                    className="lg-dev-btn"
                     onClick={async () => {
                       form.setValue('username', u.username);
                       form.setValue('password', 'Admin@123');
@@ -385,18 +346,13 @@ function LoginContent() {
                   </button>
                 ))}
               </div>
-              <p className="slt-test-pw">Password: Admin@123 &bull; Click to auto-login</p>
+              <p className="lg-dev-note">Password Admin@123. Click a role to sign in.</p>
             </div>
           )}
 
-          {/* Footer status */}
-          <div className="slt-footer">
-            <p className="slt-footer-note">Protected by Enterprise Security. Unauthorized access is prohibited.</p>
-          </div>
+          <p className="lg-note">For authorised SLT Services staff and contractors only.</p>
         </div>
-      </div>
-
-      {/* login.css styles are loaded statically */}
+      </main>
     </div>
   );
 }
