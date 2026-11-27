@@ -35,3 +35,12 @@ test('the request-path Redis client keeps reconnecting in production but never m
     assert.match(r, /enableOfflineQueue: false/);
     assert.match(r, /if \(!isProduction && times > 2\) return null;\s*return Math\.min\(200 \* times, 5000\);/);
 });
+
+test('the app never calls KEYS (blocking, and refused for the app ACL user); it uses scanKeys', () => {
+    for (const f of ['src/lib/cache.service.ts', 'src/services/gis/GISImportService.ts', 'src/services/system/traffic.service.ts']) {
+        const s = readFileSync(new URL(`../../${f}`, import.meta.url), 'utf8');
+        assert.doesNotMatch(s, /redis\.keys\(/, f);
+        assert.match(s, /scanKeys\(/, f);
+    }
+    assert.match(readFileSync(new URL('../../src/lib/redis.ts', import.meta.url), 'utf8'), /await redis\.scan\(cursor, 'MATCH', pattern, 'COUNT', count\)/);
+});

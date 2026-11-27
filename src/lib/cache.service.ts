@@ -1,4 +1,4 @@
-import { redis } from './redis';
+import { redis, scanKeys } from './redis';
 import { logger } from './logger';
 import { getRequestId } from './request-context';
 
@@ -74,7 +74,7 @@ export class CacheService {
     static async delPattern(pattern: string): Promise<void> {
         if (!CacheService.isReady()) return;
         try {
-            const keys = await redis.keys(pattern);
+            const keys = await scanKeys(pattern);
             if (keys.length > 0) {
                 await redis.del(...keys);
             }

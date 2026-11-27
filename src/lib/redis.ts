@@ -42,4 +42,20 @@ if (!isProduction) {
     redisGlobal.redis = redis;
 }
 
+/**
+ * Every key matching a pattern, read with SCAN in small steps instead of KEYS. KEYS walks the whole keyspace in one
+ * blocking call (it stalls the BullMQ workers on the same Redis) and is refused for the app's ACL user (-@dangerous).
+ * SCAN may return a key twice, so the result is de-duplicated.
+ */
+export async function scanKeys(pattern: string, count = 200): Promise<string[]> {
+    const found = new Set<string>();
+    let cursor = '0';
+    do {
+        const [next, keys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', count);
+        for (const k of keys) found.add(k);
+        cursor = next;
+    } while (cursor !== '0');
+    return [...found];
+}
+
 export default redis;

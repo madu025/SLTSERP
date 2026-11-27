@@ -1,4 +1,4 @@
-import { redis } from '@/lib/redis';
+import { redis, scanKeys } from '@/lib/redis';
 
 export interface TrafficMetric {
     identifier: string;
@@ -14,7 +14,7 @@ export class TrafficService {
      */
     static async getLiveTraffic(): Promise<TrafficMetric[]> {
         try {
-            const keys = await redis.keys('ratelimit:*');
+            const keys = await scanKeys('ratelimit:*');
             if (keys.length === 0) return [];
 
             const pipeline = redis.pipeline();

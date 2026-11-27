@@ -20,7 +20,7 @@ import { permitGenerator } from '@/lib/gis/permit-generator';
 import { gisAnalyticsEngine } from '@/lib/gis/gis-analytics-engine';
 import { defaultStageRole, getWorkflowForProjectType } from '@/lib/gis/workflow-definitions';
 import { logger } from '@/lib/logger';
-import { redis } from '@/lib/redis';
+import { redis, scanKeys } from '@/lib/redis';
 import { safe, safeSync } from '@/utils/safe-await.util';
 import { StorageService } from '@/services/storage/storage.service';
 
@@ -2232,7 +2232,7 @@ export class GISImportService {
     const redisAvailable = await this.sessionStoreAvailable();
     if (redisAvailable) {
       try {
-        const keys = await redis.keys(`${GIS_SESSION_KEY_PREFIX}*`);
+        const keys = await scanKeys(`${GIS_SESSION_KEY_PREFIX}*`);
         const payloads = keys.length > 0 ? await redis.mget(...keys) : [];
         const sessions = payloads
           .filter((payload): payload is string => Boolean(payload))
