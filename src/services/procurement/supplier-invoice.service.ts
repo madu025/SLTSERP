@@ -145,7 +145,7 @@ export class SupplierInvoiceService {
         const outcome: MatchOutcome = threeWayMatch(lines.map((l) => {
             const p = byId.get(l.poItemId)!;
             return { poItemId: l.poItemId, description: `${p.stockRequestItem.item.code} ${p.stockRequestItem.item.name}`, orderedQty: Number(p.quantity), orderedPrice: Number(p.unitPrice), receivedQty: Number(p.receivedQty), invoicedBefore: billed.get(l.poItemId) ?? 0, invoiceQty: l.quantity, invoicePrice: l.unitPrice };
-        }), cfg.matchPriceTolerancePct);
+        }), cfg.matchPriceTolerancePct, cfg.matchPriceToleranceAmount);
         try {
             const invoice = await tx.supplierInvoice.create({
                 data: {
@@ -153,7 +153,7 @@ export class SupplierInvoiceService {
                     invoiceDate: input.invoiceDate, dueDate: input.dueDate, currency: po.currency,
                     subtotal: goods, taxAmount: tax, totalAmount: round2(goods + tax),
                     status: outcome.status === 'MATCHED' ? 'MATCHED' : 'VARIANCE', matchStatus: outcome.status,
-                    matchDetail: JSON.parse(JSON.stringify({ tolerancePct: cfg.matchPriceTolerancePct, lines: outcome.lines, grnNumber: input.grnNumber })),
+                    matchDetail: JSON.parse(JSON.stringify({ tolerancePct: cfg.matchPriceTolerancePct, toleranceAmount: cfg.matchPriceToleranceAmount, lines: outcome.lines, grnNumber: input.grnNumber })),
                     createdById: input.userId,
                     items: { create: lines.map((l) => ({ poItemId: l.poItemId, description: `${byId.get(l.poItemId)!.stockRequestItem.item.code} ${byId.get(l.poItemId)!.stockRequestItem.item.name}`, quantity: l.quantity, unitPrice: l.unitPrice, taxAmount: l.taxAmount, amount: l.amount })) },
                 },
@@ -188,7 +188,7 @@ export class SupplierInvoiceService {
             const c = byId.get(poItemId)!;
             return { poItemId, description: c.description, orderedQty: c.orderedQty, orderedPrice: c.orderedPrice, receivedQty: c.receivedQty, invoicedBefore: c.invoicedBefore, invoiceQty: m.quantity, invoicePrice: m.unitPrice };
         });
-        const outcome: MatchOutcome = threeWayMatch(matchLines, cfg.matchPriceTolerancePct);
+        const outcome: MatchOutcome = threeWayMatch(matchLines, cfg.matchPriceTolerancePct, cfg.matchPriceToleranceAmount);
 
         const subtotal = round2([...merged.values()].reduce((a, m) => a + m.quantity * m.unitPrice, 0));
         const tax = round2([...merged.values()].reduce((a, m) => a + m.taxAmount, 0));
@@ -206,7 +206,7 @@ export class SupplierInvoiceService {
                     subtotal, taxAmount: tax, totalAmount: round2(subtotal + tax),
                     status: outcome.status === 'MATCHED' ? 'MATCHED' : 'VARIANCE',
                     matchStatus: outcome.status,
-                    matchDetail: JSON.parse(JSON.stringify({ tolerancePct: cfg.matchPriceTolerancePct, lines: outcome.lines })),
+                    matchDetail: JSON.parse(JSON.stringify({ tolerancePct: cfg.matchPriceTolerancePct, toleranceAmount: cfg.matchPriceToleranceAmount, lines: outcome.lines })),
                     createdById: userId,
                     items: {
                         create: [...merged.entries()].map(([poItemId, m]) => ({
@@ -319,12 +319,28 @@ export class SupplierInvoiceService {
         if (!isAdmin && !opts?.viaVoucherChain && !(await userHasPermission(userId, RBAC_PERMISSIONS.FINANCE_APPROVE))) {
             throw AppError.forbidden('Approving a supplier invoice needs finance approval access');
         }
-        if (invoice.category === 'PO_GOODS' && invoice.matchStatus !== 'MATCHED' && !(overrideReason && overrideReason.trim().length >= 5)) {
-            throw AppError.badRequest('MATCH_OVERRIDE_REASON_REQUIRED: this invoice does not match the order and receipts; give a reason to approve it');
-        }
         if (invoice.category !== 'PO_GOODS') return this.approveService(invoice, userId);
 
+        // The 3-way match is run again now: the result saved when the invoice was entered goes stale when a receipt is returned,
+        // corrected or another invoice bills the same lines. This invoice's own quantities are taken out of "already billed".
         const ctx = await this.getPoContext(invoice.storePoId ? 'STORE' : 'PROJECT', (invoice.storePoId ?? invoice.projectPoId)!);
+        const ctxLine = new Map(ctx.lines.map((l) => [l.poItemId, l]));
+        const ownQty = new Map<string, number>();
+        for (const i of invoice.items) if (i.poItemId) ownQty.set(i.poItemId, (ownQty.get(i.poItemId) ?? 0) + Number(i.quantity));
+        const cfg = await getProcurementConfig();
+        const recheck = threeWayMatch(invoice.items.filter((i) => i.poItemId && ctxLine.has(i.poItemId)).map((i) => {
+            const c = ctxLine.get(i.poItemId!)!;
+            return { poItemId: c.poItemId, description: c.description, orderedQty: c.orderedQty, orderedPrice: c.orderedPrice, receivedQty: c.receivedQty, invoicedBefore: Math.max(0, c.invoicedBefore - (ownQty.get(c.poItemId) ?? 0)), invoiceQty: Number(i.quantity), invoicePrice: Number(i.unitPrice) };
+        }), cfg.matchPriceTolerancePct, cfg.matchPriceToleranceAmount);
+        if (recheck.status !== 'MATCHED' && !(overrideReason && overrideReason.trim().length >= 5)) {
+            // Saved as a variance so the Supplier Invoices screen asks the finance approver for the reason
+            if (invoice.status === 'MATCHED') {
+                await prisma.supplierInvoice.updateMany({ where: { id, status: 'MATCHED' }, data: { status: 'VARIANCE', matchStatus: recheck.status, matchDetail: JSON.parse(JSON.stringify({ tolerancePct: cfg.matchPriceTolerancePct, toleranceAmount: cfg.matchPriceToleranceAmount, lines: recheck.lines, recheckedAtApproval: true })) } });
+            }
+            throw AppError.badRequest(invoice.matchStatus === 'MATCHED'
+                ? 'MATCH_CHANGED_SINCE_ENTRY: the receipts or other invoices of this order changed since the invoice was entered and it no longer matches; check it, then give a reason to approve it'
+                : 'MATCH_OVERRIDE_REASON_REQUIRED: this invoice does not match the order and receipts; give a reason to approve it');
+        }
         const priceOf = new Map(ctx.lines.map((l) => [l.poItemId, l.orderedPrice]));
         const posting = invoicePosting(invoice.items.map((i) => ({ quantity: Number(i.quantity), invoicePrice: Number(i.unitPrice), orderPrice: priceOf.get(i.poItemId ?? '') ?? Number(i.unitPrice), taxAmount: Number(i.taxAmount) })));
         const accrued = posting.clearing;
@@ -335,7 +351,7 @@ export class SupplierInvoiceService {
         const postingDate = !period || period.status === 'OPEN' ? invDate : new Date();
 
         return prisma.$transaction(async (tx) => {
-            const claim = await tx.supplierInvoice.updateMany({ where: { id, status: { in: ['MATCHED', 'VARIANCE', 'DRAFT'] } }, data: { status: 'APPROVED', approvedById: userId, approvedAt: new Date(), overrideReason: overrideReason?.trim() || invoice.overrideReason || null } });
+            const claim = await tx.supplierInvoice.updateMany({ where: { id, status: { in: ['MATCHED', 'VARIANCE', 'DRAFT'] } }, data: { status: 'APPROVED', approvedById: userId, approvedAt: new Date(), overrideReason: overrideReason?.trim() || invoice.overrideReason || null, matchStatus: recheck.status, matchDetail: JSON.parse(JSON.stringify({ tolerancePct: cfg.matchPriceTolerancePct, toleranceAmount: cfg.matchPriceToleranceAmount, lines: recheck.lines, recheckedAtApproval: true })) } });
             if (claim.count === 0) throw AppError.conflict('This invoice has already been actioned');
             const lines = [
                 { accountCode: ACCOUNTS.AP_ACCRUED, debit: accrued, credit: 0, description: 'GR/IR cleared: goods received, now invoiced' },
@@ -349,7 +365,7 @@ export class SupplierInvoiceService {
                 description: `Supplier invoice ${invoice.invoiceNumber} (${ctx.poNumber})`, lines,
             }) : null;
             const updated = await tx.supplierInvoice.update({ where: { id }, data: { journalEntryId: entry?.id ?? null }, include: { items: true } });
-            AuditService.log({ userId, action: 'APPROVE_SUPPLIER_INVOICE', entity: 'SUPPLIER_INVOICE', entityId: id, newValue: { total, clearing: accrued, priceVariance: posting.priceVariance, inputVat: posting.tax, match: invoice.matchStatus, override: overrideReason ?? null } }).catch(() => undefined);
+            AuditService.log({ userId, action: 'APPROVE_SUPPLIER_INVOICE', entity: 'SUPPLIER_INVOICE', entityId: id, newValue: { total, clearing: accrued, priceVariance: posting.priceVariance, inputVat: posting.tax, match: recheck.status, matchAtEntry: invoice.matchStatus, override: overrideReason ?? null } }).catch(() => undefined);
             return updated;
         }, { maxWait: 10_000, timeout: 30_000 });
     }

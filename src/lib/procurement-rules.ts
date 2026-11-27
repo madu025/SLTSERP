@@ -94,6 +94,8 @@ export function priceVariancePct(price: number, reference: number | null | undef
 // ---- 3-way match ----------------------------------------------------------------------------------------------------
 
 export const DEFAULT_MATCH_PRICE_TOLERANCE_PCT = 2;
+/** Rupees a line may be overbilled before it is a price variance, whatever the percent (2% of a large order is a large sum). */
+export const DEFAULT_MATCH_PRICE_TOLERANCE_AMOUNT = 5000;
 export const DEFAULT_OVER_RECEIPT_TOLERANCE_PCT = 0;
 
 export type MatchLineResult = 'MATCHED' | 'QTY_OVER_RECEIVED' | 'PRICE_VARIANCE' | 'NOT_RECEIVED';
@@ -126,9 +128,10 @@ export interface MatchOutcome {
 
 /**
  * Three-way match per line: the invoice may bill at most what was received and not yet billed (quantity tolerance 0),
- * and at the PO price within the price tolerance. A line with nothing received can never match.
+ * and at the PO price within the price tolerance: within the percent AND, for an overbill, within the rupee cap on the
+ * line (invoice price above the PO price x invoiced quantity). A line with nothing received can never match.
  */
-export function threeWayMatch(lines: MatchLine[], priceTolerancePct = DEFAULT_MATCH_PRICE_TOLERANCE_PCT): MatchOutcome {
+export function threeWayMatch(lines: MatchLine[], priceTolerancePct = DEFAULT_MATCH_PRICE_TOLERANCE_PCT, priceToleranceAmount = DEFAULT_MATCH_PRICE_TOLERANCE_AMOUNT): MatchOutcome {
     const out: MatchLineOutcome[] = lines.map((l) => {
         const billable = Math.max(0, l.receivedQty - l.invoicedBefore);
         const variance = priceVariancePct(l.invoicePrice, l.orderedPrice);
@@ -136,6 +139,7 @@ export function threeWayMatch(lines: MatchLine[], priceTolerancePct = DEFAULT_MA
         if (l.receivedQty <= 0) result = 'NOT_RECEIVED';
         else if (l.invoiceQty > billable + 1e-9) result = 'QTY_OVER_RECEIVED';
         else if (variance !== null && Math.abs(variance) > priceTolerancePct) result = 'PRICE_VARIANCE';
+        else if ((l.invoicePrice - l.orderedPrice) * l.invoiceQty > priceToleranceAmount + 1e-9) result = 'PRICE_VARIANCE';
         return { ...l, result, billable, priceVariancePct: variance };
     });
     const issues = out.filter((l) => l.result !== 'MATCHED').length;

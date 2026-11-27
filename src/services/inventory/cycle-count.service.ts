@@ -199,7 +199,15 @@ export class CycleCountService {
                 const existingLine = header.lines.find(l => l.id === lineInput.lineId);
                 if (!existingLine) continue;
 
-                const sysQty = Number(existingLine.systemQty);
+                // The system quantity is read again now, when the count is entered: the figure saved when the count was created
+                // misses every issue or receipt since then, and approval adds the variance to the stock of that moment, so a
+                // movement in between was counted twice (100 at creation, 10 issued, 90 counted: the stock became 80).
+                // Movements after this point are kept by approval, which adds the variance to the then-current stock.
+                const live = await tx.inventoryStock.findUnique({
+                    where: { storeId_itemId: { storeId: header.storeId, itemId: existingLine.itemId } },
+                    select: { quantity: true },
+                });
+                const sysQty = live ? Number(live.quantity) : 0;
                 const cntQty = Number(lineInput.countedQty);
                 const varQty = cntQty - sysQty;
                 const cost = Number(existingLine.unitCost);
@@ -210,6 +218,7 @@ export class CycleCountService {
                 await tx.cycleCountLine.update({
                     where: { id: lineInput.lineId },
                     data: {
+                        systemQty: sysQty,
                         countedQty: cntQty,
                         varianceQty: varQty,
                         varianceValue: varValue,
