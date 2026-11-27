@@ -3,9 +3,19 @@ import { logger } from './logger';
 import { getRequestId } from './request-context';
 
 let cacheErrorCount = 0;
+let cacheHits = 0;
+let cacheMisses = 0;
 
 export class CacheService {
+    /**
+     * The request client is lazy (lazyConnect) and has no offline queue. Checking only for 'ready' meant that a client
+     * nobody else had woken up yet stayed in 'wait' and every cache read was skipped: the cache was silently off.
+     * A client that is not connected is now asked to connect in the background; this call still never waits.
+     */
     private static isReady(): boolean {
+        if (redis.status === 'wait' || redis.status === 'end' || redis.status === 'close') {
+            redis.connect().catch(() => undefined);
+        }
         return redis.status === 'ready';
     }
 
@@ -28,11 +38,20 @@ export class CacheService {
         return { cacheErrorCount };
     }
 
+    /**
+     * The app's own cache hits and misses since start (exported on /api/metrics). Redis's keyspace_hits/misses cannot
+     * show this: most of its lookups are the BullMQ workers polling empty queues, each counted as a miss.
+     */
+    static getHitMetrics() {
+        return { cacheHits, cacheMisses };
+    }
+
     static async get<T>(key: string): Promise<T | null> {
-        if (!CacheService.isReady()) return null;
+        if (!CacheService.isReady()) { cacheMisses++; return null; }
         try {
             const data = await redis.get(key);
-            if (!data) return null;
+            if (!data) { cacheMisses++; return null; }
+            cacheHits++;
             return JSON.parse(data) as T;
         } catch (e) {
             CacheService.logCacheWarn('get', key, e);

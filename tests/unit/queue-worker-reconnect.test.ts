@@ -44,3 +44,12 @@ test('the app never calls KEYS (blocking, and refused for the app ACL user); it 
     }
     assert.match(readFileSync(new URL('../../src/lib/redis.ts', import.meta.url), 'utf8'), /await redis\.scan\(cursor, 'MATCH', pattern, 'COUNT', count\)/);
 });
+
+test('the app cache wakes a lazy Redis client instead of staying off, and counts its own hits and misses for /api/metrics', () => {
+    const c = readFileSync(new URL('../../src/lib/cache.service.ts', import.meta.url), 'utf8');
+    assert.match(c, /if \(redis\.status === 'wait' \|\| redis\.status === 'end' \|\| redis\.status === 'close'\) \{\s*redis\.connect\(\)\.catch\(\(\) => undefined\);/);
+    assert.match(c, /cacheHits\+\+;/);
+    assert.match(c, /cacheMisses\+\+; return null;/);
+    const p = readFileSync(new URL('../../src/services/admin/prometheus.service.ts', import.meta.url), 'utf8');
+    for (const m of ['slts_cache_hits_total', 'slts_cache_misses_total', 'slts_cache_errors_total']) assert.ok(p.includes(`\`${m} \${`), m);
+});

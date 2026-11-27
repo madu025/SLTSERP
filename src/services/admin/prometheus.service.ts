@@ -1,4 +1,5 @@
 import { SystemMonitoringService } from './system-monitoring.service';
+import { CacheService } from '@/lib/cache.service';
 
 export class PrometheusService {
     /**
@@ -55,6 +56,24 @@ export class PrometheusService {
             }
             lines.push('');
         }
+
+        // The app's own Redis cache (Redis keyspace hits/misses are mostly BullMQ queue polling)
+        const { cacheHits, cacheMisses } = CacheService.getHitMetrics();
+        const { cacheErrorCount } = CacheService.getFailureMetrics();
+        lines.push(
+            '# HELP slts_cache_hits_total App cache reads answered from Redis since start.',
+            '# TYPE slts_cache_hits_total counter',
+            `slts_cache_hits_total ${cacheHits}`,
+            '',
+            '# HELP slts_cache_misses_total App cache reads not found in Redis (or Redis not ready) since start.',
+            '# TYPE slts_cache_misses_total counter',
+            `slts_cache_misses_total ${cacheMisses}`,
+            '',
+            '# HELP slts_cache_errors_total App cache operations that failed open since start.',
+            '# TYPE slts_cache_errors_total counter',
+            `slts_cache_errors_total ${cacheErrorCount}`,
+            '',
+        );
 
         return lines.join('\n');
     }
