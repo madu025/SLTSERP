@@ -105,6 +105,8 @@ export const RBAC_PERMISSIONS = {
     NOTIFICATION_PROCESS_GATE_HEAD_OF_SECTION: 'notification.audience.process-gate-head-of-section',
     NOTIFICATION_PROCESS_GATE_PROCUREMENT: 'notification.audience.process-gate-procurement',
     NOTIFICATION_PROCESS_GATE_STORES: 'notification.audience.process-gate-stores',
+    /** The HO payments recorded on OSP vendor vouchers (one notice per person per day, updated with each payment). */
+    NOTIFICATION_OSP_VENDOR_PAYMENTS: 'notification.audience.osp-vendor-payments',
     ADMIN_RBAC: 'admin.rbac',
     /** Global destructive-administration capability; granted only to SUPER_ADMIN. */
     ADMIN_SUPER: 'admin.super',
@@ -169,7 +171,7 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.PROCUREMENT_READ, module: 'PROCUREMENT', action: 'READ', scope: 'OPMC', description: 'Read procurement data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.PROCUREMENT_WRITE, module: 'PROCUREMENT', action: 'WRITE', scope: 'OPMC', description: 'Modify procurement data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD, module: 'PROCUREMENT', action: 'HO_PAYMENT_RECORD', scope: 'OPMC', description: 'Record a payment HO made on an OSP vendor payment voucher, in full or in parts (Account Executive at HO)' },
-    { code: RBAC_PERMISSIONS.PROCUREMENT_PV_CHAIN_READ, module: 'PROCUREMENT', action: 'PV_CHAIN_READ', scope: 'OPMC', description: 'See the vendor payment vouchers of the company flow and where each one waits (Vendor Payment Approvals)' },
+    { code: RBAC_PERMISSIONS.PROCUREMENT_PV_CHAIN_READ, module: 'PROCUREMENT', action: 'PV_CHAIN_READ', scope: 'OPMC', description: 'See the vendor payment vouchers of the company flow, where each one waits, and what HO has paid on each (Vendor Payment Vouchers, Vendor Payment Status)' },
     { code: RBAC_PERMISSIONS.CONTRACTOR_READ, module: 'CONTRACTOR', action: 'READ', scope: 'OPMC', description: 'Read contractor data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.CONTRACTOR_WRITE, module: 'CONTRACTOR', action: 'WRITE', scope: 'OPMC', description: 'Submit contractor portal work, stock, and return actions within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.HELPDESK_READ, module: 'HELPDESK', action: 'READ', scope: 'OPMC', description: 'Read helpdesk tickets, assets, telemetry, and support data within the assigned OPMC scope' },
@@ -218,6 +220,7 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.NOTIFICATION_PROCESS_GATE_HEAD_OF_SECTION, module: 'NOTIFICATION', action: 'AUDIENCE_PROCESS_GATE_HEAD_OF_SECTION', scope: 'OPMC', description: 'Receive head-of-section process-gate notifications' },
     { code: RBAC_PERMISSIONS.NOTIFICATION_PROCESS_GATE_PROCUREMENT, module: 'NOTIFICATION', action: 'AUDIENCE_PROCESS_GATE_PROCUREMENT', scope: 'OPMC', description: 'Receive procurement process-gate notifications' },
     { code: RBAC_PERMISSIONS.NOTIFICATION_PROCESS_GATE_STORES, module: 'NOTIFICATION', action: 'AUDIENCE_PROCESS_GATE_STORES', scope: 'OPMC', description: 'Receive stores process-gate notifications' },
+    { code: RBAC_PERMISSIONS.NOTIFICATION_OSP_VENDOR_PAYMENTS, module: 'NOTIFICATION', action: 'AUDIENCE_OSP_VENDOR_PAYMENTS', scope: 'GLOBAL', description: 'Receive the daily notice of the payments HO recorded on OSP vendor vouchers (one notice per day, updated with each payment)' },
     { code: RBAC_PERMISSIONS.ADMIN_RBAC, module: 'ADMIN', action: 'RBAC', scope: 'GLOBAL', description: 'Manage users, roles, permission grants, and scope assignments' },
     { code: RBAC_PERMISSIONS.ADMIN_SUPER, module: 'ADMIN', action: 'SUPER', scope: 'GLOBAL', description: 'Perform destructive global administration and grant the SUPER_ADMIN identity' },
     { code: RBAC_PERMISSIONS.MENU_SOD_VIEW, module: 'SOD', action: 'MENU_VIEW', scope: 'GLOBAL', description: 'Menu level "view" in the sod module: which items of the module the menu shows' },

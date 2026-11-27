@@ -36,6 +36,7 @@ export const AUDIENCE_INFO: Record<NotificationAudienceId, AudienceInfo> = {
     PROCESS_GATE_HEAD_OF_SECTION: { label: 'Approval step: Head of Section', description: 'Items waiting at the Head of Section step of an approval chain.', areaScope: 'company' },
     PROCESS_GATE_PROCUREMENT: { label: 'Approval step: Procurement', description: 'Items waiting at the Procurement step of an approval chain.', areaScope: 'company' },
     PROCESS_GATE_STORES: { label: 'Approval step: Stores', description: 'Items waiting at the Stores step of an approval chain.', areaScope: 'company' },
+    OSP_VENDOR_PAYMENTS: { label: 'HO payments on OSP vendor vouchers', description: 'What HO paid today on the OSP vendor vouchers: one notice per day, updated with each payment the HO Account Executive records (completed, partly paid, still to pay).', areaScope: 'company' },
 };
 
 export interface ScheduledNotice {

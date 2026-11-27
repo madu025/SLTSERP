@@ -560,6 +560,13 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 permissionId: RBAC_PERMISSIONS.PROCUREMENT_PV_CHAIN_READ,
             },
             {
+                // what HO paid on each vendor voucher, from the payments the HO Account Executive records
+                title: 'Vendor Payment Status',
+                path: '/procurement/vendor-payments',
+                icon: Receipt,
+                permissionId: RBAC_PERMISSIONS.PROCUREMENT_PV_CHAIN_READ,
+            },
+            {
                 // the invoices Finance sent to the OSP Manager (the OSP Manager holds no Finance menu, so the step lives here)
                 title: 'OSP Manager Approvals',
                 path: '/invoices/osp-approvals',
@@ -653,6 +660,13 @@ export const SIDEBAR_MENU: MenuItem[] = [
                         title: 'Payments to Head Office',
                         path: '/finance/ho-payments',
                         icon: Receipt,
+                    },
+                    {
+                        // the same page as under Approvals: the OSP Account Manager and the finance team hold no Approvals menu
+                        title: 'Vendor Payment Status',
+                        path: '/procurement/vendor-payments',
+                        icon: Receipt,
+                        permissionId: RBAC_PERMISSIONS.PROCUREMENT_PV_CHAIN_READ,
                     },
                     {
                         title: 'Bulk Payment Run',

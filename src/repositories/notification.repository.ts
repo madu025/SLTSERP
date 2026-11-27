@@ -190,7 +190,9 @@ export class NotificationRepository {
             priority?: string;
             link?: string | null;
             metadata?: Prisma.InputJsonValue;
-        }
+        },
+        /** a running notice (today's HO payments): an update shows in the bell as unread again, without a new push or email */
+        opts?: { reopen?: boolean }
     ) {
         const existing = await prisma.notification.findFirst({
             where: { userId, dedupHash },
@@ -207,6 +209,7 @@ export class NotificationRepository {
                     ...(data.priority ? { priority: data.priority } : {}),
                     ...(data.metadata !== undefined ? { metadata: data.metadata } : {}),
                     groupedCount: { increment: 1 },
+                    ...(opts?.reopen ? { isRead: false } : {}),
                 },
             });
             return { notification: updated, replaced: true };

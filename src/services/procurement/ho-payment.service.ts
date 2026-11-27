@@ -6,6 +6,9 @@ import { AuditService } from '@/services/audit/audit.service';
 import { LedgerService } from '@/services/finance/ledger.service';
 import { ACCOUNTS } from '@/services/finance/account-codes';
 import { PAYMENT_METHODS } from '@/lib/po-payables';
+import { getSriLankaDayKey } from '@/lib/timezone';
+import { hoPaymentDigest, hoPaymentDigestKey, vendorPaymentState, type HoDayPayment } from '@/lib/ho-payment-digest';
+import { NotificationService } from '@/services/notification';
 
 const num = (v: unknown) => Number(v ?? 0);
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -92,9 +95,75 @@ export class HoPaymentService {
             return inst;
         }, { maxWait: 10_000, timeout: 30_000 });
         AuditService.log({ userId: input.userId, action: 'RECORD_HO_PAYMENT', entity: 'PAYMENT_VOUCHER', entityId: pv.id, newValue: { installmentId: row.id, amount, reference, paidDate, completes } }).catch(() => undefined);
-        const { notifyStep } = await import('@/services/finance/pv-chain.service');
-        notifyStep('FINANCE_ALL', pv, completes ? 'Vendor payment fully paid by HO' : 'Part payment made by HO', `HO paid ${amount.toLocaleString('en-US')} (${reference})${completes ? '; the voucher is fully paid' : `; ${(remaining - amount).toLocaleString('en-US')} still to pay`}`, '/finance/ho-payments');
+        // one notice per person per day for the OSP signers and the finance team, updated with each payment (lib/ho-payment-digest.ts)
+        this.notifyDay().catch(() => undefined);
         return row;
+    }
+
+    /** Today's HO payments as one running notice: OSP (Account Manager, OSP Manager, Head of Section) and the finance team. */
+    static async notifyDay(now = new Date()) {
+        const day = getSriLankaDayKey(now);
+        const start = new Date(`${day}T00:00:00+05:30`);
+        const today = await prisma.hoPaymentInstallment.findMany({
+            where: { recordedAt: { gte: start }, paymentVoucherId: { not: null } },
+            orderBy: { recordedAt: 'asc' },
+            select: { amount: true, reference: true, paymentVoucherId: true },
+        });
+        const pvIds = [...new Set(today.map((r) => r.paymentVoucherId!))];
+        const pvs = await prisma.paymentVoucher.findMany({ where: { id: { in: pvIds }, supplierInvoiceId: { not: null } }, select: { id: true, pvNumber: true, payeeName: true, amount: true } });
+        const pvOf = new Map(pvs.map((v) => [v.id, v]));
+        const rows = today.filter((r) => pvOf.has(r.paymentVoucherId!));
+        if (rows.length === 0) return;
+        // the voucher's state after each payment: the running total of its payments up to that one
+        const before = await prisma.hoPaymentInstallment.groupBy({ by: ['paymentVoucherId'], where: { recordedAt: { lt: start }, paymentVoucherId: { in: pvIds } }, _sum: { amount: true } });
+        const running = new Map(before.map((b) => [b.paymentVoucherId!, num(b._sum.amount)]));
+        const payments: HoDayPayment[] = rows.map((r) => {
+            const v = pvOf.get(r.paymentVoucherId!)!;
+            const paid = r2((running.get(v.id) ?? 0) + num(r.amount));
+            running.set(v.id, paid);
+            const total = num(v.amount);
+            return { pvNumber: v.pvNumber, vendor: v.payeeName, amount: num(r.amount), reference: r.reference, voucherPaid: vendorPaymentState(total, paid) === 'COMPLETED', remaining: r2(total - paid) };
+        });
+        const { title, message } = hoPaymentDigest(payments);
+        const common = { title, message, type: 'FINANCE' as const, priority: 'MEDIUM' as const, link: '/procurement/vendor-payments', metadata: { day, payments: payments.length }, dedupKey: hoPaymentDigestKey(day), reopen: true };
+        await NotificationService.notifyByAudience({ audience: 'OSP_VENDOR_PAYMENTS', ...common });
+        await NotificationService.notifyByAudience({ audience: 'FINANCE_ALL', ...common });
+    }
+
+    /**
+     * Vendor Payment Status: every OSP vendor voucher that is with HO or paid by HO, with what HO paid, what is still to pay, and each payment
+     * the HO Account Executive recorded. Company-wide like the voucher chain (a vendor payment belongs to no area).
+     */
+    static async statusList() {
+        const vouchers = await prisma.paymentVoucher.findMany({
+            where: { supplierInvoiceId: { not: null }, OR: [{ status: 'SUBMITTED_TO_HO' }, { status: 'PAID', hoPaidAmount: { gt: 0 } }] },
+            orderBy: { createdAt: 'desc' },
+            take: 500,
+            select: { id: true, pvNumber: true, status: true, amount: true, hoPaidAmount: true, payeeName: true, supplierInvoiceId: true, createdAt: true },
+        });
+        const ids = vouchers.map((v) => v.id);
+        const [invoices, parts] = await Promise.all([
+            prisma.supplierInvoice.findMany({ where: { id: { in: vouchers.map((v) => v.supplierInvoiceId!) } }, select: { id: true, invoiceNumber: true, status: true, vendor: { select: { name: true } }, storePo: { select: { poNumber: true } } } }),
+            prisma.hoPaymentInstallment.findMany({ where: { paymentVoucherId: { in: ids } }, orderBy: { recordedAt: 'asc' }, select: { paymentVoucherId: true, amount: true, paidDate: true, reference: true, method: true, recordedById: true, recordedAt: true } }),
+        ]);
+        const people = await prisma.user.findMany({ where: { id: { in: [...new Set(parts.map((p) => p.recordedById))] } }, select: { id: true, name: true, username: true } });
+        const who = new Map(people.map((p) => [p.id, p.name || p.username]));
+        const inv = new Map(invoices.map((i) => [i.id, i]));
+        const byVoucher = new Map<string, typeof parts>();
+        for (const p of parts) byVoucher.set(p.paymentVoucherId!, [...(byVoucher.get(p.paymentVoucherId!) ?? []), p]);
+        return vouchers.map((v) => {
+            const i = inv.get(v.supplierInvoiceId!);
+            const own = byVoucher.get(v.id) ?? [];
+            const amount = num(v.amount);
+            const paid = num(v.hoPaidAmount);
+            const last = own[own.length - 1];
+            return {
+                id: v.id, pvNumber: v.pvNumber, vendor: i?.vendor.name ?? v.payeeName, invoiceNumber: i?.invoiceNumber ?? null, invoiceStatus: i?.status ?? null, poNumber: i?.storePo?.poNumber ?? null,
+                amount, paid, remaining: r2(amount - paid), state: vendorPaymentState(amount, paid), sentToHoAt: v.createdAt,
+                lastPaidDate: last?.paidDate ?? null, lastReference: last?.reference ?? null,
+                payments: own.map((p) => ({ amount: num(p.amount), paidDate: p.paidDate, reference: p.reference, method: p.method, recordedBy: who.get(p.recordedById) ?? null, recordedAt: p.recordedAt })),
+            };
+        });
     }
 
     /** The voucher's payments: what it is for, paid so far, still to pay, and each HO payment. */

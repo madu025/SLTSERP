@@ -157,8 +157,9 @@ const BASE_BOOTSTRAP_ROLE_GRANTS = {
     // the purchase order chain: OSP Manager, then Head of OSP, then the Finance Manager. Nobody else holds a step, so no one can approve alone.
     // HO payments on vouchers are recorded by the Account Executive designation only (see MODULE_DESIGNATION_GRANTS), never by a whole base role
     [RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD]: [],
-    // the company's vendor voucher chain after the OSP Account Manager, and the documents check before HO
-    [RBAC_PERMISSIONS.PROCUREMENT_PV_CHAIN_READ]: ['FINANCE_MANAGER', 'FINANCE_ASSISTANT'],
+    // the company's vendor voucher chain after the OSP Account Manager, and the documents check before HO; the OSP Manager and the Head of Section
+    // sign the vouchers and follow what HO paid on them (Vendor Payment Status). The OSP Account Manager holds it through the Finance Manager role.
+    [RBAC_PERMISSIONS.PROCUREMENT_PV_CHAIN_READ]: ['FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'OSP_MANAGER', 'HEAD_OF_SECTION'],
     [RBAC_PERMISSIONS.CONTRACTOR_READ]: [
         'SUPER_ADMIN', 'ADMIN', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT', 'OSP_MANAGER', 'AREA_MANAGER',
         'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'SITE_OFFICE_STAFF', 'ENGINEER', 'ASSISTANT_ENGINEER',
@@ -253,6 +254,8 @@ const BASE_BOOTSTRAP_ROLE_GRANTS = {
     [RBAC_PERMISSIONS.NOTIFICATION_PROCESS_GATE_HEAD_OF_SECTION]: ['HEAD_OF_SECTION'],
     [RBAC_PERMISSIONS.NOTIFICATION_PROCESS_GATE_PROCUREMENT]: ['PROCUREMENT_OFFICER'],
     [RBAC_PERMISSIONS.NOTIFICATION_PROCESS_GATE_STORES]: ['STORES_MANAGER', 'STORES_EXECUTIVE'],
+    // the three who sign an OSP vendor voucher learn what HO paid on it (the OSP Account Manager: MODULE_DESIGNATION_GRANTS)
+    [RBAC_PERMISSIONS.NOTIFICATION_OSP_VENDOR_PAYMENTS]: ['OSP_MANAGER', 'HEAD_OF_SECTION'],
     [RBAC_PERMISSIONS.ADMIN_RBAC]: ['SUPER_ADMIN', 'ADMIN'],
     [RBAC_PERMISSIONS.ADMIN_SUPER]: ['SUPER_ADMIN'],
 } as const satisfies Partial<Record<RbacPermission, readonly Role[]>>;
@@ -344,6 +347,8 @@ const BASE_MODULE_DESIGNATION_GRANTS: Readonly<Record<string, readonly string[]>
     [RBAC_PERMISSIONS.NOTIFICATION_PROJECT_MANAGERS]: ['PROJECTS_ENGINEER', 'PROJECTS_ASSISTANT_ENGINEER'],
     // the Account Executive at HO (Finance section designation on the Finance Assistant role) records HO's payments on OSP vouchers
     [RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD]: ['HO_ACCOUNT_EXECUTIVE_FINANCE_ASSISTANT'],
+    // the OSP Account Manager (Finance section designation on the Finance Manager role) learns what HO paid on the vouchers they accepted
+    [RBAC_PERMISSIONS.NOTIFICATION_OSP_VENDOR_PAYMENTS]: ['OSP_ACCOUNT_MANAGER_FINANCE_MANAGER'],
 };
 
 export const MODULE_DESIGNATION_GRANTS: Readonly<Record<string, readonly string[]>> = { ...BASE_MODULE_DESIGNATION_GRANTS, ...menuDesignations };

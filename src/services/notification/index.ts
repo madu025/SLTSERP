@@ -161,7 +161,8 @@ export class NotificationService {
         priority = 'MEDIUM',
         link,
         metadata,
-        dedupKey
+        dedupKey,
+        reopen
     }: {
         userIds: string[];
         title: string;
@@ -171,6 +172,8 @@ export class NotificationService {
         link?: string;
         metadata?: Record<string, unknown>;
         dedupKey?: string;
+        /** with dedupKey: an update of the row shows as unread again (a running notice) */
+        reopen?: boolean;
     }) {
         try {
             // Fix #5: Offload FIFO cleanup to background worker for all users in the broadcast
@@ -206,7 +209,7 @@ export class NotificationService {
                         priority,
                         link,
                         metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : undefined
-                    })
+                    }, { reopen })
                 ));
 
                 results.forEach(({ notification, replaced }) => {
@@ -396,7 +399,8 @@ export class NotificationService {
         link,
         metadata,
         opmcId, // Optional filter by OPMC
-        dedupKey  // Business identity: one row per recipient per key, repeats bump groupedCount
+        dedupKey,  // Business identity: one row per recipient per key, repeats bump groupedCount
+        reopen     // with dedupKey: an update shows as unread again (a running notice such as today's HO payments)
     }: {
         audience: NotificationAudienceId;
         title: string;
@@ -407,6 +411,7 @@ export class NotificationService {
         metadata?: Record<string, unknown>;
         opmcId?: string;
         dedupKey?: string;
+        reopen?: boolean;
     }) {
         try {
             const users = await this.getAudienceRecipients({ audience, opmcId });
@@ -420,7 +425,8 @@ export class NotificationService {
                 priority,
                 link,
                 metadata,
-                dedupKey
+                dedupKey,
+                reopen
             });
         } catch (error) {
             console.error('Failed to notify by audience:', error);

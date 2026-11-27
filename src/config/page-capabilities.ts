@@ -44,6 +44,8 @@ const PAGE_RULES: ReadonlyArray<{ prefix: string; permission: RbacPermission }> 
     // Every action is checked by the API (procurement.write for raising and issuing, the step capability for each approval).
     // vendor voucher steps of the company flow (OSP Manager, Head of Section, Procurement Officer documents): each step is checked by the API
     { prefix: '/procurement/payment-approvals', permission: RBAC_PERMISSIONS.PROCUREMENT_PV_CHAIN_READ },
+    // what HO paid on each OSP vendor voucher (OSP Account Manager, OSP Manager, Head of Section, the finance team)
+    { prefix: '/procurement/vendor-payments', permission: RBAC_PERMISSIONS.PROCUREMENT_PV_CHAIN_READ },
     { prefix: '/procurement/orders', permission: RBAC_PERMISSIONS.PROCUREMENT_READ },
     { prefix: '/procurement', permission: RBAC_PERMISSIONS.PROCUREMENT_READ },
     { prefix: '/helpdesk/tickets/new', permission: RBAC_PERMISSIONS.HELPDESK_TICKET_CREATE },
