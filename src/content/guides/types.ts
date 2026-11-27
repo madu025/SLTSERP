@@ -34,6 +34,8 @@ export interface GuideSection {
     steps: string[];
     /** Things that commonly go wrong or are easy to miss. */
     tips?: string[];
+    /** Screenshots of the real screen at this step (files under public/, shown on Help). Taken on test data, never real ERP data. */
+    images?: { src: string; caption: string }[];
     /** Text from the source that this section relies on (checked by the unit tests). */
     anchors: GuideAnchor[];
 }

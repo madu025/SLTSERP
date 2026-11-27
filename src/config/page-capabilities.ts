@@ -84,6 +84,8 @@ const PAGE_RULES: ReadonlyArray<{ prefix: string; permission: RbacPermission }> 
     { prefix: '/dashboard', permission: RBAC_PERMISSIONS.DASHBOARD_READ },
     // Personal pages every signed-in staff user needs; without a rule the route gate redirected them to /dashboard
     { prefix: '/profile', permission: RBAC_PERMISSIONS.DASHBOARD_READ },
+    // Help: the system guides, for every office user
+    { prefix: '/help', permission: RBAC_PERMISSIONS.DASHBOARD_READ },
     { prefix: '/notifications', permission: RBAC_PERMISSIONS.DASHBOARD_READ },
 ];
 

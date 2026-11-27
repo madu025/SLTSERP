@@ -55,5 +55,6 @@ A guide is only useful if it is true, so two checks tie it to the code:
 | Module | Guide | Describes |
 |---|---|---|
 | Service Orders (SOD) | `sod.guide.ts` | `/service-orders/*`, contractor Field SODs, SOD modals and rules |
+| Purchase flow | `purchase.guide.ts` | material request to HO payment: `/inventory/requests`, `/procurement/approvals`, `/procurement/orders`, `/inventory/grn`, `/finance/ho-payments`, `/procurement/payment-approvals`, `/procurement/vendor-payments` |
 
-Modules still to be written: Projects, Inventory/Stores, Procurement, Finance, Contractors, Helpdesk, Fleet, Administration.
+Modules still to be written: Projects, Inventory/Stores (other than purchasing), Finance (other than vendor payments), Contractors, Helpdesk, Fleet, Administration.

@@ -38,6 +38,7 @@ import {
     Landmark,
     ShieldAlert,
     LifeBuoy,
+    BookOpen,
     Laptop,
     Calculator,
     TrendingUp,
@@ -108,6 +109,13 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Dashboard',
         path: '/dashboard',
         icon: LayoutDashboard,
+        permissionId: RBAC_PERMISSIONS.DASHBOARD_READ
+    },
+    {
+        // the step-by-step system guides (src/content/guides): every office user, like the dashboard and the profile
+        title: 'Help',
+        path: '/help',
+        icon: BookOpen,
         permissionId: RBAC_PERMISSIONS.DASHBOARD_READ
     },
     {
