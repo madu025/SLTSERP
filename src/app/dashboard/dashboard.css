@@ -121,3 +121,36 @@ a.dash-figure:hover .dash-figure-label { color: var(--dash-route); text-decorati
 
 .dash :is(a, button, select, [role='tab']):focus-visible { outline: 2px solid var(--dash-route); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .dash * { transition: none !important; animation: none !important; } }
+
+/* buttons in the welcome bar */
+.dash .dash-button { border: 1px solid var(--dash-line); background: var(--dash-panel); color: var(--dash-ink); font-weight: 600; border-radius: 6px; box-shadow: none; }
+.dash .dash-button:hover { border-color: var(--dash-route); background: var(--dash-panel); color: var(--dash-ink); }
+
+/*
+ * Older sections (charts, tables, Finance, Procurement, Inventory, Projects, health, overview) still carry the
+ * glass-card markup. Inside the dashboard they follow the same quiet rules: flat panels with hairline borders,
+ * no gradient washes or glows, sentence-case labels, Barlow tabular figures, no hover lifts and no pulsing.
+ * Dark tiles that set their own light text (bg-slate-9xx / bg-*-600+) keep their colours.
+ */
+.dash .glass-panel {
+    background: var(--dash-panel) !important;
+    border: 1px solid var(--dash-line) !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+.dash :is(.rounded-3xl, .rounded-2xl):not(.dash-route *) { border-radius: 10px; }
+/* only the light translucent washes (from-x-500/10 ...); solid gradients carry meaning (bars, dark banners with white text) */
+.dash [class*='bg-gradient-to']:is([class*='from-'][class*='/10'], [class*='from-'][class*='/5']):not(.text-white) { background-image: none !important; }
+.dash [class*='blur-3xl'], .dash [class*='blur-2xl'] { display: none; }
+.dash .uppercase { text-transform: none; letter-spacing: normal; }
+.dash :is([class*='tracking-widest'], [class*='tracking-wider'], [class*='tracking-[']) { letter-spacing: normal; }
+.dash .font-mono { font-family: var(--dash-display); font-variant-numeric: tabular-nums; }
+.dash :is(.font-black, .font-extrabold):is(h2, h3, h4) { font-family: var(--dash-display); font-weight: 700; }
+.dash [class*='hover:scale']:hover, .dash [class*='hover:-translate']:hover, .dash [class*='group-hover:scale'] { transform: none !important; }
+.dash [class*='hover:shadow']:hover { box-shadow: none !important; }
+.dash .animate-pulse:not([data-slot='skeleton']):not(.bg-muted) { animation: none; }
+.dash :is(.shadow-sm, .shadow-md, .shadow-lg, .shadow-xl):not(.dash-route *) { box-shadow: none; }
+.dash .text-\[10px\] { font-size: 0.75rem; }
+.dash .text-\[11px\] { font-size: 0.8125rem; }
