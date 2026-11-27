@@ -166,6 +166,18 @@
 .lg-dev-note { margin: 10px 0 0; font-size: 0.8125rem; color: var(--lg-slate); }
 
 /* ── Phone and tablet: navy strip on top, form below ── */
+/* Desktop: the whole page fits the window (owner, 27 Nov 2026: on a laptop the route drawing was below the fold).
+   Type, gaps and the drawing scale with the window height; a very short window scrolls the form side only. */
+@media (min-width: 901px) {
+  .lg-root { height: 100dvh; min-height: 520px; overflow: hidden; }
+  .lg-route-panel { gap: clamp(14px, 3.5vh, 40px); padding: clamp(20px, 4.5vh, 64px) clamp(28px, 4.5vw, 64px); }
+  .lg-headline { font-size: clamp(2rem, min(5vw, 7vh), 4rem); }
+  .lg-lede { margin-top: clamp(8px, 1.6vh, 16px); font-size: clamp(0.9375rem, 1.9vh, 1.0625rem); }
+  .lg-quote { margin-top: clamp(10px, 2.6vh, 28px); }
+  .lg-route { flex: 0 1 auto; min-height: 0; max-height: 26vh; width: auto; max-width: min(640px, 100%); }
+  .lg-form-panel { overflow-y: auto; }
+}
+
 @media (max-width: 900px) {
   .lg-root { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
   .lg-route-panel { gap: 20px; padding: 20px 16px 16px; }
