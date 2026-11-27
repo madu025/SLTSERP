@@ -70,7 +70,7 @@ test('a person who holds an approval step lands on a "My work" dashboard tab wit
     const page = read('src/app/dashboard/page.tsx');
     assert.ok(page.includes('useMyWorkSummary(!!user && !canFilterGlobally, workFilters.rtom)') && page.includes("setActiveTab('work')") && page.includes('<TabsTrigger value="work"'), 'the tab is first and is the landing tab for a person with a step; managers keep their overview');
     const comp = read('src/app/dashboard/components/MyWorkSection.tsx');
-    assert.ok(comp.includes('Waiting at the {s.label} step') && comp.includes('Waiting for their PAT') && comp.includes('Open Pending SOD'), 'it shows the orders waiting at the step, those waiting for PAT and a way to the pending orders');
+    assert.ok(comp.includes('Waiting at the ${s.label} step') && comp.includes('Waiting for their PAT') && comp.includes('Open Pending SOD'), 'it shows the orders waiting at the step, those waiting for PAT and a way to the pending orders');
 });
 
 test('the dashboard of a person who works on the orders of their own RTOMs shows only that work, their RTOMs and each contractor\'s progress', () => {
@@ -104,7 +104,7 @@ test('the My work tab has a month and an RTOM filter that can only narrow what t
     assert.ok(read('src/services/service-order/sod-approval.service.ts').includes('narrowScope(allScope, rtom)'), 'the waiting counts follow the RTOM filter too');
     const comp = read('src/app/dashboard/components/MyWorkSection.tsx');
     assert.ok(comp.includes('aria-label="Month"') && comp.includes('aria-label="RTOM"') && comp.includes('All my RTOMs') && comp.includes('areas.length > 1'), 'month and year always, the RTOM filter only when the person has several RTOMs');
-    assert.ok(comp.includes("href: '/service-orders/work-order/completed'") && comp.includes("href: '/service-orders/work-order/return'") && comp.includes("href: '/service-orders/work-order'"), 'the figures lead to the lists they count');
+    assert.ok(comp.includes('href="/service-orders/work-order/completed"') && comp.includes('href="/service-orders/work-order/return"') && comp.includes('href="/service-orders/work-order"'), 'the figures lead to the lists they count');
     assert.ok(comp.includes('Completed in {data.month}') && comp.includes('Returned in {data.month}'), 'the table columns name the month shown');
 });
 

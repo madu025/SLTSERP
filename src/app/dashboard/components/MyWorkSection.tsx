@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { ClipboardCheck, Hourglass, ListChecks, MapPin } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DashFigure, DashHeading, RouteStrip } from './dash-ui';
 
 export interface PatWaiting { total: number; slts: number; opmc: number; ho: number; rejected: number }
 export interface MyWorkSummary { stages: Array<{ key: string; label: string; count: number }>; awaitingPat: PatWaiting }
@@ -51,17 +52,16 @@ export function useAreaOverview(enabled: boolean, f: WorkFilters) {
     });
 }
 
-const th = 'py-2 pr-3 text-left text-xs font-bold uppercase tracking-wide text-slate-900 dark:text-white';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const selectCls = 'h-9 rounded-md border border-slate-400 bg-white px-2 text-sm font-semibold text-slate-900';
+const selectCls = 'dash-select';
 
 /** Month, year and RTOM of the figures: one bar for the whole work tab (an Engineer or Area Manager with several RTOMs picks one or all of them here). */
 export function WorkFilterBar({ areas, filters, onFilters }: { areas: Array<{ rtom: string; name: string }>; filters: WorkFilters; onFilters: (f: WorkFilters) => void }) {
     const thisYear = new Date().getFullYear();
     return (
         <div className="flex flex-wrap items-center gap-2 px-1" role="group" aria-label="Show figures for">
-            <span className="text-sm font-bold text-slate-900 dark:text-white">Show:</span>
+            <span className="text-sm font-semibold">Show figures for</span>
             <select aria-label="Month" value={filters.month} onChange={(e) => onFilters({ ...filters, month: Number(e.target.value) })} className={selectCls}>
                 {MONTH_NAMES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
             </select>
@@ -80,64 +80,56 @@ export function WorkFilterBar({ areas, filters, onFilters }: { areas: Array<{ rt
 
 function AreaProgress({ data, isLoading, filters, onFilters, hideFilters }: { data?: AreaOverviewData; isLoading: boolean; filters: WorkFilters; onFilters: (f: WorkFilters) => void; hideFilters?: boolean }) {
     const filterBar = hideFilters ? null : <WorkFilterBar areas={data?.areas ?? []} filters={filters} onFilters={onFilters} />;
-    if (isLoading && !data) return <div className="space-y-4">{filterBar}<Skeleton className="h-64 rounded-2xl" /></div>;
+    if (isLoading && !data) return <div className="space-y-4">{filterBar}<Skeleton className="h-64 rounded-[10px]" /></div>;
     if (!data) return null;
     return (
         <div className="space-y-4">
             {filterBar}
-            <div className="flex flex-wrap items-center gap-2 px-1 text-sm text-slate-900 dark:text-white">
-                <MapPin className="h-5 w-5 text-indigo-700 dark:text-indigo-300" />
-                <span className="font-bold">Your RTOMs:</span>
-                {data.areas.length === 0 ? <span>none assigned to you</span> : data.areas.map((a) => <span key={a.rtom} className="rounded-full border border-slate-400 bg-white px-3 py-0.5 text-xs font-bold text-slate-900">{a.rtom}</span>)}
+            <div className="flex flex-wrap items-center gap-2 px-1 text-sm">
+                <MapPin className="h-5 w-5" style={{ color: 'var(--dash-route)' }} aria-hidden="true" />
+                <span className="font-semibold">Your RTOMs:</span>
+                {data.areas.length === 0 ? <span>none assigned to you</span> : data.areas.map((a) => <span key={a.rtom} className="dash-chip">{a.rtom}</span>)}
             </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                {[
-                    { label: 'With contractors now', value: data.totals.inHand, hint: 'Assigned, in progress or waiting to close', href: '/service-orders/work-order' },
-                    { label: `Completed in ${data.month}`, value: data.totals.completedThisMonth, hint: 'Finished by the contractors of your RTOMs in this month', href: '/service-orders/work-order/completed' },
-                    { label: `Returned in ${data.month}`, value: data.totals.returnedThisMonth, hint: 'Contractor orders cancelled or returned in this month', href: '/service-orders/work-order/return' },
-                ].map((c) => (
-                    <Link key={c.label} href={c.href} className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm hover:border-indigo-600 dark:border-slate-700 dark:bg-slate-900">
-                        <div className="text-xs font-bold uppercase tracking-wide text-slate-900 dark:text-white">{c.label}</div>
-                        <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">{c.value}</div>
-                        <p className="mt-1 text-xs text-slate-800 dark:text-slate-200">{c.hint}</p>
-                    </Link>
-                ))}
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <DashFigure label="With contractors now" value={data.totals.inHand} hint="Assigned, in progress or waiting to close" href="/service-orders/work-order" />
+                <DashFigure label={`Completed in ${data.month}`} value={data.totals.completedThisMonth} hint="Finished by the contractors of your RTOMs in this month" href="/service-orders/work-order/completed" tone="pass" />
+                <DashFigure label={`Returned in ${data.month}`} value={data.totals.returnedThisMonth} hint="Contractor orders cancelled or returned in this month" href="/service-orders/work-order/return" tone={data.totals.returnedThisMonth > 0 ? 'wait' : 'neutral'} />
             </div>
-            <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <div className="dash-panel">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <h3 className="text-sm font-black text-slate-900 dark:text-white">Why orders were returned in {data.month}</h3>
-                    <Link href="/service-orders/work-order/return" className="text-sm font-bold text-indigo-800 dark:text-indigo-300">Open Return SOD</Link>
+                    <h3>Why orders were returned in {data.month}</h3>
+                    <Link href="/service-orders/work-order/return" className="dash-link">Open Return SOD</Link>
                 </div>
-                {data.returnReasons.length === 0 ? <p className="mt-2 text-sm text-slate-900 dark:text-white">No orders were returned in this month.</p> : (
+                {data.returnReasons.length === 0 ? <p className="mt-2 text-sm">No orders were returned in this month.</p> : (
                     <ul className="mt-3 space-y-2">
                         {data.returnReasons.map((r) => (
-                            <li key={r.category} className="text-sm text-slate-900 dark:text-white">
+                            <li key={r.category} className="text-sm">
                                 <div className="flex justify-between font-semibold"><span>{r.label}</span><span>{r.count} ({r.pct}%)</span></div>
-                                <div className="mt-1 h-2 rounded bg-slate-200"><div className="h-2 rounded bg-rose-700" style={{ width: `${Math.max(3, r.pct)}%` }} /></div>
+                                <div className="dash-bar" data-tone="fault"><span style={{ width: `${Math.max(3, r.pct)}%` }} /></div>
                             </li>
                         ))}
                     </ul>
                 )}
             </div>
-            <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-                <h3 className="text-sm font-black text-slate-900 dark:text-white">Contractor progress in your RTOMs</h3>
-                {data.contractors.length === 0 ? <p className="mt-2 text-sm text-slate-900 dark:text-white">No service orders with contractors in your RTOMs.</p> : (
+            <div className="dash-panel">
+                <h3>Contractor progress in your RTOMs</h3>
+                {data.contractors.length === 0 ? <p className="mt-2 text-sm">No service orders with contractors in your RTOMs.</p> : (
                     <div className="mt-2 overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead><tr className="border-b border-slate-300">
-                                <th className={th}>Contractor</th><th className={th}>In hand now</th><th className={th}>Oldest in hand</th><th className={th}>Completed in {data.month}</th><th className={th}>Within {data.slaDays} days</th><th className={th}>Returned in {data.month}</th><th className={th}>Return rate</th><th className={th}>Main return reason</th>
+                        <table className="dash-table">
+                            <thead><tr>
+                                <th>Contractor</th><th>In hand now</th><th>Oldest in hand</th><th>Completed in {data.month}</th><th>Within {data.slaDays} days</th><th>Returned in {data.month}</th><th>Return rate</th><th>Main return reason</th>
                             </tr></thead>
                             <tbody>
                                 {data.contractors.map((c) => (
-                                    <tr key={c.contractorId} className="border-b border-slate-200 text-slate-900 dark:text-white">
-                                        <td className="py-2 pr-3 font-semibold">{c.name}</td>
-                                        <td className="py-2 pr-3">{c.inHand}</td>
-                                        <td className="py-2 pr-3 whitespace-nowrap">{c.oldestInHandDays === null ? '-' : `${c.oldestInHandDays} day${c.oldestInHandDays === 1 ? '' : 's'}`}</td>
-                                        <td className="py-2 pr-3">{c.completedThisMonth}</td>
-                                        <td className="py-2 pr-3 whitespace-nowrap">{c.slaPct === null ? '-' : `${c.slaPct}%`}</td>
-                                        <td className="py-2 pr-3">{c.returnedThisMonth}</td>
-                                        <td className={`py-2 pr-3 whitespace-nowrap ${c.returnRatePct !== null && c.returnRatePct >= 10 ? 'font-bold text-red-800' : ''}`}>{c.returnRatePct === null ? '-' : `${c.returnRatePct}%`}</td>
-                                        <td className="py-2 pr-3">{c.topReturnReason ?? '-'}</td>
+                                    <tr key={c.contractorId}>
+                                        <td className="font-semibold">{c.name}</td>
+                                        <td>{c.inHand}</td>
+                                        <td className="whitespace-nowrap">{c.oldestInHandDays === null ? '-' : `${c.oldestInHandDays} day${c.oldestInHandDays === 1 ? '' : 's'}`}</td>
+                                        <td>{c.completedThisMonth}</td>
+                                        <td className="whitespace-nowrap">{c.slaPct === null ? '-' : `${c.slaPct}%`}</td>
+                                        <td>{c.returnedThisMonth}</td>
+                                        <td className={`whitespace-nowrap ${c.returnRatePct !== null && c.returnRatePct >= 10 ? 'is-fault' : ''}`}>{c.returnRatePct === null ? '-' : `${c.returnRatePct}%`}</td>
+                                        <td>{c.topReturnReason ?? '-'}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -150,42 +142,34 @@ function AreaProgress({ data, isLoading, filters, onFilters, hideFilters }: { da
 }
 
 export default function MyWorkSection({ summary, isLoading, area, areaLoading, filters, onFilters, hideFilters }: { summary?: MyWorkSummary; isLoading: boolean; area?: AreaOverviewData; areaLoading?: boolean; filters: WorkFilters; onFilters: (f: WorkFilters) => void; hideFilters?: boolean }) {
-    if (isLoading) return <div className="grid grid-cols-1 gap-4 md:grid-cols-3">{Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-32 rounded-2xl" />)}</div>;
+    if (isLoading) return <Skeleton className="h-48 rounded-[10px]" />;
     const stages = summary?.stages ?? [];
-    const waiting = stages.reduce((a, s) => a + s.count, 0);
+    const pat = summary?.awaitingPat;
+    const rtoms = area && area.areas.length > 0 ? ` of ${area.areas.map((a) => a.rtom).join(', ')}` : '';
     return (
         <div className="space-y-5">
-            <div className="flex items-baseline gap-2 px-1">
-                <h2 className="text-base font-black text-slate-900 dark:text-white">Your service order work</h2>
-                <span className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-700 dark:text-indigo-300">Waiting for you</span>
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                {stages.map((s) => (
-                    <Link key={s.key} href="/service-orders/work-order/completed?check=waiting" className="rounded-2xl border border-slate-300 bg-white p-5 shadow-sm hover:border-indigo-600 dark:border-slate-700 dark:bg-slate-900">
-                        <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white"><ClipboardCheck className="h-5 w-5 text-indigo-700 dark:text-indigo-300" />Waiting at the {s.label} step</div>
-                        <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">{s.count}</div>
-                        <p className="mt-1 text-sm text-slate-800 dark:text-slate-200">{s.count === 0 ? 'Nothing is waiting for you.' : 'Completed orders of your area to check: connection, material and photos. Open Completed SOD.'}</p>
-                    </Link>
-                ))}
-                <Link href="/service-orders/work-order/pat" className="rounded-2xl border border-amber-400 bg-amber-50 p-5 shadow-sm hover:border-amber-600">
-                    <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Hourglass className="h-5 w-5 text-amber-800" />Waiting for their PAT</div>
-                    <div className="mt-3 text-4xl font-black text-slate-900">{summary?.awaitingPat.total ?? 0}</div>
-                    <p className="mt-1 text-sm text-slate-900">Completed orders{area && area.areas.length > 0 ? ` of ${area.areas.map((a) => a.rtom).join(', ')}` : ''} that join your list once their SLTS, OPMC and HO PAT approvals have passed.</p>
-                    <ul className="mt-2 space-y-0.5 text-sm font-semibold text-slate-900">
-                        <li>Waiting for the SLTS PAT: {summary?.awaitingPat.slts ?? 0}</li>
-                        <li>Waiting for the OPMC PAT: {summary?.awaitingPat.opmc ?? 0}</li>
-                        <li>Waiting for the HO PAT: {summary?.awaitingPat.ho ?? 0}</li>
-                        <li>PAT rejected: {summary?.awaitingPat.rejected ?? 0}</li>
-                    </ul>
-                </Link>
-                <Link href="/service-orders/work-order" className="rounded-2xl border border-slate-300 bg-white p-5 shadow-sm hover:border-indigo-600 dark:border-slate-700 dark:bg-slate-900">
-                    <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white"><ListChecks className="h-5 w-5 text-indigo-700 dark:text-indigo-300" />Pending service orders</div>
-                    <p className="mt-3 text-sm text-slate-800 dark:text-slate-200">Assign contractors and complete the orders of your area.</p>
-                    <div className="mt-3 text-sm font-bold text-indigo-800 dark:text-indigo-300">Open Pending SOD</div>
-                </Link>
-            </div>
+            <DashHeading title="Your service order work" note="Completed orders reach your step once all their PAT approvals have passed." />
+            <RouteStrip
+                title="Completed orders on their way to you"
+                note={<Link href="/service-orders/work-order" className="dash-link">Open Pending SOD to assign contractors</Link>}
+                stations={[
+                    {
+                        label: 'Waiting for their PAT', value: pat?.total ?? 0, href: '/service-orders/work-order/pat', waiting: true,
+                        hint: `Completed orders${rtoms}: SLTS ${pat?.slts ?? 0}, OPMC ${pat?.opmc ?? 0}, HO ${pat?.ho ?? 0}`,
+                    },
+                    ...stages.map((s) => ({
+                        label: `Waiting at the ${s.label} step`, value: s.count, href: '/service-orders/work-order/completed?check=waiting', waiting: true,
+                        hint: s.count === 0 ? 'Nothing is waiting for you.' : 'Check the connection, material and photos in Completed SOD.',
+                    })),
+                ]}
+            />
+            {(pat?.rejected ?? 0) > 0 && (
+                <div className="dash-alert" role="status">
+                    <span><strong>{pat?.rejected}</strong> completed order{pat?.rejected === 1 ? ' is' : 's are'} PAT rejected and need{pat?.rejected === 1 ? 's' : ''} a correction.</span>
+                    <Link href="/service-orders/work-order/pat" className="dash-link">Open PAT Status Monitor</Link>
+                </div>
+            )}
             <AreaProgress data={area} isLoading={!!areaLoading} filters={filters} onFilters={onFilters} hideFilters={hideFilters} />
-            {waiting === 0 && stages.length > 0 && <p className="px-1 text-sm text-slate-800 dark:text-slate-200">You have no orders to pass right now.</p>}
         </div>
     );
 }

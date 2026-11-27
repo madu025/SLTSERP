@@ -7,6 +7,7 @@ import Header from '@/components/Header';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShieldAlert } from 'lucide-react';
+import { DashHeading } from './components/dash-ui';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -44,13 +45,8 @@ export const getDefaultTabForPermissions = (permissions: readonly string[] = [])
 };
 
 /** One-line section title: the tab already says where you are, so there is no descriptive paragraph. */
-function DashboardTabHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
-    return (
-        <div className="flex items-baseline gap-2 px-1">
-            <h2 className="text-base font-black text-foreground">{title}</h2>
-            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">{eyebrow}</span>
-        </div>
-    );
+function DashboardTabHeader({ note, title }: { note: string; title: string }) {
+    return <DashHeading title={title} note={note} />;
 }
 
 /* ── Chart-heavy sections are dynamically imported (client-only) ── */
@@ -365,7 +361,7 @@ export default function DashboardPage() {
                 <Sidebar />
                 <main className="flex-1 flex flex-col min-w-0 h-full">
                     <Header />
-                    <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8">
+                    <div className="dash flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8">
                         <div className="max-w-7xl mx-auto w-full space-y-6">
                             {resolvingWork && <div className="space-y-4"><Skeleton className="h-28 rounded-2xl" /><Skeleton className="h-72 rounded-2xl" /></div>}
                             {!hasMyWork && !resolvingWork && hasAnyTab && <DashboardFilters
@@ -387,7 +383,7 @@ export default function DashboardPage() {
                             {!resolvingWork && !hasAnyTab && !hasMyWork && <QuickStartSection permissions={user.permissions} />}
 
                             {!resolvingWork && (hasAnyTab || hasMyWork) && <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                                <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1 rounded-2xl border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-950">
+                                <TabsList className="dash-tabs mb-4 flex h-auto w-full flex-wrap justify-start gap-1 p-1">
                                     {hasMyWork && <TabsTrigger value="work" className="min-w-[7.5rem]">My work</TabsTrigger>}
                                     {canFilterGlobally && <TabsTrigger value="health" className="min-w-[7.5rem]">Company health</TabsTrigger>}
                                     {!hasMyWork && canViewOperations && <TabsTrigger value="overview" className="min-w-[7.5rem]">Management overview</TabsTrigger>}
@@ -422,27 +418,16 @@ export default function DashboardPage() {
                                 {canViewOperations && (
                                     <TabsContent value="operations" className="space-y-6">
                                         <DashboardTabHeader
-                                            eyebrow="Service delivery"
                                             title="Operations performance"
+                                            note="Orders received, finished and returned this year, and how long the open ones have waited."
                                         />
                                         {/* PAT Rejection Alert — scoped to Operations tab only */}
                                         {(stats?.pat?.rejectedOpen ?? stats?.pat?.rejected ?? 0) > 0 && (
-                                            <Link
-                                                href="/service-orders/work-order/pat"
-                                                className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent border border-rose-500/30 rounded-2xl text-rose-500 hover:bg-rose-500/15 transition-all group shadow-md"
-                                            >
-                                                <span className="relative flex h-3 w-3 shrink-0">
-                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
-                                                </span>
-                                                <ShieldAlert className="w-5 h-5 shrink-0 animate-bounce" />
-                                                <span className="text-xs md:text-sm font-black">
-                                                    {stats!.pat.rejectedOpen ?? stats!.pat.rejected} order{(stats!.pat.rejectedOpen ?? stats!.pat.rejected) > 1 ? 's are' : ' is'} currently PAT-rejected and need{(stats!.pat.rejectedOpen ?? stats!.pat.rejected) > 1 ? '' : 's'} review
-                                                </span>
-                                                <span className="ml-auto text-xs font-black uppercase tracking-wider opacity-80 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
-                                                    Review Now →
-                                                </span>
-                                            </Link>
+                                            <div className="dash-alert" role="status">
+                                                <ShieldAlert aria-hidden="true" />
+                                                <span><strong>{(stats!.pat.rejectedOpen ?? stats!.pat.rejected).toLocaleString('en-LK')}</strong> order{(stats!.pat.rejectedOpen ?? stats!.pat.rejected) > 1 ? 's are' : ' is'} PAT rejected and need{(stats!.pat.rejectedOpen ?? stats!.pat.rejected) > 1 ? '' : 's'} a correction.</span>
+                                                <Link href="/service-orders/work-order/pat" className="dash-link">Open PAT Status Monitor</Link>
+                                            </div>
                                         )}
                                         <StatsCardGrid isLoading={isLoading} stats={stats} />
                                         <ChartSection
@@ -468,8 +453,8 @@ export default function DashboardPage() {
                                 {canViewProjects && (
                                     <TabsContent value="projects" className="space-y-6">
                                         <DashboardTabHeader
-                                            eyebrow="Project portfolio"
                                             title="Projects delivery"
+                                            note="Where each project stands and what holds it up."
                                         />
                                         <ProjectsSection user={user} enabled={activeTab === 'projects'} region={selectedRegion} rtom={selectedRtom} />
                                     </TabsContent>
@@ -478,8 +463,8 @@ export default function DashboardPage() {
                                 {canViewProcurement && (
                                     <TabsContent value="procurement" className="space-y-6">
                                         <DashboardTabHeader
-                                            eyebrow="Supply chain"
                                             title="Procurement pipeline"
+                                            note="Requests, orders and deliveries still open."
                                         />
                                         <ProcurementSection rtom={selectedRtom} enabled={activeTab === 'procurement'} />
                                     </TabsContent>
@@ -488,8 +473,8 @@ export default function DashboardPage() {
                                 {canViewFinance && (
                                     <TabsContent value="finance" className="space-y-6">
                                         <DashboardTabHeader
-                                            eyebrow="Financial control"
                                             title="Finance and billing"
+                                            note="What was billed, what is waiting to be billed, and what is owed."
                                         />
                                         <FinanceSection rtom={selectedRtom} enabled={activeTab === 'finance'} />
                                     </TabsContent>
@@ -498,8 +483,8 @@ export default function DashboardPage() {
                                 {canViewInventory && (
                                     <TabsContent value="inventory" className="space-y-6">
                                         <DashboardTabHeader
-                                            eyebrow="Stores and materials"
                                             title="Inventory control"
+                                            note="Stock in the stores and the materials with the contractors."
                                         />
                                         <InventorySection rtom={selectedRtom} enabled={activeTab === 'inventory'} />
                                     </TabsContent>

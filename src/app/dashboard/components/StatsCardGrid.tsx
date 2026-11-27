@@ -4,19 +4,17 @@
  * Renders:
  *  1. Monthly KPI grid (4 × StatCard) – received, invoicable, completed
  *     (with completion-rate sub-label), and returns.
- *  2. Year-to-date strip (5 inline glass-panel cards) – brought forward,
- *     total received, total completed, PAT pass, PAT rejected.
+ *  2. Year-to-date strip – brought forward, total received, total completed,
+ *     PAT pass, PAT rejected.
  *
- * Extracted from `src/app/dashboard/page.tsx`. The monthly grid uses the
- * shared {@link StatCard} component; the YTD strip keeps its inline
- * glass-panel markup because the styling differs from StatCard.
+ * Every figure uses the shared route-board style (DashFigure, dashboard.css).
  */
 
 import { Inbox, Wallet, CheckCircle2, RotateCcw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatCard } from './StatCard';
+import { DashFigure } from './dash-ui';
 import type { Stats } from './types';
-import Link from 'next/link';
 import { formatSmartNumber } from '@/lib/utils';
 
 export interface StatsCardGridProps {
@@ -24,158 +22,76 @@ export interface StatsCardGridProps {
     stats: Stats | undefined;
 }
 
-/** Small inline card used only by the YTD strip — not shared. */
-function YtdCard({ label, value, valueClass, href }: { label: string; value: number; valueClass: string; href?: string }) {
-    const body = (
-        <div className="glass-panel p-4 rounded-2xl border border-border/40 flex flex-col justify-between hover:scale-[1.03] transition-all duration-200 shadow-sm bg-card/40 hover:bg-card/70 h-full">
-            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-tight">{label}</p>
-            <p className={`text-xl font-black mt-1 font-mono ${valueClass}`}>{formatSmartNumber(value, 0)}</p>
-        </div>
-    );
-    return href ? <Link href={href} aria-label={`Open ${label}`} className="block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">{body}</Link> : body;
-}
-
 export function StatsCardGrid({ isLoading, stats }: StatsCardGridProps) {
     const total = stats?.monthly?.total || 0;
     const completed = stats?.monthly?.completed || 0;
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-
     const hasMonthlyData = total > 0 || completed > 0 || (stats?.monthly?.returned || 0) > 0 || (stats?.monthly?.invoicable || 0) > 0;
     const hasYtdData = !!stats?.allTime && ((stats.allTime.total ?? 0) > 0 || (stats.allTime.completed ?? 0) > 0 || (stats.allTime.broughtForward ?? 0) > 0);
-    const hasAnyData = hasMonthlyData || hasYtdData;
+    const n = (v: number | undefined | null) => formatSmartNumber(v ?? 0, 0);
+    const rs = (v: number | undefined | null) => `Rs. ${formatSmartNumber(v ?? 0, 0)}`;
 
-    // ── Empty state ──────────────────────────────────────
-    if (!isLoading && !hasAnyData) {
+    if (!isLoading && !hasMonthlyData && !hasYtdData) {
         return (
-            <div className="glass-panel rounded-3xl border border-border/50 p-12 flex flex-col items-center justify-center text-center space-y-4">
-                <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shadow-lg">
-                    <Inbox className="w-8 h-8 text-primary" />
-                </div>
-                <div>
-                    <h3 className="font-extrabold text-foreground text-base">No operations metrics available</h3>
-                    <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                        There is no monthly or year-to-date service order data for the selected region yet.
-                    </p>
-                </div>
+            <div className="dash-panel">
+                <h3>No service orders for this selection yet</h3>
+                <p className="dash-note mt-1">Pick another region or RTOM above, or check back after the next sync.</p>
             </div>
         );
     }
 
     return (
         <div className="space-y-6">
-            {/* Monthly KPI Cards */}
-            <section aria-label="Monthly KPIs">
-                <div
-                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
-                    aria-busy={isLoading}
-                >
-                    {isLoading ? (
-                        Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-32 rounded-3xl" />)
-                    ) : (
-                        <>
-                            <StatCard label="Monthly Received" value={stats?.monthly?.total || 0} icon={<Inbox className="w-6 h-6" />} color="blue" href="/service-orders/work-order" />
-                            <StatCard label="Monthly Invoicable" value={stats?.monthly?.invoicable || 0} icon={<Wallet className="w-6 h-6" />} color="indigo" sub="flagged ready for invoice" href="/service-orders/invoicable" />
-                            <StatCard
-                                label="Monthly Completed"
-                                value={stats?.monthly?.completed || 0}
-                                icon={<CheckCircle2 className="w-6 h-6" />}
-                                color="emerald"
-                                sub={`${completionRate}% throughput vs received`}
-                                subTone={completionRate > 100 ? 'warning' : completionRate === 100 ? 'neutral' : 'positive'}
-                                href="/service-orders/work-order/completed"
-                            />
-                            <StatCard label="Monthly Return" value={stats?.monthly?.returned || 0} icon={<RotateCcw className="w-6 h-6" />} color="rose" href="/service-orders/work-order/return" />
-                        </>
-                    )}
-                </div>
+            <section aria-label="This month" aria-busy={isLoading} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {isLoading ? Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-28 rounded-[10px]" />) : (
+                    <>
+                        <StatCard label="Received this month" value={total} icon={<Inbox />} color="blue" href="/service-orders/work-order" />
+                        <StatCard label="Ready to invoice this month" value={stats?.monthly?.invoicable || 0} icon={<Wallet />} color="indigo" sub="Orders flagged ready for invoice" href="/service-orders/invoicable" />
+                        <StatCard label="Completed this month" value={completed} icon={<CheckCircle2 />} color="emerald" sub={`${completionRate}% of the orders received this month`} subTone={completionRate > 100 ? 'warning' : 'positive'} href="/service-orders/work-order/completed" />
+                        <StatCard label="Returned this month" value={stats?.monthly?.returned || 0} icon={<RotateCcw />} color="rose" href="/service-orders/work-order/return" />
+                    </>
+                )}
             </section>
 
-            {/* Order revenue (finance access only) and the SLA count */}
             {(stats?.financials || stats?.sla) && (
-                <section aria-label="Order revenue and SLA">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {stats?.financials && (
-                            <>
-                                <div className="glass-panel p-5 rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent shadow-sm">
-                                    <p className="text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-400 tracking-wider">Order revenue · year to date</p>
-                                    <p className="text-2xl font-black font-mono text-emerald-700 dark:text-emerald-400 mt-1">Rs. {formatSmartNumber(stats.financials.totalRevenue, 0)}</p>
-                                    <p className="text-[10px] font-semibold text-muted-foreground mt-0.5">
-                                        Completed orders by completion date.{(stats.financials.missingAmountCount ?? 0) > 0 ? ` ${formatSmartNumber(stats.financials.missingAmountCount, 0)} completed orders have no amount yet and are not included.` : ''}
-                                    </p>
-                                </div>
-                                <div className="glass-panel p-5 rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent shadow-sm">
-                                    <p className="text-[10px] font-black uppercase text-blue-700 dark:text-blue-400 tracking-wider">Contractor cost · year to date</p>
-                                    <p className="text-2xl font-black font-mono text-blue-700 dark:text-blue-400 mt-1">Rs. {formatSmartNumber(stats.financials.totalContractorCost, 0)}</p>
-                                </div>
-                                <div className="glass-panel p-5 rounded-3xl border border-indigo-500/20 bg-gradient-to-br from-indigo-500/10 via-indigo-500/5 to-transparent shadow-sm">
-                                    <p className="text-[10px] font-black uppercase text-indigo-700 dark:text-indigo-400 tracking-wider">Order margin · year to date</p>
-                                    <div className="flex items-baseline justify-between mt-1">
-                                        <p className="text-2xl font-black font-mono text-indigo-700 dark:text-indigo-400">Rs. {formatSmartNumber(stats.financials.netMargin, 0)}</p>
-                                        <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30">{stats.financials.marginPercentage}%</span>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-                        <Link href="/service-orders/work-order" aria-label="Open pending service orders" className="block rounded-3xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-                            <div className="glass-panel p-5 rounded-3xl border border-rose-500/20 bg-gradient-to-br from-rose-500/10 via-rose-500/5 to-transparent shadow-sm hover:shadow-md transition-all h-full">
-                                <p className="text-[10px] font-black uppercase text-rose-700 dark:text-rose-400 tracking-wider">Open orders older than 48 hours</p>
-                                <p className="text-2xl font-black text-rose-700 dark:text-rose-400 font-mono mt-1">{formatSmartNumber(stats?.sla?.slaBreachedCount, 0)}</p>
-                            </div>
-                        </Link>
-                    </div>
-                </section>
-            )}
-
-            {/* Billing (finance access only) */}
-            {stats?.financeSummary && (
-                <section aria-label="Billing">
-                    <div className="flex items-center justify-between mb-2 px-1">
-                        <h3 className="text-xs font-black uppercase tracking-wider text-muted-foreground">Billing</h3>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <Link href="/finance/invoices" aria-label="Open invoices" className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-                            <div className="glass-panel p-4 rounded-2xl border border-sky-500/20 bg-sky-500/5 hover:border-sky-500/40 transition-all h-full">
-                                <p className="text-[10px] font-black uppercase text-sky-700 dark:text-sky-400 tracking-wider">Invoiced billing</p>
-                                <p className="text-xl font-black font-mono text-sky-700 dark:text-sky-400 mt-1">Rs. {formatSmartNumber(stats.financeSummary.invoicedTotal, 0)}</p>
-                                <p className="text-[10px] font-semibold text-muted-foreground mt-0.5">{stats.financeSummary.pendingInvoices} pending invoices (Rs. {formatSmartNumber(stats.financeSummary.pendingInvoiceAmount, 0)}). Cancelled and rejected invoices are not counted.</p>
-                            </div>
-                        </Link>
-                        <Link href="/service-orders/work-order/completed" aria-label="Open completed service orders" className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-                            <div className="glass-panel p-4 rounded-2xl border border-purple-500/20 bg-purple-500/5 hover:border-purple-500/40 transition-all h-full">
-                                <p className="text-[10px] font-black uppercase text-purple-700 dark:text-purple-400 tracking-wider">Completed, not yet invoiced</p>
-                                <p className="text-xl font-black font-mono text-purple-700 dark:text-purple-400 mt-1">Rs. {formatSmartNumber(stats.financeSummary.uninvoicedCompletedAmount, 0)}</p>
-                                <p className="text-[10px] font-semibold text-muted-foreground mt-0.5">Same figure as the Finance tab</p>
-                            </div>
-                        </Link>
-                    </div>
-                </section>
-            )}
-
-            {/* Year-to-date strip */}
-            <section aria-label="Year to date">
-                <div className="flex items-center justify-between mb-2 px-1">
-                    <h3 className="text-xs font-black uppercase tracking-wider text-muted-foreground">Year to date overview</h3>
-                </div>
-                <div
-                    className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"
-                    aria-busy={isLoading}
-                >
-                    {isLoading ? (
-                        Array(5).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)
-                    ) : (
+                <section aria-label="Order revenue and waiting orders" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {stats?.financials && (
                         <>
-                            <YtdCard label="Brought forward" value={stats?.allTime?.broughtForward || 0} valueClass="text-primary" href="/service-orders/work-order" />
-                            <YtdCard label="Total received" value={stats?.allTime?.total || 0} valueClass="text-foreground" />
-                            <YtdCard label="Total completed" value={stats?.allTime?.completed || 0} valueClass="text-emerald-500" href="/service-orders/work-order/completed" />
-                            <YtdCard label="PAT pass" value={stats?.pat?.passed || 0} valueClass="text-sky-500" href="/service-orders/work-order/pat" />
-                            <YtdCard label="PAT rejected (open now)" value={stats?.pat?.rejectedOpen ?? stats?.pat?.rejected ?? 0} valueClass="text-rose-500" href="/service-orders/work-order/pat" />
+                            <DashFigure label="Order revenue, year to date" value={rs(stats.financials.totalRevenue)} tone="pass"
+                                hint={`Completed orders by completion date.${(stats.financials.missingAmountCount ?? 0) > 0 ? ` ${n(stats.financials.missingAmountCount)} completed orders have no amount yet and are not included.` : ''}`} />
+                            <DashFigure label="Contractor cost, year to date" value={rs(stats.financials.totalContractorCost)} />
+                            <DashFigure label="Order margin, year to date" value={rs(stats.financials.netMargin)} tone={stats.financials.netMargin < 0 ? 'fault' : 'pass'}
+                                hint={`${stats.financials.marginPercentage}% of the revenue`} />
+                        </>
+                    )}
+                    <DashFigure label="Open orders older than 48 hours" value={n(stats?.sla?.slaBreachedCount)} tone={(stats?.sla?.slaBreachedCount ?? 0) > 0 ? 'wait' : 'neutral'} href="/service-orders/work-order" />
+                </section>
+            )}
+
+            {stats?.financeSummary && (
+                <section aria-label="Billing" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <DashFigure label="Invoiced" value={rs(stats.financeSummary.invoicedTotal)} href="/finance/invoices"
+                        hint={`${stats.financeSummary.pendingInvoices} invoices pending (${rs(stats.financeSummary.pendingInvoiceAmount)}). Cancelled and rejected invoices are not counted.`} />
+                    <DashFigure label="Completed, not yet invoiced" value={rs(stats.financeSummary.uninvoicedCompletedAmount)} href="/service-orders/work-order/completed" tone="wait"
+                        hint="Same figure as the Finance tab" />
+                </section>
+            )}
+
+            <section aria-label="Year to date" aria-busy={isLoading}>
+                <div className="dash-heading mb-2"><h2 style={{ fontSize: '1.0625rem' }}>Year to date</h2></div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                    {isLoading ? Array(5).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-[10px]" />) : (
+                        <>
+                            <DashFigure label="Brought forward" value={n(stats?.allTime?.broughtForward)} hint="Open orders received before this year" href="/service-orders/work-order" />
+                            <DashFigure label="Received" value={n(stats?.allTime?.total)} />
+                            <DashFigure label="Completed" value={n(stats?.allTime?.completed)} href="/service-orders/work-order/completed" />
+                            <DashFigure label="PAT passed" value={n(stats?.pat?.passed)} tone="pass" href="/service-orders/work-order/pat" />
+                            <DashFigure label="PAT rejected now" value={n(stats?.pat?.rejectedOpen ?? stats?.pat?.rejected)} tone={(stats?.pat?.rejectedOpen ?? 0) > 0 ? 'fault' : 'neutral'} href="/service-orders/work-order/pat" />
                         </>
                     )}
                 </div>
-                <p className="mt-2 px-1 text-[11px] text-muted-foreground">
-                    {stats?.updatedAt
-                        ? `Data refreshed ${new Date(stats.updatedAt).toLocaleString()}`
-                        : 'Data refresh timestamp was not supplied by the operations API.'}
+                <p className="dash-note mt-2 px-1" style={{ fontSize: '0.8125rem', color: 'var(--dash-ink-2)' }}>
+                    {stats?.updatedAt ? `Figures as of ${new Date(stats.updatedAt).toLocaleString('en-GB')}` : 'The time of these figures is not known.'}
                 </p>
             </section>
         </div>
