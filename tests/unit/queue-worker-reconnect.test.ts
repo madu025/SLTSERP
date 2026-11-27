@@ -23,3 +23,15 @@ test('every worker uses the reconnecting connection; the producer stays fail-fas
         assert.match(readFileSync(new URL(`../../src/workers/${w}.worker.ts`, import.meta.url), 'utf8'), /connection: createQueueConnection\('worker:/);
     }
 });
+
+test('the daily automation never deletes audit logs (immutable; retention is AuditRetentionService), so the job no longer fails every day', () => {
+    const auto = readFileSync(new URL('../../src/services/automation/index.ts', import.meta.url), 'utf8');
+    assert.doesNotMatch(auto, /AuditRepository\.deleteMany/);
+    assert.match(auto, /NotificationRepository\.deleteMany\(\{\s*createdAt: \{ lt: oneMonthAgo \},\s*isRead: true\s*\}\)/, 'old read notifications are still cleaned');
+});
+
+test('the request-path Redis client keeps reconnecting in production but never makes a request wait', () => {
+    const r = readFileSync(new URL('../../src/lib/redis.ts', import.meta.url), 'utf8');
+    assert.match(r, /enableOfflineQueue: false/);
+    assert.match(r, /if \(!isProduction && times > 2\) return null;\s*return Math\.min\(200 \* times, 5000\);/);
+});

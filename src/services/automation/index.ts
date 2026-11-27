@@ -2,7 +2,6 @@ import { InventoryRepository } from '@/repositories/inventory.repository';
 import { ContractorRepository } from '@/repositories/contractor.repository';
 import { ServiceOrderRepository } from '@/repositories/service-order.repository';
 import { StockRequestRepository } from '@/repositories/stock-request.repository';
-import { AuditRepository } from '@/repositories/audit.repository';
 import { NotificationRepository } from '@/repositories/notification.repository';
 import { NotificationService } from '@/services/notification/notification.service';
 import { startOfDay, endOfDay, subDays, subMonths } from 'date-fns';
@@ -124,26 +123,22 @@ export class AutomationService {
     }
 
     /**
-     * 4. Automatic System Cleanup - Older than 3 months Audit Logs & Notifications
+     * 4. Automatic System Cleanup - read notifications older than one month.
+     * Audit logs are NOT deleted here: they are immutable (trigger trg_audit_log_immutable) and their retention is
+     * AuditRetentionService (24 months, archived to storage first). The former 3-month delete hit the trigger, so the
+     * whole DAILY_AUTOMATION job failed every day and this notification cleanup never ran (found by the Redis audit, 27 Nov 2026).
      */
     static async runAuditLogCleanup() {
-        console.log('[AUTOMATION] Cleaning up old audit logs and notifications...');
-        const threeMonthsAgo = subMonths(new Date(), 3);
+        console.log('[AUTOMATION] Cleaning up old read notifications...');
         const oneMonthAgo = subMonths(new Date(), 1);
 
-        // Clean old audit logs (3 months)
-        const auditResult = await AuditRepository.deleteMany({
-            createdAt: { lt: threeMonthsAgo }
-        });
-
-        // Clean old read notifications (1 month)
         const notificationResult = await NotificationRepository.deleteMany({
             createdAt: { lt: oneMonthAgo },
             isRead: true
         });
 
-        console.log(`[AUTOMATION] Deleted ${auditResult.count} audit logs (>3 months) and ${notificationResult.count} notifications (>1 month).`);
-        return { auditLogs: auditResult.count, notifications: notificationResult.count };
+        console.log(`[AUTOMATION] Deleted ${notificationResult.count} read notifications (>1 month).`);
+        return { auditLogs: 0, notifications: notificationResult.count };
     }
 
     /**

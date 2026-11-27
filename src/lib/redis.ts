@@ -15,9 +15,13 @@ export const redis = (() => {
         enableOfflineQueue: false, // Prevent queuing commands when Redis is down
         maxRetriesPerRequest: 2,
         connectTimeout: 2000,
+        // Requests never wait (enableOfflineQueue false, 2 retries per command), but the long-running production server
+        // keeps reconnecting in the background: with "give up after 2 attempts" one dropped socket left this singleton
+        // dead until the next restart (Redis "unhealthy" in health, found by the Redis audit, 27 Nov 2026).
+        // Local runs without Redis still give up quickly.
         retryStrategy(times) {
-            if (times > 2) return null; // Stop retrying after 2 attempts
-            return 200;
+            if (!isProduction && times > 2) return null;
+            return Math.min(200 * times, 5000);
         }
     });
 
