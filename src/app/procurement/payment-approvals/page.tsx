@@ -5,6 +5,12 @@ import { toast } from "sonner";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import RoleGuard from "@/components/RoleGuard";
+import { Fragment, useState } from "react";
+import GatePanel from "@/components/purchase/GatePanel";
+import { signaturesGate, docsChainGate, reasonGate } from "@/lib/purchase-flow-gates";
+import { RBAC_PERMISSIONS } from "@/config/rbac-permissions";
+
+type Mode = "SIGNED" | "NOT_SIGNED" | "DOCS_SENT" | "DOCS_RECEIVED" | "DOCS_NOT_RECEIVED";
 
 interface ChainRow {
     id: string; pvNumber: string; status: string; amount: number; payee: string; waitingFor: string; stage: string | null;
@@ -13,7 +19,17 @@ interface ChainRow {
     trail: { stage: string | null; action: string; by: string | null; at: string; remarks: string | null }[];
 }
 
+const DONE: Record<string, string> = { SIGNED: "Signatures recorded; the vendor invoice is posted. Send the documents to HO next.", NOT_SIGNED: "Back to the Account Officer as not signed", DOCS_SENT: "Documents sent; the HO Account Executive is told", DOCS_RECEIVED: "Documents received; the voucher is with HO for payment", DOCS_NOT_RECEIVED: "Sent back to the OSP Account: documents missing" };
 const money = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const PANEL_TITLE: Record<Mode, string> = { SIGNED: "Record the three signatures", NOT_SIGNED: "Not signed", DOCS_SENT: "Documents sent to HO", DOCS_RECEIVED: "Documents received at HO", DOCS_NOT_RECEIVED: "Documents not received" };
+const PANEL_NOTE: Record<Mode, string> = {
+    SIGNED: "The OSP Account Manager, OSP Manager and Head of Section sign the printed voucher. Upload its scan: the vendor invoice is then posted and the documents can go to HO.",
+    NOT_SIGNED: "The voucher goes back to draft with your reason, for the Account Officer to correct.",
+    DOCS_SENT: "Send the signed voucher and its documents to the HO Invoice Section, then record it. The HO Account Executive is told.",
+    DOCS_RECEIVED: "When the documents arrive at HO, record it: the voucher is then with HO for payment.",
+    DOCS_NOT_RECEIVED: "The OSP Account is told what is missing and sends the documents again.",
+};
+const ACTION_LABEL: Record<Mode, string> = { SIGNED: "Record: signed by all three", NOT_SIGNED: "Send back as not signed", DOCS_SENT: "Record: documents sent to HO", DOCS_RECEIVED: "Record: documents received at HO", DOCS_NOT_RECEIVED: "Send back: documents missing" };
 const ACTION: Record<string, string> = { SUBMITTED: "Submitted", SIGNED: "Signed by all three", NOT_SIGNED: "Not signed", APPROVED: "Approved", REJECTED: "Rejected", DOCS_NOT_RECEIVED: "Documents not received", DOCS_RECEIVED_SENT_TO_HO: "Documents received at HO", DOCS_SENT: "Documents sent to HO" };
 
 /**
@@ -23,6 +39,15 @@ const ACTION: Record<string, string> = { SUBMITTED: "Submitted", SIGNED: "Signed
  */
 export default function PaymentApprovalsPage() {
     const qc = useQueryClient();
+    // one open panel at a time: the step's checks, then its one action (no browser dialogs)
+    const [open, setOpen] = useState<{ id: string; mode: Mode } | null>(null);
+    const [file, setFile] = useState<File | null>(null);
+    const [reason, setReason] = useState("");
+    const [canReceive] = useState<boolean>(() => {
+        if (typeof window === "undefined") return false;
+        try { const u = JSON.parse(localStorage.getItem("user") || "{}"); return Array.isArray(u.permissions) && u.permissions.includes(RBAC_PERMISSIONS.PROCUREMENT_HO_PAYMENT_RECORD); } catch { return false; }
+    });
+    const openPanel = (id: string, mode: Mode) => { setOpen({ id, mode }); setFile(null); setReason(""); };
     const { data: rows = [], isLoading } = useQuery<ChainRow[]>({
         queryKey: ["pv-chain"],
         queryFn: async () => {
@@ -39,7 +64,7 @@ export default function PaymentApprovalsPage() {
             if (!res.ok) throw new Error(json?.error?.message || "The action failed");
             return json;
         },
-        onSuccess: () => { toast.success("Done"); qc.invalidateQueries({ queryKey: ["pv-chain"] }); },
+        onSuccess: (_d, v) => { toast.success(DONE[v.action] ?? "Done"); setOpen(null); qc.invalidateQueries({ queryKey: ["pv-chain"] }); },
         onError: (e: Error) => toast.error(e.message),
     });
     const uploadSigned = async (voucherId: string, file: File) => {
@@ -52,10 +77,6 @@ export default function PaymentApprovalsPage() {
         const url = json?.url ?? json?.data?.url;
         if (!res.ok || !url) { toast.error(json?.error?.message || "Upload failed"); return; }
         act.mutate({ voucherId, action: "SIGNED", signedVoucherUrl: url });
-    };
-    const withRemarks = (voucherId: string, action: string, question: string) => {
-        const remarks = window.prompt(question);
-        if (remarks && remarks.trim().length >= 3) act.mutate({ voucherId, action, remarks: remarks.trim() });
     };
     const th = "px-2 py-1.5 text-left text-[11px] font-bold uppercase !bg-slate-100 !text-slate-800";
     const td = "px-2 py-1.5 text-xs text-slate-900 align-top";
@@ -80,7 +101,8 @@ export default function PaymentApprovalsPage() {
                         {isLoading && <tr><td className={td} colSpan={7}>Loading…</td></tr>}
                         {!isLoading && rows.length === 0 && <tr><td className={td} colSpan={7}>No vendor payment voucher is in the approval flow.</td></tr>}
                         {rows.map((r) => (
-                            <tr key={r.id} className="border-t border-slate-200" data-testid="pv-chain-row">
+                            <Fragment key={r.id}>
+                            <tr className="border-t border-slate-200" data-testid="pv-chain-row">
                                 <td className={td}><b>{r.pvNumber}</b><span className="block text-slate-700">{r.status.replace(/_/g, " ")}</span></td>
                                 <td className={td}>{r.vendor}<span className="block text-slate-700">{r.invoiceNumber ?? "-"}{r.match && r.match !== "MATCHED" ? ` · ${r.match}` : ""}</span></td>
                                 <td className={td}>{r.poNumber ?? "-"}<span className="block text-slate-700">{r.grnNumber ?? "-"} · {r.oracleGrnNumber ?? "-"}</span></td>
@@ -89,21 +111,51 @@ export default function PaymentApprovalsPage() {
                                 <td className={td}>{r.trail.map((t, i) => <span key={i} className="block">{ACTION[t.action] ?? t.action}{t.by ? ` · ${t.by}` : ""}{t.remarks ? `: ${t.remarks}` : ""}</span>)}</td>
                                 <td className={`${td} whitespace-nowrap`}>
                                     {r.status === "PENDING_APPROVAL" && r.stage === "SIGNATURES" && (<>
-                                        <label className={`${btn} inline-block cursor-pointer border-emerald-700 bg-emerald-700 text-white`}>
-                                            Signed by all three (attach scan)
-                                            <input type="file" data-testid="pv-signed" accept=".pdf,.jpg,.jpeg,.png,.webp" className="hidden" disabled={act.isPending} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadSigned(r.id, f); }} />
-                                        </label>
-                                        <button type="button" data-testid="pv-not-signed" disabled={act.isPending} onClick={() => withRemarks(r.id, "NOT_SIGNED", "Why was the voucher not signed?")} className={`${btn} border-red-300 bg-red-50 text-red-900`}>Not signed</button>
+                                        <button type="button" data-testid="pv-sign-open" onClick={() => openPanel(r.id, "SIGNED")} className={`${btn} border-emerald-700 bg-emerald-700 text-white`}>Signed by all three</button>
+                                        <button type="button" data-testid="pv-not-signed" onClick={() => openPanel(r.id, "NOT_SIGNED")} className={`${btn} border-red-300 bg-red-50 text-red-900`}>Not signed</button>
                                     </>)}
                                     {r.status === "APPROVED" && (r.docsStatus === "TO_SEND" || r.docsStatus === "NOT_RECEIVED") && (
-                                        <button type="button" data-testid="pv-docs-sent" disabled={act.isPending} onClick={() => { if (window.confirm("The signed voucher and its documents were sent to the HO Invoice Section?")) act.mutate({ voucherId: r.id, action: "DOCS_SENT" }); }} className={`${btn} border-indigo-800 bg-indigo-800 text-white`}>Documents sent to HO</button>
+                                        <button type="button" data-testid="pv-docs-sent" onClick={() => openPanel(r.id, "DOCS_SENT")} className={`${btn} border-indigo-800 bg-indigo-800 text-white`}>Documents sent to HO</button>
                                     )}
                                     {r.status === "APPROVED" && r.docsStatus === "SENT" && (<>
-                                        <button type="button" data-testid="pv-docs-received" disabled={act.isPending} onClick={() => { if (window.confirm("Documents received by the HO Invoice Section?")) act.mutate({ voucherId: r.id, action: "DOCS_RECEIVED" }); }} className={`${btn} border-violet-800 bg-violet-800 text-white`}>Received at HO</button>
-                                        <button type="button" data-testid="pv-docs-missing" disabled={act.isPending} onClick={() => withRemarks(r.id, "DOCS_NOT_RECEIVED", "Which documents are missing?")} className={`${btn} border-amber-300 bg-amber-50 text-amber-900`}>Not received</button>
+                                        <button type="button" data-testid="pv-docs-received" onClick={() => openPanel(r.id, "DOCS_RECEIVED")} className={`${btn} border-violet-800 bg-violet-800 text-white`}>Received at HO</button>
+                                        <button type="button" data-testid="pv-docs-missing" onClick={() => openPanel(r.id, "DOCS_NOT_RECEIVED")} className={`${btn} border-amber-300 bg-amber-50 text-amber-900`}>Not received</button>
                                     </>)}
                                 </td>
                             </tr>
+                            {open?.id === r.id && (
+                                <tr data-testid="pv-panel"><td colSpan={7} className="px-2 pb-3">
+                                    <div className="pf grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_20rem]">
+                                        <div className="pf-step">
+                                            <div className="pf-step-title">{PANEL_TITLE[open.mode]}</div>
+                                            <p className="pf-step-note !ml-0">{PANEL_NOTE[open.mode]}</p>
+                                            {open.mode === "SIGNED" && (
+                                                <div className="pf-field"><label htmlFor={`scan-${r.id}`}>Scan of the signed voucher</label>
+                                                    <input id={`scan-${r.id}`} type="file" data-testid="pv-signed" accept=".pdf,.jpg,.jpeg,.png,.webp" className="pf-input py-1" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></div>
+                                            )}
+                                            {(open.mode === "NOT_SIGNED" || open.mode === "DOCS_NOT_RECEIVED") && (
+                                                <div className="pf-field"><label htmlFor={`why-${r.id}`}>{open.mode === "NOT_SIGNED" ? "Why the voucher was not signed" : "Which documents are missing"}</label>
+                                                    <textarea id={`why-${r.id}`} data-testid="pv-reason" rows={2} className="pf-input" value={reason} onChange={(e) => setReason(e.target.value)} /></div>
+                                            )}
+                                            <button type="button" className="mt-3 text-sm font-semibold underline" onClick={() => setOpen(null)}>Close</button>
+                                        </div>
+                                        <GatePanel
+                                            testId="pv-go"
+                                            busy={act.isPending}
+                                            action={ACTION_LABEL[open.mode]}
+                                            checks={open.mode === "SIGNED" ? signaturesGate({ scanAttached: !!file, invoiceMatches: !r.match || r.match === "MATCHED" })
+                                                : open.mode === "NOT_SIGNED" ? reasonGate(reason, "why the voucher was not signed")
+                                                : open.mode === "DOCS_NOT_RECEIVED" ? reasonGate(reason, "which documents are missing")
+                                                : docsChainGate({ step: open.mode === "DOCS_SENT" ? "SENT" : "RECEIVED", voucherApproved: r.status === "APPROVED", docsStatus: r.docsStatus, canReceive })}
+                                            onAction={() => {
+                                                if (open.mode === "SIGNED" && file) { void uploadSigned(r.id, file); return; }
+                                                act.mutate({ voucherId: r.id, action: open.mode, ...(reason.trim() ? { remarks: reason.trim() } : {}) });
+                                            }}
+                                        />
+                                    </div>
+                                </td></tr>
+                            )}
+                            </Fragment>
                         ))}
                     </tbody>
                 </table>

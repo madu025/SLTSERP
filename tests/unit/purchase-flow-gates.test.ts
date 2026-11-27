@@ -47,8 +47,8 @@ test('4-5 documents and purchase order: docs first, vendor, within what is open,
 test('7-10 voucher, signatures, HO payments', () => {
     assert.deepEqual(keys(voucherGate({ invoiceApprovedOrMatched: true, hasVoucher: false, amount: 82500, invoiceTotal: 82500 })), []);
     assert.deepEqual(keys(voucherGate({ invoiceApprovedOrMatched: true, hasVoucher: false, amount: 80000, invoiceTotal: 82500 })), ['amount']);
-    assert.deepEqual(keys(signaturesGate({ actorId: 'ao', voucherMakerId: 'ao2', scanAttached: true, invoiceAbovePo: false })), []);
-    assert.deepEqual(keys(signaturesGate({ actorId: 'ao', voucherMakerId: 'ao', scanAttached: false, invoiceAbovePo: true })), ['scan', 'price', 'sod']);
+    assert.deepEqual(keys(signaturesGate({ scanAttached: true, invoiceMatches: true })), [], 'the Account Officer who raised the voucher records the paper signatures');
+    assert.deepEqual(keys(signaturesGate({ scanAttached: false, invoiceMatches: false })), ['scan', 'match']);
     const pay = { amount: 50000, balance: 82500, reference: 'TT-0001', paidDate: '2026-11-27', today: '2026-11-27', withHo: true };
     assert.deepEqual(keys(hoPaymentGate(pay)), []);
     assert.deepEqual(keys(hoPaymentGate({ ...pay, amount: 90000 })), ['amount']);
@@ -80,5 +80,18 @@ test('a material request shows no estimated price (owner, 27 Nov 2026: an estima
         const src = readFileSync(new URL(`../../${f}`, import.meta.url), 'utf8');
         assert.doesNotMatch(src, /Est\. (Total Value|Cost)|estimatedCost|Est\. PO Value/, f);
     }
+});
+
+test('the voucher and HO payment steps use the same gates on the screen and in the service', () => {
+    const r = (f: string) => readFileSync(new URL(`../../${f}`, import.meta.url), 'utf8');
+    assert.match(r('src/services/finance/payment-voucher.service.ts'), /firstFailure\(voucherGate\(\{/);
+    assert.match(r('src/services/procurement/ho-payment.service.ts'), /firstFailure\(hoPaymentGate\(\{/);
+    const hop = r('src/app/finance/ho-payments/page.tsx');
+    assert.match(hop, /voucherGate\(\{/);
+    assert.match(hop, /hoPaymentGate\(\{/);
+    const pva = r('src/app/procurement/payment-approvals/page.tsx');
+    assert.match(pva, /signaturesGate\(\{ scanAttached: !!file/);
+    assert.match(pva, /docsChainGate\(\{/);
+    assert.doesNotMatch(pva, /window\.(confirm|prompt)\(/, 'no browser dialogs: the panel shows the checks');
 });
 

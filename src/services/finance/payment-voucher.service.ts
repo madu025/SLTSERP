@@ -1,3 +1,4 @@
+import { voucherGate, firstFailure } from '@/lib/purchase-flow-gates';
 import { AppError } from '@/lib/error';
 import { notifyContractorUsers } from '@/services/invoice/invoice-contractor-notify';
 import { prisma } from '@/lib/prisma';
@@ -160,6 +161,11 @@ export class PaymentVoucherService {
       const live = await prisma.paymentVoucher.findMany({ where: { supplierInvoiceId: si.id, status: { notIn: ['CANCELLED', 'REJECTED'] } }, select: { amount: true } });
       const committed = live.reduce((sum, pv) => sum.plus(pv.amount), new Prisma.Decimal(0));
       if (committed.plus(data.amount).gt(si.totalAmount)) throw AppError.badRequest('SUPPLIER_INVOICE_PAYMENT_EXCEEDS_TOTAL');
+      // company flow (the vendor's invoice for one GRN): one voucher for the whole invoice, from a matching invoice (lib/purchase-flow-gates.ts)
+      if (si.grnId) {
+        const failed = firstFailure(voucherGate({ invoiceApprovedOrMatched: si.status !== 'VARIANCE', hasVoucher: live.length > 0, amount: data.amount, invoiceTotal: Number(si.totalAmount) - Number(si.paidAmount ?? 0) }));
+        if (failed) throw AppError.badRequest(`VOUCHER_CHECK: ${failed.text}`);
+      }
       vendorPayment = { vendorId: si.vendorId, vendorName: si.vendor.name };
     } else if (!data.projectId && !data.contractorInvoiceId) {
       throw AppError.badRequest('PROJECT_REQUIRED');

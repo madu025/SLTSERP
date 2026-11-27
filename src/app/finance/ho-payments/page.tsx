@@ -1,5 +1,7 @@
 "use client";
 
+import GatePanel from '@/components/purchase/GatePanel';
+import { voucherGate, hoPaymentGate } from '@/lib/purchase-flow-gates';
 import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -49,6 +51,8 @@ function Inner() {
     const [hoRef, setHoRef] = useState('');
     const [hoDate, setHoDate] = useState(new Date().toISOString().slice(0, 10));
     const [reason, setReason] = useState('');
+    // Sri Lanka date, for the payment-date check
+    const [today] = useState(() => new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10));
 
     const invoices = useQuery<Invoice[]>({ queryKey: ['hp-invoices'], queryFn: async () => (await api<Invoice[]>('/api/procurement/invoices')).filter((i) => ['APPROVED', 'PARTIALLY_PAID'].includes(i.status) || (!!i.grnId && ['MATCHED', 'VARIANCE'].includes(i.status))), staleTime: 15_000 });
     const vouchers = useQuery<Voucher[]>({ queryKey: ['hp-vouchers'], queryFn: async () => { const r = await api<Voucher[] | { data: Voucher[] }>('/api/finance/payment-vouchers'); return Array.isArray(r) ? r : (r as { data: Voucher[] }).data ?? []; }, staleTime: 10_000 });
@@ -98,6 +102,8 @@ function Inner() {
     };
 
     const rows = vouchers.data ?? [];
+    // an invoice of a GRN with a live voucher is paid through that voucher: it no longer waits for a payment request
+    const awaiting = (invoices.data ?? []).filter((i) => !i.grnId || !rows.some((v) => v.supplierInvoiceId === i.id && !['CANCELLED', 'REJECTED'].includes(v.status)));
     // a company-flow voucher (documents step) goes to HO from Vendor Payment Approvals, never in a pack
     const approved = rows.filter((v) => v.status === 'APPROVED' && !v.hoBatchId && !v.docsStatus);
     const pickedTotal = approved.filter((v) => picked.includes(v.id)).reduce((a, v) => a + Number(v.netAmount), 0);
@@ -125,8 +131,8 @@ function Inner() {
                                 <table className="w-full text-sm">
                                     <thead><tr className="border-b border-slate-300"><th className={th}>Vendor</th><th className={th}>Invoice</th><th className={`${th} text-right`}>Total</th><th className={`${th} text-right`}>Paid</th><th className={`${th} text-right`}>Due</th><th className={th}>Status</th><th /></tr></thead>
                                     <tbody>
-                                        {(invoices.data ?? []).length === 0 && !invoices.isLoading && <tr><td colSpan={7} className="py-3 text-slate-700">No approved invoices waiting for payment.</td></tr>}
-                                        {(invoices.data ?? []).map((i) => (
+                                        {awaiting.length === 0 && !invoices.isLoading && <tr><td colSpan={7} className="py-3 text-slate-700">No approved invoices waiting for payment.</td></tr>}
+                                        {awaiting.map((i) => (
                                             <tr key={i.id} className={`border-b border-slate-200 text-slate-900 ${i.id === invoiceId ? 'bg-indigo-50' : ''}`} data-testid="vp-invoice">
                                                 <td className="py-2 pr-3 font-medium">{i.vendor.name}</td><td className="py-2 pr-3">{i.invoiceNumber}</td>
                                                 <td className="py-2 pr-3 text-right">{compact(Number(i.totalAmount))}</td><td className="py-2 pr-3 text-right">{compact(Number(i.paidAmount))}</td>
@@ -141,8 +147,11 @@ function Inner() {
                         </Panel>
 
                         {selected && (
-                            <Panel title={`New payment request: ${selected.vendor.name} · ${selected.invoiceNumber} (outstanding ${outstanding.toLocaleString()})`}>
-                                <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                            <Panel title={`New payment voucher: ${selected.vendor.name}, invoice ${selected.invoiceNumber}`}>
+                                <div className="pf grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+                                <div>
+                                <p className="mb-3 text-sm text-slate-800">Still to pay on this invoice: <b className="tabular-nums">Rs. {outstanding.toLocaleString('en-LK', { minimumFractionDigits: 2 })}</b>. {selected.grnId ? 'A vendor invoice of a GRN is paid by one voucher for the whole amount; it then goes for the three signatures.' : ''}</p>
+                                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                     <label className="text-xs font-semibold text-slate-900">Amount (gross)
                                         <input data-testid="vp-amount" type="number" value={amount} placeholder={String(outstanding)} onChange={(e) => setAmount(e.target.value)} className={input} />
                                     </label>
@@ -150,7 +159,20 @@ function Inner() {
                                         <input data-testid="vp-wht" type="number" value={wht} onChange={(e) => setWht(e.target.value)} className={input} />
                                     </label>
                                 </div>
-                                <button data-testid="vp-create" disabled={create.isPending} onClick={() => create.mutate()} className="mt-3 rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800 disabled:opacity-50">Create payment request</button>
+                                </div>
+                                <GatePanel
+                                    testId="vp-create"
+                                    action="Create the payment voucher"
+                                    busy={create.isPending}
+                                    onAction={() => create.mutate()}
+                                    checks={selected.grnId ? voucherGate({
+                                        invoiceApprovedOrMatched: selected.status !== 'VARIANCE',
+                                        hasVoucher: rows.some((v) => v.supplierInvoiceId === selected.id && !['CANCELLED', 'REJECTED'].includes(v.status)),
+                                        amount: Number(amount || outstanding),
+                                        invoiceTotal: outstanding,
+                                    }) : [{ key: 'amount', ok: Number(amount || outstanding) > 0 && Number(amount || outstanding) <= outstanding + 0.005, text: Number(amount || outstanding) > 0 && Number(amount || outstanding) <= outstanding + 0.005 ? 'Amount within what is still to pay' : `Enter an amount up to Rs. ${outstanding.toLocaleString()}` }]}
+                                />
+                                </div>
                             </Panel>
                         )}
 
@@ -214,8 +236,22 @@ function Inner() {
                                             <input data-testid="ho-reason" value={reason} onChange={(e) => setReason(e.target.value)} className={input} />
                                         </label>
                                     )}
+                                    {confirm.mode === 'PART' && (() => {
+                                        const v = rows.find((x) => x.id === confirm.id);
+                                        const balance = v ? Number(v.amount) - Number(v.hoPaidAmount ?? 0) : 0;
+                                        return (
+                                            <div className="pf md:col-span-3">
+                                                <GatePanel
+                                                    testId="ho-part-go"
+                                                    action="Record payment"
+                                                    busy={payPart.isPending}
+                                                    onAction={() => payPart.mutate({ id: confirm.id })}
+                                                    checks={hoPaymentGate({ amount: partAmount === '' ? null : Number(partAmount), balance, reference: hoRef, paidDate: hoDate || null, today, withHo: v?.status === 'SUBMITTED_TO_HO' })}
+                                                />
+                                            </div>
+                                        );
+                                    })()}
                                     <div className="flex items-end gap-2">
-                                        {confirm.mode === 'PART' && <button data-testid="ho-part-go" disabled={payPart.isPending || hoRef.trim().length < 3 || !(Number(partAmount) > 0)} onClick={() => payPart.mutate({ id: confirm.id })} className="rounded-md bg-violet-800 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-900 disabled:opacity-50">Record payment</button>}
                                         {confirm.mode !== 'PART' && <button data-testid="ho-go" disabled={move.isPending || (confirm.mode === 'PAID' ? !hoRef.trim() : !reason.trim())} onClick={() => move.mutate(confirm.mode === 'PAID' ? { id: confirm.id, status: 'PAID', extra: { hoReference: hoRef, hoPaidDate: hoDate } } : { id: confirm.id, status: 'APPROVED', extra: { returnReason: reason } })} className="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800 disabled:opacity-50">{confirm.mode === 'PAID' ? 'Confirm paid' : 'Return request'}</button>}
                                         <button onClick={() => setConfirm(null)} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900">Close</button>
                                     </div>

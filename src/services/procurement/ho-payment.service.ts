@@ -1,3 +1,4 @@
+import { hoPaymentGate, firstFailure } from '@/lib/purchase-flow-gates';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
@@ -39,6 +40,9 @@ export class HoPaymentService {
             throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: the person who raised or accepted a voucher cannot record its payment');
         }
         const remaining = r2(num(pv.amount) - num(pv.hoPaidAmount));
+        // the same checks the payment form shows (lib/purchase-flow-gates.ts)
+        const gateFailed = firstFailure(hoPaymentGate({ amount, balance: remaining, reference, paidDate: String(input.paidDate).slice(0, 10), today: new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10), withHo: true }));
+        if (gateFailed) throw AppError.badRequest(gateFailed.text);
         if (amount > remaining + 0.005) throw AppError.badRequest(`This payment (${amount.toFixed(2)}) is more than is still to pay on the voucher (${remaining.toFixed(2)})`);
         const hasDeductions = num(pv.taxWithheld) > 0 || num(pv.retentionAmount) > 0;
         if (hasDeductions && Math.abs(amount - remaining) > 0.005) throw AppError.badRequest('This voucher has withholding tax or retention: HO pays it in one payment of the full amount');

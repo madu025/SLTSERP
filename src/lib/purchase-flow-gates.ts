@@ -142,13 +142,21 @@ export function voucherGate(i: { invoiceApprovedOrMatched: boolean; hasVoucher: 
 
 // ---- 8. signatures --------------------------------------------------------------------------------------------------
 
-export function signaturesGate(i: { actorId: string | null; voucherMakerId: string | null; scanAttached: boolean; invoiceAbovePo: boolean; isAdmin?: boolean }): GateCheck[] {
-    const maker = !i.isAdmin && !!i.actorId && i.actorId === i.voucherMakerId;
+/**
+ * Recording "Signed by all three": the Account Manager, OSP Manager and Head of Section sign the printed voucher, and the OSP Account
+ * Officer (who raised it) records it with the scan; the paper signatures are the segregation of duties here, so the maker may record them.
+ * An invoice that does not match the PO and GRN (a variance, or above the PO price) is dealt with by a finance approver first.
+ */
+export function signaturesGate(i: { scanAttached: boolean; invoiceMatches: boolean }): GateCheck[] {
     return [
         { key: 'scan', ok: i.scanAttached, text: i.scanAttached ? 'Scan of the signed voucher attached' : 'Attach the scan of the voucher signed by the Account Manager, OSP Manager and Head of Section' },
-        { key: 'price', ok: !i.invoiceAbovePo, text: i.invoiceAbovePo ? 'The vendor invoice is above the PO price and can never be approved: reject it' : 'The vendor invoice is within the PO price' },
-        { key: 'sod', ok: !maker, text: maker ? 'You raised this voucher, so another person records the signatures' : 'You did not raise this voucher' },
+        { key: 'match', ok: i.invoiceMatches, text: i.invoiceMatches ? 'The vendor invoice matches the PO and GRN' : 'The vendor invoice does not match the PO and GRN: a finance approver deals with it on Supplier Invoices first' },
     ];
+}
+
+/** "Not signed" / "Documents not received": the reason goes back to the OSP Account. */
+export function reasonGate(reason: string, what: string): GateCheck[] {
+    return [{ key: 'reason', ok: reason.trim().length >= REASON_MIN, text: reason.trim().length >= REASON_MIN ? 'Reason given' : `Say ${what}` }];
 }
 
 // ---- 9. documents sent / received -----------------------------------------------------------------------------------
