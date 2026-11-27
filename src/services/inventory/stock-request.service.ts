@@ -336,7 +336,7 @@ export class StockRequestService {
         // Segregation of Duties (SoD) enforcement: Request creator cannot approve/release/process their own request
         if (['ARM_APPROVE', 'STORES_MANAGER_APPROVE', 'APPROVE', 'GATE_PASSED', 'REJECT', 'RECALL_APPROVAL', 'RELEASE', 'ADJUST_QTY'].includes(action)) {
             if (stockRequest.requestedById === userId) {
-                throw AppError.badRequest("SEGREGATION_OF_DUTIES_VIOLATION: Request creator cannot approve or release this stock request.");
+                throw AppError.badRequest("SEGREGATION_OF_DUTIES_VIOLATION: You raised this request, so another person reviews it.");
             }
         }
 
