@@ -14,12 +14,11 @@ import {
     Building2, 
     Package, 
     Calendar, 
-    Layers,
-    PlusCircle,
-    BadgeCheck
+    PlusCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { RouteStrip } from './dash-ui';
 
 interface LowStockItem {
     quantity: number;
@@ -291,53 +290,17 @@ export default function ProcurementSection({ rtom = 'ALL', enabled = true }: Pro
                     : 'Telemetry refresh timestamp was not supplied by the procurement API.'}
             </p>
 
-            {/* 2. Visual Procurement Workflow Pipeline Status Bar */}
-            <Card className="border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl overflow-hidden bg-slate-900 text-white">
-                <CardHeader className="py-3.5 px-5 border-b border-slate-800 flex flex-row items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <Layers className="w-4 h-4 text-indigo-400" />
-                        <CardTitle className="text-xs font-black uppercase tracking-wider text-slate-200">
-                            Procurement Lifecycle Pipeline &amp; Stage Flow
-                        </CardTitle>
-                    </div>
-                    <span className="text-[11px] font-mono text-slate-300">{data?.purchaseOrders ? `Purchase orders on record: ${data.purchaseOrders.open} open · ${data.purchaseOrders.received} received · ${data.purchaseOrders.cancelled} cancelled` : 'Requests per stage'}</span>
-                </CardHeader>
-                <CardContent className="p-5">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                        <div className="p-3.5 rounded-xl bg-slate-950 border border-amber-500/30 flex items-center justify-between">
-                            <div>
-                                <span className="text-[10px] uppercase font-bold text-amber-400 font-mono">Stage 1 • PRN Requisitions</span>
-                                <p className="text-lg font-black text-white mt-0.5">{pendingPRNs} <span className="text-xs font-normal text-slate-400">PRNs Pending</span></p>
-                            </div>
-                            <FileText className="w-5 h-5 text-amber-400 opacity-80" />
-                        </div>
-
-                        <div className="p-3.5 rounded-xl bg-slate-950 border border-indigo-500/30 flex items-center justify-between">
-                            <div>
-                                <span className="text-[10px] uppercase font-bold text-indigo-400 font-mono">Stage 2 • PO issued</span>
-                                <p className="text-lg font-black text-white mt-0.5">{openPOs} <span className="text-xs font-normal text-slate-400">PRNs with PO in progress</span></p>
-                            </div>
-                            <ShoppingCart className="w-5 h-5 text-indigo-400 opacity-80" />
-                        </div>
-
-                        <div className="p-3.5 rounded-xl bg-slate-950 border border-emerald-500/30 flex items-center justify-between">
-                            <div>
-                                <span className="text-[10px] uppercase font-bold text-emerald-400 font-mono">Stage 3 • GRN Receipts</span>
-                                <p className="text-lg font-black text-white mt-0.5">{pendingGRNs} <span className="text-xs font-normal text-slate-400">GRNs Pending</span></p>
-                            </div>
-                            <Truck className="w-5 h-5 text-emerald-400 opacity-80" />
-                        </div>
-
-                        <div className="p-3.5 rounded-xl bg-slate-950 border border-cyan-500/30 flex items-center justify-between">
-                            <div>
-                                <span className="text-[10px] uppercase font-bold text-cyan-400 font-mono">Stage 4 • Fulfilled</span>
-                                <p className="text-lg font-black text-white mt-0.5">{completedPOs} <span className="text-xs font-normal text-slate-400">PRNs fulfilled</span></p>
-                            </div>
-                            <BadgeCheck className="w-5 h-5 text-cyan-400 opacity-80" />
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+            {/* 2. The procurement pipeline as a route: requisition, order, receipt, fulfilled */}
+            <RouteStrip
+                title="Where the requisitions are"
+                note={data?.purchaseOrders ? `Purchase orders on record: ${data.purchaseOrders.open} open, ${data.purchaseOrders.received} received, ${data.purchaseOrders.cancelled} cancelled` : 'Requests at each step'}
+                stations={[
+                    { label: 'Approved, waiting for a PO', value: pendingPRNs, hint: 'Requisitions ready for PO creation', href: '/procurement/orders?tab=PENDING', waiting: true },
+                    { label: 'PO issued', value: openPOs, hint: 'Requisitions with a PO in progress', href: '/procurement/orders', waiting: true },
+                    { label: 'Waiting for the GRN', value: pendingGRNs, hint: 'Deliveries to receive at the store', waiting: true },
+                    { label: 'Fulfilled', value: completedPOs, hint: 'Requisitions fulfilled', tone: 'pass' },
+                ]}
+            />
 
             {/* 3. Action Center: Pending PRNs & Active PO Stream */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
