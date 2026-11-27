@@ -1,3 +1,4 @@
+import { poGate, firstFailure } from '@/lib/purchase-flow-gates';
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
@@ -94,6 +95,21 @@ export class PurchaseOrderService {
             const open = approved - (alreadyOrdered.get(l.requestItemId) ?? 0);
             if (l.quantity > open + 1e-9) throw AppError.badRequest(`Ordering ${l.quantity} but only ${Math.max(0, open)} of the approved quantity is not yet on a purchase order`);
         }
+
+        // The same checks the PO screen shows (lib/purchase-flow-gates.ts poGate): docs in, vendor, within what is open, price, terms
+        const gateFailed = firstFailure(poGate({
+            docsIn: !!request.procurementDocsSubmittedAt,
+            vendorChosen: !!vendorName,
+            lines: lines.map((l) => {
+                const reqItem = byRequestItem.get(l.requestItemId)!;
+                const approved = Number(reqItem.approvedQty) > 0 ? Number(reqItem.approvedQty) : Number(reqItem.requestedQty);
+                return { name: 'item', open: approved - (alreadyOrdered.get(l.requestItemId) ?? 0), quantity: l.quantity, unitPrice: l.unitPrice };
+            }),
+            basis: String(input.credit?.basis ?? ''),
+            creditDays: input.credit?.creditDays !== undefined && input.credit?.creditDays !== null && String(input.credit.creditDays) !== "" ? Number(input.credit.creditDays) : null,
+            dueDate: input.credit?.dueDate ? String(input.credit.dueDate) : null,
+        }));
+        if (gateFailed) throw AppError.badRequest(`PO_CHECK: ${gateFailed.text}`);
 
         const totals = computePoTotals(lines.map((l) => ({ quantity: l.quantity, unitPrice: l.unitPrice, taxAmount: l.taxAmount })));
 

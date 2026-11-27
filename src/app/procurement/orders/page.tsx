@@ -1,5 +1,8 @@
 "use client";
 import { useState } from "react";
+import GatePanel from "@/components/purchase/GatePanel";
+import PurchaseRoute from "@/components/purchase/PurchaseRoute";
+import { poGate, purchaseStation } from "@/lib/purchase-flow-gates";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
@@ -196,9 +199,11 @@ export default function ProcurementOrdersPage() {
             return res.json();
         },
         onSuccess: (resData: any) => {
-            toast.success("Purchase Order created successfully!");
             queryClient.invalidateQueries({ queryKey: ["procurement-orders"] });
             const updatedRecord = resData?.data || resData;
+            toast.success(updatedRecord?.workflowStage === 'GRN_PENDING'
+                ? 'Purchase order recorded. Everything is ordered: the request moved to Ready for GRN and the Stores Manager is told.'
+                : 'Purchase order recorded. Some quantity is still to order: add the next PO from In progress.');
             if (updatedRecord && updatedRecord.id) {
                 setSelectedRequest(updatedRecord);
             }
@@ -271,7 +276,21 @@ export default function ProcurementOrdersPage() {
         setItemUnitPrices(initPrices);
         setShowPODialog(true);
     };
+    const poChecks = selectedRequest ? poGate({
+        docsIn: !!selectedRequest.procurementDocsSubmittedAt,
+        vendorChosen: !!vendorId || !!vendor.trim(),
+        lines: (selectedRequest.items || []).filter((item) => selectedItemIds[item.id]).map((item) => ({
+            name: item.item?.name ?? 'item',
+            open: openQty(selectedRequest, item),
+            quantity: Number(itemOrderQtys[item.id] ?? 0) || 0,
+            unitPrice: itemUnitPrices[item.id] ?? 0,
+        })),
+        basis: payBasis,
+        creditDays: creditDays ? Number(creditDays) : null,
+        dueDate: payDueDate || null,
+    }) : [];
     const handleCreatePO = () => {
+        if (poChecks.some((c) => !c.ok)) return;
         if (!vendorId && !vendor.trim()) {
             toast.error("Choose a vendor");
             return;
@@ -990,7 +1009,7 @@ export default function ProcurementOrdersPage() {
                                         </Badge>
                                     </div>
                                     <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight">
-                                        Create Purchase Order
+                                        Record the purchase order approved in HO
                                     </h2>
                                     <p className="text-xs text-slate-500 dark:text-slate-400">
                                         Generating order document for Request: <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedRequest.requestNr}</span>
@@ -1001,6 +1020,7 @@ export default function ProcurementOrdersPage() {
                             <div className="flex-1 flex overflow-hidden bg-slate-50/50 dark:bg-slate-950/20">
                                 {/* LEFT PANEL (65% Scrollable Form) */}
                                 <div className="w-[65%] h-full overflow-y-auto p-6 space-y-6 border-r border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
+                                    <PurchaseRoute station={purchaseStation(selectedRequest)} />
                                     {selectedRequest.sourceType === 'SLT' && (
                                         <div className="bg-blue-50/60 dark:bg-blue-900/10 border border-blue-200/50 dark:border-blue-800/80 rounded-2xl p-4 text-xs space-y-1">
                                             <div className="font-bold text-blue-800 dark:text-blue-400 flex items-center gap-1.5">
@@ -1156,9 +1176,11 @@ export default function ProcurementOrdersPage() {
                                                                         disabled={!isChecked}
                                                                         value={qty}
                                                                         onChange={(e) => setItemOrderQtys(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) || 0 }))}
-                                                                        className="h-7 w-20 text-right text-xs font-bold rounded-lg ml-auto bg-slate-50 dark:bg-slate-950"
+                                                                        aria-label={`Order quantity ${item.item?.name ?? ""}`}
+                                                                        aria-invalid={isChecked && qty > remaining + 1e-9}
+                                                                        className="h-8 w-28 text-right text-sm font-semibold tabular-nums rounded-md ml-auto bg-white"
                                                                     />
-                                                                    <span className="text-[9px] text-slate-400 font-semibold block mt-0.5">{item.item?.unit}</span>
+                                                                    <span className="text-xs text-slate-700 block mt-0.5">{item.item?.unit} &middot; {remaining.toLocaleString()} open</span>
                                                                 </td>
                                                                 <td className="p-2.5 text-right">
                                                                     <Input
@@ -1167,7 +1189,9 @@ export default function ProcurementOrdersPage() {
                                                                         placeholder="0.00"
                                                                         value={unitPrice || ''}
                                                                         onChange={(e) => setItemUnitPrices(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) || 0 }))}
-                                                                        className="h-7 w-24 text-right text-xs font-bold rounded-lg ml-auto bg-slate-50 dark:bg-slate-950"
+                                                                        aria-label={`Unit price ${item.item?.name ?? ""}`}
+                                                                        aria-invalid={isChecked && !(unitPrice > 0)}
+                                                                        className="h-8 w-28 text-right text-sm font-semibold tabular-nums rounded-md ml-auto bg-white"
                                                                     />
                                                                 </td>
                                                                 <td className="p-2.5 text-right">
@@ -1193,6 +1217,9 @@ export default function ProcurementOrdersPage() {
                                 </div>
                                 {/* RIGHT PANEL (35% Sticky Details Summary) */}
                                 <div className="w-[35%] h-full overflow-y-auto p-6 space-y-6 bg-slate-50/50 dark:bg-slate-900/10 border-l border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
+                                    <div className="pf">
+                                        <GatePanel checks={poChecks} action="Record purchase order" onAction={handleCreatePO} busy={createPOMutation.isPending} testId="po-record" />
+                                    </div>
                                     {/* Order Financial Summary Card */}
                                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
                                         <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
@@ -1243,13 +1270,7 @@ export default function ProcurementOrdersPage() {
                                 >
                                     Cancel
                                 </Button>
-                                <Button
-                                    className="h-9 px-5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center gap-1.5 shadow-sm shadow-blue-500/10"
-                                    onClick={handleCreatePO}
-                                    disabled={createPOMutation.isPending}
-                                >
-                                    {createPOMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <>Create Purchase Order</>}
-                                </Button>
+
                             </div>
                         </>
                     )}

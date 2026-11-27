@@ -4,9 +4,9 @@
     background: var(--pr-panel); border: 1px solid var(--pr-line); border-radius: 10px; padding: 0.75rem 1rem 0.625rem;
 }
 .dark .pr { --pr-ink: #e8eef6; --pr-ink-2: #a9b8ca; --pr-route: #6ea8e8; --pr-wait: #f0a14a; --pr-line: #24405e; --pr-panel: #10243a; }
-.pr ol { position: relative; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
+.pr ol { position: relative; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); column-gap: 0.75rem; list-style: none; margin: 0; padding: 0; }
 .pr ol::before { content: ''; position: absolute; left: 5px; right: 5px; top: 5px; height: 2px; background: var(--pr-line); }
-.pr li { position: relative; padding-top: 1.125rem; font-size: 0.8125rem; color: var(--pr-ink-2); }
+.pr li { position: relative; padding-top: 1.125rem; font-size: 0.8125rem; line-height: 1.25; color: var(--pr-ink-2); }
 .pr-dot { position: absolute; top: 0; left: 0; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--pr-line); background: var(--pr-panel); box-sizing: border-box; }
 .pr li[data-state='passed'] .pr-dot { border-color: var(--pr-route); background: var(--pr-route); }
 .pr li[data-state='passed'] { color: var(--pr-ink); }

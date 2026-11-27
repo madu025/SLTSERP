@@ -15,6 +15,10 @@ import { toast } from 'sonner';
 import { processStockRequestAction } from '@/actions/inventory-actions';
 import { cn } from "@/lib/utils";
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import PurchaseRoute from '@/components/purchase/PurchaseRoute';
+import { docsGate, purchaseStation } from '@/lib/purchase-flow-gates';
+import { CheckCircle2 as Ok, XCircle as NotOk } from 'lucide-react';
+import '@/components/purchase/purchase-form.css';
 
 interface User {
     id: string;
@@ -107,6 +111,8 @@ export default function RequestsPage() {
     const [approvalMode, setApprovalMode] = useState(false);
     const [allocation, setAllocation] = useState<Record<string, number>>({});
     const [approverRemarks, setApproverRemarks] = useState("");
+    // "Documents submitted to Procurement" is confirmed inside the drawer (what happens next), not with a browser dialog
+    const [docsConfirm, setDocsConfirm] = useState(false);
     const [stockLevels, setStockLevels] = useState<Record<string, number>>({});
 
     // Fetch stock levels for all stores to display available stock live
@@ -479,6 +485,9 @@ export default function RequestsPage() {
                                             <p className="text-xs text-slate-500 dark:text-slate-400">
                                                 Requested by <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedRequest?.requestedBy?.name}</span> • Created {selectedRequest?.createdAt ? new Date(selectedRequest.createdAt).toLocaleDateString() : 'N/A'} • Required {selectedRequest?.requiredDate ? new Date(selectedRequest.requiredDate).toLocaleDateString() : 'Asap'}
                                             </p>
+                                            {selectedRequest && !selectedRequest.toStoreId && selectedRequest.sourceType !== 'MAIN_STORE' && (
+                                                <div className="mt-3"><PurchaseRoute station={purchaseStation(selectedRequest)} /></div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -1035,14 +1044,32 @@ export default function RequestsPage() {
                                         )
                                     ) : selectedRequest.workflowStage === 'PROCUREMENT' && !selectedRequest.procurementDocsSubmittedAt ? (
                                         isAreaManager ? (
-                                            <Button
-                                                data-testid="req-docs-submitted"
-                                                onClick={() => { if (window.confirm('The documents of this request were handed to the Procurement Officer?')) approvalMutation.mutate({ action: 'DOCS_SUBMITTED' }); }}
-                                                disabled={approvalMutation.isPending}
-                                                className="h-9 px-4 text-xs font-bold rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white flex items-center gap-1.5 shadow-md"
-                                            >
-                                                <Package className="w-3.5 h-3.5" /> {approvalMutation.isPending ? 'Processing...' : 'Documents submitted to Procurement'}
-                                            </Button>
+                                            docsConfirm ? (
+                                                <div className="pf w-full max-w-xl rounded-[10px] border p-4" style={{ borderColor: 'var(--pf-line)', background: 'var(--pf-panel)' }} role="group" aria-label="Confirm the documents">
+                                                    <p className="text-sm font-semibold">Hand the documents of {selectedRequest.requestNr} to the Procurement Officer, then confirm.</p>
+                                                    <ul className="pf-checks">
+                                                        {docsGate({ approved: selectedRequest.status === 'APPROVED', alreadySubmitted: !!selectedRequest.procurementDocsSubmittedAt }).map((c) => (
+                                                            <li key={c.key} data-ok={c.ok}>{c.ok ? <Ok aria-hidden="true" /> : <NotOk aria-hidden="true" />}<span>{c.text}</span></li>
+                                                        ))}
+                                                    </ul>
+                                                    <p className="mt-2 text-sm" style={{ color: 'var(--pf-ink-2)' }}>Next: the Procurement Officer is told to record the purchase order(s) approved in HO. This is done once and cannot be undone here.</p>
+                                                    <div className="mt-3 flex justify-end gap-2">
+                                                        <button type="button" className="h-9 rounded-md border px-3 text-sm font-semibold" style={{ borderColor: 'var(--pf-line)' }} onClick={() => setDocsConfirm(false)}>Cancel</button>
+                                                        <button type="button" data-testid="req-docs-confirm" className="pf-go !w-auto px-4" disabled={approvalMutation.isPending || docsGate({ approved: selectedRequest.status === 'APPROVED', alreadySubmitted: !!selectedRequest.procurementDocsSubmittedAt }).some((c) => !c.ok)} onClick={() => { approvalMutation.mutate({ action: 'DOCS_SUBMITTED' }); setDocsConfirm(false); }}>
+                                                            {approvalMutation.isPending ? 'Saving...' : 'Confirm: documents handed to Procurement'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <Button
+                                                    data-testid="req-docs-submitted"
+                                                    onClick={() => setDocsConfirm(true)}
+                                                    disabled={approvalMutation.isPending}
+                                                    className="h-9 px-4 text-xs font-bold rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white flex items-center gap-1.5 shadow-md"
+                                                >
+                                                    <Package className="w-3.5 h-3.5" /> Documents submitted to Procurement
+                                                </Button>
+                                            )
                                         ) : (
                                             <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 text-xs px-3 py-1.5 font-medium">
                                                 Approved — waiting for the Stores Manager to submit the documents to Procurement

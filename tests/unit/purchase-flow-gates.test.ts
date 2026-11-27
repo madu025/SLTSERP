@@ -69,4 +69,8 @@ test('the services throw the same rules the screens show', () => {
     const svc = readFileSync(new URL('../../src/services/inventory/stock-request.service.ts', import.meta.url), 'utf8');
     assert.match(svc, /firstFailure\(requestGate\(\{/);
     assert.match(svc, /approvalSodBlocked\(\{ actorId: userId, requesterId: stockReq\.requestedById/);
+    assert.match(readFileSync(new URL('../../src/services/procurement/purchase-order.service.ts', import.meta.url), 'utf8'), /firstFailure\(poGate\(\{/);
+    const po = readFileSync(new URL('../../src/app/procurement/orders/page.tsx', import.meta.url), 'utf8');
+    assert.match(po, /const poChecks = selectedRequest \? poGate\(\{/);
+    assert.match(readFileSync(new URL('../../src/app/inventory/requests/page.tsx', import.meta.url), 'utf8'), /docsGate\(\{ approved:/);
 });

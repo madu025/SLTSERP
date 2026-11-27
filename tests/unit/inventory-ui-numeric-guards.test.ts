@@ -10,10 +10,10 @@ test('procurement and inventory screens add quantities as numbers', () => {
   const grn = source('src/app/inventory/grn/page.tsx');
   assert.match(orders, /\(Number\(item\.requestedQty\) \|\| 0\)/);
   assert.doesNotMatch(orders, /\+ \(item\.requestedQty \|\| 0\)/);
-  assert.match(grn, /acc \+ \(Number\(item\.receivedQty\) \|\| 0\)/);
-  assert.match(grn, /acc \+ \(Number\(item\.requestedQty\) \|\| 0\)/);
+  // the GRN Gate (27 Nov 2026) sums the lines it builds with Number()
+  assert.match(grn, /accepted: Number\(i\.receivedQty\) \|\| 0/);
   assert.doesNotMatch(grn, /acc \+ \(item\.(received|requested)Qty \|\| 0\)/);
-  assert.match(source('src/app/procurement/approvals/page.tsx'), /sum \+ \(Number\(item\.requestedQty\) \|\| 0\)/);
+  assert.match(source('src/app/procurement/approvals/page.tsx'), /requested: Number\(it\.requestedQty\)/);
   assert.match(source('src/app/inventory/issues/page.tsx'), /sum \+ \(Number\(item\.quantity\) \|\| 0\)/);
 });
 
