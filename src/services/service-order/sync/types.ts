@@ -19,7 +19,8 @@ export type SyncJobType =
     | 'PERIODIC_GLOBAL_SYNC'
     | 'PERIODIC_PENDING_SYNC'
     | 'PERIODIC_COMPLETED_SYNC'
-    | 'PERIODIC_RETURN_SYNC';
+    | 'PERIODIC_RETURN_SYNC'
+    | 'PERIODIC_OPMC_PAT_SYNC';
 
 /** Payload types the system worker accepts (wall-clock dailies, scheduled by the same tick). */
 export type DailyJobType =

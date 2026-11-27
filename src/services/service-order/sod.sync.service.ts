@@ -128,7 +128,7 @@ export class SODSyncService {
      */
     private static readonly TICK_BUCKET_JOBS: ReadonlyArray<{
         name: string;
-        type: 'PERIODIC_COMPLETED_SYNC' | 'PERIODIC_GLOBAL_SYNC' | 'PERIODIC_RETURN_SYNC';
+        type: 'PERIODIC_COMPLETED_SYNC' | 'PERIODIC_GLOBAL_SYNC' | 'PERIODIC_RETURN_SYNC' | 'PERIODIC_OPMC_PAT_SYNC';
         everyMs: number;
         inlineCostMs: number;
     }> = [
@@ -136,6 +136,10 @@ export class SODSyncService {
             { name: 'periodic-completed-sync', type: 'PERIODIC_COMPLETED_SYNC', everyMs: 20 * 60 * 1000, inlineCostMs: 0 },
             { name: 'periodic-global-sync', type: 'PERIODIC_GLOBAL_SYNC', everyMs: 30 * 60 * 1000, inlineCostMs: 20000 },
             { name: 'periodic-return-sync', type: 'PERIODIC_RETURN_SYNC', everyMs: 30 * 60 * 1000, inlineCostMs: 20000 },
+            // OPMC-level PAT results and OPMC PAT rejections per RTOM (feed PAT). Nothing scheduled it after the
+            // 5 Sep 2026 sync rewrite, so the PAT Status Monitor "OPMC PAT REJECT" tab and the dashboard PAT counts
+            // stopped on 11 Sep (found 27 Nov 2026). One portal pair per RTOM, ~43 RTOMs: worker only.
+            { name: 'periodic-opmc-pat-sync', type: 'PERIODIC_OPMC_PAT_SYNC', everyMs: 30 * 60 * 1000, inlineCostMs: 0 },
         ];
 
     /**
@@ -1259,7 +1263,7 @@ export class SODSyncService {
      * a duplicated tick inside one bucket resolves to the same key and is refused. The completed feed
      * traces itself because its data window is far wider than its cadence.
      */
-    static async runPeriodicTask(type: 'PERIODIC_COMPLETED_SYNC' | 'PERIODIC_GLOBAL_SYNC' | 'PERIODIC_RETURN_SYNC'): Promise<unknown> {
+    static async runPeriodicTask(type: 'PERIODIC_COMPLETED_SYNC' | 'PERIODIC_GLOBAL_SYNC' | 'PERIODIC_RETURN_SYNC' | 'PERIODIC_OPMC_PAT_SYNC'): Promise<unknown> {
         if (type === 'PERIODIC_COMPLETED_SYNC') {
             const { CompletedSODSyncService } = await import('./completed-sod-sync.service');
             return CompletedSODSyncService.syncCompletedSODs();
@@ -1267,6 +1271,26 @@ export class SODSyncService {
 
         const bucketMs = this.TICK_BUCKET_JOBS.find(job => job.type === type)?.everyMs ?? 30 * 60 * 1000;
         const window = tickWindow(new Date(), bucketMs);
+
+        if (type === 'PERIODIC_OPMC_PAT_SYNC') {
+            // One census row per RTOM (feed PAT), one RTOM at a time: the portal answers one RTOM per request.
+            // A failing RTOM is recorded and the pass moves on to the next one.
+            const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true }, orderBy: { rtom: 'asc' } });
+            let rtoms = 0, fetched = 0, updated = 0, failed = 0;
+            for (const opmc of opmcs) {
+                if (!opmc.rtom) continue;
+                const [runErr, r] = await safe(SyncAuditService.tracedRun(
+                    { feed: 'PAT', opmcId: opmc.id, rtom: opmc.rtom, window },
+                    () => this.syncPatResults(opmc.id as UUID, opmc.rtom),
+                    (res) => ({ counters: { fetched: res.total, updated: res.updated ?? 0 } }),
+                ));
+                rtoms++;
+                if (runErr) { failed++; continue; }
+                fetched += r?.total ?? 0;
+                updated += r?.updated ?? 0;
+            }
+            return { rtoms, fetched, updated, failed };
+        }
 
         if (type === 'PERIODIC_GLOBAL_SYNC') {
             // One bucket, two feeds: separate rows so a stalled HO feed is visible on its own.

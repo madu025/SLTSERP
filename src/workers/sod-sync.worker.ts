@@ -143,6 +143,13 @@ const JOB_HANDLERS: Record<SyncJobType, (job: Job<SyncJobData>) => Promise<unkno
         return result;
     },
 
+    async PERIODIC_OPMC_PAT_SYNC() {
+        console.log('[SOD-SYNC-WORKER] Starting OPMC PAT sync (all RTOMs)');
+        const result = await ServiceOrderService.runPeriodicTask('PERIODIC_OPMC_PAT_SYNC');
+        console.log(`[SOD-SYNC-WORKER] OPMC PAT sync: ${JSON.stringify(result)}`);
+        return result;
+    },
+
     async PERIODIC_RETURN_SYNC() {
         // Return-reason enrichment: rotates a small RTOM slice per run (its own budgeting),
         // so it lives on its own 30-minute repeatable rather than riding the pending tick.

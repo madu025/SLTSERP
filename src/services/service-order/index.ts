@@ -449,7 +449,7 @@ export class ServiceOrderService {
      * One traced body for the bucket cadences, shared by the queue worker and the serverless inline
      * slice. Whichever path runs it, the pass writes exactly one SyncRun row per feed.
      */
-    static async runPeriodicTask(type: 'PERIODIC_COMPLETED_SYNC' | 'PERIODIC_GLOBAL_SYNC' | 'PERIODIC_RETURN_SYNC'): Promise<unknown> {
+    static async runPeriodicTask(type: 'PERIODIC_COMPLETED_SYNC' | 'PERIODIC_GLOBAL_SYNC' | 'PERIODIC_RETURN_SYNC' | 'PERIODIC_OPMC_PAT_SYNC'): Promise<unknown> {
         return SODSyncService.runPeriodicTask(type);
     }
 
