@@ -17,6 +17,7 @@ import { SyncAuditService, syncCountersOf, tickWindow } from './sync/sync-audit.
 import { SODSltReportedMaterialService } from './sod-slt-reported-material.service';
 import { format, subMonths } from 'date-fns';
 import { safe } from '@/utils/safe-await.util';
+import { SOD_CHAIN_ENTRY_STATUSES } from '@/lib/sod-approval-rules';
 import { enqueueCronJob } from '@/lib/cron-enqueue';
 import {
     claimSlot,
@@ -209,7 +210,8 @@ export class SODSyncService {
         ];
         const sql = `INSERT INTO "SLTPATStatus" (${[...cols, '"updatedAt"'].join(', ')}) VALUES ${dedupedRecords.map((_, i) =>
             `(${rowPlaceholders(i)})`
-        ).join(', ')} ON CONFLICT ("soNum") DO UPDATE SET ${updateCols.join(', ')}`;
+        ).join(', ')} ON CONFLICT ("soNum") DO UPDATE SET ${updateCols.join(', ')}
+            WHERE "SLTPATStatus"."statusDate" IS NULL OR EXCLUDED."statusDate" IS NULL OR EXCLUDED."statusDate" >= "SLTPATStatus"."statusDate"`;
         const flatValues = dedupedRecords.flatMap(r => [
             r.soNum, r.rtom ?? null, r.lea ?? null, r.voiceNumber ?? null,
             r.sType ?? null, r.orderType ?? null, r.task ?? null, r.package ?? null,
@@ -262,7 +264,9 @@ export class SODSyncService {
             const matchingOrders = await prisma.serviceOrder.findMany({
                 where: {
                     soNum: { in: soNums },
-                    sltsStatus: 'COMPLETED'
+                    // Finished orders carry sltsStatus INSTALL_CLOSED (almost all) or COMPLETED / PROV_CLOSED: matching only
+                    // COMPLETED left the OPMC PAT results off ~99% of the orders (found 27 Nov 2026).
+                    sltsStatus: { in: [...SOD_CHAIN_ENTRY_STATUSES] }
                 },
                 select: { id: true, soNum: true, sltsPatStatus: true, hoPatStatus: true }
             });
@@ -272,7 +276,8 @@ export class SODSyncService {
             if (matchingOrders.length > 0) {
                 for (const order of matchingOrders) {
                     const match = sltDataMap.get(order.soNum || '');
-                    if (match) {
+                    // An HO approval comes after the OPMC PAT: an older OPMC result never overrides it.
+                    if (match && order.hoPatStatus !== 'PAT_PASSED') {
                         const rawStatus = (match.CON_STATUS || '').toUpperCase();
                         const patStatus = rawStatus.includes('REJECT')
                             ? 'PAT_REJECTED'
@@ -283,6 +288,8 @@ export class SODSyncService {
                             data: {
                                 opmcPatStatus: patStatus as import('@prisma/client').PatStatusEnum,
                                 opmcPatDate: statusDate,
+                                // the OPMC PAT follows the SLTS PAT, as in the completed-SOD sync
+                                ...(patStatus === 'PAT_PASSED' ? { sltsPatStatus: 'PAT_PASSED' as const } : {}),
                                 ...(patStatus !== 'PAT_PASSED' ? { isInvoicable: false } : {})
                             },
                             select: { id: true }
@@ -396,8 +403,9 @@ export class SODSyncService {
                 const ordersToUpdate = await prisma.serviceOrder.findMany({
                     where: {
                         soNum: { in: soNums },
-                        sltsStatus: 'COMPLETED',
-                        hoPatStatus: { not: 'PAT_PASSED' }
+                        sltsStatus: { in: [...SOD_CHAIN_ENTRY_STATUSES] },
+                        // any of the three stages not yet passed (NULL included: Prisma's `not` skips NULL)
+                        OR: (['sltsPatStatus', 'opmcPatStatus', 'hoPatStatus'] as const).flatMap((f) => [{ [f]: null }, { [f]: { not: 'PAT_PASSED' } }]),
                     },
                     select: { id: true, soNum: true, sltsPatStatus: true }
                 });
@@ -414,7 +422,8 @@ export class SODSyncService {
                     // stale flag while HO evidence is being refreshed.
                     await prisma.serviceOrder.updateMany({
                         where: { id: { in: idsToUpdate } },
-                        data: { hoPatStatus: 'PAT_PASSED', opmcPatStatus: 'PAT_PASSED', isInvoicable: false }
+                        // HO approval is the last PAT stage, so the SLTS and OPMC stages have passed too
+                        data: { hoPatStatus: 'PAT_PASSED', opmcPatStatus: 'PAT_PASSED', sltsPatStatus: 'PAT_PASSED', isInvoicable: false }
                     });
 
                     // Update hoPatDate per order (varying dates)
@@ -523,7 +532,7 @@ export class SODSyncService {
                 const ordersToUpdate = await prisma.serviceOrder.findMany({
                     where: {
                         soNum: { in: soNums },
-                        hoPatStatus: { not: 'PAT_REJECTED' }
+                        OR: [{ hoPatStatus: null }, { hoPatStatus: { not: 'PAT_REJECTED' } }]
                     },
                     select: { id: true, soNum: true }
                 });
@@ -2546,8 +2555,9 @@ export class SODSyncService {
             if (['PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC'].includes(currentStatus)) {
                 dataToUpdate.opmcPatDate = patDate;
                 dataToUpdate.sltsPatDate = patDate;
-                dataToUpdate.opmcPatStatus = 'PASSED';
-                dataToUpdate.sltsPatStatus = 'PASSED';
+                // PAT_PASSED is the only value the approval chain and invoicing accept (PASSED is not)
+                dataToUpdate.opmcPatStatus = 'PAT_PASSED';
+                dataToUpdate.sltsPatStatus = 'PAT_PASSED';
                 dataToUpdate.patStatus = 'PAT_OPMC_PASSED';
             }
         } else if (isServiceReturn || (SOD_RETURN_STATUSES as readonly string[]).includes(currentStatus)) {
