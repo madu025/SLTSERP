@@ -74,3 +74,11 @@ test('the services throw the same rules the screens show', () => {
     assert.match(po, /const poChecks = selectedRequest \? poGate\(\{/);
     assert.match(readFileSync(new URL('../../src/app/inventory/requests/page.tsx', import.meta.url), 'utf8'), /docsGate\(\{ approved:/);
 });
+
+test('a material request shows no estimated price (owner, 27 Nov 2026: an estimate from the item master can mislead)', () => {
+    for (const f of ['src/app/inventory/requests/page.tsx', 'src/app/procurement/approvals/page.tsx', 'src/app/inventory/requests/create/page.tsx']) {
+        const src = readFileSync(new URL(`../../${f}`, import.meta.url), 'utf8');
+        assert.doesNotMatch(src, /Est\. (Total Value|Cost)|estimatedCost|Est\. PO Value/, f);
+    }
+});
+

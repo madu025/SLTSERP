@@ -543,15 +543,6 @@ export default function RequestsPage() {
                                                             </div>
                                                         </div>
                                                         <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
-                                                            <DollarSign className="w-4 h-4 text-emerald-500" />
-                                                            <div className="min-w-0">
-                                                                <span className="text-[9px] font-bold text-slate-400 block uppercase">Est. Total Value</span>
-                                                                <span className="font-bold text-emerald-600 dark:text-emerald-400 text-xs truncate block">
-                                                                    LKR {selectedRequest.items.reduce((acc, i) => acc + ((i.requestedQty || 0) * (i.item?.price || i.item?.unitPrice || 0)), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
                                                             <AlertCircle className="w-4 h-4 text-red-500" />
                                                             <div className="min-w-0">
                                                                 <span className="text-[9px] font-bold text-slate-400 block uppercase">Priority</span>
@@ -759,8 +750,6 @@ export default function RequestsPage() {
                                                     .map(([unit, val]) => `${val.approved.toLocaleString()} ${unit}`)
                                                     .join(', ');
 
-                                                const estimatedCost = selectedRequest.items.reduce((sum, item) => sum + (Number(item.requestedQty) * Number(item.item?.price || item.item?.unitPrice || 0)), 0);
-                                                
                                                 const allInStock = selectedRequest.items.every(i => (stockLevels[i.itemId] ?? 0) >= i.requestedQty);
                                                 const someInStock = selectedRequest.items.some(i => (stockLevels[i.itemId] ?? 0) > 0);
 
@@ -777,10 +766,6 @@ export default function RequestsPage() {
                                                         <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
                                                             <span className="text-slate-500 dark:text-slate-400">Approved Qty</span>
                                                             <span className="font-black text-slate-800 dark:text-slate-200">{formattedApprovedQty}</span>
-                                                        </div>
-                                                        <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                                                            <span className="text-slate-500 dark:text-slate-400">Est. Cost (LKR)</span>
-                                                            <span className="font-black text-blue-600 dark:text-blue-400">LKR {estimatedCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                         <div className="flex justify-between items-center py-1.5">
                                                             <span className="text-slate-500 dark:text-slate-400">Stock Availability</span>
