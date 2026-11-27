@@ -102,6 +102,7 @@ new developer or an AI assistant would need to know. Refresh `docs/ai-handover.m
 
 ## Build, deploy and quality
 
+- **27 Nov** Queue workers stalled for an hour on production (SOD sync, notifications, stats): the BullMQ blocking sockets dropped at 03:01 and never reconnected because the worker connections had `retryStrategy: () => null`; workers now reconnect with a capped backoff (`src/lib/redis-queue.ts`), the request client keeps reconnecting in production (`src/lib/redis.ts`), and DAILY_AUTOMATION no longer deletes audit logs (it failed every day on the immutability trigger, so old notifications were never cleaned). Redis monitoring added on the VPS in `/data/monitoring` (not in this repository): `sltserp-redis-exporter` (oliver006/redis_exporter v1.66.0, password in `/data/monitoring/.env`, chmod 600), Prometheus job `redis`, alert rules `/data/monitoring/alerts.yml` (RedisDown, QueueWorkersNotListening = fewer than 5 blocked clients for 10 min, RedisMemoryHigh, RedisRejectedConnections, RedisSnapshotFailing) and the Grafana dashboard "SLTSERP Redis and queues". There is no Alertmanager yet: alerts show in Prometheus and Grafana only. Tests: `tests/unit/queue-worker-reconnect.test.ts`.
 - Deploy: Coolify application `otw8kykkqdkuzox6ft7v7z44`; the release tunnel goes through a fixed proxy on the VPS. The RBAC seed
   (`pnpm run rbac:seed`) is run by the deploy only when the seed step is part of it: **check `menu.` definitions in the database after a deploy that adds
   a capability** (a deploy on 24 Nov did not run it; it was run by hand).
