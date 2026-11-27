@@ -1,6 +1,5 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
-import crypto from 'crypto';
 
 export interface LogErrorInput {
     statusCode?: number;
@@ -91,37 +90,45 @@ export class SystemMonitoringService {
      * Run SHA-256 Cryptographic Checksum Audit across InventoryLedger & Audit Trails
      */
     static async runLedgerSecurityAudit() {
-        const ledgers = await prisma.inventoryLedger.findMany({
-            take: 250,
-            orderBy: { createdAt: 'desc' }
-        });
+        // The same rule as fn_verify_ledger_integrity(): a row is sound when its checksum matches the database format or the
+        // application format (storeId:itemId:quantityAfter:createdAt:previousChecksum) and its previousChecksum is the checksum
+        // of the row before it for that store and item. The former check hashed the row id as well, which no writer does, so
+        // every row looked tampered (found by the finance gap analysis, 27 Nov 2026).
+        const rows = await prisma.$queryRaw<{ id: string; checksum: string; expected_db: string; expected_app: string; previous_checksum: string | null; prev_db_checksum: string | null }[]>`
+            WITH le AS (
+                SELECT l.id, l."storeId", l."itemId", l."quantityAfter", l."createdAt", l."previousChecksum", l.checksum,
+                       LAG(l.checksum) OVER (PARTITION BY l."storeId", l."itemId" ORDER BY l."createdAt") AS prev_db_checksum
+                FROM "InventoryLedger" l
+            )
+            SELECT id, checksum, "previousChecksum" AS previous_checksum, prev_db_checksum,
+                   encode(digest(le."storeId"::text || ':' || le."itemId"::text || ':' || le."quantityAfter"::text || ':' ||
+                       le."createdAt"::text || ':' || COALESCE(le."previousChecksum", 'GENESIS'), 'sha256'), 'hex') AS expected_db,
+                   encode(digest(le."storeId"::text || ':' || le."itemId"::text || ':' ||
+                       trim(trailing '.' from trim(trailing '0' from le."quantityAfter"::text)) || ':' ||
+                       to_char(le."createdAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') || ':' ||
+                       COALESCE(le."previousChecksum", 'GENESIS'), 'sha256'), 'hex') AS expected_app
+            FROM le
+            ORDER BY le."createdAt" DESC`;
 
-        let tamperedCount = 0;
-        const tamperedEntries: Array<{ id: string; storedChecksum: string; expectedChecksum: string }> = [];
-
-        for (const record of ledgers) {
-            if (!record.checksum) continue;
-
-            const payload = `${record.id}:${record.storeId}:${record.itemId}:${record.quantityAfter.toString()}:${record.createdAt.toISOString()}:${record.previousChecksum || ''}`;
-            const expectedChecksum = crypto.createHash('sha256').update(payload).digest('hex');
-
-            // Verify hash length AND value match — length-only check would accept any 64-char string
-            const isValidHash = record.checksum.length === 64 && record.checksum === expectedChecksum;
-            if (!isValidHash) {
-                tamperedCount++;
+        const tamperedEntries: Array<{ id: string; storedChecksum: string; expectedChecksum: string; reason: string }> = [];
+        for (const r of rows) {
+            const checksumOk = r.checksum === r.expected_db || r.checksum === r.expected_app;
+            const chainOk = r.previous_checksum === null || r.prev_db_checksum === null || r.previous_checksum === r.prev_db_checksum;
+            if (!checksumOk || !chainOk) {
                 tamperedEntries.push({
-                    id: record.id,
-                    storedChecksum: record.checksum,
-                    expectedChecksum
+                    id: r.id,
+                    storedChecksum: r.checksum,
+                    expectedChecksum: checksumOk ? r.checksum : r.expected_db,
+                    reason: checksumOk ? 'HASH_CHAIN_BROKEN' : 'CHECKSUM_MISMATCH',
                 });
             }
         }
 
         return {
-            status: tamperedCount === 0 ? 'SECURE' : 'TAMPERING_DETECTED',
-            totalVerified: ledgers.length,
-            tamperedCount,
-            tamperedEntries,
+            status: tamperedEntries.length === 0 ? 'SECURE' : 'TAMPERING_DETECTED',
+            totalVerified: rows.length,
+            tamperedCount: tamperedEntries.length,
+            tamperedEntries: tamperedEntries.slice(0, 250),
             auditedAt: new Date().toISOString()
         };
     }

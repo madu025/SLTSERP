@@ -81,3 +81,6 @@ for local scripts (`.env.local`). pnpm only.
   every finance reader (the approve action is the Finance Manager's).
 - Orphan admin pages not in the menu: `/admin/reports/dynamic`, `/admin/settings/access-policies` (owner not yet asked).
 - Receipt upload on production is untested.
+- Finance data gaps (27 Nov 2026 analysis, see CHANGELOG): test data in the payables (about 13.7M), project issues/returns of 28 Oct - 11 Nov
+  without journals, Kaduwela stock rows that differ from the stock ledger, 3 broken hash-chain links. A reconciliation of AP-VEND must include
+  supplier debit notes and contractor invoices, not only supplier invoices.

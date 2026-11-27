@@ -15,6 +15,12 @@ import { ContractorRepository } from '@/repositories/contractor.repository';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 
 export class WastageService {
+    /** The store's current quantity of an item (a contractor wastage leaves it unchanged). */
+    private static async storeQuantity(tx: TransactionClient, storeId: string, itemId: string): Promise<number> {
+        const row = await tx.inventoryStock.findUnique({ where: { storeId_itemId: { storeId, itemId } }, select: { quantity: true } });
+        return Number(row?.quantity ?? 0);
+    }
+
     /** Segregation of duties: whoever reported a wastage cannot approve or reject it (admin escalation excepted). */
     private static async assertNotReporter(reportedById: string | null | undefined, userId: string) {
         if (!reportedById || reportedById !== userId) return;
@@ -128,16 +134,19 @@ export class WastageService {
 
                         await ContractorRepository.decrementStockAtomic(contractorId, item.itemId, qty, tx);
 
-                        // Write Immutable Inventory Ledger Entry for the contractor wastage
+                        // Write Immutable Inventory Ledger Entry for the contractor wastage. The goods were in the contractor's
+                        // custody, so the store's quantity does not move: the store chain keeps its quantity (the wasted
+                        // quantity is on the wastage record the entry points to).
+                        const storeQty = await WastageService.storeQuantity(tx, storeId, item.itemId);
                         await AuditLedgerService.recordEntry({
                             storeId,
                             itemId: item.itemId,
                             transactionType: 'WASTAGE_ADJUSTMENT',
                             referenceType: 'ContractorWastage',
                             referenceId: wastage.id,
-                            quantityBefore: 0,
-                            quantityChange: -qty,
-                            quantityAfter: 0,
+                            quantityBefore: storeQty,
+                            quantityChange: 0,
+                            quantityAfter: storeQty,
                             performedById: userId || 'SYSTEM',
                             idempotencyKey: `wastage-record-${wastage.id}-${item.itemId}`
                         }, tx);
@@ -278,16 +287,18 @@ export class WastageService {
                     
                     await ContractorRepository.decrementStockAtomic(wastage.contractorId, item.itemId, qty, tx);
 
-                    // Write Immutable Inventory Ledger Entry for the approved contractor wastage
+                    // Write Immutable Inventory Ledger Entry for the approved contractor wastage (contractor custody: the
+                    // store's quantity does not move, so the store chain keeps it)
+                    const storeQty = await WastageService.storeQuantity(tx, wastage.storeId, item.itemId);
                     await AuditLedgerService.recordEntry({
                         storeId: wastage.storeId,
                         itemId: item.itemId,
                         transactionType: 'WASTAGE_ADJUSTMENT',
                         referenceType: 'ContractorWastage',
                         referenceId: wastage.id,
-                        quantityBefore: 0,
-                        quantityChange: -qty,
-                        quantityAfter: 0,
+                        quantityBefore: storeQty,
+                        quantityChange: 0,
+                        quantityAfter: storeQty,
                         performedById: userId,
                         idempotencyKey: `wastage-approve-${wastage.id}-${item.itemId}`
                     }, tx);
