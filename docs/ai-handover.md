@@ -81,6 +81,6 @@ for local scripts (`.env.local`). pnpm only.
   every finance reader (the approve action is the Finance Manager's).
 - Orphan admin pages not in the menu: `/admin/reports/dynamic`, `/admin/settings/access-policies` (owner not yet asked).
 - Receipt upload on production is untested.
-- Finance data gaps (27 Nov 2026 analysis, see CHANGELOG): test data in the payables (about 13.7M), project issues/returns of 28 Oct - 11 Nov
-  without journals, Kaduwela stock rows that differ from the stock ledger, 3 broken hash-chain links. A reconciliation of AP-VEND must include
-  supplier debit notes and contractor invoices, not only supplier invoices.
+- Production had a FRESH START on 27 Nov 2026 (see CHANGELOG): no journals, stock, procurement, logs or test masters before that date; SOD
+  data and masters kept. Opening stock is not loaded yet. Backup of the old data: `/root/backups/sltserp-before-fresh-start-20261127.dump`.
+  A reconciliation of AP-VEND must include supplier debit notes and contractor invoices, not only supplier invoices.
