@@ -116,6 +116,9 @@ export async function initializeBackgroundWorkers() {
         await import('./notification.worker');
         backgroundWorkersStarted = true;
         console.log('[WORKERS] ✅ All BullMQ Workers (Import, Sync, Stats, System, Notifications) initialized');
+        // Restarts the app when the workers stop taking jobs (27 Nov 2026 stall)
+        const { startQueueWatchdog } = await import('./watchdog');
+        startQueueWatchdog();
     } catch (err) {
         console.error('[WORKERS] ❌ Worker initialization failed:', err);
         scheduleRedisRecovery();

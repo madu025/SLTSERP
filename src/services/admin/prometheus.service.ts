@@ -1,5 +1,9 @@
 import { SystemMonitoringService } from './system-monitoring.service';
 import { CacheService } from '@/lib/cache.service';
+import { redis } from '@/lib/redis';
+import { QUEUE_NAMES } from '@/lib/queue';
+import { WATCHDOG, watchdogState } from '@/workers/watchdog';
+import { safe } from '@/utils/safe-await.util';
 
 export class PrometheusService {
     /**
@@ -72,6 +76,27 @@ export class PrometheusService {
             '# HELP slts_cache_errors_total App cache operations that failed open since start.',
             '# TYPE slts_cache_errors_total counter',
             `slts_cache_errors_total ${cacheErrorCount}`,
+            '',
+        );
+
+        // Queue watchdog (src/workers/watchdog.ts): stalled queues now, and when it last restarted the app
+        const wd = watchdogState();
+        lines.push(
+            '# HELP slts_queue_stalled A BullMQ queue whose jobs are not being taken (1) at the last watchdog check.',
+            '# TYPE slts_queue_stalled gauge',
+            ...Object.values(QUEUE_NAMES).map((q) => `slts_queue_stalled{queue="${q}"} ${wd.stalled.includes(q) ? 1 : 0}`),
+            '',
+            '# HELP slts_watchdog_last_check_timestamp_seconds When the queue watchdog last checked (0 = not running here).',
+            '# TYPE slts_watchdog_last_check_timestamp_seconds gauge',
+            `slts_watchdog_last_check_timestamp_seconds ${Math.floor(wd.checkedAt / 1000)}`,
+            '',
+        );
+        const [, last] = await safe(redis.get(WATCHDOG.LAST_RESTART_KEY));
+        const lastAt = last ? Number((JSON.parse(last) as { at?: number }).at ?? 0) : 0;
+        lines.push(
+            '# HELP slts_watchdog_last_restart_timestamp_seconds When the watchdog last restarted the app because the workers were stuck.',
+            '# TYPE slts_watchdog_last_restart_timestamp_seconds gauge',
+            `slts_watchdog_last_restart_timestamp_seconds ${Math.floor(lastAt / 1000)}`,
             '',
         );
 
