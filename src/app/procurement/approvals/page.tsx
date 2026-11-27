@@ -26,6 +26,11 @@ const STEP_OF: Record<string, { name: string; next: string }> = {
     HOS_APPROVAL: { name: 'Head of Section approval', next: 'Procurement' },
     ARM_APPROVAL: { name: 'Area Manager approval', next: 'the main store for release' },
 };
+/** Only our own uploads or an http(s) address become a link (the value comes from the requester: never a javascript: URL). */
+function safeLink(v: string): string | null {
+    if (/^\/api\/(storage|files)\/[^/]/.test(v)) return v;
+    try { const u = new URL(v); return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : null; } catch { return null; }
+}
 const SOURCE_LABEL: Record<string, string> = { LOCAL_PURCHASE: 'local purchase', EMERGENCY_LOCAL: 'emergency local purchase', SLT: 'SLT (Head Office)', MAIN_STORE: 'main store transfer' };
 
 interface ApprovalRequestItem {
@@ -431,7 +436,7 @@ export default function ApprovalsPage() {
                                                             </tbody>
                                                         </table>
                                                     </div>
-                                                    {r.sltReferenceId && <p className="mt-2 text-sm">Memo approval: <a className="underline" style={{ color: 'var(--pf-route)' }} href={r.sltReferenceId} target="_blank" rel="noreferrer">open the attachment</a></p>}
+                                                    {r.sltReferenceId && <p className="mt-2 text-sm">Memo approval: {safeLink(r.sltReferenceId) ? <a className="underline" style={{ color: 'var(--pf-route)' }} href={safeLink(r.sltReferenceId)!} target="_blank" rel="noopener noreferrer">open the attachment</a> : <span>{r.sltReferenceId}</span>}</p>}
                                                 </section>
 
                                                 <section className="pf-step" aria-labelledby="ap-2">
