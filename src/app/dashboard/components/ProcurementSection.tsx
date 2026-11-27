@@ -1,33 +1,9 @@
 "use client";
 
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { 
-    ShoppingCart, 
-    AlertTriangle, 
-    Truck, 
-    FileText, 
-    CheckCircle2, 
-    ArrowUpRight, 
-    Clock, 
-    Building2, 
-    Package, 
-    Calendar, 
-    PlusCircle
-} from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { Skeleton } from '@/components/ui/skeleton';
 import { RouteStrip } from './dash-ui';
-
-interface LowStockItem {
-    quantity: number;
-    allocatedQuantity?: number;
-    availableQuantity?: number;
-    minLevel?: number;
-    item?: { id: string; name: string; code?: string | null; unit?: string | null } | null;
-    store?: { id: string; name: string } | null;
-}
 
 interface PendingRequest {
     id: string;
@@ -53,15 +29,16 @@ interface ActivePO {
     _count?: { items: number };
 }
 
+/** One count per step of the purchase flow (DashboardService.getProcurementMetrics). */
+interface ProcurementFlow {
+    storesManager: number; ospManager: number; docsPending: number; waitingPo: number; partlyOrdered: number;
+    waitingGrn: number; partlyReceived: number; waitingVoucher: number; waitingHo: number; paidThisMonth: number;
+}
+
 interface ProcurementTelemetry {
-    pendingPRNs: number;
-    openPOs: number;
-    completedPOs: number;
-    /** purchase orders on record by status (the other counts are requests per pipeline stage) */
+    flow: ProcurementFlow;
+    /** purchase orders on record by status */
     purchaseOrders?: { open: number; received: number; cancelled: number };
-    pendingGRNs: number;
-    lowStockItems: LowStockItem[];
-    lowStockCount?: number;
     recentPendingRequests: PendingRequest[];
     recentActivePOs: ActivePO[];
     updatedAt?: string;
@@ -156,317 +133,93 @@ export default function ProcurementSection({ rtom = 'ALL', enabled = true }: Pro
         );
     }
 
-    const pendingPRNs = data?.pendingPRNs || 0;
-    const openPOs = data?.openPOs || 0;
-    const completedPOs = data?.completedPOs || 0;
-    const pendingGRNs = data?.pendingGRNs || 0;
-    const lowStockItems = data?.lowStockItems || [];
-    const lowStockCount = data?.lowStockCount ?? lowStockItems.length;
-    const recentPendingRequests = data?.recentPendingRequests || [];
-    const recentActivePOs = data?.recentActivePOs || [];
-
-    const getPriorityBadge = (priority: string) => {
-        switch (priority?.toUpperCase()) {
-            case 'URGENT':
-                return <Badge className="bg-rose-500 text-white font-mono text-[10px] animate-pulse">URGENT</Badge>;
-            case 'HIGH':
-                return <Badge className="bg-amber-500 text-white font-mono text-[10px]">HIGH</Badge>;
-            case 'MEDIUM':
-                return <Badge variant="secondary" className="font-mono text-[10px]">MEDIUM</Badge>;
-            default:
-                return <Badge variant="outline" className="font-mono text-[10px]">NORMAL</Badge>;
-        }
-    };
+    const f = data.flow;
+    const days = (iso: string) => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));
+    const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {error && (
-                <div className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between" role="status">
-                    <span>Showing cached procurement data. Refresh did not complete.</span>
-                    <button type="button" onClick={() => void refetch()} disabled={isFetching} className="font-semibold underline underline-offset-2 disabled:cursor-wait disabled:opacity-60">{isFetching ? 'Retrying…' : 'Retry'}</button>
+                <div className="dash-alert" role="status">
+                    <span>These figures may be out of date: the last refresh failed.</span>
+                    <button type="button" onClick={() => void refetch()} disabled={isFetching} className="dash-link">{isFetching ? 'Retrying' : 'Retry'}</button>
                 </div>
             )}
-            {isFetching && !error && <p className="text-xs font-medium text-slate-700 dark:text-slate-300" role="status">Refreshing procurement data…</p>}
-            {/* 1. Executive Telemetry Metrics Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Pending Requisitions */}
-                <Link href="/procurement/orders?tab=PENDING" className="group">
-                    <Card className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border-amber-500/30 dark:border-amber-500/20 shadow-sm hover:shadow-md transition-all rounded-2xl cursor-pointer">
-                        <CardHeader className="flex flex-row items-center justify-between pb-1.5 pt-4 px-5">
-                            <CardTitle className="text-xs font-black uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
-                                Pending PRNs (Awaiting PO)
-                            </CardTitle>
-                            <div className="p-2 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform">
-                                <FileText className="w-4 h-4" />
-                            </div>
-                        </CardHeader>
-                        <CardContent className="pb-4 px-5 flex justify-between items-end">
-                            <div>
-                                <div className="text-3xl font-black text-amber-900 dark:text-amber-200">
-                                    {pendingPRNs}
-                                </div>
-                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Requisitions ready for PO creation</p>
-                            </div>
-                            <ArrowUpRight className="w-4 h-4 text-amber-600 dark:text-amber-400 opacity-60 group-hover:opacity-100 transition-opacity" />
-                        </CardContent>
-                    </Card>
-                </Link>
 
-                {/* Open Purchase Orders */}
-                <Link href="/procurement/orders?tab=IN_PROGRESS" className="group">
-                    <Card className="bg-gradient-to-br from-indigo-500/10 via-indigo-500/5 to-transparent border-indigo-500/30 dark:border-indigo-500/20 shadow-sm hover:shadow-md transition-all rounded-2xl cursor-pointer">
-                        <CardHeader className="flex flex-row items-center justify-between pb-1.5 pt-4 px-5">
-                            <CardTitle className="text-xs font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
-                                PRNs with a PO in progress
-                            </CardTitle>
-                            <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
-                                <ShoppingCart className="w-4 h-4" />
-                            </div>
-                        </CardHeader>
-                        <CardContent className="pb-4 px-5 flex justify-between items-end">
-                            <div>
-                                <div className="text-3xl font-black text-indigo-900 dark:text-indigo-200">
-                                    {openPOs}
-                                </div>
-                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">PO issued, vendor in progress</p>
-                            </div>
-                            <ArrowUpRight className="w-4 h-4 text-indigo-600 dark:text-indigo-400 opacity-60 group-hover:opacity-100 transition-opacity" />
-                        </CardContent>
-                    </Card>
-                </Link>
-
-                {/* Pending GRNs Intake */}
-                <Link href="/inventory/grn" className="group">
-                    <Card className="bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border-emerald-500/30 dark:border-emerald-500/20 shadow-sm hover:shadow-md transition-all rounded-2xl cursor-pointer">
-                        <CardHeader className="flex flex-row items-center justify-between pb-1.5 pt-4 px-5">
-                            <CardTitle className="text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
-                                GRN Warehouse Intake
-                            </CardTitle>
-                            <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
-                                <Truck className="w-4 h-4" />
-                            </div>
-                        </CardHeader>
-                        <CardContent className="pb-4 px-5 flex justify-between items-end">
-                            <div>
-                                <div className="text-3xl font-black text-emerald-900 dark:text-emerald-200">
-                                    {pendingGRNs}
-                                </div>
-                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Shipments ready for store receipt</p>
-                            </div>
-                            <ArrowUpRight className="w-4 h-4 text-emerald-600 dark:text-emerald-400 opacity-60 group-hover:opacity-100 transition-opacity" />
-                        </CardContent>
-                    </Card>
-                </Link>
-
-                {/* Critical Stock Outages Alert */}
-                <Link href="/procurement/orders" className="group block">
-                <Card className="bg-gradient-to-br from-rose-500/10 via-rose-500/5 to-transparent border-rose-500/30 dark:border-rose-500/20 shadow-sm rounded-2xl transition hover:shadow-md">
-                    <CardHeader className="flex flex-row items-center justify-between pb-1.5 pt-4 px-5">
-                        <CardTitle className="text-xs font-black uppercase tracking-wider text-rose-700 dark:text-rose-400 flex items-center gap-1.5">
-                            Stock Outage Risk Items
-                        </CardTitle>
-                        <div className="p-2 rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-400 animate-pulse">
-                            <AlertTriangle className="w-4 h-4" />
-                        </div>
-                    </CardHeader>
-                    <CardContent className="pb-4 px-5 flex justify-between items-end">
-                        <div>
-                            <div className="text-3xl font-black text-rose-900 dark:text-rose-200">
-                                    {lowStockCount}
-                            </div>
-                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Materials at/below threshold level</p>
-                        </div>
-                        <Badge variant="destructive" className="font-mono text-[10px] font-bold">
-                            {lowStockCount > 0 ? 'Action Required' : 'Healthy'}
-                        </Badge>
-                    </CardContent>
-                </Card>
-                </Link>
-            </div>
-
-            <p className="px-1 text-[11px] text-slate-600 dark:text-slate-400">
-                {data?.updatedAt
-                    ? `Telemetry refreshed ${new Date(data.updatedAt).toLocaleString()}`
-                    : 'Telemetry refresh timestamp was not supplied by the procurement API.'}
-            </p>
-
-            {/* 2. The procurement pipeline as a route: requisition, order, receipt, fulfilled */}
             <RouteStrip
-                title="Where the requisitions are"
-                note={data?.purchaseOrders ? `Purchase orders on record: ${data.purchaseOrders.open} open, ${data.purchaseOrders.received} received, ${data.purchaseOrders.cancelled} cancelled` : 'Requests at each step'}
+                title="Where the material requests are"
+                note="Purchases through HO, from the request to the payment."
                 stations={[
-                    { label: 'Approved, waiting for a PO', value: pendingPRNs, hint: 'Requisitions ready for PO creation', href: '/procurement/orders?tab=PENDING', waiting: true },
-                    { label: 'PO issued', value: openPOs, hint: 'Requisitions with a PO in progress', href: '/procurement/orders', waiting: true },
-                    { label: 'Waiting for the GRN', value: pendingGRNs, hint: 'Deliveries to receive at the store', waiting: true },
-                    { label: 'Fulfilled', value: completedPOs, hint: 'Requisitions fulfilled', tone: 'pass' },
+                    { label: 'Stores Manager review', value: f.storesManager, hint: 'Requests (MRN) to review', href: '/inventory/approvals', waiting: true },
+                    { label: 'OSP Manager approval', value: f.ospManager, hint: 'Reviewed, waiting for approval', href: '/inventory/approvals', waiting: true },
+                    { label: 'Documents to Procurement', value: f.docsPending, hint: 'Approved; the Stores Manager to submit the documents', href: '/inventory/requests', waiting: true },
+                    { label: 'Waiting for the PO', value: f.waitingPo, hint: f.partlyOrdered > 0 ? `${f.partlyOrdered} partly ordered` : 'Procurement to record the HO-approved PO', href: '/procurement/orders?tab=PENDING', waiting: true },
+                    { label: 'Waiting for the GRN', value: f.waitingGrn, hint: f.partlyReceived > 0 ? `${f.partlyReceived} partly received` : 'Ordered; the store to receive the goods', href: '/inventory/grn', waiting: true },
+                    { label: 'Waiting for the voucher', value: f.waitingVoucher, hint: 'Vendor invoices without a payment voucher', href: '/procurement/payment-approvals', waiting: true },
+                    { label: 'Waiting for HO payment', value: f.waitingHo, hint: 'Vouchers not yet paid in full', href: '/finance/ho-payments', waiting: true },
+                    { label: 'Paid this month', value: f.paidThisMonth, hint: 'Vouchers paid by HO', href: '/finance/ho-payments', tone: 'pass' },
                 ]}
             />
 
-            {/* 3. Action Center: Pending PRNs & Active PO Stream */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left: Requisitions Awaiting PO Creation (2 Cols) */}
-                <Card className="border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl lg:col-span-2">
-                    <CardHeader className="flex flex-row items-center justify-between py-4 px-6 border-b border-slate-100 dark:border-slate-800">
-                        <div>
-                            <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-amber-500" />
-                                Approved PRNs awaiting PO
-                            </CardTitle>
-                        </div>
-                        <Link href="/procurement/orders?tab=PENDING" className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
-                            View All ({pendingPRNs}) <ArrowUpRight className="w-3.5 h-3.5" />
-                        </Link>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                        {recentPendingRequests.length === 0 ? (
-                            <div className="text-center text-muted-foreground py-12 text-xs flex flex-col items-center gap-1.5">
-                                <CheckCircle2 className="w-8 h-8 text-emerald-500 opacity-80" />
-                                All pending requisitions processed! No PRNs waiting for PO creation.
-                            </div>
-                        ) : (
-                            <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                                {recentPendingRequests.map((req) => (
-                                    <div key={req.id} className="p-4 hover:bg-slate-50/80 dark:hover:bg-slate-900/40 transition flex items-center justify-between gap-4">
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-mono font-bold text-xs text-foreground">{req.requestNr}</span>
-                                                {getPriorityBadge(req.priority)}
-                                                <span className="text-[11px] text-muted-foreground font-mono">
-                                                    • {req._count?.items || 0} material item(s)
-                                                </span>
-                                            </div>
-                                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                                                <span className="flex items-center gap-1">
-                                                    <Building2 className="w-3 h-3 text-slate-400" />
-                                                    {req.toStore?.name || 'Main Warehouse'}
-                                                </span>
-                                                <span>•</span>
-                                                <span>Requested by: <strong className="text-foreground">{req.requestedBy?.name || 'Store Officer'}</strong></span>
-                                                <span>•</span>
-                                                <span className="font-mono text-[11px]">{new Date(req.createdAt).toLocaleDateString()}</span>
-                                            </div>
-                                        </div>
-                                        <Link 
-                                            href={`/procurement/orders?tab=PENDING`} 
-                                            className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition flex items-center gap-1 shrink-0 shadow-sm hover:shadow"
-                                        >
-                                            <PlusCircle className="w-3.5 h-3.5" />
-                                            Process PO
-                                        </Link>
-                                    </div>
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                <div className="dash-panel">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <h3>Documents with Procurement, waiting for a PO</h3>
+                        <Link href="/procurement/orders?tab=PENDING" className="dash-link">Open Purchase Orders</Link>
+                    </div>
+                    {data.recentPendingRequests.length === 0 ? (
+                        <p className="mt-2 text-sm">No request is waiting for a PO.</p>
+                    ) : (
+                        <table className="dash-table mt-2">
+                            <thead><tr><th>Request</th><th>Store</th><th>Items</th><th>Waiting</th></tr></thead>
+                            <tbody>
+                                {data.recentPendingRequests.map((r) => (
+                                    <tr key={r.id}>
+                                        <td className="whitespace-nowrap font-semibold">{r.requestNr}{r.priority && r.priority !== 'NORMAL' && <span className="dash-chip ml-2" data-tone="wait">{r.priority.toLowerCase()}</span>}</td>
+                                        <td>{r.toStore?.name ?? '-'}</td>
+                                        <td>{r._count?.items ?? 0}</td>
+                                        <td className={`whitespace-nowrap ${days(r.createdAt) > 7 ? 'is-fault' : ''}`}>{plural(days(r.createdAt), 'day')}</td>
+                                    </tr>
                                 ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                            </tbody>
+                        </table>
+                    )}
+                    <p className="dash-note mt-2">The oldest five are shown.</p>
+                </div>
 
-                {/* Right: Active Open PO Tracker Stream (1 Col) */}
-                <Card className="border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl">
-                    <CardHeader className="flex flex-row items-center justify-between py-4 px-6 border-b border-slate-100 dark:border-slate-800">
-                        <div>
-                            <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                <ShoppingCart className="w-4 h-4 text-indigo-500" />
-                                In-Flight PO Tracker
-                            </CardTitle>
-                            <p className="text-xs text-muted-foreground mt-0.5">Active POs pending vendor delivery</p>
-                        </div>
-                        <Link href="/procurement/orders?tab=IN_PROGRESS" className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
-                            All POs
-                        </Link>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                        {recentActivePOs.length === 0 ? (
-                            <div className="text-center text-muted-foreground py-12 text-xs flex flex-col items-center gap-1.5">
-                                <Package className="w-8 h-8 text-slate-400 opacity-60" />
-                                No active POs currently in progress.
-                            </div>
-                        ) : (
-                            <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                                {recentActivePOs.map((po) => (
-                                    <div key={po.id} className="p-4 hover:bg-slate-50/80 dark:hover:bg-slate-900/40 transition space-y-1.5">
-                                        <div className="flex items-center justify-between">
-                                            <span className="font-mono font-bold text-xs text-indigo-600 dark:text-indigo-400">
-                                                PO #{po.poNumber || po.requestNr}
-                                            </span>
-                                            <Badge variant="outline" className="font-mono text-[10px] text-indigo-600 border-indigo-300 dark:border-indigo-800">
-                                                {po.procurementStatus?.replace('_', ' ') || 'ACTIVE'}
-                                            </Badge>
-                                        </div>
-                                        <p className="text-xs font-medium text-foreground truncate">
-                                            Vendor: <span className="font-bold text-slate-700 dark:text-slate-300">{po.vendor || 'Supplier Unspecified'}</span>
-                                        </p>
-                                        <div className="flex justify-between items-center text-[11px] text-muted-foreground font-mono">
-                                            <span className="flex items-center gap-1">
-                                                <Calendar className="w-3 h-3 text-slate-400" />
-                                                Due: {po.expectedDelivery ? new Date(po.expectedDelivery).toLocaleDateString() : 'Pending'}
-                                            </span>
-                                            <span>{po._count?.items || 0} line item(s)</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                <div className="dash-panel">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <h3>Ordered, waiting for the goods</h3>
+                        <Link href="/inventory/grn" className="dash-link">Open GRN</Link>
+                    </div>
+                    {data.recentActivePOs.length === 0 ? (
+                        <p className="mt-2 text-sm">No ordered goods are waiting to be received.</p>
+                    ) : (
+                        <table className="dash-table mt-2">
+                            <thead><tr><th>Request</th><th>PO</th><th>Vendor</th><th>Expected</th></tr></thead>
+                            <tbody>
+                                {data.recentActivePOs.map((po) => {
+                                    const late = !!po.expectedDelivery && new Date(po.expectedDelivery).getTime() < Date.now();
+                                    return (
+                                        <tr key={po.id}>
+                                            <td className="whitespace-nowrap font-semibold">{po.requestNr}</td>
+                                            <td className="whitespace-nowrap">{po.poNumber || '-'}</td>
+                                            <td>{po.vendor || '-'}</td>
+                                            <td className={`whitespace-nowrap ${late ? 'is-fault' : ''}`}>{po.expectedDelivery ? `${new Date(po.expectedDelivery).toLocaleDateString('en-GB')}${late ? ' (late)' : ''}` : '-'}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    )}
+                    <p className="dash-note mt-2">The oldest five are shown.</p>
+                </div>
             </div>
 
-            {/* 4. Critical Stock Shortages (Emergency Local Procurement Sourcing) */}
-            <Card className="border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl">
-                <CardHeader className="flex flex-row items-center justify-between py-4 px-6 border-b border-slate-100 dark:border-slate-800">
-                    <div>
-                        <CardTitle className="text-sm font-bold flex items-center gap-2 text-rose-700 dark:text-rose-400">
-                            <AlertTriangle className="w-4 h-4 text-rose-500 animate-pulse" />
-                            Critical stock outages
-                        </CardTitle>
-                    </div>
-                    <Link href="/procurement/orders" className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-bold flex items-center gap-1">
-                        Procurement Processing <ArrowUpRight className="w-3.5 h-3.5" />
-                    </Link>
-                </CardHeader>
-                <CardContent className="p-6">
-                    {lowStockItems.length === 0 ? (
-                        <div className="text-center text-muted-foreground py-8 text-xs flex flex-col items-center gap-1">
-                            <CheckCircle2 className="w-6 h-6 text-emerald-500 opacity-80" />
-                            No critical stock shortages. Warehouse inventory levels are healthy.
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {lowStockItems.map((stock, i) => {
-                                const quantity = Number(stock.quantity) || 0;
-                                const availableQuantity = stock.availableQuantity == null
-                                    ? quantity
-                                    : Number(stock.availableQuantity) || 0;
-                                const minLevel = Number(stock.minLevel) || 0;
-                                const shortageQuantity = minLevel > 0
-                                    ? Math.max(minLevel - availableQuantity, 0)
-                                    : Math.max(-quantity, 0);
-                                return (
-                                <div key={i} className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between gap-3">
-                                    <div className="flex flex-col min-w-0">
-                                        <span className="font-bold text-xs text-foreground truncate">{stock.item?.name || 'Unknown Material'}</span>
-                                        <span className="text-[11px] text-muted-foreground font-mono truncate">
-                                            {stock.store?.name || 'Main Warehouse'} • Code: {stock.item?.code || 'N/A'}
-                                        </span>
-                                    </div>
-                                    <div className="flex flex-col items-end shrink-0 gap-1">
-                                        <Badge variant="destructive" className="px-2.5 py-0.5 text-xs font-mono font-bold">
-                                            {shortageQuantity} {stock.item?.unit || 'qty'} short
-                                        </Badge>
-                                        <span className="text-[10px] text-muted-foreground">Available: {availableQuantity} / Min: {stock.minLevel ?? '—'}</span>
-                                        <Link href={`/procurement/orders`} className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
-                                            + Create PO
-                                        </Link>
-                                    </div>
-                                </div>
-                                );
-                            })}
-                            {lowStockCount > lowStockItems.length && (
-                                <p className="mt-3 text-xs font-semibold text-muted-foreground">Showing the most critical {lowStockItems.length} of {lowStockCount} shortages.</p>
-                            )}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+            <p className="px-1 text-sm" style={{ color: 'var(--dash-ink-2)' }}>
+                {data.purchaseOrders ? `Purchase orders on record: ${data.purchaseOrders.open} open, ${data.purchaseOrders.received} received, ${data.purchaseOrders.cancelled} cancelled. ` : ''}
+                {data.updatedAt ? `Figures as of ${new Date(data.updatedAt).toLocaleString('en-GB')}.` : ''}
+            </p>
         </div>
     );
 }

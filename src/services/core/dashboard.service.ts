@@ -519,71 +519,40 @@ export class DashboardService {
             ]
         };
 
+        // The company purchase flow (docs/ai-handover.md, 26 Nov 2026), one count per step:
+        // MRN -> Stores Manager review -> OSP Manager approval -> Stores Manager submits the documents to Procurement ->
+        // Procurement records the HO-approved PO(s) -> GRN with the vendor invoice -> voucher -> HO pays.
+        const inProcurement: Prisma.StockRequestWhereInput = { ...requestStoreScope, workflowStage: { in: ['PROCUREMENT', 'PROCUREMENT_PROCESSING'] } };
+        const docsIn: Prisma.StockRequestWhereInput = { ...inProcurement, procurementDocsSubmittedAt: { not: null }, procurementStatus: { not: 'COMPLETED' } };
+        const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        const OPEN_INVOICE: Prisma.SupplierInvoiceWhereInput = { storePoId: { not: null }, storePo: { stockRequest: requestStoreScope }, status: { notIn: ['CANCELLED', 'REJECTED', 'VOID'] } };
+        const CLOSED_PV = ['CANCELLED', 'REJECTED', 'VOID'];
+
         const [
-            pendingPRNs,
-            openPOs,
-            completedPOs,
-            pendingGRNsCount,
-            lowStockItems,
+            storesManager,
+            ospManager,
+            docsPending,
+            waitingPo,
+            partlyOrdered,
+            waitingGrn,
+            partlyReceived,
+            storeInvoices,
             recentPendingRequests,
             recentActivePOs,
-            purchaseOrderGroups
+            purchaseOrderGroups,
         ] = await Promise.all([
-            // 1. Pending PRNs awaiting PO creation
-            prisma.stockRequest.count({
-                where: {
-                    ...requestStoreScope,
-                    workflowStage: { in: ['PROCUREMENT_PROCESSING', 'PROCUREMENT'] },
-                    procurementStatus: 'PENDING'
-                }
-            }),
+            prisma.stockRequest.count({ where: { ...requestStoreScope, workflowStage: 'STORES_MANAGER_APPROVAL' } }),
+            prisma.stockRequest.count({ where: { ...requestStoreScope, workflowStage: { in: ['OSP_MANAGER_APPROVAL', 'HOS_APPROVAL'] } } }),
+            prisma.stockRequest.count({ where: { ...inProcurement, procurementDocsSubmittedAt: null } }),
+            prisma.stockRequest.count({ where: docsIn }),
+            prisma.stockRequest.count({ where: { ...docsIn, procurementStatus: { in: ['PO_CREATED', 'PO_SENT', 'PO_CONFIRMED'] } } }),
+            prisma.stockRequest.count({ where: { ...requestStoreScope, workflowStage: { in: ['GRN_PENDING', 'STORE_RECEIVING'] } } }),
+            prisma.stockRequest.count({ where: { ...requestStoreScope, workflowStage: { in: ['GRN_PENDING', 'STORE_RECEIVING'] }, status: 'PARTIALLY_COMPLETED' } }),
+            prisma.supplierInvoice.findMany({ where: OPEN_INVOICE, select: { id: true, status: true } }),
 
-            // 2. Open / Active POs in progress
-            prisma.stockRequest.count({
-                where: {
-                    ...requestStoreScope,
-                    workflowStage: { in: ['PROCUREMENT_PROCESSING', 'PROCUREMENT'] },
-                    procurementStatus: { in: ['PO_CREATED', 'PO_SENT', 'PO_CONFIRMED'] }
-                }
-            }),
-
-            // 3. Completed Procurement Requests
-            prisma.stockRequest.count({
-                where: {
-                    ...requestStoreScope,
-                    procurementStatus: 'COMPLETED'
-                }
-            }),
-
-            // 4. Pending GRNs awaiting receipt intake
-            prisma.stockRequest.count({
-                where: {
-                    ...requestStoreScope,
-                    workflowStage: { in: ['GRN_PENDING', 'STORE_RECEIVING'] }
-                }
-            }),
-
-            // 5. Critical Stock Outages (Low Stock)
-            prisma.inventoryStock.findMany({
-                where: {
-                    store: storeWhere
-                },
-                select: {
-                    quantity: true,
-                    allocatedQuantity: true,
-                    minLevel: true,
-                    item: { select: { id: true, name: true, code: true, unit: true, minLevel: true } },
-                    store: { select: { id: true, name: true } }
-                }
-            }),
-
-            // 6. Recent Pending Requests (Requisitions Needing PO)
+            // Documents are with Procurement and a PO is still to be recorded
             prisma.stockRequest.findMany({
-                where: {
-                    ...requestStoreScope,
-                    workflowStage: { in: ['PROCUREMENT_PROCESSING', 'PROCUREMENT'] },
-                    procurementStatus: 'PENDING'
-                },
+                where: docsIn,
                 select: {
                     id: true,
                     requestNr: true,
@@ -595,17 +564,13 @@ export class DashboardService {
                     toStore: { select: { id: true, name: true } },
                     _count: { select: { items: true } }
                 },
-                orderBy: { createdAt: 'desc' },
+                orderBy: { createdAt: 'asc' },
                 take: 5
             }),
 
-            // 7. Recent Active POs
+            // Requests with a PO recorded that are still waiting for their goods
             prisma.stockRequest.findMany({
-                where: {
-                    ...requestStoreScope,
-                    workflowStage: { in: ['PROCUREMENT_PROCESSING', 'PROCUREMENT'] },
-                    procurementStatus: { in: ['PO_CREATED', 'PO_SENT', 'PO_CONFIRMED'] }
-                },
+                where: { ...requestStoreScope, workflowStage: { in: ['GRN_PENDING', 'STORE_RECEIVING', 'PROCUREMENT', 'PROCUREMENT_PROCESSING'] }, purchaseOrders: { some: { status: { notIn: ['RECEIVED', 'CLOSED', 'CANCELLED'] } } } },
                 select: {
                     id: true,
                     requestNr: true,
@@ -613,19 +578,12 @@ export class DashboardService {
                     createdAt: true,
                     requestedBy: { select: { id: true, name: true } },
                     _count: { select: { items: true } },
-                    purchaseOrders: {
-                        select: {
-                            poNumber: true,
-                            vendor: true,
-                            expectedDelivery: true
-                        }
-                    }
+                    purchaseOrders: { where: { status: { notIn: ['CANCELLED'] } }, select: { poNumber: true, vendor: true, expectedDelivery: true } }
                 },
-                orderBy: { createdAt: 'desc' },
+                orderBy: { createdAt: 'asc' },
                 take: 5
             }),
 
-            // 8. The purchase orders themselves, by status (the counts above are requests per pipeline stage)
             prisma.purchaseOrder.groupBy({
                 by: ['status'],
                 where: { stockRequest: requestStoreScope },
@@ -633,39 +591,23 @@ export class DashboardService {
             })
         ]);
 
+        // Vouchers are linked to the supplier invoice by id only (no relation), so they are read for the invoices in scope.
+        const invoiceIds = storeInvoices.map((i) => i.id);
+        const vouchers = invoiceIds.length === 0 ? [] : await prisma.paymentVoucher.findMany({
+            where: { supplierInvoiceId: { in: invoiceIds }, status: { notIn: CLOSED_PV } },
+            select: { supplierInvoiceId: true, status: true, paidAt: true, hoPaidDate: true },
+        });
+        const withVoucher = new Set(vouchers.map((v) => v.supplierInvoiceId));
+        const waitingVoucher = storeInvoices.filter((i) => i.status !== 'PAID' && !withVoucher.has(i.id)).length;
+        const waitingHo = vouchers.filter((v) => v.status !== 'PAID').length;
+        const paidThisMonth = vouchers.filter((v) => v.status === 'PAID' && ((v.hoPaidDate ?? v.paidAt) ?? new Date(0)) >= monthStart).length;
+
         const poCount = (statuses: string[]) => purchaseOrderGroups.filter(g => statuses.includes(g.status)).reduce((a, g) => a + g._count._all, 0);
         const purchaseOrders = {
             open: purchaseOrderGroups.filter(g => !['RECEIVED', 'CLOSED', 'CANCELLED'].includes(g.status)).reduce((a, g) => a + g._count._all, 0),
             received: poCount(['RECEIVED', 'CLOSED']),
             cancelled: poCount(['CANCELLED']),
         };
-
-        const lowStockCandidates = lowStockItems
-            .map(stock => {
-                const quantity = Number(stock.quantity);
-                const allocatedQuantity = Number(stock.allocatedQuantity);
-                const minLevel = Number(stock.minLevel) > 0
-                    ? Number(stock.minLevel)
-                    : Number(stock.item.minLevel);
-                return {
-                    ...stock,
-                    minLevel,
-                    availableToPromise: Math.max(0, quantity - allocatedQuantity - minLevel),
-                    availableQuantity: quantity - allocatedQuantity,
-                    _quantityForSort: quantity,
-                    _isLowStock: isInventoryReorderNeeded({ quantity, allocatedQuantity, minLevel })
-                };
-            })
-            .filter(stock => stock._isLowStock)
-            .sort((a, b) => a._quantityForSort - b._quantityForSort);
-        const lowStockCount = lowStockCandidates.length;
-        const mappedLowStockItems = lowStockCandidates
-            .slice(0, 6)
-            .map(({ _quantityForSort: ignoredSort, _isLowStock: ignoredLow, ...stock }) => {
-                void ignoredSort;
-                void ignoredLow;
-                return stock;
-            });
 
         const mappedRecentActivePOs = recentActivePOs.map(prn => ({
             ...prn,
@@ -675,17 +617,11 @@ export class DashboardService {
         }));
 
         return {
-            pendingPRNs,
-            openPOs,
-            completedPOs,
+            flow: { storesManager, ospManager, docsPending, waitingPo, partlyOrdered, waitingGrn, partlyReceived, waitingVoucher, waitingHo, paidThisMonth },
             purchaseOrders,
-            pendingGRNs: pendingGRNsCount,
-            lowStockItems: mappedLowStockItems,
-            lowStockCount,
             recentPendingRequests,
             recentActivePOs: mappedRecentActivePOs,
             updatedAt: new Date().toISOString()
         };
     }
 }
-
