@@ -1,0 +1,24 @@
+# Graphify indexes the application code only (see docs/ai-handover.md, "Code graph").
+# Real ERP files, client documents and one-off scripts stay out of the graph.
+.env*
+public/
+uploads/
+memory/
+KL-SVK-0567/
+SM-HJJ-0508-AB/
+OSP-Account/
+Contractor_invoice/
+Agreement/
+QA-Test-Assets/
+QGIS Project Template/
+.agent/
+.agents/
+.qoder/
+.claude/
+docker/
+scripts/zz-*
+playwright-report/
+test-results/
+.next/
+coverage/
+graphify-out/

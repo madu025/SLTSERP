@@ -120,3 +120,6 @@ playwright-finance-report/
 
 # local QA scratch (may hold connection strings)
 .tmp-qa/
+
+# graphify code graph (rebuilt locally with `graphify update .`)
+graphify-out/

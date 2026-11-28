@@ -56,6 +56,11 @@ for local scripts (`.env.local`). pnpm only.
   `prisma migrate deploy` with `.env.local` loaded).
 - `src/content/guides` step-by-step guides for the Nexus tool `getSystemGuide`; `.claude/skills` project skills (`browser-qa`,
   `project-workflow-notification-qa`, `update-system-guides`, `sltserp-handover`).
+- Code graph (graphify, saves tokens): `graphify query "<question>"`, `graphify explain "<Symbol>"`, `graphify affected "<Symbol>"` answer
+  "where is X and what uses it" from `graphify-out/graph.json` instead of reading many files. The graph is code only, built locally with
+  `graphify update .` (about 2 minutes, no LLM, nothing leaves the machine), gitignored, so build it once per new worktree. `.graphifyignore`
+  keeps client documents, uploads and `scripts/zz-*` out. The Claude Code hook in `.claude/settings.json` reminds the assistant to query
+  the graph before searching. Install: `uv tool install --system-certs --python 3.13 graphifyy` (a Python tool, not a project dependency).
 
 ## How to test (what worked)
 
