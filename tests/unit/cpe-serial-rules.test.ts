@@ -157,3 +157,10 @@ test('wiring: completion installs through the material service and an enforcing 
     assert.match(read('src/app/api/cpe-serials/collected/handover/route.ts'), /permissions: \[RBAC_PERMISSIONS\.INVENTORY_CPE_RECEIVE\]/);
     assert.doesNotMatch(read('prisma/migrations/20261231000000_cpe_collected_form/migration.sql'), /\bDROP (TABLE|COLUMN)\b/);
 });
+
+test('a collected or handed-over serial never changes a device of another RTOM or another customer', () => {
+    const svc = read('src/services/inventory/cpe-serial.service.ts');
+    assert.match(svc, /row\.opmcId !== order\.opmcId \|\| row\.status !== 'INSTALLED'/);
+    assert.match(svc, /at\.voiceNumber !== order\.voiceNumber/);
+    assert.match(read('src/services/inventory/collected-cpe.service.ts'), /s\.opmcId !== input\.opmcId \|\| !\['RECOVERED', 'FAULTY'\]\.includes\(s\.status\)/);
+});

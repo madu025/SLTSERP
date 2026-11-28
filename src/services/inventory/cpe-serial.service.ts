@@ -387,7 +387,7 @@ export class CpeSerialService {
      * The old devices collected on an order (faulty, or taken back on an upgrade). Rows already on a handover form stay as they are; the
      * others are replaced by what the form sends. A readable serial that is in the register becomes RECOVERED (working) or FAULTY.
      */
-    static async recordCollected(tx: TransactionClient, order: { id: string; opmcId: string | null }, contractorId: string, rows: unknown[], userId: string | null) {
+    static async recordCollected(tx: TransactionClient, order: { id: string; opmcId: string | null; voiceNumber: string | null }, contractorId: string, rows: unknown[], userId: string | null) {
         const read = (rows as Record<string, unknown>[]).map(readCollectedRow).filter((r) => r.keep);
         await tx.collectedCPE.deleteMany({ where: { serviceOrderId: order.id, handoverFormId: null, status: 'PENDING_HANDBACK' } });
         const onForm = await tx.collectedCPE.findMany({ where: { serviceOrderId: order.id, handoverFormId: { not: null } }, select: { serialNumber: true } });
@@ -402,10 +402,16 @@ export class CpeSerialService {
         }
         for (const r of fresh) {
             if (r.serialUnreadable || r.serialNumber === SERIAL_NOT_CLEAR) continue;
-            const row = await tx.inventoryItemSerial.findUnique({ where: { serialNumber: r.serialNumber }, select: { id: true, status: true, cpeType: true, issueCycle: true, opmcId: true } });
+            const row = await tx.inventoryItemSerial.findUnique({ where: { serialNumber: r.serialNumber }, select: { id: true, status: true, cpeType: true, issueCycle: true, opmcId: true, sodId: true } });
             if (!row?.cpeType) continue;
+            // Only the customer's own device changes: a serial of this RTOM installed on this order or on an earlier order of the same voice
+            // number. Any other serial typed here is kept on the collected row (and the form) but never moves another area's or customer's device.
+            if (!order.opmcId || row.opmcId !== order.opmcId || row.status !== 'INSTALLED' || !row.sodId) continue;
+            if (row.sodId !== order.id) {
+                const at = await tx.serviceOrder.findUnique({ where: { id: row.sodId }, select: { voiceNumber: true, opmcId: true } });
+                if (!at || !order.voiceNumber || at.voiceNumber !== order.voiceNumber || at.opmcId !== order.opmcId) continue;
+            }
             const to = r.condition === 'WORKING' ? 'RECOVERED' : 'FAULTY';
-            if (row.status === to || row.status === 'RETURNED_TO_SLT') continue;
             await tx.inventoryItemSerial.update({ where: { id: row.id }, data: { status: to, contractorId, storeId: null, sodId: null } });
             await recordCpeEvent(tx, {
                 serialId: row.id, serialNumber: r.serialNumber, eventType: to === 'FAULTY' ? 'FAULTY' : 'RECOVERED', fromStatus: row.status, toStatus: to, issueCycle: row.issueCycle,

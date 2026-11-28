@@ -271,7 +271,7 @@ export class ServiceOrderService {
                 const contractorId = (data.contractorId || (updateData.contractorId as string | null) || oldOrder.contractorId) as string | null;
                 if (contractorId) {
                     const { CpeSerialService } = await import('../inventory/cpe-serial.service');
-                    await CpeSerialService.recordCollected(tx, { id, opmcId: oldOrder.opmcId }, contractorId, data.collectedCpes, userId && isValidUuid(userId) ? userId : null);
+                    await CpeSerialService.recordCollected(tx, { id, opmcId: oldOrder.opmcId, voiceNumber: oldOrder.voiceNumber }, contractorId, data.collectedCpes, userId && isValidUuid(userId) ? userId : null);
                 }
             }
             // Save erected poles

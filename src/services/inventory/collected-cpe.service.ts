@@ -85,7 +85,8 @@ export class CollectedCpeService {
             for (const r of rows) {
                 if (r.serialUnreadable) continue;
                 const s = await tx.inventoryItemSerial.findUnique({ where: { serialNumber: r.serialNumber }, select: { id: true, status: true, cpeType: true, issueCycle: true, opmcId: true } });
-                if (!s?.cpeType || s.status === 'RETURNED_TO_SLT') continue;
+                // only a serial of this RTOM that was recorded as collected (recovered / faulty) moves to SLT
+                if (!s?.cpeType || s.opmcId !== input.opmcId || !['RECOVERED', 'FAULTY'].includes(s.status)) continue;
                 await tx.inventoryItemSerial.update({ where: { id: s.id }, data: { status: 'RETURNED_TO_SLT', contractorId: null, storeId: null, sodId: null } });
                 await recordCpeEvent(tx, {
                     serialId: s.id, serialNumber: r.serialNumber, eventType: 'RETURNED_TO_SLT', fromStatus: s.status, toStatus: 'RETURNED_TO_SLT', issueCycle: s.issueCycle,
