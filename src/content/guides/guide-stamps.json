@@ -1,6 +1,6 @@
 {
   "sod": {
-    "stamp": "efd849ee91781f32",
+    "stamp": "f16540e3d931c1af",
     "reviewedAt": "2026-11-28"
   },
   "purchase": {
@@ -10,5 +10,9 @@
   "opening-stock": {
     "stamp": "a2a2abb41222ee5a",
     "reviewedAt": "2026-11-27"
+  },
+  "cpe-serials": {
+    "stamp": "e30203aa2563fbfd",
+    "reviewedAt": "2026-11-28"
   }
 }

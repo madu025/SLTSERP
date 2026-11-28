@@ -308,3 +308,13 @@ What HO paid (27 Nov 2026): `procurement.pv.chain.read` also opens Vendor Paymen
 ## Session policy (25 Nov 2026)
 
 All limits are in `src/config/session-policy.ts`; nothing else may hold a copy (a test checks). Idle timeout 30 minutes and absolute lifetime 12 hours (NIST SP 800-63B AAL2), enforced on the server: the refresh token expires after the idle window and is replaced at every refresh (rotation, OAuth security BCP) with the original `authTime`, and the refresh route refuses once `authTime` is 12 hours old. The access token lives 15 minutes. The browser (`SessionManager`) warns 2 minutes before the idle time and signs out a tab that wakes after it. A password or role change bumps `tokenVersion` and ends every session at once. The page's own background polling is not activity: every refresh carries `x-idle-seconds` (how long the person has really been inactive) and the new refresh token ends one idle window after the last activity, so polling cannot keep an idle session alive. Reuse detection of rotated tokens is not implemented.
+
+## CPE serials (28 Nov 2026)
+
+`inventory.cpe.read` opens Service Orders -> CPE Serials (`/service-orders/cpe-serials`: the register and a serial's history) for the service order people of
+the RTOM (Area Manager, Engineer, Assistant Engineer, Area Coordinator, QC Officer), the OSP managers and the stores. `inventory.cpe.receive` records
+serials received from SLT: the Area Coordinator and the QC Officer (small quantities handed straight to a contractor, no approval - owner) and the Stores
+Manager and Executive (bundles into the RTOM store; menu Inventory -> Daily work -> CPE Serials (SLT), same page). Data scope: the union of the person's
+`sod` and `inventory` OPMC scope (`CpeSerialService.scope`); a direct issue also passes the MIN checks (store of the RTOM, contractor of that store).
+The order check (`GET /api/cpe-serials/check`) needs `sod.read` and the order's RTOM. Plan: `docs/plans/cpe-serial-locator.md`.
+

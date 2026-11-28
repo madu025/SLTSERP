@@ -50,6 +50,7 @@ model InventoryStore {
   @@index([managerId])
   @@index([officeAdminId])
   @@index([areaManagerId])
+  cpeReceipts              CpeReceipt[]                     @relation("CpeReceiptStore")
 }
 
 model InventoryItem {
@@ -261,6 +262,19 @@ model InventoryItemSerial {
   updatedAt       DateTime           @updatedAt
   assignedStaffId String?            @db.Uuid
   locator         String?
+  /// CPE serials from the SLT CPE Locator (docs/plans/cpe-serial-locator.md): the RTOM the serial belongs to (never changes in normal use)
+  opmcId          String?            @db.Uuid
+  cpeType         String?
+  model           String?
+  source          String?
+  sltReference    String?
+  receivedAt      DateTime?
+  /// each time SLT issues the serial (first time, or again after recovery/repair) a new cycle starts; one installation per cycle
+  issueCycle      Int                @default(1)
+  receiptId       String?            @db.Uuid
+  opmc            OPMC?              @relation("CpeSerialRtom", fields: [opmcId], references: [id])
+  receipt         CpeReceipt?        @relation(fields: [receiptId], references: [id])
+  events          CpeSerialEvent[]
   assignedStaff   Staff?             @relation(fields: [assignedStaffId], references: [id])
   contractor      Contractor?        @relation(fields: [contractorId], references: [id])
   item            InventoryItem      @relation(fields: [itemId], references: [id])
@@ -273,6 +287,63 @@ model InventoryItemSerial {
   @@index([assignedStaffId])
   @@index([status])
   @@index([sodId])
+  @@index([opmcId, status])
+  @@index([receiptId])
+}
+
+/// A CPE receipt from SLT (CPR-YYYY-MM-NNNN): serials of one RTOM received into its store, and in DIRECT_TO_CONTRACTOR mode issued at once to the
+/// contractor on a MIN (small quantities SLT hands straight to the contractor). Plan: docs/plans/cpe-serial-locator.md.
+model CpeReceipt {
+  id            String                @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  receiptNumber String                @unique
+  mode          String
+  opmcId        String                @db.Uuid
+  storeId       String                @db.Uuid
+  contractorId  String?               @db.Uuid
+  cpeType       String
+  model         String?
+  sltReference  String?
+  receivedDate  DateTime
+  quantity      Int
+  issueNumber   String?
+  remarks       String?
+  createdById   String                @db.Uuid
+  createdAt     DateTime              @default(now())
+  opmc          OPMC                  @relation("CpeReceiptRtom", fields: [opmcId], references: [id])
+  store         InventoryStore        @relation("CpeReceiptStore", fields: [storeId], references: [id])
+  contractor    Contractor?           @relation("CpeReceiptContractor", fields: [contractorId], references: [id])
+  serials       InventoryItemSerial[]
+
+  @@index([opmcId, createdAt])
+  @@index([contractorId])
+}
+
+/// Append-only history of a CPE serial (who, when, from -> to, holder, order, document), SHA-256 chained like InventoryLedger; UPDATE/DELETE blocked in the database.
+model CpeSerialEvent {
+  id               String              @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  serialId         String              @db.Uuid
+  serialNumber     String
+  eventType        String
+  fromStatus       String?
+  toStatus         String
+  issueCycle       Int
+  opmcId           String?             @db.Uuid
+  storeId          String?             @db.Uuid
+  contractorId     String?             @db.Uuid
+  serviceOrderId   String?             @db.Uuid
+  documentType     String?
+  documentNumber   String?
+  sltReference     String?
+  reason           String?
+  performedById    String?             @db.Uuid
+  createdAt        DateTime            @default(now())
+  previousChecksum String
+  checksum         String              @unique
+  serial           InventoryItemSerial @relation(fields: [serialId], references: [id])
+
+  @@index([serialId, createdAt])
+  @@index([serialNumber])
+  @@index([opmcId, createdAt])
 }
 
 model JournalEntry {

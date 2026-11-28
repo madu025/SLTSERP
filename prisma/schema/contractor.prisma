@@ -83,6 +83,7 @@ model Contractor {
   @@index([ospApprovedById])
   @@index([rejectionById])
   @@index([siteOfficeStaffId])
+  cpeReceipts             CpeReceipt[]     @relation("CpeReceiptContractor")
 }
 
 model ContractorStock {

@@ -1,6 +1,7 @@
 # CPE serials from the SLT CPE Locator: plan for the SOD module
 
-Status: plan, not built. Written 28 Nov 2026 from the owner's answers (two rounds, same day). Nothing here changes production until the owner approves the
+Status: **phase 1 built** (28 Nov 2026; migration `20261230000000_cpe_serial_register`), phases 2-3 not built. Written 28 Nov 2026 from the owner's answers.
+Phase 1 differs from the text below in one point: receipts have no separate line table (`CpeReceiptLine`); each serial points to its receipt (`receiptId`) and the event history keeps every document number. Nothing here changes production until the owner approves the
 migration (rule 4 of `docs/ai-handover.md`).
 
 ## 1. What SLT is changing

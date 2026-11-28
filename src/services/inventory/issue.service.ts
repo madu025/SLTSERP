@@ -11,6 +11,7 @@ import { emitSystemEvent } from '@/lib/events';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { ContractorRepository } from '@/repositories/contractor.repository';
+import { recordCpeEvent } from './cpe-serial-events';
 
 export class IssueService {
     static async getMaterialIssues(contractorId: UUID, month?: string, allowedStoreIds?: string[]) {
@@ -167,6 +168,13 @@ export class IssueService {
                                 sodId: null
                             }
                         });
+                        // a CPE serial from the SLT CPE Locator keeps its history (docs/plans/cpe-serial-locator.md)
+                        if (serialRecord.cpeType) {
+                            await recordCpeEvent(transaction, {
+                                serialId: serialRecord.id, serialNumber: serialRecord.serialNumber, eventType: 'ISSUED', fromStatus: serialRecord.status, toStatus: 'ISSUED',
+                                issueCycle: serialRecord.issueCycle, opmcId: serialRecord.opmcId, storeId, contractorId, documentType: 'MIN', documentNumber: issueNumber, performedById: userId ?? null,
+                            });
+                        }
                     }
                 }
             }

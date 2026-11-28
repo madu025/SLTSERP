@@ -19,6 +19,7 @@ import { MATERIAL_CATEGORY_ORDER } from "@/config/inventory-categories";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { SODMaterialMatrixGrid, type StockByCode, type SltByCode } from "./SODMaterialMatrixGrid";
+import { CpeSerialAssist } from "@/components/cpe/useCpeSerialCheck";
 
 interface MaterialContextResponse {
     contractorStock: Array<{ code: string; quantity: number; usableQuantity: number; unit?: string }>;
@@ -356,15 +357,19 @@ export function OrderSheetMode({
                                 <label className="text-[9px] font-extrabold text-slate-600 dark:text-slate-300 uppercase block mb-0.5">
                                     ONT (Router) Serial Number
                                 </label>
-                                <Input 
-                                    value={state.ontSerialNumber}
-                                    onChange={e => controls.setOntSerialNumber(e.target.value.toUpperCase())}
-                                    placeholder="Enter/paste ONT serial..."
-                                    className="h-7 text-xs font-mono font-bold uppercase bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700"
-                                    data-sheet-row={2}
-                                    data-sheet-col={1}
-                                    onKeyDown={(e) => handleGridKeyDown(e, 2, 1)}
-                                />
+                                <div className="flex flex-wrap items-center gap-1">
+                                    <Input 
+                                        value={state.ontSerialNumber}
+                                        onChange={e => controls.setOntSerialNumber(e.target.value.toUpperCase())}
+                                        placeholder="Scan or enter/paste ONT serial..."
+                                        className="h-7 min-w-0 flex-1 text-xs font-mono font-bold uppercase bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700"
+                                        data-sheet-row={2}
+                                        data-sheet-col={1}
+                                        onKeyDown={(e) => handleGridKeyDown(e, 2, 1)}
+                                    />
+                                    {/* SLT CPE Locator: camera scan and the register's answer (phase 1 shows it only) */}
+                                    <CpeSerialAssist serial={state.ontSerialNumber} onScanned={controls.setOntSerialNumber} serviceOrderId={orderData?.id} cpeType="ONT" contractorId={state.selectedContractorId || null} reuse={state.ontType === 'EXISTING'} />
+                                </div>
                             </div>
                             <div className="flex items-center gap-2">
                                 <div className="w-full">
@@ -412,7 +417,7 @@ export function OrderSheetMode({
                                 </div>
                                 <div className="space-y-1">
                                     {(state.iptvSerials.length > 0 ? state.iptvSerials : [""]).map((serial, idx) => (
-                                        <div key={idx} className="flex gap-1 items-center">
+                                        <div key={idx} className="flex flex-wrap gap-1 items-center">
                                             {state.iptvSerials.length > 1 && (
                                                 <span className="text-[10px] font-mono text-slate-400 w-4">#{idx + 1}</span>
                                             )}
@@ -421,11 +426,12 @@ export function OrderSheetMode({
                                                 onChange={e => controls.setIptvSerial(idx, e.target.value.toUpperCase())}
                                                 onPaste={e => handleIptvPaste(e, idx)}
                                                 placeholder={`Enter/paste STB serial #${idx + 1}...`}
-                                                className="h-7 text-xs font-mono font-bold uppercase bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700"
+                                                className="h-7 min-w-0 flex-1 text-xs font-mono font-bold uppercase bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700"
                                                 data-sheet-row={3 + idx}
                                                 data-sheet-col={1}
                                                 onKeyDown={(e) => handleGridKeyDown(e, 3 + idx, 1)}
                                             />
+                                            <CpeSerialAssist serial={serial} onScanned={(v) => controls.setIptvSerial(idx, v)} serviceOrderId={orderData?.id} cpeType="STB" contractorId={state.selectedContractorId || null} reuse={(state.stbType || 'NEW') === 'EXISTING'} />
                                             {state.iptvSerials.length > 1 && (
                                                 <Button
                                                     type="button"

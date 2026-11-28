@@ -51,7 +51,8 @@ import {
     Globe,
     EyeOff,
     Trash2,
-    Clock
+    Clock,
+    ScanBarcode,
 } from 'lucide-react';
 
 
@@ -205,6 +206,14 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/service-orders/material-deviation',
                 icon: Receipt,
                 permissionId: RBAC_PERMISSIONS.SOD_INVOICE
+            },
+            {
+                // SLT CPE Locator serials of the person's RTOMs; the Area Coordinator and QC Officer record the ones SLT hands to a contractor
+                title: 'CPE Serials',
+                level: 'view',
+                path: '/service-orders/cpe-serials',
+                icon: ScanBarcode,
+                permissionId: RBAC_PERMISSIONS.INVENTORY_CPE_READ
             },
             {
                 // Only the contractors of the person's own RTOMs, view only
@@ -405,6 +414,14 @@ export const SIDEBAR_MENU: MenuItem[] = [
                         path: '/inventory/admin/returns',
                         icon: RefreshCw,
                         permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
+                    },
+                    {
+                        // CPE bundles from SLT into the RTOM store (the same page as Service Orders -> CPE Serials)
+                        title: 'CPE Serials (SLT)',
+                        level: 'operate',
+                        path: '/service-orders/cpe-serials',
+                        icon: ScanBarcode,
+                        permissionId: RBAC_PERMISSIONS.INVENTORY_CPE_RECEIVE,
                     }
                 ]
             },

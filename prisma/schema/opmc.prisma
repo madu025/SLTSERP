@@ -22,6 +22,8 @@ model OPMC {
   capexOpexLedgerEntries      CapexOpexLedgerEntry[]
   preErpMaterialBalances      PreErpMaterialBalance[]
   materialVarianceAdjustments MaterialVarianceAdjustment[]
+  cpeSerials                  InventoryItemSerial[]        @relation("CpeSerialRtom")
+  cpeReceipts                 CpeReceipt[]                 @relation("CpeReceiptRtom")
 
   @@index([storeId])
   @@index([region])
