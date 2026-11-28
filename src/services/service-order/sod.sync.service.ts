@@ -720,6 +720,30 @@ export class SODSyncService {
             console.warn(`[SYNC] Self-heal hit its ${SELF_HEAL_BATCH}-row cap; more stale rows remain for the next tick.`);
         }
 
+        // A finished row (INSTALL_CLOSED / COMPLETED) with no completion date is missing from every report and invoice that filters
+        // by completedDate. The portal status date stored on the row is when the portal closed it: it becomes the completion date,
+        // through the status writer (same status, so no gate and no history row). A row with no status date either is left alone
+        // rather than given an invented date.
+        const undated = await prisma.serviceOrder.findMany({
+            where: { sltsStatus: { in: ['INSTALL_CLOSED', 'COMPLETED'] }, completedDate: null, statusDate: { not: null } },
+            select: { id: true, soNum: true, opmcId: true, sltsStatus: true, statusDate: true },
+            take: SELF_HEAL_BATCH,
+        });
+        let dated = 0;
+        for (const row of undated) {
+            const write = await applySodStatus({
+                sodId: row.id,
+                soNum: row.soNum ?? row.id,
+                opmcId: row.opmcId,
+                next: { sltsStatus: row.sltsStatus, completedDate: row.statusDate },
+                anchor: null,
+                actor: 'API',
+                reason: 'SELF_HEAL_COMPLETED_DATE',
+            });
+            if (write.changed) dated++;
+        }
+        if (dated > 0) console.log(`[SYNC] Self-heal: set the completion date of ${dated} finished SODs from their portal status date.`);
+
         return { installClosed, returned, restored };
     }
 
@@ -2533,6 +2557,10 @@ export class SODSyncService {
             // completed page). Leave unset — completed-sod-sync enriches it from
             // the portal's CON_STATUS_DATE, and the completed page buckets
             // strictly by completedDate.
+            // Last resort: the portal status date already stored for this row (CON_STATUS_DATE, the time the portal closed it).
+            // Never the push time. Without this, a finished row the completed feed never re-lists kept no completion date and
+            // dropped out of every report and invoice that filters by completedDate (62 rows found by the audit of 28 Nov 2026).
+            if (!installDate && serviceOrder?.statusDate) installDate = serviceOrder.statusDate;
             if (installDate) {
                 dataToUpdate.completedDate = installDate;
             }
