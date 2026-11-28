@@ -209,3 +209,83 @@ export function cpeReceiptGate(i: CpeReceiptGateInput): { ok: boolean; text: str
         { ok: i.refused.length === 0, text: i.refused.length ? i.refused[0].message : '' },
     ];
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Phase 2: serials on a completed order, and the Collected CPE Handing Over Form (plan sections 7 and 7a)
+// ---------------------------------------------------------------------------------------------------------------------
+
+export interface OrderSerialInput { serial: string; cpeType: CpeType; reuse: boolean }
+export interface OrderSerialPlan {
+    /** valid SLT serials to install on the order (a material line of the CPE item, quantity 1) */
+    install: { serial: string; cpeType: CpeType }[];
+    /** the customer's existing device kept on an upgrade: moved from the earlier order of the same voice number */
+    reuse: { serial: string; cpeType: CpeType }[];
+    /** serials that fail the rules (refused when the RTOM enforces; otherwise only reported) */
+    problems: { serial: string; cpeType: CpeType; code: string; message: string }[];
+}
+
+/** The ONT and STB serials of a completion, one line each, normalised; empty ones dropped; duplicates kept once. */
+export function orderSerialInputs(ont: unknown, ontReuse: boolean, stbs: unknown[], stbReuse: boolean): OrderSerialInput[] {
+    const out: OrderSerialInput[] = [];
+    const seen = new Set<string>();
+    const add = (raw: unknown, cpeType: CpeType, reuse: boolean) => {
+        const serial = normalizeSerial(raw);
+        if (!serial || seen.has(serial)) return;
+        seen.add(serial);
+        out.push({ serial, cpeType, reuse });
+    };
+    add(ont, 'ONT', ontReuse);
+    for (const s of stbs) add(s, 'STB', stbReuse);
+    return out;
+}
+
+/** Sorts each serial of a completion into install / reuse / problem from the answer of checkSerialForOrder. */
+export function planOrderSerials(lines: { input: OrderSerialInput; check: CpeOrderCheck }[], required: { ont: boolean; stbCount: number }): OrderSerialPlan {
+    const plan: OrderSerialPlan = { install: [], reuse: [], problems: [] };
+    for (const { input, check } of lines) {
+        if (!check.ok) { plan.problems.push({ serial: input.serial, cpeType: input.cpeType, code: check.code, message: check.message }); continue; }
+        if (input.reuse) plan.reuse.push({ serial: input.serial, cpeType: input.cpeType });
+        else plan.install.push({ serial: input.serial, cpeType: input.cpeType });
+    }
+    if (required.ont && !lines.some((l) => l.input.cpeType === 'ONT')) plan.problems.push({ serial: '', cpeType: 'ONT', code: 'CPE_SERIAL_REQUIRED', message: 'The ONT serial is required' });
+    const stbs = lines.filter((l) => l.input.cpeType === 'STB').length;
+    if (required.stbCount > stbs) plan.problems.push({ serial: '', cpeType: 'STB', code: 'CPE_SERIAL_REQUIRED', message: `${required.stbCount} STB serial(s) required, ${stbs} entered` });
+    return plan;
+}
+
+/** The text shown when an enforcing RTOM refuses a completion. */
+export function orderSerialRefusal(problems: OrderSerialPlan['problems']): string {
+    return `CPE_SERIAL_CHECK: ${problems.map((p) => (p.serial ? `${p.serial}: ${p.message}` : p.message)).join('; ')}`;
+}
+
+export const SERIAL_NOT_CLEAR = 'NOT CLEAR';
+
+/** A collected device row from the completion form: a readable serial, or "Serial not readable" (printed NOT CLEAR on the form). */
+export function readCollectedRow(r: { deviceType?: unknown; serialNumber?: unknown; condition?: unknown; model?: unknown; pstnNumber?: unknown; serialUnreadable?: unknown }) {
+    const unreadable = r.serialUnreadable === true || String(r.serialUnreadable) === 'true';
+    const serial = unreadable ? SERIAL_NOT_CLEAR : normalizeSerial(r.serialNumber);
+    const deviceType = parseCpeType(r.deviceType) ?? 'ONT';
+    const condition = String(r.condition ?? '').toUpperCase() === 'WORKING' ? 'WORKING' : 'FAULTY';
+    const model = String(r.model ?? '').trim().slice(0, 80) || null;
+    const pstnNumber = String(r.pstnNumber ?? '').replace(/\D/g, '').slice(0, 15) || null;
+    const keep = unreadable || (!!serial && !serialFormatProblem(serial));
+    return { keep, deviceType, serialNumber: serial, serialUnreadable: unreadable, condition, model, pstnNumber };
+}
+
+/** Form layout helpers: "R-KON" -> "KON"; "0112568373" -> "112568373"; 07.01.2025; "DEC - 2024". */
+export const rtomShort = (rtom: string | null | undefined) => String(rtom ?? '').replace(/^R-/i, '');
+export const tpNumber = (n: string | null | undefined) => String(n ?? '').replace(/\D/g, '').replace(/^0+/, '');
+export function formDate(d: Date | string | null | undefined): string {
+    if (!d) return '';
+    const x = new Date(new Date(d).getTime() + 5.5 * 3600_000);
+    return `${String(x.getUTCDate()).padStart(2, '0')}.${String(x.getUTCMonth() + 1).padStart(2, '0')}.${x.getUTCFullYear()}`;
+}
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+export function formMonthTitle(periodMonth: string): string {
+    const [y, m] = periodMonth.split('-').map(Number);
+    return `${MONTHS[(m || 1) - 1]} - ${y}`;
+}
+/** Colombo month (YYYY-MM) of a date: the form month of a collected device. */
+export function colomboMonth(d: Date | string): string {
+    return new Date(new Date(d).getTime() + 5.5 * 3600_000).toISOString().slice(0, 7);
+}

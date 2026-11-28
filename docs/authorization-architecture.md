@@ -316,4 +316,5 @@ the RTOM (Area Manager, Engineer, Assistant Engineer, Area Coordinator, QC Offic
 serials SLT gives a contractor: the **Area Coordinator and the QC Officer only** (owner: recording, scanning and Collect CPE are their job, not the
 inventory side's; no stores grant and no Inventory menu entry). Data scope: the person's `sod` (and `inventory`) OPMC scope (`CpeSerialService.scope`);
 the recording also passes the MIN checks (store of the RTOM, contractor of that store). The order check (`GET /api/cpe-serials/check`) needs `sod.read`
-and the order's RTOM. Plan: `docs/plans/cpe-serial-locator.md`.
+and the order's RTOM. Service Orders -> Collected CPE (`/service-orders/collected-cpe`) reads with `inventory.cpe.read`; marking devices handed over
+(`POST /api/cpe-serials/collected/handover`) needs `inventory.cpe.receive` (Area Coordinator, QC Officer). Plan: `docs/plans/cpe-serial-locator.md`.

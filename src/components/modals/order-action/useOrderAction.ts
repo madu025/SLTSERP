@@ -61,7 +61,7 @@ export function useOrderAction(
     const [delayReasons, setDelayReasons] = useState({
         ontShortage: false, stbShortage: false, nokia: false, system: false, opmc: false, cxDelay: false, sameDay: false, polePending: false
     });
-    const [collectedCpes, setCollectedCpes] = useState<Array<{ deviceType: string; serialNumber: string; condition: string }>>([]);
+    const [collectedCpes, setCollectedCpes] = useState<Array<{ deviceType: string; serialNumber: string; condition: string; model?: string | null; pstnNumber?: string | null; serialUnreadable?: boolean }>>([]);
 
     const [prevOrderId, setPrevOrderId] = useState<string | null>(null);
     // Track which orderId has already had portal auto-fetch performed
@@ -551,6 +551,8 @@ export function useOrderAction(
             comment,
             materialStatus,
             ontSerialNumber,
+            ontType,
+            stbType,
             iptvSerialNumbers: iptvSerials.filter(s => s.trim() !== ""),
             materialUsage,
             assignmentType,
@@ -560,7 +562,8 @@ export function useOrderAction(
             dpDetails,
             erectedPoles: erectedPoles.filter(p => p.poleNumber.trim() !== ""),
             completionMode,
-            collectedCpes: collectedCpes.filter(c => c.serialNumber.trim() !== "")
+            // a device whose serial cannot be read is kept (printed NOT CLEAR on the Collected CPE Handing Over Form)
+            collectedCpes: collectedCpes.filter(c => c.serialUnreadable || c.serialNumber.trim() !== "")
         });
     };
 
@@ -764,7 +767,7 @@ export function useOrderAction(
             removeExtendedRow: (idx: number) => setExtendedMaterialRows(extendedMaterialRows.filter((_, i) => i !== idx)),
             addCollectedCpeRow: () => setCollectedCpes([...collectedCpes, { deviceType: 'ONT', serialNumber: '', condition: 'FAULTY' }]),
             addCollectedCpeWithType: (type: 'ONT' | 'STB' | 'PHONE') => setCollectedCpes([...collectedCpes, { deviceType: type, serialNumber: '', condition: 'FAULTY' }]),
-            updateCollectedCpeRow: (idx: number, field: 'deviceType' | 'serialNumber' | 'condition', value: string) => {
+            updateCollectedCpeRow: (idx: number, field: 'deviceType' | 'serialNumber' | 'condition' | 'model' | 'pstnNumber' | 'serialUnreadable', value: string | boolean) => {
                 const c = [...collectedCpes];
                 c[idx] = { ...c[idx], [field]: value };
                 setCollectedCpes(c);

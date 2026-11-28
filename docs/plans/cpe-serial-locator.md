@@ -1,6 +1,7 @@
 # CPE serials from the SLT CPE Locator: plan for the SOD module
 
-Status: **phase 1 built** (28 Nov 2026; migration `20261230000000_cpe_serial_register`), phases 2-3 not built. Written 28 Nov 2026 from the owner's answers.
+Status: **phases 1 and 2 built** (28 Nov 2026; migrations `20261230000000_cpe_serial_register`, `20261231000000_cpe_collected_form`), phase 3 not built.
+Phase 2 as built: a valid SLT serial is installed as a material line of the CPE item (quantity 1) through `SODMaterialService`, so stock, batches and the RETURN / DISAPPEARED rollback are the material ones; the customer's kept device moves with `REUSED_ON_UPGRADE`; an RTOM set to ENFORCE refuses the save (`CPE_SERIAL_CHECK: ...`), WARN/OFF lists the order under "Completed orders without an SLT serial"; Service Orders -> Collected CPE makes the handing over form (Excel / print, section 7a layout) and marks devices handed over on a `CCF-` form (serials -> RETURNED_TO_SLT). Written 28 Nov 2026 from the owner's answers.
 Phase 1 differs from the text below in one point: receipts have no separate line table (`CpeReceiptLine`); each serial points to its receipt (`receiptId`) and the event history keeps every document number. Nothing here changes production until the owner approves the
 migration (rule 4 of `docs/ai-handover.md`).
 

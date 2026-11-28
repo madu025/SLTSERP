@@ -218,10 +218,32 @@ export class ServiceOrderService {
             // Material usage processing (only on COMPLETED, not on RETURN)
             const hasMaterialUpdate = (data.materialUsage && Array.isArray(data.materialUsage));
 
+            // CPE serials from the SLT CPE Locator (docs/plans/cpe-serial-locator.md, phase 2): a person completing the order (or correcting a
+            // completed one) installs the ONT / STB serials that SLT issued to the contractor, as material lines of the CPE item; the customer's
+            // existing device kept on an upgrade moves to this order; an RTOM that enforces refuses any other serial.
+            let cpeReuse: Awaited<ReturnType<typeof import('../inventory/cpe-serial.service').CpeSerialService.planForOrder>>['reuse'] = [];
+            const finishing = (data.sltsStatus ?? oldOrder.sltsStatus) === 'COMPLETED';
+            if (hasMaterialUpdate && !isTransitioningToReturn && finishing && userId && isValidUuid(userId)) {
+                const { CpeSerialService } = await import('../inventory/cpe-serial.service');
+                const { orderSerialInputs, orderSerialRefusal } = await import('@/lib/cpe-serial-rules');
+                const cpeContractor = (data.contractorId || (updateData.contractorId as string | null) || oldOrder.contractorId) as string | null;
+                const inputs = orderSerialInputs(
+                    data.ontSerialNumber ?? oldOrder.ontSerialNumber, data.ontType === 'EXISTING',
+                    Array.isArray(data.iptvSerialNumbers) ? data.iptvSerialNumbers : [], data.stbType === 'EXISTING',
+                );
+                const cpe = await CpeSerialService.planForOrder(tx, {
+                    id, soNum: oldOrder.soNum, opmcId: oldOrder.opmcId, rtom: oldOrder.rtom, voiceNumber: oldOrder.voiceNumber, iptv: oldOrder.iptv,
+                }, cpeContractor, inputs);
+                if (cpe.enforcement === 'ENFORCE' && cpe.plan.problems.length > 0) throw AppError.badRequest(orderSerialRefusal(cpe.plan.problems));
+                // the form may send back the CPE lines of an earlier save: they are rebuilt from the serials, never doubled
+                data.materialUsage = [...data.materialUsage!.filter((m) => !cpe.cpeItemIds.includes(m.itemId)), ...cpe.installLines];
+                cpeReuse = cpe.reuse;
+            }
+
             if (hasMaterialUpdate && !isTransitioningToReturn) {
                 const { InventoryService } = await import('../inventory');
                 const contractorId = (data.contractorId || (updateData.contractorId as string | null) || oldOrder.contractorId) as string | null;
-                
+
                 // Rollback old GL consumption if the order was already completed
                 if (oldOrder.sltsStatus === 'COMPLETED') {
                     await LedgerService.rollbackSodTransaction(
@@ -239,26 +261,17 @@ export class ServiceOrderService {
                 // Material changes invalidate the prior invoice snapshot, and the approvals that were given on it.
                 updateData.isInvoicable = false;
             }
+            if (cpeReuse.length > 0) {
+                const { CpeSerialService } = await import('../inventory/cpe-serial.service');
+                await CpeSerialService.applyReuse(tx, { id, opmcId: oldOrder.opmcId }, cpeReuse, userId ?? null);
+            }
 
-            // Save collected CPEs
+            // Save collected CPEs (old devices taken from the customer): rows already on a Collected CPE Handing Over Form are kept
             if (data.collectedCpes && Array.isArray(data.collectedCpes)) {
                 const contractorId = (data.contractorId || (updateData.contractorId as string | null) || oldOrder.contractorId) as string | null;
                 if (contractorId) {
-                    await tx.collectedCPE.deleteMany({
-                        where: { serviceOrderId: id }
-                    });
-                    if (data.collectedCpes.length > 0) {
-                        await tx.collectedCPE.createMany({
-                            data: data.collectedCpes.map(c => ({
-                                serviceOrderId: id,
-                                contractorId,
-                                deviceType: c.deviceType,
-                                serialNumber: c.serialNumber,
-                                condition: c.condition,
-                                status: "PENDING_HANDBACK"
-                            }))
-                        });
-                    }
+                    const { CpeSerialService } = await import('../inventory/cpe-serial.service');
+                    await CpeSerialService.recordCollected(tx, { id, opmcId: oldOrder.opmcId }, contractorId, data.collectedCpes, userId && isValidUuid(userId) ? userId : null);
                 }
             }
             // Save erected poles

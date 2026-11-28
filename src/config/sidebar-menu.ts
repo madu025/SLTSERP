@@ -216,6 +216,14 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 permissionId: RBAC_PERMISSIONS.INVENTORY_CPE_READ
             },
             {
+                // Old devices taken from customers, per contractor and month, for the Collected CPE Handing Over Form to SLT (Area Coordinator, QC Officer)
+                title: 'Collected CPE',
+                level: 'view',
+                path: '/service-orders/collected-cpe',
+                icon: PackageMinus,
+                permissionId: RBAC_PERMISSIONS.INVENTORY_CPE_READ
+            },
+            {
                 // Only the contractors of the person's own RTOMs, view only
                 title: 'Contractors & Stock',
                 level: 'view',

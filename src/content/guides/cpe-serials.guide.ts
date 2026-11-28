@@ -5,6 +5,7 @@ const PAGE = 'src/app/service-orders/cpe-serials/page.tsx';
 const INPUT = 'src/components/cpe/CpeSerialInput.tsx';
 const ASSIST = 'src/components/cpe/useCpeSerialCheck.tsx';
 const RULES = 'src/lib/cpe-serial-rules.ts';
+const COLLECTED = 'src/app/service-orders/collected-cpe/page.tsx';
 
 export const CPE_SERIALS_GUIDE: ModuleGuide = {
     id: 'cpe-serials',
@@ -14,7 +15,7 @@ export const CPE_SERIALS_GUIDE: ModuleGuide = {
         + 'completed or upgraded only with a serial SLT issued for that RTOM. Nexus keeps a register of these serials: who holds each one, on which '
         + 'order it is installed, and its full history. Serials are scanned with a barcode scanner or the camera, or typed. Every serial belongs to '
         + 'one RTOM and never moves to another area.',
-    watch: [PAGE, INPUT, ASSIST, RULES, 'src/services/inventory/cpe-serial.service.ts', 'src/app/api/cpe-serials'],
+    watch: [PAGE, INPUT, ASSIST, RULES, COLLECTED, 'src/services/inventory/cpe-serial.service.ts', 'src/services/inventory/collected-cpe.service.ts', 'src/app/api/cpe-serials'],
     glossary: [
         { term: 'CPE', meaning: 'Customer premises equipment: the ONT / router, the IPTV set-top box (STB) and the phone installed at the customer.' },
         { term: 'CPE receipt (CPR)', meaning: 'A record of serials received from SLT, numbered CPR-YYYY-MM-NNNN. When the serials went straight to a contractor it also has an issue note (MIN).' },
@@ -73,9 +74,32 @@ export const CPE_SERIALS_GUIDE: ModuleGuide = {
                 'Read the line under the field: "SLT serial: Issued by SLT to <contractor>" is correct; "CPE register: ..." says what is wrong (not issued by SLT, another RTOM, with another contractor, already installed).',
                 'On an upgrade where the customer keeps the device, choose Existing / Re-use: the serial must be the one already installed for that voice number.',
                 'Do the same for each STB serial.',
+                'Save the order. A correct SLT serial becomes Installed on the order and leaves the contractor stock; a device kept on an upgrade moves to the new order. If the order is later returned or disappears, the serial goes back to the contractor.',
             ],
-            tips: ['While the register is still being filled the answer is shown but the order is saved anyway ("not blocked yet").'],
+            tips: [
+                'Each RTOM has a switch (OFF, WARN, ENFORCE). Until SLT starts the CPE Locator in an RTOM the answer is shown but the order is saved anyway ("not blocked yet"), and the order is listed under "Completed orders without an SLT serial" on CPE Serials.',
+                'When an RTOM enforces, an order cannot be saved with a serial SLT did not issue to that contractor in that RTOM, and the ONT serial (and one STB serial per IPTV) is required; the message says which serial and why.',
+            ],
             anchors: [{ file: ASSIST, text: 'Scan with the camera (QR code or barcode)' }, { file: INPUT, text: 'SLT serial: ' }, { file: INPUT, text: 'not blocked yet' }],
+        },
+        {
+            id: 'collected',
+            title: 'Collected CPE: the handing over form to SLT (Area Coordinator or QC Officer)',
+            summary: 'Record the old devices taken from customers on Confirm Completion, then make the Collected CPE Handing Over Form per contractor and month and mark the devices as handed over.',
+            keywords: ['collected cpe', 'collect cpe', 'old device', 'faulty', 'replaced', 'upgrade', 'handing over', 'handover form', 'return to slt', 'not clear', 'baradenna'],
+            page: '/service-orders/collected-cpe',
+            requires: RBAC_PERMISSIONS.INVENTORY_CPE_RECEIVE,
+            steps: [
+                'On Confirm Completion, add each old device taken from the customer with + Old CPE (ONT, STB or Phone): its serial, Faulty or Working, the Model, and the PSTN number only if it differs from the order. If the serial label cannot be read, tick Serial not readable: it is printed NOT CLEAR on the form.',
+                'Open Service Orders → Collected CPE. Choose the RTOM, the Contractor and the month the devices were collected; Show "Waiting to be handed over".',
+                'Click Handing over form (Excel) or Print form: the form has the same columns as the SLT Collected CPE Handing Over Form (NOS, RTOM Area, FTTH TP Number, PSTN TP Number, CPE Model, CPE Serial Number, CPE Handed over Date) with the signature lines for the contractor and the OPMC staff member.',
+                'When the contractor and the OPMC have signed and stamped it, tick the devices on the form (or Tick all), enter Handed over on and a Reference, and click Mark as handed over. The form gets a CCF number; serials in the CPE register become Returned to SLT.',
+            ],
+            tips: ['A device already on a form is never changed by saving the order again.', 'SLT may later issue a returned (repaired) serial again; it then starts a new cycle.'],
+            anchors: [
+                { file: COLLECTED, text: 'Handing over form (Excel)' }, { file: COLLECTED, text: 'Mark as handed over' }, { file: COLLECTED, text: 'Waiting to be handed over' },
+                { file: 'src/components/modals/order-action/OrderSheetMode.tsx', text: 'Serial not readable' },
+            ],
         },
         {
             id: 'register',

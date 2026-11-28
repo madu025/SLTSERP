@@ -43,6 +43,9 @@ export interface OrderActionData {
         deviceType: string;
         serialNumber: string;
         condition: string;
+        model?: string | null;
+        pstnNumber?: string | null;
+        serialUnreadable?: boolean;
     }> | null;
     dropWireDistance?: number | null;
     materialSource?: string | null;
@@ -96,6 +99,8 @@ export interface OrderCompletionData {
     dpDetails?: string;
     erectedPoles?: Array<{ poleType: string; poleNumber: string; }>;
     completionMode?: string;
+    ontType?: 'NEW' | 'EXISTING';
+    stbType?: 'NEW' | 'EXISTING';
     comment?: string;
     assignmentType?: string;
     materialStatus?: string;
@@ -103,5 +108,8 @@ export interface OrderCompletionData {
         deviceType: string;
         serialNumber: string;
         condition: string;
+        model?: string | null;
+        pstnNumber?: string | null;
+        serialUnreadable?: boolean;
     }>;
 }

@@ -375,12 +375,40 @@ model CollectedCPE {
   handbackReference String?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
+  /// Collected CPE Handing Over Form (docs/plans/cpe-serial-locator.md 7a): model, PSTN number if different, "NOT CLEAR" serials, RTOM, the form it went on
+  model             String?
+  pstnNumber        String?
+  serialUnreadable  Boolean         @default(false)
+  opmcId            String?         @db.Uuid
+  handoverFormId    String?         @db.Uuid
+  handoverForm      CpeHandoverForm? @relation(fields: [handoverFormId], references: [id])
   contractor        Contractor   @relation("CollectedCPEs", fields: [contractorId], references: [id], onDelete: Cascade)
   serviceOrder      ServiceOrder @relation("CollectedCPEs", fields: [serviceOrderId], references: [id], onDelete: Cascade)
 
   @@index([serviceOrderId])
   @@index([contractorId])
   @@index([status])
+  @@index([opmcId, status])
+  @@index([handoverFormId])
+}
+
+/// One Collected CPE Handing Over Form (CCF-YYYY-MM-NNNN): the collected devices of one contractor, one RTOM, one collection month, handed to SLT/OPMC.
+model CpeHandoverForm {
+  id             String         @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  formNumber     String         @unique
+  opmcId         String         @db.Uuid
+  contractorId   String         @db.Uuid
+  periodMonth    String
+  handedOverDate DateTime
+  reference      String?
+  scanUrl        String?
+  itemCount      Int
+  createdById    String         @db.Uuid
+  createdAt      DateTime       @default(now())
+  items          CollectedCPE[]
+
+  @@index([opmcId, periodMonth])
+  @@index([contractorId])
 }
 
 model SODErectedPole {

@@ -216,7 +216,7 @@ export const SOD_GUIDE: ModuleGuide = {
                 'Click the green tick (Confirm Completion) in the order\'s Actions column. Choosing COMPLETED in the Status dropdown opens the same window (COMPLETE ORDER).',
                 'Enter the Completion Date and check the Team / Contractor and the Distribution Point (DP).',
                 'Enter the ONT serial number and ONT type, the STB serial numbers (you can paste several at once) and, if used, the phone instrument serial. Scan them with the barcode scanner or the camera button beside the field; the line under the field says whether SLT issued that serial to the contractor (see the CPE serials guide).',
-                'If a faulty or old device was replaced, add it in the replaced-device rows (ONT, STB or Phone, marked Faulty or Working) with its old serial number.',
+                'If a faulty or old device was replaced (or taken back on an upgrade), add it in the replaced-device rows (ONT, STB or Phone, marked Faulty or Working) with its old serial number, its model and, if the serial cannot be read, Serial not readable. These devices go on the Collected CPE Handing Over Form (see the CPE serials guide).',
                 'Record the material: for each item enter the Used Qty, the Drop Wire F1 (m) and G1 (m) lengths, and any Wastage Qty with its reason. You can work in the Google Sheet Matrix (25) view or the Custom Rows Table view.',
                 'Add any completion notes and press COMPLETE ORDER at the bottom of the window, then Save order on the review screen. The order becomes COMPLETED with the date you entered.',
             ],

@@ -7,6 +7,7 @@ import { MaterialRepository } from '@/repositories/material.repository';
 import { MaterialUsageInput } from '@/types/service-order/sod-sync.types';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
+import { recordCpeEvent } from '@/services/inventory/cpe-serial-events';
 
 export class SODMaterialService {
     /**
@@ -176,6 +177,14 @@ export class SODMaterialService {
                             sodId: serviceOrderId
                         }
                     });
+                    // a CPE serial from the SLT CPE Locator keeps its history (docs/plans/cpe-serial-locator.md)
+                    if (serialRecord.cpeType) {
+                        await recordCpeEvent(tx, {
+                            serialId: serialRecord.id, serialNumber: serialNum, eventType: m.usageType === 'WASTAGE' ? 'FAULTY' : 'INSTALLED', fromStatus: serialRecord.status,
+                            toStatus: m.usageType === 'WASTAGE' ? 'FAULTY' : 'INSTALLED', issueCycle: serialRecord.issueCycle, opmcId: serialRecord.opmcId, contractorId,
+                            serviceOrderId, documentType: 'SOD', performedById: userId && /^[0-9a-f-]{36}$/i.test(userId) ? userId : null,
+                        });
+                    }
                 }
             } else {
                 // Return or Non-decrementing types
@@ -273,6 +282,7 @@ export class SODMaterialService {
             // Restore serial number status
             if (m.serialNumber) {
                 const serialNum = m.serialNumber.trim();
+                const before = await tx.inventoryItemSerial.findUnique({ where: { serialNumber: serialNum }, select: { id: true, status: true, cpeType: true, issueCycle: true, opmcId: true } });
                 await tx.inventoryItemSerial.update({
                     where: { serialNumber: serialNum },
                     data: {
@@ -282,6 +292,14 @@ export class SODMaterialService {
                         sodId: null
                     }
                 });
+                if (before?.cpeType) {
+                    await recordCpeEvent(tx, {
+                        serialId: before.id, serialNumber: serialNum, eventType: 'RELEASED', fromStatus: before.status, toStatus: contractorId ? 'ISSUED' : 'IN_STORE',
+                        issueCycle: before.issueCycle, opmcId: before.opmcId, contractorId: contractorId || null, storeId: contractorId ? null : (storeId || null),
+                        serviceOrderId, documentType: 'SOD', reason: 'Order saved again, returned or disappeared: the device is back with the contractor',
+                        performedById: userId && /^[0-9a-f-]{36}$/i.test(userId) ? userId : null,
+                    });
+                }
             }
         }
 

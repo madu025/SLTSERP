@@ -27,6 +27,10 @@ export interface CollectedCpeInput {
     deviceType: string;
     serialNumber: string;
     condition: string;
+    /** Collected CPE Handing Over Form: the model, the PSTN number when it differs, and a serial that cannot be read (printed NOT CLEAR) */
+    model?: string | null;
+    pstnNumber?: string | null;
+    serialUnreadable?: boolean;
 }
 
 export interface ServiceOrderUpdateData {
@@ -38,6 +42,9 @@ export interface ServiceOrderUpdateData {
     contractorId?: string | null;
     comments?: string | null;
     ontSerialNumber?: string | null;
+    /** NEW = a new device; EXISTING = the customer keeps the device already installed (upgrade) - decides the CPE serial rule */
+    ontType?: 'NEW' | 'EXISTING' | null;
+    stbType?: 'NEW' | 'EXISTING' | null;
     iptvSerialNumbers?: string[] | null;
     dpDetails?: string | null;
     dp?: string | null;

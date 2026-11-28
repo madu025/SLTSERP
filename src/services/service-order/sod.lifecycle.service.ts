@@ -102,6 +102,7 @@ export class SODLifecycleService {
 
         // Completion fields mapping
         if (otherData.ontSerialNumber) updateData.ontSerialNumber = otherData.ontSerialNumber;
+        if (otherData.ontType === 'NEW' || otherData.ontType === 'EXISTING') updateData.ontType = otherData.ontType;
         if (otherData.dpDetails !== undefined) updateData.dpDetails = otherData.dpDetails;
         if (otherData.dp !== undefined) updateData.dp = otherData.dp;
         if (otherData.voiceNumber !== undefined) updateData.voiceNumber = otherData.voiceNumber;

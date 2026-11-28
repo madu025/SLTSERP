@@ -31,6 +31,9 @@ export interface CollectedCpe {
     deviceType: string;
     serialNumber: string;
     condition: string;
+    model?: string | null;
+    pstnNumber?: string | null;
+    serialUnreadable?: boolean;
 }
 
 export interface ErectedPole {
@@ -85,7 +88,7 @@ interface OrderSheetModeProps {
         setDirectTeamName: (name: string) => void;
         setDpDetails: (dp: string) => void;
         addCollectedCpeWithType: (type: 'ONT' | 'STB' | 'PHONE') => void;
-        updateCollectedCpeRow: (index: number, field: keyof CollectedCpe, val: string) => void;
+        updateCollectedCpeRow: (index: number, field: keyof CollectedCpe, val: string | boolean) => void;
         removeCollectedCpeRow: (index: number) => void;
         addErectedPoleRow: () => void;
         updateErectedPoleRow: (index: number, field: 'poleType' | 'poleNumber', val: string) => void;
@@ -550,13 +553,23 @@ export function OrderSheetMode({
                                                     <option value="PHONE">Phone (Landline)</option>
                                                 </select>
                                             </div>
-                                            <div className="col-span-6">
+                                            <div className="col-span-6 space-y-1">
                                                 <Input
-                                                    placeholder="Old Device Serial"
-                                                    value={cpe.serialNumber}
+                                                    placeholder={cpe.serialUnreadable ? "NOT CLEAR (serial cannot be read)" : "Old Device Serial"}
+                                                    value={cpe.serialUnreadable ? "" : cpe.serialNumber}
+                                                    disabled={!!cpe.serialUnreadable}
                                                     onChange={e => controls.updateCollectedCpeRow(idx, 'serialNumber', e.target.value.toUpperCase())}
                                                     className="h-6 text-xs font-mono uppercase bg-white dark:bg-slate-900"
                                                 />
+                                                {/* Collected CPE Handing Over Form: model, a serial that cannot be read (NOT CLEAR), and the PSTN number if it differs */}
+                                                <div className="flex flex-wrap items-center gap-1">
+                                                    <Input placeholder="Model (e.g. TP LINK)" value={cpe.model ?? ""} onChange={e => controls.updateCollectedCpeRow(idx, 'model', e.target.value.toUpperCase())} className="h-6 w-28 text-[10px] bg-white dark:bg-slate-900" />
+                                                    <Input placeholder="PSTN no. (if different)" value={cpe.pstnNumber ?? ""} onChange={e => controls.updateCollectedCpeRow(idx, 'pstnNumber', e.target.value)} className="h-6 w-32 text-[10px] bg-white dark:bg-slate-900" />
+                                                    <label className="flex items-center gap-1 text-[10px] font-bold text-slate-800 dark:text-slate-200">
+                                                        <input type="checkbox" checked={!!cpe.serialUnreadable} onChange={e => controls.updateCollectedCpeRow(idx, 'serialUnreadable', e.target.checked)} />
+                                                        Serial not readable
+                                                    </label>
+                                                </div>
                                             </div>
                                             <div className="col-span-2">
                                                 <select

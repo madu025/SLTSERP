@@ -12,6 +12,9 @@ export const serviceOrderPatchSchema = z.object({
     statusDate: z.string().optional().nullable(),
     wiredOnly: z.boolean().optional(),
     ontSerialNumber: z.string().optional().nullable(),
+    // NEW device, or EXISTING (the customer keeps the device on an upgrade): decides the CPE serial rule (docs/plans/cpe-serial-locator.md)
+    ontType: z.enum(['NEW', 'EXISTING']).optional().nullable(),
+    stbType: z.enum(['NEW', 'EXISTING']).optional().nullable(),
     iptvSerialNumbers: z.array(z.string()).optional().nullable(),
     dpDetails: z.string().optional().nullable(),
     dp: z.string().optional().nullable(),
@@ -43,8 +46,11 @@ export const serviceOrderPatchSchema = z.object({
     })).optional(),
     collectedCpes: z.array(z.object({
         deviceType: z.string(),
-        serialNumber: z.string(),
-        condition: z.string().default("FAULTY")
+        serialNumber: z.string().default(''),
+        condition: z.string().default("FAULTY"),
+        model: z.string().max(80).optional().nullable(),
+        pstnNumber: z.string().max(20).optional().nullable(),
+        serialUnreadable: z.boolean().optional(),
     })).optional()
 });
 

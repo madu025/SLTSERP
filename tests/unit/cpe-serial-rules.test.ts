@@ -101,3 +101,59 @@ test('wiring: capabilities guard the routes, the history is append-only, a MIN o
     assert.match(svc, /transactionType: 'CPE_RECEIPT'/);
     assert.match(svc, /FOR UPDATE/);
 });
+
+// ---------------- phase 2 ----------------
+import { orderSerialInputs, planOrderSerials, orderSerialRefusal, readCollectedRow, rtomShort, tpNumber, formDate, formMonthTitle, colomboMonth } from '../../src/lib/cpe-serial-rules';
+
+test('the serials of a completion: normalised, empty ones dropped, each serial once', () => {
+    const lines = orderSerialInputs(' zzont 001 ', false, ['STB1111', '', 'stb1111', 'STB2222'], true);
+    assert.deepEqual(lines, [
+        { serial: 'ZZONT001', cpeType: 'ONT', reuse: false }, { serial: 'STB1111', cpeType: 'STB', reuse: true }, { serial: 'STB2222', cpeType: 'STB', reuse: true },
+    ]);
+});
+
+test('a completion plan: valid serials installed, the kept device reused, failures and missing serials listed', () => {
+    const ok = { ok: true, code: 'CPE_SERIAL_OK', message: '' };
+    const plan = planOrderSerials([
+        { input: { serial: 'ONT1', cpeType: 'ONT', reuse: false }, check: ok },
+        { input: { serial: 'STB1', cpeType: 'STB', reuse: true }, check: { ok: true, code: 'CPE_REUSE_OK', message: '' } },
+        { input: { serial: 'STB9', cpeType: 'STB', reuse: false }, check: { ok: false, code: 'CPE_SERIAL_NOT_FOUND', message: 'not issued by SLT' } },
+    ], { ont: true, stbCount: 3 });
+    assert.deepEqual(plan.install, [{ serial: 'ONT1', cpeType: 'ONT' }]);
+    assert.deepEqual(plan.reuse, [{ serial: 'STB1', cpeType: 'STB' }]);
+    assert.deepEqual(plan.problems.map((p) => p.code), ['CPE_SERIAL_NOT_FOUND', 'CPE_SERIAL_REQUIRED']);
+    assert.match(orderSerialRefusal(plan.problems), /^CPE_SERIAL_CHECK: STB9: not issued by SLT; 3 STB serial\(s\) required, 2 entered$/);
+    const noOnt = planOrderSerials([], { ont: true, stbCount: 0 });
+    assert.equal(noOnt.problems[0].message, 'The ONT serial is required');
+    assert.equal(planOrderSerials([], { ont: false, stbCount: 0 }).problems.length, 0);
+});
+
+test('a collected device: readable serial or NOT CLEAR, model, PSTN number', () => {
+    assert.deepEqual(readCollectedRow({ deviceType: 'ont', serialNumber: '3171 041001502', condition: 'faulty', model: ' tp link ' }),
+        { keep: true, deviceType: 'ONT', serialNumber: '3171041001502', serialUnreadable: false, condition: 'FAULTY', model: 'tp link', pstnNumber: null });
+    const unread = readCollectedRow({ deviceType: 'STB', serialNumber: '', serialUnreadable: true, condition: 'WORKING', pstnNumber: '011-2345678' });
+    assert.deepEqual([unread.keep, unread.serialNumber, unread.condition, unread.pstnNumber], [true, 'NOT CLEAR', 'WORKING', '0112345678']);
+    assert.equal(readCollectedRow({ deviceType: 'ONT', serialNumber: '' }).keep, false);
+});
+
+test('the handing over form layout: RTOM short code, TP number without the 0, dd.MM.yyyy, MON - YYYY', () => {
+    assert.equal(rtomShort('R-KON'), 'KON');
+    assert.equal(tpNumber('0112568373'), '112568373');
+    assert.equal(formDate('2025-01-06T20:00:00Z'), '07.01.2025');
+    assert.equal(formMonthTitle('2024-12'), 'DEC - 2024');
+    assert.equal(colomboMonth('2024-11-30T19:00:00Z'), '2024-12');
+});
+
+test('wiring: completion installs through the material service and an enforcing RTOM refuses; collected rows keep their form', () => {
+    const update = read('src/services/service-order/index.ts');
+    assert.match(update, /CpeSerialService\.planForOrder\(tx/);
+    assert.match(update, /cpe\.enforcement === 'ENFORCE' && cpe\.plan\.problems\.length > 0\) throw AppError\.badRequest\(orderSerialRefusal/);
+    assert.match(update, /CpeSerialService\.recordCollected\(tx/);
+    const svc = read('src/services/inventory/cpe-serial.service.ts');
+    assert.match(svc, /handoverFormId: null, status: 'PENDING_HANDBACK'/);
+    const material = read('src/services/service-order/sod.material.service.ts');
+    assert.match(material, /eventType: 'RELEASED'/);
+    assert.match(read('src/services/inventory/collected-cpe.service.ts'), /getNextDocumentNumber\('CCF', tx\)/);
+    assert.match(read('src/app/api/cpe-serials/collected/handover/route.ts'), /permissions: \[RBAC_PERMISSIONS\.INVENTORY_CPE_RECEIVE\]/);
+    assert.doesNotMatch(read('prisma/migrations/20261231000000_cpe_collected_form/migration.sql'), /\bDROP (TABLE|COLUMN)\b/);
+});

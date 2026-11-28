@@ -57,6 +57,10 @@ export default function CpeSerialsPage() {
         },
     });
     const receipts = useQuery<Receipt[]>({ queryKey: ["cpe-receipts"], queryFn: async () => unwrap(await fetch("/api/cpe-serials/receipts")) });
+    const unregistered = useQuery<Array<{ soNum: string; rtom: string | null; voiceNumber: string | null; ontSerialNumber: string | null; completedDate: string | null; contractor: string | null }>>({
+        queryKey: ["cpe-unregistered", filters.opmcId],
+        queryFn: async () => unwrap(await fetch(`/api/cpe-serials/unregistered${filters.opmcId ? `?opmcId=${filters.opmcId}` : ""}`)),
+    });
 
     const counts = register.data?.counts ?? {};
     const pages = register.data ? Math.max(1, Math.ceil(register.data.total / register.data.pageSize)) : 1;
@@ -144,6 +148,22 @@ export default function CpeSerialsPage() {
                                     <button type="button" disabled={page >= pages} onClick={() => setPage((p) => p + 1)} className="rounded border border-slate-400 px-2 py-1 font-bold disabled:opacity-40">Next</button>
                                 </div>
                             )}
+                        </section>
+
+                        <section className="rounded-lg border border-amber-600 bg-white" data-testid="cpe-unregistered">
+                            <h2 className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-sm font-extrabold text-amber-950">Completed orders without an SLT serial ({unregistered.data?.length ?? 0})</h2>
+                            <p className="px-3 pt-2 text-xs text-slate-800">Orders completed since 28 Nov 2026 whose ONT serial is not an SLT serial installed from the register. Correct them with Confirm Completion; once an RTOM enforces the rule such orders cannot be saved.</p>
+                            <div className="max-h-64 overflow-auto">
+                                <table className="min-w-full divide-y divide-slate-200">
+                                    <thead className="bg-slate-100"><tr><th className={th}>Order</th><th className={th}>RTOM</th><th className={th}>Voice</th><th className={th}>ONT serial entered</th><th className={th}>Contractor</th><th className={th}>Completed</th></tr></thead>
+                                    <tbody className="divide-y divide-slate-200">
+                                        {(unregistered.data ?? []).length === 0 && <tr><td colSpan={6} className={`${td} text-center text-slate-700`}>{unregistered.isLoading ? "Loading..." : "None."}</td></tr>}
+                                        {(unregistered.data ?? []).map((o) => (
+                                            <tr key={o.soNum}><td className={`${td} font-mono text-xs font-bold`}>{o.soNum}</td><td className={td}>{o.rtom ?? "-"}</td><td className={td}>{o.voiceNumber ?? "-"}</td><td className={`${td} font-mono`}>{o.ontSerialNumber ?? "(none)"}</td><td className={td}>{o.contractor ?? "-"}</td><td className={td}>{day(o.completedDate)}</td></tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </section>
 
                         <section className="rounded-lg border border-slate-300 bg-white">

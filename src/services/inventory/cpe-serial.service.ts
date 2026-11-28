@@ -3,8 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import {
-    CPE_ITEMS, readCpeLines, registerDecision, checkSerialForOrder, cpeReceiptGate, enforcementFor, normalizeSerial,
-    type CpeType, type CpeReceiptMode, type CpeSerialState, type CpeInputRow,
+    CPE_ITEMS, readCpeLines, registerDecision, checkSerialForOrder, cpeReceiptGate, enforcementFor, normalizeSerial, planOrderSerials, readCollectedRow,
+    SERIAL_NOT_CLEAR, type CpeType, type CpeReceiptMode, type CpeSerialState, type CpeInputRow, type OrderSerialInput, type CpeEnforcement,
 } from '@/lib/cpe-serial-rules';
 import { AuditService } from '@/services/audit/audit.service';
 import { AuditLedgerService } from './audit-ledger.service';
@@ -279,28 +279,48 @@ export class CpeSerialService {
     }
 
     /**
-     * The answer a screen shows while a serial is typed or scanned on an order (Confirm Completion). Phase 1: shown only, never blocks.
+     * Completed orders (since the register started, 28 Nov 2026) whose ONT is not an installed SLT serial of the register: what the WARN mode
+     * lets through. Shown on CPE Serials so the Area Coordinator / QC Officer can correct them before an RTOM enforces.
      */
-    static async checkForOrder(userId: string, q: { serial: string; serviceOrderId: string; cpeType: CpeType; contractorId?: string | null; reuse?: boolean }) {
-        const serialNumber = normalizeSerial(q.serial);
-        const order = await prisma.serviceOrder.findUnique({ where: { id: q.serviceOrderId }, select: { id: true, soNum: true, opmcId: true, rtom: true, contractorId: true, voiceNumber: true } });
-        if (!order) throw AppError.notFound('Order not found');
-        const scope = await resolveOpmcScope(userId, 'sod');
-        if (scope !== undefined && (!order.opmcId || !scope.includes(order.opmcId))) throw AppError.forbidden('OPMC_ACCESS_DENIED');
-        const states = await this.findStates([serialNumber]);
-        const state = states.get(serialNumber) ?? null;
+    static async unregisteredOrders(userId: string, opmcId?: string) {
+        const scope = await this.scope(userId);
+        if (opmcId) await this.assertRtom(userId, opmcId);
+        const orders = await prisma.serviceOrder.findMany({
+            where: {
+                sltsStatus: 'COMPLETED', contractorId: { not: null }, completedDate: { gte: new Date('2026-11-28T00:00:00+05:30') },
+                opmcId: opmcId ? opmcId : scope === undefined ? undefined : { in: scope },
+            },
+            select: { id: true, soNum: true, rtom: true, voiceNumber: true, ontSerialNumber: true, ontType: true, completedDate: true, contractor: { select: { name: true } } },
+            orderBy: { completedDate: 'desc' }, take: 500,
+        });
+        if (!orders.length) return [];
+        const installed = await prisma.inventoryItemSerial.findMany({ where: { sodId: { in: orders.map((o) => o.id) }, cpeType: 'ONT' }, select: { sodId: true } });
+        const ok = new Set(installed.map((i) => i.sodId));
+        return orders.filter((o) => !ok.has(o.id) && o.ontType !== 'EXISTING').slice(0, 200).map((o) => ({
+            soNum: o.soNum, rtom: o.rtom, voiceNumber: o.voiceNumber, ontSerialNumber: o.ontSerialNumber, completedDate: o.completedDate, contractor: o.contractor?.name ?? null,
+        }));
+    }
+
+    /** The enforcement mode of an RTOM (system config CPE_SERIAL_ENFORCEMENT: one mode, or a JSON map by RTOM). */
+    static async enforcement(rtom: string | null | undefined, db: Pick<TransactionClient, 'systemConfig'> = prisma): Promise<CpeEnforcement> {
+        const cfg = await db.systemConfig.findUnique({ where: { key: 'CPE_SERIAL_ENFORCEMENT' }, select: { value: true } }).catch(() => null);
+        return enforcementFor(cfg?.value, rtom);
+    }
+
+    /** May this serial be used on this order? Register state plus the upgrade re-use facts, read with the given client. */
+    static async evaluate(db: TransactionClient, order: { id: string; soNum: string; opmcId: string | null; voiceNumber: string | null }, input: OrderSerialInput, contractorId: string | null) {
+        const row = await db.inventoryItemSerial.findUnique({ where: { serialNumber: input.serial }, select: serialSelect });
+        const so = row?.sodId ? await db.serviceOrder.findUnique({ where: { id: row.sodId }, select: { soNum: true, voiceNumber: true, opmcId: true } }) : null;
+        const state = row && row.cpeType ? toState(row, so?.soNum ?? null) : null;
         let installedAtSameVoice = false;
         let legacyAtSameVoice = false;
-        if (q.reuse && order.voiceNumber) {
-            if (state?.status === 'INSTALLED' && state.sodId) {
-                const prev = await prisma.serviceOrder.findUnique({ where: { id: state.sodId }, select: { voiceNumber: true, opmcId: true } });
-                installedAtSameVoice = !!prev && prev.voiceNumber === order.voiceNumber && prev.opmcId === order.opmcId;
-            }
+        if (input.reuse && order.voiceNumber) {
+            installedAtSameVoice = state?.status === 'INSTALLED' && !!so && so.voiceNumber === order.voiceNumber && so.opmcId === order.opmcId;
             if (!state) {
-                const legacy = await prisma.serviceOrder.findFirst({
+                const legacy = await db.serviceOrder.findFirst({
                     where: {
                         id: { not: order.id }, voiceNumber: order.voiceNumber,
-                        OR: [{ ontSerialNumber: { equals: serialNumber, mode: 'insensitive' } }, { iptvSerials: { some: { serialNumber: { equals: serialNumber, mode: 'insensitive' } } } }],
+                        OR: [{ ontSerialNumber: { equals: input.serial, mode: 'insensitive' } }, { iptvSerials: { some: { serialNumber: { equals: input.serial, mode: 'insensitive' } } } }],
                     },
                     select: { id: true },
                 });
@@ -308,10 +328,89 @@ export class CpeSerialService {
             }
         }
         const check = checkSerialForOrder(state, {
-            opmcId: order.opmcId, contractorId: q.contractorId || order.contractorId, soNum: order.soNum, serviceOrderId: order.id, cpeType: q.cpeType,
-            reuse: !!q.reuse, installedAtSameVoice, legacyAtSameVoice,
+            opmcId: order.opmcId, contractorId, soNum: order.soNum, serviceOrderId: order.id, cpeType: input.cpeType, reuse: input.reuse, installedAtSameVoice, legacyAtSameVoice,
         });
-        const cfg = await prisma.systemConfig.findUnique({ where: { key: 'CPE_SERIAL_ENFORCEMENT' }, select: { value: true } }).catch(() => null);
-        return { serialNumber, enforcement: enforcementFor(cfg?.value, order.rtom), ...check, holder: state?.contractorName ?? null, status: state?.status ?? null };
+        return { state, check, rowId: row?.id ?? null, issueCycle: row?.issueCycle ?? 1, fromSod: row?.sodId ?? null, fromSoNum: so?.soNum ?? null };
+    }
+
+    /**
+     * The answer a screen shows while a serial is typed or scanned on an order (Confirm Completion).
+     */
+    static async checkForOrder(userId: string, q: { serial: string; serviceOrderId: string; cpeType: CpeType; contractorId?: string | null; reuse?: boolean }) {
+        const serialNumber = normalizeSerial(q.serial);
+        const order = await prisma.serviceOrder.findUnique({ where: { id: q.serviceOrderId }, select: { id: true, soNum: true, opmcId: true, rtom: true, contractorId: true, voiceNumber: true } });
+        if (!order) throw AppError.notFound('Order not found');
+        const scope = await resolveOpmcScope(userId, 'sod');
+        if (scope !== undefined && (!order.opmcId || !scope.includes(order.opmcId))) throw AppError.forbidden('OPMC_ACCESS_DENIED');
+        const e = await this.evaluate(prisma as unknown as TransactionClient, order, { serial: serialNumber, cpeType: q.cpeType, reuse: !!q.reuse }, q.contractorId || order.contractorId);
+        return { serialNumber, enforcement: await this.enforcement(order.rtom), ...e.check, holder: e.state?.contractorName ?? null, status: e.state?.status ?? null };
+    }
+
+    /**
+     * Phase 2, inside the completion transaction: which serials of the order are installed (as material lines of the CPE item, so stock,
+     * batches and the RETURN rollback work like any material), which are the customer's existing device kept on an upgrade, and which fail.
+     * The caller refuses the completion when the RTOM enforces and something fails.
+     */
+    static async planForOrder(tx: TransactionClient, order: { id: string; soNum: string; opmcId: string | null; rtom: string | null; voiceNumber: string | null; iptv: string | null },
+        contractorId: string | null, inputs: OrderSerialInput[]) {
+        const enforcement = await this.enforcement(order.rtom, tx);
+        const evaluated: Array<{ input: OrderSerialInput } & Awaited<ReturnType<typeof CpeSerialService.evaluate>>> = [];
+        for (const input of inputs) evaluated.push({ input, ...(await this.evaluate(tx, order, input, contractorId)) });
+        const stbCount = Math.max(0, parseInt(order.iptv ?? '0', 10) || 0);
+        const strict = enforcement === 'ENFORCE';
+        const plan = planOrderSerials(evaluated.map((e) => ({ input: e.input, check: e.check })), { ont: strict, stbCount: strict ? stbCount : 0 });
+        const items = await tx.inventoryItem.findMany({ where: { code: { in: Object.values(CPE_ITEMS).map((i) => i.code) } }, select: { id: true, code: true } });
+        const itemOf = (t: CpeType) => items.find((i) => i.code === CPE_ITEMS[t].code)?.id ?? null;
+        const installLines = plan.install.flatMap((p) => {
+            const itemId = itemOf(p.cpeType);
+            return itemId ? [{ itemId, quantity: '1', usageType: 'USED', serialNumber: p.serial, comment: `CPE ${p.cpeType}` }] : [];
+        });
+        const reuse = plan.reuse.map((p) => evaluated.find((e) => e.input.serial === p.serial)!).filter((e) => !!e.rowId && !!e.fromSod && e.fromSod !== order.id);
+        return { enforcement, plan, installLines, reuse, cpeItemIds: items.map((i) => i.id) };
+    }
+
+    /** Upgrade keeping the customer's device: the serial moves from the earlier order of the same voice number to this one (no stock moves). */
+    static async applyReuse(tx: TransactionClient, order: { id: string; opmcId: string | null },
+        reuse: Array<{ rowId: string | null; input: OrderSerialInput; issueCycle: number; fromSod: string | null; fromSoNum: string | null }>, userId: string | null) {
+        for (const r of reuse) {
+            if (!r.rowId) continue;
+            await tx.inventoryItemSerial.update({ where: { id: r.rowId }, data: { sodId: order.id } });
+            await recordCpeEvent(tx, {
+                serialId: r.rowId, serialNumber: r.input.serial, eventType: 'REUSED_ON_UPGRADE', fromStatus: 'INSTALLED', toStatus: 'INSTALLED', issueCycle: r.issueCycle,
+                opmcId: order.opmcId, serviceOrderId: order.id, documentType: 'SOD', documentNumber: r.fromSoNum,
+                reason: `Kept by the customer on an upgrade (was on order ${r.fromSoNum ?? r.fromSod})`, performedById: userId,
+            });
+        }
+    }
+
+    /**
+     * The old devices collected on an order (faulty, or taken back on an upgrade). Rows already on a handover form stay as they are; the
+     * others are replaced by what the form sends. A readable serial that is in the register becomes RECOVERED (working) or FAULTY.
+     */
+    static async recordCollected(tx: TransactionClient, order: { id: string; opmcId: string | null }, contractorId: string, rows: unknown[], userId: string | null) {
+        const read = (rows as Record<string, unknown>[]).map(readCollectedRow).filter((r) => r.keep);
+        await tx.collectedCPE.deleteMany({ where: { serviceOrderId: order.id, handoverFormId: null, status: 'PENDING_HANDBACK' } });
+        const onForm = await tx.collectedCPE.findMany({ where: { serviceOrderId: order.id, handoverFormId: { not: null } }, select: { serialNumber: true } });
+        const fresh = read.filter((r) => r.serialUnreadable || !onForm.some((f) => f.serialNumber === r.serialNumber));
+        if (fresh.length) {
+            await tx.collectedCPE.createMany({
+                data: fresh.map((r) => ({
+                    serviceOrderId: order.id, contractorId, opmcId: order.opmcId, deviceType: r.deviceType, serialNumber: r.serialNumber, serialUnreadable: r.serialUnreadable,
+                    condition: r.condition, model: r.model, pstnNumber: r.pstnNumber, status: 'PENDING_HANDBACK',
+                })),
+            });
+        }
+        for (const r of fresh) {
+            if (r.serialUnreadable || r.serialNumber === SERIAL_NOT_CLEAR) continue;
+            const row = await tx.inventoryItemSerial.findUnique({ where: { serialNumber: r.serialNumber }, select: { id: true, status: true, cpeType: true, issueCycle: true, opmcId: true } });
+            if (!row?.cpeType) continue;
+            const to = r.condition === 'WORKING' ? 'RECOVERED' : 'FAULTY';
+            if (row.status === to || row.status === 'RETURNED_TO_SLT') continue;
+            await tx.inventoryItemSerial.update({ where: { id: row.id }, data: { status: to, contractorId, storeId: null, sodId: null } });
+            await recordCpeEvent(tx, {
+                serialId: row.id, serialNumber: r.serialNumber, eventType: to === 'FAULTY' ? 'FAULTY' : 'RECOVERED', fromStatus: row.status, toStatus: to, issueCycle: row.issueCycle,
+                opmcId: row.opmcId, contractorId, serviceOrderId: order.id, documentType: 'SOD', reason: 'Collected from the customer', performedById: userId,
+            });
+        }
     }
 }
