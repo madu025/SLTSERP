@@ -131,7 +131,7 @@ export function registerDecision(existing: CpeSerialState | null, opmcId: string
         return { kind: 'REFUSED', code: 'CPE_SERIAL_WRONG_TYPE', message: `Serial ${existing.serialNumber} is registered as ${existing.cpeType}` };
     }
     if (CPE_REISSUE_STATUSES.includes(existing.status)) return { kind: 'REISSUE', nextCycle: (existing.issueCycle || 1) + 1 };
-    const where = existing.status === 'INSTALLED' ? ` on order ${existing.soNum ?? ''}`.trimEnd() : existing.status === 'ISSUED' ? ` with ${existing.contractorName ?? 'a contractor'}` : '';
+    const where = existing.status === 'INSTALLED' ? ` on order ${existing.soNum ?? ''}`.trimEnd() : existing.status === 'ISSUED' ? `: ${existing.contractorName ?? 'a contractor'}` : '';
     return {
         kind: 'REFUSED', code: 'CPE_SERIAL_ALREADY_REGISTERED',
         message: `Serial ${existing.serialNumber} is already in the register (${CPE_STATUS_LABEL[existing.status] ?? existing.status}${where}). Record its recovery first if SLT issued it again.`,

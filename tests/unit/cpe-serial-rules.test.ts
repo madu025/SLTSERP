@@ -41,7 +41,7 @@ test('a serial enters the register once; SLT may issue it again only after recov
     const installed = registerDecision(state({ status: 'INSTALLED', soNum: 'KX2026' }), 'kx', 'ONT');
     assert.ok(installed.kind === 'REFUSED' && installed.code === 'CPE_SERIAL_ALREADY_REGISTERED' && /on order KX2026/.test(installed.message));
     const issued = registerDecision(state(), 'kx', 'ONT');
-    assert.ok(issued.kind === 'REFUSED' && /with Team One/.test(issued.message));
+    assert.ok(issued.kind === 'REFUSED' && /With contractor: Team One/.test(issued.message));
     const wrongType = registerDecision(state({ status: 'RECOVERED' }), 'kx', 'STB');
     assert.equal(wrongType.kind === 'REFUSED' && wrongType.code, 'CPE_SERIAL_WRONG_TYPE');
 });
