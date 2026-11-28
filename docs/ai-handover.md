@@ -86,4 +86,7 @@ for local scripts (`.env.local`). pnpm only.
   A reconciliation of AP-VEND must include supplier debit notes and contractor invoices, not only supplier invoices.
 - Contractor balance rule (28 Nov): issues not rejected - SOD lines WITH a batch - wastage notes - accepted returns = ContractorStock
   (`src/lib/contractor-balance-rules.ts`). SOD lines without a batch (everything before the fresh start) never move stock, also not on rollback.
-  R-KX OPMC still points to a test store (ZZG6DAAL); test scripts that `connect` R-KX to their store must unlink it on cleanup.
+  Test scripts that `connect` R-KX to their store must unlink it on cleanup (R-KX was left on a test store until the 28 Nov cleanup).
+- 28 Nov ZZ cleanup: all ZZ test stores, items, vendors, users, SODs and their procurement, stock, ledger and journals were deleted
+  (`scripts/zz-test-store-map.ts` + `zz-test-store-cleanup.ts`, backup `/root/backups/sltserp-before-zz-cleanup-20261128.dump`).
+  The inventory ledger and the GL were empty afterwards (everything after the fresh start was test data).
