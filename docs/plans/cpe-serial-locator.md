@@ -24,6 +24,8 @@ area. Nexus must be ready before SLT switches it on: today an ONT serial is free
 | Which store belongs to each RTOM? | The **administrator sets it later** (Inventory / Stores, store form, field linking the store to its RTOMs - `opmcIds` - already exists). |
 | Faulty devices back to SLT | A **Collected CPE report** is sent to SLT for faulty CPE and for the old devices taken from customers on upgrades: it lists the serials together with the devices collected. |
 | SLT export / API | Not available now; may come later. Start with our template; add SLT's columns when a file arrives. |
+| What identifies "the same customer" on an upgrade? | The **voice number** is enough. |
+| Layout of the Collected CPE report | The form used today, "Collected CPE Handing Over Form" (sample of Dec 2024, KON) - section 7a. |
 
 ## 3. What exists today (checked 28 Nov 2026)
 
@@ -117,11 +119,30 @@ transaction with a row lock on each serial:
 
 **Upgrade keeping the existing device ("Existing / Re-use", owner: the usual case).** The serial need not be newly issued. It is accepted when
 it is the serial **already installed for the same customer**: the register shows it `INSTALLED` on an earlier order with the same voice number
-(or customer account) in the same RTOM, or - for devices installed before the register existed - an earlier order of that voice number carries
+in the same RTOM (owner: the voice number is enough), or - for devices installed before the register existed - an earlier order of that voice number carries
 the same serial in `ontSerialNumber` / `SODIptvSerial`. Then the serial moves to the upgrade order (event `REUSED_ON_UPGRADE`, same cycle, no
 contractor stock change). Any other serial on "Existing / Re-use" is refused (`CPE_SERIAL_NOT_AT_CUSTOMER`). When the upgrade installs a **new**
 device instead (old one faulty or another reason), the new serial passes the normal rules and the old device is recorded as collected
 (below).
+
+### 7a. Collected CPE Handing Over Form (the layout SLT receives today)
+
+From the owner's sample (one sheet per month, e.g. tab "NOV - 2024", RTOM KON). Nexus exports exactly this layout to Excel and PDF:
+
+- Title: **Collected CPE Handing Over Form (MON - YYYY)** - the month the devices were collected.
+- Columns: **NOS** (1, 2, 3...), **RTOM Area** (short code without "R-", e.g. `KON`), **FTTH TP Number** (the order's voice number without
+  the leading 0, e.g. `112568373`), **PSTN TP Number (If Number different only)** (blank unless a different PSTN number was recorded),
+  **CPE Model** (e.g. `TP LINK`, `PROLINK`), **CPE Serial Number**, **CPE Handed over Date** (`dd.MM.yyyy`, the date it is handed to SLT/OPMC,
+  which can be in the next month - the sample's December devices were handed over on 07.01.2025).
+- Footer: "Certify that CPEs received," with two signature lines: **Contractor Signature** (left) and **OPMC staff member (Official stamp to be
+  placed)** (right). So one form is made **per contractor, per RTOM, per month**.
+- **"NOT CLEAR" serials.** In the sample 4 of 15 devices have the serial `NOT CLEAR` (label unreadable). Nexus must accept a collected device
+  whose serial cannot be read: tick "Serial not readable" on the replaced-device row; it is stored with no serial, printed as `NOT CLEAR`,
+  matched to nothing in the register, and listed on a check report. A readable serial is matched to the register and moves to
+  `RETURNED_TO_SLT` when the form is marked as sent.
+- Data needed on `CollectedCPE` (additive): `model`, `pstnNumber` (optional), `serialUnreadable` (boolean), `handoverFormNo`
+  (e.g. `CCF-YYYY-MM-NNNN`, printed small in the corner for traceability), `opmcId`. `serialNumber` becomes optional when `serialUnreadable`.
+- The signed and stamped form is scanned and uploaded on the form record (same as other signed documents), then **Mark as sent**.
 
 On success: status `INSTALLED`, `sodId` set, event written, contractor stock -1. Editing a completed order releases the old serial
 (back to `ISSUED`) and installs the new one, both as events.
@@ -190,9 +211,8 @@ Browser QA on localhost with a USB-scanner simulation (typed text + Enter) and t
 
 ## 13. Open questions for the owner
 
-Answered on 28 Nov (see section 2). Still to settle when building:
+Answered on 28 Nov (see section 2). Remaining:
 
-1. Upgrade re-use: is the voice number enough to say "same customer", or does SLT use another customer key (account number) that the portal
-   sync already gives us?
-2. The exact layout SLT wants for the Collected CPE report (a sample of the report sent today would let the export match it).
+1. Upgrade re-use: the voice number is enough (answered).
+2. Collected CPE report layout: taken from the owner's sample (section 7a).
 3. Prerequisite before the store path (B) and before ENFORCE: the administrator links each RTOM to its store (only 3 of 44 linked today).
