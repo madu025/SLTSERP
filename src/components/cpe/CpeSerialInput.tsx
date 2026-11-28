@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, X, Loader2 } from "lucide-react";
+import { Camera, X, Loader2, Smartphone } from "lucide-react";
 import { normalizeSerial } from "@/lib/cpe-serial-rules";
+import { PhoneScanDialog } from "./PhoneScanDialog";
 
 /**
  * One way to enter a CPE serial everywhere (docs/plans/cpe-serial-locator.md, section 6):
@@ -11,8 +12,10 @@ import { normalizeSerial } from "@/lib/cpe-serial-rules";
  *  - camera: the camera button reads a QR code or a barcode (open-source @zxing/browser, loaded only when the camera is opened).
  */
 export function CpeSerialInput({
-    value, onChange, onCommit, placeholder = "Scan or type the serial", disabled, autoFocus, ariaLabel, className, testId,
+    value, onChange, onCommit, placeholder = "Scan or type the serial", disabled, autoFocus, ariaLabel, className, testId, phone,
 }: {
+    /** adds a "Scan with phone" button (QR code): one serial, or a batch passed to onCommit one by one */
+    phone?: { mode: "single" | "batch"; label: string };
     value: string;
     onChange: (v: string) => void;
     /** called with the normalised serial when a scan ends, Enter is pressed or the field is left */
@@ -25,6 +28,7 @@ export function CpeSerialInput({
     testId?: string;
 }) {
     const [camera, setCamera] = useState(false);
+    const [phoneOpen, setPhoneOpen] = useState(false);
     const commit = (raw: string) => {
         const s = normalizeSerial(raw);
         if (s !== raw) onChange(s);
@@ -62,10 +66,31 @@ export function CpeSerialInput({
             >
                 <Camera className="h-4 w-4" />
             </button>
+            {phone && (
+                <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => setPhoneOpen(true)}
+                    title="Scan with your phone: shows a QR code to open the scanner on the phone"
+                    aria-label="Scan with phone"
+                    data-testid={testId ? `${testId}-phone` : undefined}
+                    className="inline-flex items-center justify-center rounded-md border border-slate-400 bg-white px-2.5 text-slate-800 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700 disabled:opacity-50"
+                >
+                    <Smartphone className="h-4 w-4" />
+                </button>
+            )}
             {camera && (
                 <CameraScanDialog
                     onClose={() => setCamera(false)}
                     onResult={(text) => { setCamera(false); const s = normalizeSerial(text); onChange(s); if (s) onCommit?.(s); }}
+                />
+            )}
+            {phone && phoneOpen && (
+                <PhoneScanDialog
+                    mode={phone.mode}
+                    label={phone.label}
+                    onClose={() => setPhoneOpen(false)}
+                    onSerial={(s) => { if (phone.mode === "single") onChange(s); onCommit?.(s); }}
                 />
             )}
         </div>

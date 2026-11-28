@@ -3,6 +3,8 @@
   "GET /api/auth/refresh",
   "GET /api/health/live",
   "GET /api/metrics",
+  "GET /api/public/cpe-scan/[token]",
+  "POST /api/public/cpe-scan/[token]",
   "GET /api/public/invoices/[id]",
   "POST /api/auth/refresh"
 ]

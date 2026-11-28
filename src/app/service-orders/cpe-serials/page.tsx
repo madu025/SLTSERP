@@ -225,9 +225,12 @@ function ReceiptForm({ options, onClose, onSaved }: { options: Options; onClose:
         const s = normalizeSerial(raw);
         setScan("");
         if (!s) return;
-        if (serials.some((x) => x.serial === s)) { toast.warning(`${s} is already in the list`); return; }
-        if (serials.length >= CPE_MAX_LINES) { toast.error(`At most ${CPE_MAX_LINES} serials at a time`); return; }
-        setSerials((l) => [...l, { serial: s }]);
+        // read the latest list (serials from the phone can arrive several at once)
+        setSerials((l) => {
+            if (l.some((x) => x.serial === s)) { toast.warning(`${s} is already in the list`); return l; }
+            if (l.length >= CPE_MAX_LINES) { toast.error(`At most ${CPE_MAX_LINES} serials at a time`); return l; }
+            return [...l, { serial: s }];
+        });
         changed();
     };
 
@@ -312,7 +315,7 @@ function ReceiptForm({ options, onClose, onSaved }: { options: Options; onClose:
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
                 <div>
                     <span className={label}>Serials ({serials.length})</span>
-                    <CpeSerialInput className="mt-1" value={scan} onChange={setScan} onCommit={add} autoFocus testId="cpe-scan" placeholder="Scan with the barcode scanner, the camera, or type and press Enter" />
+                    <CpeSerialInput className="mt-1" value={scan} onChange={setScan} onCommit={add} autoFocus testId="cpe-scan" phone={{ mode: "batch", label: `${cpeType} serials from SLT` }}placeholder="Scan with the barcode scanner, the camera, or type and press Enter" />
                     <div className="mt-2 flex flex-wrap gap-2">
                         <button type="button" onClick={template} className="inline-flex items-center gap-1 rounded-md border border-slate-400 bg-white px-3 py-1.5 text-xs font-bold text-slate-900 hover:bg-slate-100"><Download className="h-3.5 w-3.5" />Template</button>
                         <button type="button" onClick={() => fileRef.current?.click()} className="inline-flex items-center gap-1 rounded-md border border-slate-400 bg-white px-3 py-1.5 text-xs font-bold text-slate-900 hover:bg-slate-100"><Upload className="h-3.5 w-3.5" />Upload Excel</button>

@@ -72,6 +72,9 @@ const publicPrefixes: Array<{ prefix: string; maxDepth: number; methods?: string
     { prefix: '/api/public/invoices', maxDepth: 1 },
     { prefix: '/public/invoices', maxDepth: 1 },
     { prefix: '/public/device-audit', maxDepth: 1 },
+    // "Scan with phone" for CPE serials: the phone opens /public/cpe-scan/<token> from a QR code; the token is the only key (30 minutes)
+    { prefix: '/public/cpe-scan', maxDepth: 1 },
+    { prefix: '/api/public/cpe-scan', maxDepth: 1, methods: ['GET', 'POST'] },
     // Contractor onboarding links are /<page>/<token>. The exact-match entries above only cover the bare path, so
     // without these the invite pages redirected every anonymous visitor to the login page and the public API
     // (`public-register/<token>`, which saves the draft and submits the registration) answered 401.
