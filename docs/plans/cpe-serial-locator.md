@@ -1,6 +1,6 @@
 # CPE serials from the SLT CPE Locator: plan for the SOD module
 
-Status: plan, not built. Written 28 Nov 2026 from the owner's answers. Nothing here changes production until the owner approves the
+Status: plan, not built. Written 28 Nov 2026 from the owner's answers (two rounds, same day). Nothing here changes production until the owner approves the
 migration (rule 4 of `docs/ai-handover.md`).
 
 ## 1. What SLT is changing
@@ -18,6 +18,12 @@ area. Nexus must be ready before SLT switches it on: today an ONT serial is free
 | Server rules | Agreed: the serial must be in the register, belong to the order's RTOM, be held by the order's contractor, and not be installed elsewhere; otherwise completion/upgrade is refused with the reason. No route changes a serial's RTOM; if ever needed, administrators only, with an audit entry. |
 | Who scans? | Office staff, for now (contractor app later). |
 | Which orders need a serial? | **Every order.** A serial that was used before is valid only when SLT issued it again: the old customer stopped using it, or it was installed, became faulty, was replaced, repaired and issued again. |
+| Upgrade: may the customer keep the device already installed ("Existing / Re-use")? | **Mostly yes.** An upgrade usually keeps the customer's existing device and its serial. A new device (new SLT-issued serial) is also possible when the old one is faulty or for another reason. |
+| Must a second person approve a direct issue to a contractor? | **No.** For small quantities the SLTS **Area Coordinator or QC Officer** of the RTOM enters (types or scans) the serials; no approval. |
+| CPE item codes? | **None exist.** Create generic CPE items (section 8); the model is kept on each serial. |
+| Which store belongs to each RTOM? | The **administrator sets it later** (Inventory / Stores, store form, field linking the store to its RTOMs - `opmcIds` - already exists). |
+| Faulty devices back to SLT | A **Collected CPE report** is sent to SLT for faulty CPE and for the old devices taken from customers on upgrades: it lists the serials together with the devices collected. |
+| SLT export / API | Not available now; may come later. Start with our template; add SLT's columns when a file arrives. |
 
 ## 3. What exists today (checked 28 Nov 2026)
 
@@ -64,8 +70,8 @@ Both paths produce a numbered document, `CpeSerialEvent` rows, and stock/ledger 
 number and an `InventoryLedger` entry (AGENTS.md).
 
 **A. Small quantity, SLT hands it to the contractor directly**
-Inventory / Stores -> CPE Serials -> **Record SLT issue to contractor**: pick RTOM, contractor, CPE type, SLT reference/date; scan, type or upload
-the serials. One transaction writes a CPE Receipt `CPR-YYYY-MM-NNNN` into the RTOM's store and an immediate MIN to the contractor, so the
+Service Orders -> CPE Serials -> **Record SLT issue to contractor**, done by the **Area Coordinator or QC Officer** of that RTOM (no approval): pick
+RTOM (only their own), contractor, CPE type, SLT reference/date; scan, type or upload the serials. One transaction writes a CPE Receipt `CPR-YYYY-MM-NNNN` into the RTOM's store and an immediate MIN to the contractor, so the
 store ledger, contractor stock and FIFO batch stay consistent with every other movement. Serials end `ISSUED` to that contractor.
 
 **B. Bundle to our store**
@@ -74,8 +80,8 @@ The store then issues them on the normal MIN screen, where the serials are scann
 
 **Upload format.** Download a template (`Serial number`, `CPE type`, `Model`, `SLT reference`, optional `Contractor`). The upload shows a
 preview: valid rows, duplicates in the file, serials already in Nexus (with status, RTOM, holder), a different RTOM, unknown type. Nothing is
-saved until the user confirms. When SLT shares a real export, add its column names as aliases. Second-person approval: recommended for
-bundles (B, like Opening Stock); not for small direct issues (A) - owner to confirm.
+saved until the user confirms. When SLT shares a real export, add its column names as aliases. No second-person approval for direct issues (A,
+owner); a bundle (B) is received by the stores staff in one step, like a GRN acceptance (owner may ask for an approval later).
 
 **Re-issue by SLT.** A serial already in Nexus can be accepted again only when: it is in the **same RTOM**; its status is `RECOVERED`, `FAULTY`
 (repaired) or `RETURNED_TO_SLT`; and the user confirms "Issued again by SLT" (reason kept). Then `issueCycle` + 1. A serial that is still
@@ -109,14 +115,27 @@ transaction with a row lock on each serial:
 | CPE type fits the field (ONT serial in ONT field) | `CPE_SERIAL_WRONG_TYPE` |
 | Every order has its required serial(s) (ONT; STB per IPTV count) | `CPE_SERIAL_REQUIRED` |
 
+**Upgrade keeping the existing device ("Existing / Re-use", owner: the usual case).** The serial need not be newly issued. It is accepted when
+it is the serial **already installed for the same customer**: the register shows it `INSTALLED` on an earlier order with the same voice number
+(or customer account) in the same RTOM, or - for devices installed before the register existed - an earlier order of that voice number carries
+the same serial in `ontSerialNumber` / `SODIptvSerial`. Then the serial moves to the upgrade order (event `REUSED_ON_UPGRADE`, same cycle, no
+contractor stock change). Any other serial on "Existing / Re-use" is refused (`CPE_SERIAL_NOT_AT_CUSTOMER`). When the upgrade installs a **new**
+device instead (old one faulty or another reason), the new serial passes the normal rules and the old device is recorded as collected
+(below).
+
 On success: status `INSTALLED`, `sodId` set, event written, contractor stock -1. Editing a completed order releases the old serial
 (back to `ISSUED`) and installs the new one, both as events.
 **Order returned or disappeared (RETURN / DISAPPEARED rollback):** the serial goes back to the contractor (`ISSUED`), same cycle - matches the
 material rule already in `SODMaterialService.rollbackMaterialUsage`. **HO PAT rejection:** the serial stays installed (same rule as material).
 
-**Faulty replacement:** on the replacement order the old device is recorded in the replaced-device rows -> `CollectedCPE` + event
-`RECOVERED`/`FAULTY`; the new serial passes the rules above. Faulty/recovered devices are listed for handback to SLT -> `RETURNED_TO_SLT`
-with the SLT reference.
+**Faulty replacement and old devices from upgrades:** on the order the old device is recorded in the replaced-device rows (serial, type,
+condition Faulty or Working) -> `CollectedCPE` + event `RECOVERED`/`FAULTY`; the new serial passes the rules above.
+
+**Collected CPE report to SLT (owner).** Inventory / Stores (or Service Orders) -> **Collected CPE**: per RTOM and period, every collected device
+waiting for handback - serial, device type and model, condition, order number, voice number, contractor, collected date. Export to Excel/PDF
+in the layout SLT accepts, then **Mark as sent** with the report reference: one transaction sets `CollectedCPE` `HANDED_BACK`
+(`CPEService.submitHandback` already does this part) and the serials `RETURNED_TO_SLT` with events. Later SLT can repair and issue them again
+(next cycle, section 5).
 
 **Switch (per RTOM)**, system config `CPE_SERIAL_ENFORCEMENT`: `OFF` -> `WARN` (default after go-live: save allowed, warning stored on the
 order, listed on a report) -> `ENFORCE` (refused). An RTOM moves to ENFORCE when SLT starts CPE Locator there and its serials are loaded, so
@@ -128,14 +147,16 @@ work never stops while the register is being filled.
   `sltReference`, `receivedAt`, `issueCycle` (default 1), `lastEventAt`; indexes on `opmcId`, (`opmcId`,`status`).
 - New `CpeSerialEvent` (append-only, checksum chain, no update/delete in code; a DB trigger refusing UPDATE/DELETE like the ledger if one exists).
 - New `CpeReceipt` + `CpeReceiptLine` (`CPR-YYYY-MM-NNNN`, RTOM, store, SLT reference, mode DIRECT_TO_CONTRACTOR/TO_STORE, status, maker, approver).
-- CPE items in the item master with `hasSerial = true` (ONT, STB, phone models). Today none exist: the owner or stores team lists the models.
+- CPE items in the item master with `hasSerial = true`. No codes exist (owner), so create three generic items: `CPE-ONT` (ONT / router),
+  `CPE-STB` (IPTV set-top box), `CPE-PHONE` (voice instrument), unit Nos, cost 0 (SLT-owned devices). The model is a text field on each serial.
+  The codes can be renamed in the item master later.
 - Existing free-text serials (3,813 ONT, 346 STB) stay as history; they are **not** loaded into the register (they were never issued through
   Nexus). A report can match them against the register later.
 
 ## 9. Permissions and scope (follow `docs/authorization-architecture.md`)
 
 New capabilities in `src/config/rbac-permissions.ts`, with seed, admin UI, guards and tests together:
-`inventory.cpe.receive` (record receipts / direct issues), `inventory.cpe.approve` (approve a bundle, never the maker),
+`inventory.cpe.receive` (record receipts / direct issues; granted to Area Coordinator, QC Officer and the stores roles), `inventory.cpe.approve` (approve a bundle, never the maker),
 `inventory.cpe.read` (register and history), `inventory.cpe.admin` (the audited RTOM correction and enforcement switch; administrators only).
 Completion keeps `sod.write`. Every read/write is limited to the user's RTOMs (`resolveOpmcScope`).
 
@@ -143,10 +164,11 @@ Completion keeps `sod.write`. Every read/write is limited to the user's RTOMs (`
 
 1. Inventory / Stores -> **CPE Serials**: register by RTOM, status, contractor, type, cycle; search by serial (scan box); a serial's page shows its
    full history (events, orders, documents).
-2. **Record SLT issue to contractor** and **Receive CPE bundle** (section 5), with upload preview.
+2. **Record SLT issue to contractor** (Service Orders menu, for the Area Coordinator and QC Officer) and **Receive CPE bundle** (Inventory /
+   Stores, for the stores staff), with upload preview (section 5).
 3. Confirm Completion: ONT/STB/phone fields become `CpeSerialInput` with scan and instant check.
 4. MIN and returns: serial scan for CPE items.
-5. Faulty / recovered CPE awaiting handback to SLT; handback with reference.
+5. **Collected CPE** report for SLT (faulty devices and old devices from upgrades), export, Mark as sent with reference.
 6. Reports: serials issued but not installed (by contractor, age), WARN-mode orders with an unregistered serial, faulty pending handback,
    SLT-reported serial vs entered serial mismatches.
 7. Contractor app (later phase): the contractor sees the serials they hold.
@@ -155,7 +177,8 @@ Completion keeps `sod.write`. Every read/write is limited to the user's RTOMs (`
 
 1. **Register and entry** (no enforcement): migration, CPE items, receipts A and B, upload, `CpeSerialInput` with scanner/camera, instant check,
    register and history screens, switch at `OFF`/`WARN`. Guide `cpe-serials` on Help; SOD guide updated.
-2. **Rules**: completion/upgrade/edit/rollback rules, faulty replacement, recovery, re-issue cycle, handback; `ENFORCE` per RTOM.
+2. **Rules**: completion/upgrade/edit/rollback rules, upgrade re-use of the customer's device, faulty replacement, Collected CPE report and
+   handback, re-issue cycle; `ENFORCE` per RTOM once its store is linked and its serials are loaded.
 3. **Later**: contractor app scanning, SLT API import if SLT offers one, compliance audit check for the serial event chain and serials
    installed twice in one cycle.
 
@@ -167,10 +190,9 @@ Browser QA on localhost with a USB-scanner simulation (typed text + Enter) and t
 
 ## 13. Open questions for the owner
 
-1. Upgrade orders where the customer keeps the ONT that is already there: does SLT require a new serial on every upgrade, or is "Existing /
-   Re-use" allowed when that serial is the one installed on the customer's earlier order?
-2. Direct issues to a contractor (path A): is one person enough, or must a second person approve like bundles?
-3. Which CPE models (ONT, STB, phone) and their item codes should be created as serial items?
-4. Which store belongs to each RTOM? (Only 3 of 44 are linked today.)
-5. Does a faulty device go back to SLT through our store, or does the contractor hand it to SLT directly?
-6. When SLT shares a sample export from CPE Locator, send it so the upload can read its columns as they are.
+Answered on 28 Nov (see section 2). Still to settle when building:
+
+1. Upgrade re-use: is the voice number enough to say "same customer", or does SLT use another customer key (account number) that the portal
+   sync already gives us?
+2. The exact layout SLT wants for the Collected CPE report (a sample of the report sent today would let the export match it).
+3. Prerequisite before the store path (B) and before ENFORCE: the administrator links each RTOM to its store (only 3 of 44 linked today).
