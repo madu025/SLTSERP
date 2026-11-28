@@ -223,6 +223,7 @@ export const SOD_GUIDE: ModuleGuide = {
             tips: [
                 'The material you enter here is the source of truth. It moves stock and posts to the ledger; what SLT reports is only used for comparison on Material Deviation.',
                 'If a quantity is more than the contractor holds in stock the screen warns "More than the contractor holds".',
+                'If SLT returns the order (RETURN) or it disappears from the portal, the material recorded on it goes back to the contractor stock. If HO rejects the PAT, the material stays used on the order: it was installed, the rejection is about quality.',
                 'Revenue and the contractor amount are calculated by the system from the SOD revenue configuration. You do not type them.',
                 'The bulk "Complete" action only marks orders Completed with today\'s date. It does not record serial numbers or material, so use Confirm Completion for real completions.',
             ],

@@ -561,9 +561,10 @@ export class SODSyncService {
                                         where: { id: order.id },
                                         data: { hoPatDate: sltApiService.parseStatusDate(match.CON_STATUS_DATE) }
                                     });
-                                    // Trigger rollbacks since it got HO-rejected
-                                    await SODMaterialService.rollbackMaterialUsage(tx, order.id, 'HO_REJECT');
-                                    await LedgerService.rollbackSodTransaction(tx, order.id);
+                                    // HO PAT rejection is a quality finding on finished work (owner, 28 Nov 2026): the material used
+                                    // to complete the order stays used (it is on the pole), so no material rollback and its cost
+                                    // entry (SOD_CONSUMPTION) stays. Only the billing side is reversed: the order is not invoicable.
+                                    await LedgerService.rollbackSodTransaction(tx, order.id, undefined, ['SOD_REVENUE', 'SOD_WIP_ACCRUAL']);
                                 });
                             }
                         }));

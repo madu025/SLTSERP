@@ -7,7 +7,7 @@ import { config } from 'dotenv'; config({ path: '.env.local' });
  *
  *   GRN-like receipt 1000 m drop wire + 3 ONTs into a ZZTEST store -> MIN to a ZZTEST contractor (600 m, 3 ONT with serials)
  *   -> SOD 1 completed: F1 120 m + G1 30 m used, 5 m wastage, 1 ONT (serial) -> edit SOD 1 (F1 100 m) -> SOD 2: 1 ONT, 40 m
- *   -> SOD 2 RETURNED (rollback) -> an old line without a batch (as before the fresh start) is rolled back by an HO PAT rejection
+ *   -> SOD 2 RETURNED (rollback) -> an old line without a batch (as before the fresh start) is rolled back
  *   -> return of 50 m: store of the issue note -> accept 45 of 50 -> balance screen rows and the store ledger.
  *
  *   pnpm exec tsx scripts/zz-contractor-balance-chain.ts
@@ -107,10 +107,10 @@ async function main() {
             await expect('after SOD 2 returned (rollback)', 465, 2);
             check('ONT serial B back with the contractor', (await tx.inventoryItemSerial.findUnique({ where: { serialNumber: serials[1] } }))?.status === 'ISSUED');
 
-            // ---------- 6. an old line without a batch (written before the fresh start) rolled back by an HO PAT rejection ----------
+            // ---------- 6. an old line without a batch (written before the fresh start) rolled back when its order is returned ----------
             const sod3 = await mkSod(3);
             await tx.sODMaterialUsage.create({ data: { serviceOrderId: sod3.id, itemId: dw.id, quantity: 342, unit: 'm', usageType: 'PORTAL_SYNC', batchId: null } });
-            await SODMaterialService.rollbackMaterialUsage(tx, sod3.id, 'HO_REJECT');
+            await SODMaterialService.rollbackMaterialUsage(tx, sod3.id, 'SYNC_SERVICE');
             await expect('old line without a batch rolled back: no stock created', 465, 2);
 
             // ---------- 7. return (MRN) ----------

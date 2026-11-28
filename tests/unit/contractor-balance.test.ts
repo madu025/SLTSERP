@@ -67,3 +67,10 @@ test('balance screens no longer read COMPLETED only or the requested return quan
     assert.match(rules, /"acceptedQuantity"/);
     assert.match(rules, /u\."batchId" IS NOT NULL/);
 });
+
+test('an HO PAT rejection keeps the material used on the order (owner, 28 Nov 2026)', () => {
+    const svc = read('src/services/service-order/sod.sync.service.ts');
+    assert.doesNotMatch(svc, /rollbackMaterialUsage\(tx, order\.id, 'HO_REJECT'\)/);
+    // only the billing side is reversed: revenue and the contractor WIP accrual, never the material cost
+    assert.match(svc, /rollbackSodTransaction\(tx, order\.id, undefined, \['SOD_REVENUE', 'SOD_WIP_ACCRUAL'\]\)/);
+});
