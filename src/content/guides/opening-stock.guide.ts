@@ -52,6 +52,10 @@ export const OPENING_STOCK_GUIDE: ModuleGuide = {
                 'Whole numbers only for items counted in Nos.',
                 'An item that already has stock (or an open load) in the store cannot be loaded again: use a cycle count to correct it.',
             ],
+            images: [
+                { src: '/guides/opening-stock/01-upload.png', caption: 'A correct count sheet: every row with its value, the signed sheet attached, and the checks green.' },
+                { src: '/guides/opening-stock/02-wrong-rows.png', caption: 'A sheet with mistakes: each wrong row is red and says what to fix; the submit button stays locked.' },
+            ],
             anchors: [
                 { file: PAGE, text: 'Store and count date' },
                 { file: PAGE, text: 'Download template' },
@@ -77,6 +81,9 @@ export const OPENING_STOCK_GUIDE: ModuleGuide = {
             tips: [
                 'You cannot approve a load you submitted.',
                 'On approval each line becomes a numbered FIFO batch at its unit cost, and the stock ledger records it as the opening balance.',
+            ],
+            images: [
+                { src: '/guides/opening-stock/03-approve.png', caption: 'Another person checks the load against the signed count sheet and approves it.' },
             ],
             anchors: [
                 { file: PAGE, text: 'Check and decide' },

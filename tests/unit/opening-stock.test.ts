@@ -78,3 +78,11 @@ test('Help and the assistant answer go-live stock questions from the opening sto
     assert.equal(GuideService.lookup('how do I add opening stock to a store at go live', all).sections[0].id, 'submit');
     assert.equal(GuideService.lookup('approve opening stock load', all).sections[0].id, 'approve');
 });
+
+test('every screenshot of the opening stock guide exists', async () => {
+    const { existsSync } = await import('node:fs');
+    const { OPENING_STOCK_GUIDE } = await import('../../src/content/guides/opening-stock.guide');
+    const images = OPENING_STOCK_GUIDE.sections.flatMap((s) => s.images ?? []);
+    assert.ok(images.length >= 3);
+    for (const im of images) assert.ok(existsSync(new URL(`../../public${im.src}`, import.meta.url)), `${im.src} is in public/`);
+});
