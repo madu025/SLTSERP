@@ -74,7 +74,7 @@ test('a receipt needs its RTOM store, the contractor of that RTOM, a date and a 
     assert.match(first({ storeLinked: false })!, /no store linked/);
     assert.match(first({ inScope: false })!, /not one of yours/);
     assert.match(first({ contractorChosen: false })!, /Choose the contractor/);
-    assert.equal(first({ mode: 'TO_STORE', contractorChosen: false }), null);
+    assert.match(first({ mode: 'TO_STORE' })!, /recorded to the contractor/);
     assert.match(first({ contractorOfRtom: false })!, /does not work in this RTOM/);
     assert.match(first({ receivedDate: '2026-11-29' })!, /not in the future/);
     assert.match(first({ lines: readCpeLines([{ row: 7, serial: 'x' }], 'ONT') })!, /Row 7: Serial number is too short/);

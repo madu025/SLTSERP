@@ -312,9 +312,8 @@ All limits are in `src/config/session-policy.ts`; nothing else may hold a copy (
 ## CPE serials (28 Nov 2026)
 
 `inventory.cpe.read` opens Service Orders -> CPE Serials (`/service-orders/cpe-serials`: the register and a serial's history) for the service order people of
-the RTOM (Area Manager, Engineer, Assistant Engineer, Area Coordinator, QC Officer), the OSP managers and the stores. `inventory.cpe.receive` records
-serials received from SLT: the Area Coordinator and the QC Officer (small quantities handed straight to a contractor, no approval - owner) and the Stores
-Manager and Executive (bundles into the RTOM store; menu Inventory -> Daily work -> CPE Serials (SLT), same page). Data scope: the union of the person's
-`sod` and `inventory` OPMC scope (`CpeSerialService.scope`); a direct issue also passes the MIN checks (store of the RTOM, contractor of that store).
-The order check (`GET /api/cpe-serials/check`) needs `sod.read` and the order's RTOM. Plan: `docs/plans/cpe-serial-locator.md`.
-
+the RTOM (Area Manager, Engineer, Assistant Engineer, Area Coordinator, QC Officer) and the OSP managers. `inventory.cpe.receive` records (scans) the
+serials SLT gives a contractor: the **Area Coordinator and the QC Officer only** (owner: recording, scanning and Collect CPE are their job, not the
+inventory side's; no stores grant and no Inventory menu entry). Data scope: the person's `sod` (and `inventory`) OPMC scope (`CpeSerialService.scope`);
+the recording also passes the MIN checks (store of the RTOM, contractor of that store). The order check (`GET /api/cpe-serials/check`) needs `sod.read`
+and the order's RTOM. Plan: `docs/plans/cpe-serial-locator.md`.

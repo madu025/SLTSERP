@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 const cell = z.union([z.string().max(200), z.number()]).nullish();
 export const cpeReceiptBodySchema = z.object({
-    mode: z.enum(['DIRECT_TO_CONTRACTOR', 'TO_STORE']),
+    mode: z.enum(['DIRECT_TO_CONTRACTOR']),
     opmcId: databaseUuidSchema,
     contractorId: databaseUuidSchema.nullish(),
     cpeType: z.enum(['ONT', 'STB', 'PHONE']),
@@ -27,7 +27,7 @@ export const GET = apiHandler(async (_req, params) => {
     return CpeSerialService.receipts(params._userId);
 }, { permissions: [RBAC_PERMISSIONS.INVENTORY_CPE_READ] });
 
-// POST /api/cpe-serials/receipts: record serials received from SLT (to a contractor directly, or a bundle into the RTOM store)
+// POST /api/cpe-serials/receipts: record (scan) the serials SLT gave a contractor of the RTOM - Area Coordinator / QC Officer
 export const POST = apiHandler(async (_req, params, body: z.infer<typeof cpeReceiptBodySchema>) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
     return CpeSerialService.receive({ userId: params._userId, ...body });

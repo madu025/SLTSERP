@@ -208,7 +208,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 permissionId: RBAC_PERMISSIONS.SOD_INVOICE
             },
             {
-                // SLT CPE Locator serials of the person's RTOMs; the Area Coordinator and QC Officer record the ones SLT hands to a contractor
+                // SLT CPE Locator serials of the person's RTOMs; only the Area Coordinator and QC Officer record (scan) them - not the stores
                 title: 'CPE Serials',
                 level: 'view',
                 path: '/service-orders/cpe-serials',
@@ -414,14 +414,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
                         path: '/inventory/admin/returns',
                         icon: RefreshCw,
                         permissionId: RBAC_PERMISSIONS.INVENTORY_WRITE, // store operations: shown to store staff, not to roles that only read or approve
-                    },
-                    {
-                        // CPE bundles from SLT into the RTOM store (the same page as Service Orders -> CPE Serials)
-                        title: 'CPE Serials (SLT)',
-                        level: 'operate',
-                        path: '/service-orders/cpe-serials',
-                        icon: ScanBarcode,
-                        permissionId: RBAC_PERMISSIONS.INVENTORY_CPE_RECEIVE,
                     }
                 ]
             },

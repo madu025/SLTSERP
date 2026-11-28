@@ -126,9 +126,8 @@ export class CpeSerialService {
     }
 
     /**
-     * Record serials received from SLT. TO_STORE: a bundle into the RTOM's store (serials IN_STORE; the store then issues them on a MIN).
-     * DIRECT_TO_CONTRACTOR: small quantities SLT handed straight to the contractor, entered by the Area Coordinator or QC Officer: the same
-     * receipt into the RTOM's store and, in the same transaction, a MIN to the contractor, so stock, ledger and serial history all agree.
+     * Record the serials SLT gave a contractor (Area Coordinator or QC Officer; a service order job, not the stores' - owner, 28 Nov 2026).
+     * In one transaction: a receipt (CPR) into the RTOM's store and a MIN to the contractor, so stock, ledger and serial history all agree.
      */
     static async receive(input: CpeReceiptInput) {
         const scope = await this.scope(input.userId);

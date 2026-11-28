@@ -138,13 +138,12 @@ const BASE_BOOTSTRAP_ROLE_GRANTS = {
     // Goods receipt: the Stores Executive and the Stores Manager (and the CEO and admins); not the store officers.
     // Master data (item master, stores): the Executive, the Manager, the CEO and admins.
     [RBAC_PERMISSIONS.INVENTORY_MASTER]: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'STORES_MANAGER', 'STORES_EXECUTIVE'],
-    // CPE serials from the SLT CPE Locator (owner, 28 Nov 2026): the service order people of the RTOM and the stores see the register;
-    // the Area Coordinator and the QC Officer record small quantities SLT hands straight to a contractor, the stores record bundles
+    // CPE serials from the SLT CPE Locator (owner, 28 Nov 2026): a service order job, not the stores'. The service order people of the RTOM see the
+    // register; only the Area Coordinator and the QC Officer record (scan) the serials SLT gives the contractors and, in phase 2, the collected CPE
     [RBAC_PERMISSIONS.INVENTORY_CPE_READ]: [
         'SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER',
-        'STORES_MANAGER', 'STORES_EXECUTIVE', 'STORES_ASSISTANT',
     ],
-    [RBAC_PERMISSIONS.INVENTORY_CPE_RECEIVE]: ['SUPER_ADMIN', 'ADMIN', 'AREA_COORDINATOR', 'QC_OFFICER', 'STORES_MANAGER', 'STORES_EXECUTIVE'],
+    [RBAC_PERMISSIONS.INVENTORY_CPE_RECEIVE]: ['SUPER_ADMIN', 'ADMIN', 'AREA_COORDINATOR', 'QC_OFFICER'],
     // the site office people who may be made custodian of a box, the Area Manager who approves its releases, and the finance people who watch and fund it
     [RBAC_PERMISSIONS.PETTY_CASH_SITE]: [
         'SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'AREA_MANAGER', 'SITE_OFFICE_STAFF', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT',

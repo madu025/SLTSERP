@@ -24,12 +24,11 @@ export const CPE_SERIALS_GUIDE: ModuleGuide = {
         {
             id: 'overview',
             title: 'How CPE serials move',
-            summary: 'From SLT to the contractor (directly or through the store), then onto an order; every step is kept in the serial history.',
+            summary: 'From SLT to the contractor, recorded by the Area Coordinator or QC Officer, then onto an order; every step is kept in the serial history.',
             keywords: ['cpe', 'cpe locator', 'serial', 'serials', 'ont', 'router', 'stb', 'set top box', 'phone', 'slt serial', 'barcode', 'qr'],
             page: '/service-orders/cpe-serials',
             steps: [
-                'Small quantities: SLT hands the devices straight to the contractor. The Area Coordinator or QC Officer of the RTOM records them (Record SLT issue to contractor).',
-                'Bundles: SLT sends the devices to the store of the RTOM. The stores staff record them (Receive CPE bundle), then issue them to contractors on the normal Goods Issue (MIN), scanning each serial.',
+                'SLT gives the devices to the contractors of the RTOM. The Area Coordinator or QC Officer of the RTOM scans their serials into Nexus for that contractor (Record SLT issue to contractor). This is a service order job; the stores do not record CPE.',
                 'When an order is completed, the ONT and STB serials are scanned or typed on Confirm Completion; the CPE register says at once whether the serial was issued by SLT to that contractor in that RTOM.',
                 'Open Service Orders → CPE Serials to see every serial of your RTOMs, its status and who holds it. Click a serial to see its full history.',
             ],
@@ -41,8 +40,8 @@ export const CPE_SERIALS_GUIDE: ModuleGuide = {
         },
         {
             id: 'direct',
-            title: 'Record serials SLT handed straight to a contractor (Area Coordinator or QC Officer)',
-            summary: 'Enter or scan the serials a contractor received from SLT; they are received into the RTOM store and issued to the contractor in one step.',
+            title: 'Record the serials SLT gave a contractor (Area Coordinator or QC Officer)',
+            summary: 'Scan or enter the serials a contractor received from SLT; they are recorded for that contractor in one step.',
             keywords: ['record', 'direct', 'contractor', 'issue', 'slt issue', 'small quantity', 'enter serial', 'scan serial', 'area coordinator', 'qc officer', 'denna', 'labuna'],
             page: '/service-orders/cpe-serials',
             requires: RBAC_PERMISSIONS.INVENTORY_CPE_RECEIVE,
@@ -54,28 +53,13 @@ export const CPE_SERIALS_GUIDE: ModuleGuide = {
                 'Remove or fix the lines in red, then click Save. You get the CPR number and the MIN number of the issue to the contractor.',
             ],
             tips: [
-                'No approval is needed for these small quantities (owner decision).',
+                'No approval is needed (owner decision). Only the Area Coordinator and the QC Officer record CPE serials, not the stores.',
                 'A serial already installed somewhere cannot be added again; when SLT issues a recovered or repaired device again, it starts a new cycle.',
             ],
             anchors: [
                 { file: PAGE, text: 'Record SLT issue to contractor' }, { file: PAGE, text: 'Check the list' }, { file: PAGE, text: 'Upload Excel' },
                 { file: INPUT, text: 'Scan with the camera' }, { file: RULES, text: 'a serial never moves to another area' },
             ],
-        },
-        {
-            id: 'bundle',
-            title: 'Receive a CPE bundle into the store (stores staff)',
-            summary: 'Record a bundle of serials from SLT into the RTOM store; the store issues them to contractors on a MIN.',
-            keywords: ['bundle', 'store', 'receive', 'stores', 'grn', 'cpe receipt', 'bulk', 'excel', 'upload'],
-            page: '/service-orders/cpe-serials',
-            requires: RBAC_PERMISSIONS.INVENTORY_CPE_RECEIVE,
-            steps: [
-                'Open Inventory / Stores → Daily work → CPE Serials (SLT), or Service Orders → CPE Serials, and click Receive CPE bundle (store).',
-                'Choose the RTOM (its store receives the devices), the CPE type, the SLT reference and the date.',
-                'Scan, type or upload the serials, click Check the list, then Save. The serials are In store under the CPR number.',
-                'Issue them to contractors on Goods Issue (MIN) as usual, scanning the serials of the devices you hand over.',
-            ],
-            anchors: [{ file: PAGE, text: 'Receive CPE bundle (store)' }],
         },
         {
             id: 'on-order',

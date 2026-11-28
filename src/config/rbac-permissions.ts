@@ -77,7 +77,7 @@ export const RBAC_PERMISSIONS = {
     INVENTORY_MASTER: 'inventory.master',
     /** CPE serials from the SLT CPE Locator (docs/plans/cpe-serial-locator.md): see the register and a serial's history in the person's RTOMs. */
     INVENTORY_CPE_READ: 'inventory.cpe.read',
-    /** Record CPE serials received from SLT: directly by the contractor (Area Coordinator, QC Officer) or as a bundle into the RTOM's store (stores staff). */
+    /** Record (scan) the CPE serials SLT gives the contractors of the RTOM: the Area Coordinator and the QC Officer only (a service order job, not the stores'). */
     INVENTORY_CPE_RECEIVE: 'inventory.cpe.receive',
     /** Petty cash of a site office: the custodian records bills and asks for replenishment, the Area Manager of the site office approves the releases. Which box a person sees is set by the custodian list and the Area Manager of the site office, not by this capability alone. */
     PETTY_CASH_SITE: 'petty-cash.site',
@@ -196,7 +196,7 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.INVENTORY_ADJUST, module: 'INVENTORY', action: 'ADJUST', scope: 'OPMC', description: 'Record stock adjustments (contractor wastage / write-offs)' },
     { code: RBAC_PERMISSIONS.INVENTORY_MASTER, module: 'INVENTORY', action: 'MASTER', scope: 'OPMC', description: 'Maintain the item master and the stores' },
     { code: RBAC_PERMISSIONS.INVENTORY_CPE_READ, module: 'INVENTORY', action: 'CPE_READ', scope: 'OPMC', description: 'See the CPE serial register (SLT CPE Locator) and the history of a serial, in the assigned RTOMs' },
-    { code: RBAC_PERMISSIONS.INVENTORY_CPE_RECEIVE, module: 'INVENTORY', action: 'CPE_RECEIVE', scope: 'OPMC', description: 'Record CPE serials received from SLT: handed to a contractor directly, or a bundle into the RTOM store' },
+    { code: RBAC_PERMISSIONS.INVENTORY_CPE_RECEIVE, module: 'INVENTORY', action: 'CPE_RECEIVE', scope: 'OPMC', description: 'Record (scan) the CPE serials SLT gives the contractors of the RTOM (Area Coordinator, QC Officer)' },
     { code: RBAC_PERMISSIONS.PETTY_CASH_SITE, module: 'FINANCE', action: 'PETTY_CASH_SITE', scope: 'OPMC', description: 'Work the petty cash of a site office as its custodian, or approve its releases as its Area Manager' },
     { code: RBAC_PERMISSIONS.INVENTORY_RELEASE, module: 'INVENTORY', action: 'RELEASE', scope: 'OPMC', description: 'Release stock from the main store against an approved request' },
     { code: RBAC_PERMISSIONS.INVENTORY_GRN, module: 'INVENTORY', action: 'GRN', scope: 'OPMC', description: 'Receive goods into a store (goods receipt note)' },

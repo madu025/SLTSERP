@@ -42,7 +42,7 @@ export default function CpeSerialsPage() {
         if (typeof window === "undefined") return false;
         try { const u = JSON.parse(localStorage.getItem("user") || "{}"); return Array.isArray(u.permissions) && u.permissions.includes(RBAC_PERMISSIONS.INVENTORY_CPE_RECEIVE); } catch { return false; }
     });
-    const [mode, setMode] = useState<null | "DIRECT_TO_CONTRACTOR" | "TO_STORE">(null);
+    const [formOpen, setFormOpen] = useState(false);
     const [filters, setFilters] = useState({ opmcId: "", status: "", cpeType: "", q: "" });
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
@@ -74,15 +74,12 @@ export default function CpeSerialsPage() {
                                 <p className="mt-1 max-w-3xl text-sm text-slate-700">Serials of the CPE devices (ONT, STB, phone) that SLT issues through the CPE Locator, for your RTOMs. Every serial belongs to one RTOM. Scan with a barcode scanner or the camera, or type.</p>
                             </div>
                             {canReceive && (
-                                <div className="flex flex-wrap gap-2">
-                                    <button type="button" data-testid="cpe-open-direct" onClick={() => setMode("DIRECT_TO_CONTRACTOR")} className="rounded-md bg-blue-800 px-3 py-2 text-sm font-bold text-white hover:bg-blue-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700">Record SLT issue to contractor</button>
-                                    <button type="button" data-testid="cpe-open-store" onClick={() => setMode("TO_STORE")} className="rounded-md border border-blue-800 bg-white px-3 py-2 text-sm font-bold text-blue-900 hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700">Receive CPE bundle (store)</button>
-                                </div>
+                                <button type="button" data-testid="cpe-open-direct" onClick={() => setFormOpen(true)} className="rounded-md bg-blue-800 px-3 py-2 text-sm font-bold text-white hover:bg-blue-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700">Record SLT issue to contractor</button>
                             )}
                         </div>
 
-                        {mode && options.data && (
-                            <ReceiptForm key={mode} mode={mode} options={options.data} onClose={() => setMode(null)} onSaved={() => { qc.invalidateQueries({ queryKey: ["cpe-register"] }); qc.invalidateQueries({ queryKey: ["cpe-receipts"] }); }} />
+                        {formOpen && options.data && (
+                            <ReceiptForm options={options.data} onClose={() => setFormOpen(false)} onSaved={() => { qc.invalidateQueries({ queryKey: ["cpe-register"] }); qc.invalidateQueries({ queryKey: ["cpe-receipts"] }); }} />
                         )}
 
                         <section className="flex flex-wrap gap-2" aria-label="Serials by status">
@@ -154,14 +151,13 @@ export default function CpeSerialsPage() {
                             <div className="overflow-x-auto">
                                 <table className="min-w-full divide-y divide-slate-200">
                                     <thead className="bg-slate-100"><tr>
-                                        <th className={th}>Receipt</th><th className={th}>How</th><th className={th}>RTOM</th><th className={th}>Contractor / store</th><th className={th}>Type</th><th className={th}>Qty</th><th className={th}>SLT reference</th><th className={th}>Received</th><th className={th}>MIN</th><th className={th}>By</th>
+                                        <th className={th}>Receipt</th><th className={th}>RTOM</th><th className={th}>Contractor</th><th className={th}>Type</th><th className={th}>Qty</th><th className={th}>SLT reference</th><th className={th}>Received</th><th className={th}>MIN</th><th className={th}>By</th>
                                     </tr></thead>
                                     <tbody className="divide-y divide-slate-200">
-                                        {(receipts.data ?? []).length === 0 && <tr><td colSpan={10} className={`${td} text-center text-slate-700`}>{receipts.isLoading ? "Loading..." : "No receipts yet."}</td></tr>}
+                                        {(receipts.data ?? []).length === 0 && <tr><td colSpan={9} className={`${td} text-center text-slate-700`}>{receipts.isLoading ? "Loading..." : "No receipts yet."}</td></tr>}
                                         {(receipts.data ?? []).map((r) => (
                                             <tr key={r.id}>
                                                 <td className={`${td} font-mono text-xs font-bold`}>{r.receiptNumber}</td>
-                                                <td className={td}>{r.mode === "DIRECT_TO_CONTRACTOR" ? "To the contractor" : "To the store"}</td>
                                                 <td className={td}>{r.rtom}</td>
                                                 <td className={td}>{r.contractor ?? r.store}</td>
                                                 <td className={td}>{CPE_TYPE_LABEL[r.cpeType as CpeType] ?? r.cpeType}{r.model ? ` (${r.model})` : ""}</td>
@@ -184,8 +180,7 @@ export default function CpeSerialsPage() {
     );
 }
 
-function ReceiptForm({ mode, options, onClose, onSaved }: { mode: "DIRECT_TO_CONTRACTOR" | "TO_STORE"; options: Options; onClose: () => void; onSaved: () => void }) {
-    const direct = mode === "DIRECT_TO_CONTRACTOR";
+function ReceiptForm({ options, onClose, onSaved }: { options: Options; onClose: () => void; onSaved: () => void }) {
     const [opmcId, setOpmcId] = useState(options.rtoms.length === 1 ? options.rtoms[0].id : "");
     const [contractorId, setContractorId] = useState("");
     const [cpeType, setCpeType] = useState<CpeType>("ONT");
@@ -250,7 +245,7 @@ function ReceiptForm({ mode, options, onClose, onSaved }: { mode: "DIRECT_TO_CON
         try {
             const res = await fetch("/api/cpe-serials/receipts", {
                 method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ mode, opmcId, contractorId: direct ? contractorId || null : null, cpeType, model: model || null, sltReference: sltReference || null, receivedDate, remarks: remarks || null, rows: rows() }),
+                body: JSON.stringify({ mode: "DIRECT_TO_CONTRACTOR", opmcId, contractorId: contractorId || null, cpeType, model: model || null, sltReference: sltReference || null, receivedDate, remarks: remarks || null, rows: rows() }),
             });
             const r = await unwrap<{ receiptNumber: string; issueNumber: string | null; quantity: number }>(res);
             setDone(r); setSerials([]); setPreview(null); onSaved();
@@ -262,8 +257,8 @@ function ReceiptForm({ mode, options, onClose, onSaved }: { mode: "DIRECT_TO_CON
         <section data-testid="cpe-receipt-form" className="rounded-lg border-2 border-blue-800 bg-white p-4">
             <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
-                    <h2 className="text-base font-extrabold text-slate-900">{direct ? "Record SLT issue to a contractor" : "Receive a CPE bundle into the RTOM store"}</h2>
-                    <p className="text-sm text-slate-700">{direct ? "Small quantities SLT handed straight to the contractor: the serials are received into the RTOM store and issued to the contractor on a MIN in one step." : "A bundle from SLT into the store of the RTOM; the store then issues the serials to contractors on the normal Goods Issue (MIN), scanning each serial."}</p>
+                    <h2 className="text-base font-extrabold text-slate-900">Record SLT issue to a contractor</h2>
+                    <p className="text-sm text-slate-700">Scan the CPE serials SLT gave the contractor. They are recorded for the contractor of this RTOM with a receipt (CPR) and an issue note (MIN) in one step.</p>
                 </div>
                 <button type="button" onClick={onClose} aria-label="Close the form" className="rounded p-1 text-slate-800 hover:bg-slate-100"><X className="h-5 w-5" /></button>
             </div>
@@ -274,14 +269,12 @@ function ReceiptForm({ mode, options, onClose, onSaved }: { mode: "DIRECT_TO_CON
                         {options.rtoms.map((r) => <option key={r.id} value={r.id}>{r.rtom}{r.name ? ` - ${r.name}` : ""}</option>)}
                     </select>
                 </label>
-                {direct && (
-                    <label><span className={label}>Contractor</span>
-                        <select data-testid="cpe-contractor" className={field} value={contractorId} disabled={!opmcId} onChange={(e) => { setContractorId(e.target.value); changed(); }}>
-                            <option value="">{opmcId ? (contractors.length ? "Choose..." : "No active contractor in this RTOM") : "Choose the RTOM first"}</option>
-                            {contractors.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                    </label>
-                )}
+                <label><span className={label}>Contractor</span>
+                    <select data-testid="cpe-contractor" className={field} value={contractorId} disabled={!opmcId} onChange={(e) => { setContractorId(e.target.value); changed(); }}>
+                        <option value="">{opmcId ? (contractors.length ? "Choose..." : "No active contractor in this RTOM") : "Choose the RTOM first"}</option>
+                        {contractors.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                </label>
                 <label><span className={label}>CPE type</span>
                     <select data-testid="cpe-type" className={field} value={cpeType} onChange={(e) => { setCpeType(e.target.value as CpeType); changed(); }}>
                         {CPE_TYPES.map((t) => <option key={t} value={t}>{CPE_TYPE_LABEL[t]}</option>)}
@@ -331,7 +324,7 @@ function ReceiptForm({ mode, options, onClose, onSaved }: { mode: "DIRECT_TO_CON
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
                 <button type="button" data-testid="cpe-check-list" disabled={!serials.length || !opmcId || !!busy} onClick={check} className="inline-flex items-center gap-1 rounded-md border border-blue-800 bg-white px-4 py-2 text-sm font-bold text-blue-900 hover:bg-blue-50 disabled:opacity-50">{busy === "check" && <Loader2 className="h-4 w-4 animate-spin" />}Check the list</button>
-                <button type="button" data-testid="cpe-save" disabled={!preview || errors.length > 0 || !!busy || (direct && !contractorId) || !rtom?.storeId} onClick={save} className="inline-flex items-center gap-1 rounded-md bg-blue-800 px-4 py-2 text-sm font-bold text-white hover:bg-blue-900 disabled:opacity-50">{busy === "save" && <Loader2 className="h-4 w-4 animate-spin" />}Save {serials.length || ""} serial{serials.length === 1 ? "" : "s"}</button>
+                <button type="button" data-testid="cpe-save" disabled={!preview || errors.length > 0 || !!busy || !contractorId || !rtom?.storeId} onClick={save} className="inline-flex items-center gap-1 rounded-md bg-blue-800 px-4 py-2 text-sm font-bold text-white hover:bg-blue-900 disabled:opacity-50">{busy === "save" && <Loader2 className="h-4 w-4 animate-spin" />}Save {serials.length || ""} serial{serials.length === 1 ? "" : "s"}</button>
                 {preview && errors.length > 0 && <span className="text-sm font-semibold text-red-800">{errors.length} line{errors.length === 1 ? "" : "s"} to fix or remove before saving</span>}
                 {preview && errors.length === 0 && <span className="text-sm font-semibold text-emerald-800">All {preview.length} serials are fine</span>}
                 {done && <span data-testid="cpe-done" className="rounded border border-emerald-700 bg-emerald-50 px-2 py-1 text-sm font-bold text-emerald-900">Saved: {done.receiptNumber}{done.issueNumber ? ` and issue note ${done.issueNumber}` : ""} ({done.quantity})</span>}

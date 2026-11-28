@@ -15,7 +15,7 @@ area. Nexus must be ready before SLT switches it on: today an ONT serial is free
 | Question | Answer |
 |---|---|
 | How does CPE Locator data reach us (Excel, API, sample file)? | Not known yet; no sample. Build an upload with a downloadable template and column matching, plus scan or type one by one. Keep an import interface that an API can call later. |
-| Does a serial reach the contractor directly or through our store? | **Both.** Small quantities: SLT hands them straight to the contractor. Larger quantities: a bundle comes to our store, then goes to the contractor on an issue note (MIN). |
+| Does a serial reach the contractor directly or through our store? | Small quantities go straight to the contractor, larger ones as a bundle. **Update (28 Nov, later):** recording SLT CPE, scanning it and Collect CPE are the **Area Coordinator's and QC Officer's job, not the inventory side's** - so every serial is recorded to the contractor by them (no store bundle screen, no stores grants). |
 | Server rules | Agreed: the serial must be in the register, belong to the order's RTOM, be held by the order's contractor, and not be installed elsewhere; otherwise completion/upgrade is refused with the reason. No route changes a serial's RTOM; if ever needed, administrators only, with an audit entry. |
 | Who scans? | Office staff, for now (contractor app later). |
 | Which orders need a serial? | **Every order.** A serial that was used before is valid only when SLT issued it again: the old customer stopped using it, or it was installed, became faulty, was replaced, repaired and issued again. |
@@ -77,7 +77,7 @@ Service Orders -> CPE Serials -> **Record SLT issue to contractor**, done by the
 RTOM (only their own), contractor, CPE type, SLT reference/date; scan, type or upload the serials. One transaction writes a CPE Receipt `CPR-YYYY-MM-NNNN` into the RTOM's store and an immediate MIN to the contractor, so the
 store ledger, contractor stock and FIFO batch stay consistent with every other movement. Serials end `ISSUED` to that contractor.
 
-**B. Bundle to our store**
+**B. Bundle to our store** - *dropped (owner, 28 Nov): CPE is not the inventory side's job; the Area Coordinator / QC Officer record every serial to the contractor (path A).*
 **Receive CPE bundle**: pick RTOM (its store), CPE type, SLT reference; upload or scan. Creates `CPR-...`, stock in, serials `IN_STORE`.
 The store then issues them on the normal MIN screen, where the serials are scanned (the MIN already validates serials).
 
@@ -178,7 +178,7 @@ work never stops while the register is being filled.
 ## 9. Permissions and scope (follow `docs/authorization-architecture.md`)
 
 New capabilities in `src/config/rbac-permissions.ts`, with seed, admin UI, guards and tests together:
-`inventory.cpe.receive` (record receipts / direct issues; granted to Area Coordinator, QC Officer and the stores roles), `inventory.cpe.approve` (approve a bundle, never the maker),
+`inventory.cpe.receive` (record the serials SLT gives a contractor; Area Coordinator and QC Officer only - not the stores), `inventory.cpe.approve` (approve a bundle, never the maker),
 `inventory.cpe.read` (register and history), `inventory.cpe.admin` (the audited RTOM correction and enforcement switch; administrators only).
 Completion keeps `sod.write`. Every read/write is limited to the user's RTOMs (`resolveOpmcScope`).
 

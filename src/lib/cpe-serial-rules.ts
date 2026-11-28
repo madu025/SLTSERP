@@ -26,7 +26,8 @@ export const CPE_STATUS_LABEL: Record<string, string> = {
 /** A serial that SLT may issue again (a new cycle): taken back from a customer, faulty and repaired, or handed back to SLT. */
 export const CPE_REISSUE_STATUSES: readonly string[] = ['RECOVERED', 'FAULTY', 'RETURNED_TO_SLT'];
 
-export const CPE_RECEIPT_MODES = ['DIRECT_TO_CONTRACTOR', 'TO_STORE'] as const;
+/** Recording CPE is a service order job (Area Coordinator, QC Officer), not the stores' (owner, 28 Nov 2026): serials are always recorded to a contractor. */
+export const CPE_RECEIPT_MODES = ['DIRECT_TO_CONTRACTOR'] as const;
 export type CpeReceiptMode = (typeof CPE_RECEIPT_MODES)[number];
 
 export const CPE_MAX_LINES = 500;
@@ -195,7 +196,7 @@ export interface CpeReceiptGateInput {
 export function cpeReceiptGate(i: CpeReceiptGateInput): { ok: boolean; text: string }[] {
     const bad = i.lines.filter((l) => l.problem);
     return [
-        { ok: (CPE_RECEIPT_MODES as readonly string[]).includes(i.mode), text: 'Choose how the serials were received (to the contractor, or to the store)' },
+        { ok: (CPE_RECEIPT_MODES as readonly string[]).includes(i.mode), text: 'CPE serials are recorded to the contractor who received them' },
         { ok: i.opmcChosen, text: 'Choose the RTOM' },
         { ok: i.inScope, text: 'That RTOM is not one of yours' },
         { ok: i.storeLinked, text: 'This RTOM has no store linked yet: the administrator links it in Inventory / Stores (store form, RTOMs)' },
