@@ -226,7 +226,8 @@ export function OrderSheetMode({
     };
 
     return (
-        <div ref={gridContainerRef} className="flex flex-col h-full bg-slate-100 dark:bg-slate-950 font-sans text-xs select-none">
+        <div ref={gridContainerRef} className="flex flex-col flex-1 min-h-0 bg-slate-100 dark:bg-slate-950 font-sans text-xs select-none">
+            {/* flex-1 + min-h-0 (not h-full): the drawer header sits above this block, so h-full pushed the footer with COMPLETE ORDER off screen */}
             {/* Main Spreadsheet Grid Container */}
             <div className="flex-1 overflow-y-auto p-2 space-y-2">
                 

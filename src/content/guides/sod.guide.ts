@@ -218,11 +218,12 @@ export const SOD_GUIDE: ModuleGuide = {
                 'Enter the ONT serial number and ONT type, the STB serial numbers (you can paste several at once) and, if used, the phone instrument serial.',
                 'If a faulty or old device was replaced, add it in the replaced-device rows (ONT, STB or Phone, marked Faulty or Working) with its old serial number.',
                 'Record the material: for each item enter the Used Qty, the Drop Wire F1 (m) and G1 (m) lengths, and any Wastage Qty with its reason. You can work in the Google Sheet Matrix (25) view or the Custom Rows Table view.',
-                'Add any completion notes and confirm. The order becomes COMPLETED with the date you entered.',
+                'Add any completion notes and press COMPLETE ORDER at the bottom of the window, then Save order on the review screen. The order becomes COMPLETED with the date you entered.',
             ],
             tips: [
                 'The material you enter here is the source of truth. It moves stock and posts to the ledger; what SLT reports is only used for comparison on Material Deviation.',
                 'If a quantity is more than the contractor holds in stock the screen warns "More than the contractor holds".',
+                'If the save is refused (for example more than the contractor holds), the reason is shown and the window goes back to the form with every value you entered: correct it and save again.',
                 'If SLT returns the order (RETURN) or it disappears from the portal, the material recorded on it goes back to the contractor stock. If HO rejects the PAT, the material stays used on the order: it was installed, the rejection is about quality.',
                 'Revenue and the contractor amount are calculated by the system from the SOD revenue configuration. You do not type them.',
                 'The bulk "Complete" action only marks orders Completed with today\'s date. It does not record serial numbers or material, so use Confirm Completion for real completions.',

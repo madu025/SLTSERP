@@ -747,10 +747,11 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                 sltsStatus: 'COMPLETED',
                                 completedDate: data.completedDate || data.date
                             };
-                            updateStatusMutation.mutate(mutationData); 
+                            // Close only after the save: if it is refused (for example more than the contractor holds) the drawer stays open with the values.
+                            return updateStatusMutation.mutateAsync(mutationData).then(() => setShowActionModal(false));
                         }
-                        setShowActionModal(false); 
-                    }} 
+                        setShowActionModal(false);
+                    }}
                     title={'COMPLETE ORDER'} 
                     isComplete 
                 />

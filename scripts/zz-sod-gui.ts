@@ -3,7 +3,7 @@ import fs from 'node:fs';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // SOD material entry browser test (localhost): a ZZTEST area (OPMC) with its own store, a ZZTEST contractor + team holding real SOD items
 // (issued with a MIN), three ZZTEST service orders, and an Area Coordinator and a QC Officer limited to that area.
-// usage: probe | setup <password> | check | teardown      (the password is chosen by the caller for these temporary test accounts only)
+// usage: probe | setup <password> | relink <password> | check | teardown      (the password is chosen by the caller for these temporary test accounts only)
 const MANIFEST = process.env.ZZ_SOD_GUI_MANIFEST || 'zz-sod-gui-manifest.json';
 const num = (v: any) => Number(v ?? 0);
 const stockQty = (unit: any) => (String(unit) === 'm' ? 1000 : String(unit) === 'km' ? 2 : 50);
@@ -55,7 +55,27 @@ async function main() {
         console.log('torn down (renamed/locked; ledger rows stay)'); process.exit(0);
     }
 
-    if (mode !== 'setup') throw new Error('usage: probe | setup <password> | check | teardown');
+    if (mode === 'relink') {
+        // new test people on the ZZ area of an earlier setup (no new store, MIN or orders): contractor active again, one order back to pending
+        const m = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
+        const password = process.argv[3]; if (!password) throw new Error('password argument required');
+        await prisma.contractor.update({ where: { id: m.contractor }, data: { status: 'ACTIVE' } as any });
+        const free = await prisma.serviceOrder.findFirst({ where: { id: { in: m.sods }, status: 'PENDING' }, select: { id: true } });
+        if (free) await prisma.serviceOrder.update({ where: { id: free.id }, data: { soNum: `${m.tag}-SOD9`, customerName: `${m.tag} Customer 9` } as any });
+        const suffix = Date.now().toString(36).slice(-3);
+        m.users = {};
+        for (const [key, role] of [['ac', 'AREA_COORDINATOR'], ['qc', 'QC_OFFICER']] as const) {
+            const username = `${m.tag.toLowerCase()}_${key}${suffix}`;
+            const u: any = await UserAdminService.create({ username, email: `${username}@example.invalid`, password, name: `${m.tag} ${key.toUpperCase()}`, role: role as any, opmcIds: [m.opmc] }, admin);
+            await prisma.user.update({ where: { id: u.id }, data: { mustChangePassword: false } });
+            m.users[key] = u.id;
+        }
+        fs.writeFileSync(MANIFEST, JSON.stringify(m, null, 2));
+        console.log(JSON.stringify({ users: Object.keys(m.users).map((k) => `${m.tag.toLowerCase()}_${k}${suffix}`), order: free ? `${m.tag}-SOD9` : null }));
+        process.exit(0);
+    }
+
+    if (mode !== 'setup') throw new Error('usage: probe | setup <password> | relink <password> | check | teardown');
     const password = process.argv[3]; if (!password) throw new Error('password argument required');
     const TAG = 'ZZSG' + Date.now().toString(36).slice(-4).toUpperCase();
     const m: any = { tag: TAG, users: {}, sods: [], itemCodes: {} };

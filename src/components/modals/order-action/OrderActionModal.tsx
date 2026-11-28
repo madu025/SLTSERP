@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, X, CheckCircle2 } from "lucide-react";
+import { CalendarIcon, X, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -27,7 +27,8 @@ interface OrderActionModalProps {
     orderData?: OrderActionData;
     contractors?: Contractor[];
     items?: InventoryItem[];
-    onConfirm: (data: OrderCompletionData) => void;
+    /** May return a promise: the drawer then stays open while saving, closes only when the caller closes it, and goes back to the form (values kept) if the save fails. */
+    onConfirm: (data: OrderCompletionData) => void | Promise<unknown>;
     requiresIPTV?: boolean;
     materialSource?: string;
     itemSortOrder?: string[];
@@ -51,6 +52,7 @@ export default function OrderActionModal({
 }: OrderActionModalProps) {
     const [showSuccess, setShowSuccess] = useState(false);
     const [completedData, setCompletedData] = useState<OrderCompletionData | null>(null);
+    const [saving, setSaving] = useState(false);
 
     const handleHookConfirm = (data: OrderCompletionData) => {
         setCompletedData(data);
@@ -98,6 +100,7 @@ export default function OrderActionModal({
         if (isOpen) {
             setShowSuccess(false);
             setCompletedData(null);
+            setSaving(false);
         }
     }, [isOpen]);
 
@@ -131,9 +134,20 @@ export default function OrderActionModal({
         return format(d, "yyyy-MM-dd");
     }, []);
 
-    const handleConfirmFinal = () => {
+    const handleConfirmFinal = async () => {
         if (completedData) {
-            onConfirm(completedData);
+            if (saving) return;
+            const result = onConfirm(completedData);
+            if (!(result instanceof Promise)) return;
+            setSaving(true);
+            try {
+                await result;
+            } catch {
+                // The caller shows the reason; go back to the form with every value still entered.
+                setShowSuccess(false);
+            } finally {
+                setSaving(false);
+            }
         } else {
             controls.confirm();
         }
@@ -165,14 +179,16 @@ export default function OrderActionModal({
                                 variant="outline" 
                                 className="flex-1 h-10 text-xs font-bold"
                                 onClick={() => setShowSuccess(false)}
+                                disabled={saving}
                             >
                                 Back to edit
                             </Button>
                             <Button 
                                 className="flex-1 h-10 text-xs font-bold bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white"
                                 onClick={handleConfirmFinal}
+                                disabled={saving}
                             >
-                                Save order
+                                {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : 'Save order'}
                             </Button>
                         </div>
                     </div>
