@@ -235,16 +235,18 @@ export class SODMaterialService {
         for (const m of usage) {
             const isDecrementingUsage = ['USED', 'WASTAGE', 'USED_F1', 'USED_G1', 'PORTAL_SYNC'].includes(m.usageType);
             if (!isDecrementingUsage) continue;
+            // Give back only what was really picked. A line without a batch never took stock: it was written before
+            // batch picking (all lines before the 27 Nov 2026 fresh start, whose stock was wiped) or as a shortage.
+            // Restoring it created stock nobody issued (HO PAT rejection of BW202605210081088 gave a contractor 342 m of drop wire).
+            if (!m.batchId) continue;
 
             const qty = Number(m.quantity);
-            if (m.batchId) {
-                if (contractorId) {
-                    await ContractorRepository.updateBatchStock(contractorId, m.batchId, qty, tx);
-                } else if (storeId) {
-                    await InventoryRepository.updateBatchStock(storeId, m.batchId, qty, tx);
-                }
-                transactionItems.push({ itemId: m.itemId, batchId: m.batchId, quantity: qty });
+            if (contractorId) {
+                await ContractorRepository.updateBatchStock(contractorId, m.batchId, qty, tx);
+            } else if (storeId) {
+                await InventoryRepository.updateBatchStock(storeId, m.batchId, qty, tx);
             }
+            transactionItems.push({ itemId: m.itemId, batchId: m.batchId, quantity: qty });
 
             // Restore Summary Stock
             if (contractorId) {

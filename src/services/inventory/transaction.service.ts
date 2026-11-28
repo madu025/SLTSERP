@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { AuditService } from '@/services/audit/audit.service';
+import { ContractorBalanceService, monthPeriod } from '@/services/inventory/contractor-balance.service';
 
 export interface BalanceSheetItemInput {
     itemId: string;
@@ -314,149 +315,22 @@ export class TransactionService {
         month: string; // "2025-01"
     }) {
         const { contractorId, storeId, month } = params;
+        const period = monthPeriod(month);
+        if (!period) throw AppError.badRequest('MONTH_REQUIRED: use YYYY-MM');
 
-        // Calculate month boundaries
-        const monthStart = new Date(`${month}-01`);
-        const monthEnd = new Date(monthStart);
-        monthEnd.setMonth(monthEnd.getMonth() + 1);
-
-        // O(1) parallel queries - Execute all 4 DB queries concurrently instead of sequentially
-        const [issues, sodUsage, returns, wastages] = await Promise.all([
-            // 1. Fetch Issues
-            prisma.contractorMaterialIssue.findMany({
-                where: { contractorId, storeId, month },
-                select: {
-                    id: true,
-                    items: {
-                        select: {
-                            quantity: true,
-                            item: {
-                                select: { id: true, code: true, name: true, unit: true }
-                            }
-                        }
-                    }
-                }
-            }),
-            // 2. Fetch Usage from SODs (COMPLETED only - RETURN'd SODs have materialUsage deleted on rollback)
-            prisma.sODMaterialUsage.findMany({
-                where: {
-                    serviceOrder: {
-                        contractorId,
-                        opmc: { storeId },
-                        sltsStatus: 'COMPLETED',
-                        completedDate: {
-                            gte: monthStart,
-                            lt: monthEnd
-                        }
-                    }
-                },
-                select: {
-                    quantity: true,
-                    usageType: true,
-                    item: {
-                        select: { id: true, code: true, name: true, unit: true }
-                    }
-                }
-            }),
-            // 3. Fetch Returns
-            prisma.contractorMaterialReturn.findMany({
-                where: { contractorId, storeId, month, status: 'ACCEPTED' },
-                select: {
-                    items: {
-                        select: {
-                            quantity: true,
-                            item: {
-                                select: { id: true, code: true, name: true, unit: true }
-                            }
-                        }
-                    }
-                }
-            }),
-            // 4. Fetch Direct Wastage (Reported)
-            prisma.contractorWastage.findMany({
-                where: {
-                    contractorId,
-                    storeId,
-                    month,
-                    status: 'APPROVED'
-                },
-                select: {
-                    items: {
-                        select: {
-                            quantity: true,
-                            item: {
-                                select: { id: true, code: true, name: true, unit: true }
-                            }
-                        }
-                    }
-                }
-            })
-        ]);
-
-        // 4. Aggregate by Item
-        const itemStats: Record<string, MaterialStats> = {};
-
-        // Helper to get/init item
-        const getItem = (item: { id: string, code: string, name: string, unit: string, costPrice?: number }) => {
-            if (!itemStats[item.id]) {
-                itemStats[item.id] = {
-                    id: item.id,
-                    code: item.code,
-                    name: item.name,
-                    unit: item.unit,
-                    issued: 0,
-                    used: 0,
-                    wastage: 0,
-                    returned: 0,
-                    balance: 0,
-                    costPrice: item.costPrice || 0,
-                    totalValue: 0
-                };
-            }
-            return itemStats[item.id];
-        };
-
-        // Add Issues
-        issues.forEach(issue => {
-            issue.items.forEach(ii => {
-                const s = getItem(ii.item);
-                s.issued += Number(ii.quantity);
+        // One rule with the contractor screen (ContractorBalanceService): issue notes not rejected, SOD lines that took stock
+        // (any finished status: this read only COMPLETED and missed INSTALL_CLOSED), SOD and noted wastage, and the ACCEPTED
+        // quantity of returns (this used the requested quantity).
+        const rows = await ContractorBalanceService.balance(contractorId, { period, storeId });
+        const costs = new Map((await prisma.inventoryItem.findMany({ where: { id: { in: rows.map((r) => r.itemId) } }, select: { id: true, costPrice: true } }))
+            .map((i) => [i.id, Number(i.costPrice ?? 0)]));
+        return rows
+            .filter((r) => r.issued || r.used || r.wastage || r.returned)
+            .map((r): MaterialStats => {
+                const balance = r.issued - r.used - r.wastage - r.returned;
+                const costPrice = costs.get(r.itemId) ?? 0;
+                return { id: r.itemId, code: r.itemCode, name: r.itemName, unit: r.unit, issued: r.issued, used: r.used, wastage: r.wastage, returned: r.returned, balance, costPrice, totalValue: balance * costPrice };
             });
-        });
-
-        // Add Usage
-        sodUsage.forEach(usage => {
-            const s = getItem(usage.item);
-            if (usage.usageType === 'WASTAGE') {
-                s.wastage += Number(usage.quantity);
-            } else {
-                s.used += Number(usage.quantity);
-            }
-        });
-
-        // Add Returns
-        returns.forEach(ret => {
-            ret.items.forEach(ri => {
-                const s = getItem(ri.item);
-                s.returned += Number(ri.quantity);
-            });
-        });
-
-        // Add Direct Wastage
-        wastages.forEach(w => {
-            w.items.forEach(wi => {
-                const s = getItem(wi.item);
-                s.wastage += Number(wi.quantity);
-            });
-        });
-
-        // Calculate Logic
-        Object.values(itemStats).forEach((s) => {
-            s.balance = s.issued - s.used - s.wastage - s.returned;
-            s.totalValue = s.balance * s.costPrice;
-        });
-
-        return Object.values(itemStats);
     }
 
     

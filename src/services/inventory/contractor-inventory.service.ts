@@ -5,6 +5,7 @@ import { assertPositiveQuantity } from '@/lib/quantity-guard';
 import { StockService } from './stock.service';
 import { AuditLedgerService } from './audit-ledger.service';
 import { ContractorRepository } from '@/repositories/contractor.repository';
+import { ContractorBalanceService, monthPeriod } from './contractor-balance.service';
 import { TransactionClient, UUID } from '@/types/inventory/inventory-service.types';
 
 export interface TeamMaterialBalanceParams {
@@ -23,10 +24,17 @@ export interface MaterialBalanceRow {
     openingStock: number;
     storeReceipts: number;
     sodConsumptions: number;
+    /** SOD wastage lines + approved wastage notes (recorded, not an assumed 5%) */
     allowedWastage: number;
+    /** accepted return quantity (MRN) */
+    returned: number;
+    /** opening + receipts - used - wastage - returned for the chosen period */
     closingBalance: number;
+    /** ContractorStock now */
+    inHand: number;
+    /** inHand - (all issues - all used - all wastage - all returns); not 0 means the stock does not follow its documents */
     variance: number;
-    status: 'RECONCILED' | 'LOW_STOCK_WARNING' | 'HIGH_WASTAGE';
+    status: 'RECONCILED' | 'LOW_STOCK_WARNING' | 'HIGH_WASTAGE' | 'MISMATCH';
 }
 
 export class ContractorInventoryService {
@@ -216,6 +224,18 @@ export class ContractorInventoryService {
         });
     }
 
+    /** Store a contractor's return goes to: the store of the latest issue note of that item, else the contractor's OPMC store. */
+    static async resolveReturnStoreId(tx: TransactionClient, contractorId: string, itemId: string): Promise<string | null> {
+        const lastIssue = await tx.contractorMaterialIssue.findFirst({
+            where: { contractorId, status: { not: 'REJECTED' }, items: { some: { itemId } } },
+            orderBy: { issueDate: 'desc' },
+            select: { storeId: true },
+        });
+        if (lastIssue) return lastIssue.storeId;
+        const contractor = await tx.contractor.findUnique({ where: { id: contractorId }, select: { opmc: { select: { storeId: true } } } });
+        return contractor?.opmc?.storeId ?? null;
+    }
+
     static async createMaterialReturn(contractorId: UUID, data: { itemId: UUID, quantity: number, condition?: string, reason?: string }) {
         assertPositiveQuantity(data.quantity, 'the returned item');
         const now = new Date();
@@ -223,13 +243,14 @@ export class ContractorInventoryService {
 
         // Atomic write: MRN number reservation + header + item rows in one transaction
         return prisma.$transaction(async (tx: TransactionClient) => {
-            const mainStore = await tx.inventoryStore.findFirst({
-                where: { type: 'MAIN' }
-            }) || await tx.inventoryStore.findFirst();
-
-            if (!mainStore) {
-                throw AppError.notFound('Main Store not found');
+            // The material goes back to the store that issued it (the latest issue note of this item to this contractor),
+            // else to the store of the contractor's OPMC. It used to go to any MAIN store, so a Kalutara contractor's
+            // return could land in another region's (or a test) store and its storekeeper never saw it.
+            const returnStoreId = await ContractorInventoryService.resolveReturnStoreId(tx, contractorId, data.itemId);
+            if (!returnStoreId) {
+                throw AppError.badRequest('NO_STORE_FOR_RETURN: this item was never issued to you and your OPMC has no store. Ask the store to record the return.');
             }
+            const mainStore = { id: returnStoreId };
 
             const item = await tx.inventoryItem.findUnique({ where: { id: data.itemId } });
             if (!item) {
@@ -342,56 +363,42 @@ export class ContractorInventoryService {
         };
     }
     /**
-     * Compute Team-Wise Material Balance Sheet using DB function fn_contractor_balance_sheet().
-     * All heavy computation (SOD consumptions, wastage, balance sheet rows) runs in PostgreSQL.
+     * Team-wise material balance from the documents (ContractorBalanceService): issues, SOD lines that took stock, wastage, accepted returns.
+     * It replaced fn_contractor_balance_sheet(), which derived "receipts" from the stock in hand (so it always balanced), counted
+     * only COMPLETED orders (not INSTALL_CLOSED) and compared a month name ("July") with "YYYY-MM", so a month never matched.
      */
     static async getTeamWiseMaterialBalance(params: TeamMaterialBalanceParams) {
         const { contractorId, teamId, month, year } = params;
 
-        // 1. Fetch Contractor Teams (still needed for UI dropdown)
         const teams = await prisma.contractorTeam.findMany({
             where: { contractorId },
             select: { id: true, name: true, sltCode: true }
         });
+        const selectedTeam = teamId && teamId !== 'ALL' ? teamId : null;
+        const rows = await ContractorBalanceService.balance(contractorId, { period: monthPeriod(month, year), teamId: selectedTeam });
 
-        // 2. Use DB function for atomic balance sheet computation in PostgreSQL
-        const balanceSheetRows = await prisma.$queryRaw<Array<{
-            item_id: UUID;
-            item_code: string;
-            item_name: string;
-            unit: string;
-            team_name: string;
-            opening_stock: number;
-            store_receipts: number;
-            sod_consumptions: number;
-            allowed_wastage: number;
-            closing_balance: number;
-            variance: number;
-            status: string;
-        }>>`
-            SELECT * FROM fn_contractor_balance_sheet(
-                ${contractorId}::uuid,
-                ${teamId && teamId !== 'ALL' ? teamId : null}::uuid,
-                ${month || null}::text,
-                ${year ? parseInt(year) : null}::int
-            )
-        `;
-
-        // Map DB function result to MaterialBalanceRow interface
-        const balanceSheet: MaterialBalanceRow[] = balanceSheetRows.map(row => ({
-            itemId: row.item_id,
-            itemCode: row.item_code,
-            itemName: row.item_name,
-            unit: row.unit,
-            teamName: row.team_name,
-            openingStock: Number(row.opening_stock) || 0,
-            storeReceipts: Number(row.store_receipts) || 0,
-            sodConsumptions: Number(row.sod_consumptions) || 0,
-            allowedWastage: Number(row.allowed_wastage) || 0,
-            closingBalance: Number(row.closing_balance) || 0,
-            variance: Number(row.variance) || 0,
-            status: (row.status || 'RECONCILED') as MaterialBalanceRow['status']
-        }));
+        const balanceSheet: MaterialBalanceRow[] = rows.map((r) => {
+            const mismatch = !selectedTeam && Math.abs(r.variance) > 0.0001;
+            const status: MaterialBalanceRow['status'] = mismatch ? 'MISMATCH'
+                : r.used > 0 && r.wastage > r.used * 0.1 ? 'HIGH_WASTAGE'
+                : r.inHand < 5 ? 'LOW_STOCK_WARNING' : 'RECONCILED';
+            return {
+                itemId: r.itemId,
+                itemCode: r.itemCode,
+                itemName: r.itemName,
+                unit: r.unit,
+                teamName: selectedTeam ? 'Selected Team' : 'All Contractor Teams',
+                openingStock: r.opening,
+                storeReceipts: r.issued,
+                sodConsumptions: r.used,
+                allowedWastage: r.wastage,
+                returned: r.returned,
+                closingBalance: r.closing,
+                inHand: r.inHand,
+                variance: selectedTeam ? 0 : r.variance,
+                status,
+            };
+        });
 
         return {
             teams,

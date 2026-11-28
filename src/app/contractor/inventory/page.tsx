@@ -46,16 +46,20 @@ interface BalanceSheetRowRecord {
     storeReceipts: number;
     sodConsumptions: number;
     allowedWastage: number;
+    returned?: number;
     closingBalance: number;
+    inHand?: number;
     variance: number;
     status: string;
 }
 
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
 export default function ContractorInventoryPage() {
     const queryClient = useQueryClient();
     const [activeMainTab, setActiveMainTab] = useState<'STOCK' | 'ISSUES' | 'RETURNS' | 'BALANCE_SHEET'>('STOCK');
-    const [selectedMonth, setSelectedMonth] = useState('July');
-    const [selectedYear, setSelectedYear] = useState('2026');
+    const [selectedMonth, setSelectedMonth] = useState(() => MONTH_NAMES[new Date().getMonth()]);
+    const [selectedYear, setSelectedYear] = useState(() => String(new Date().getFullYear()));
     const [selectedIssue, setSelectedIssue] = useState<MaterialIssue | null>(null);
     const [viewVoucherIssue, setViewVoucherIssue] = useState<MaterialIssue | null>(null);
     const [signatureName, setSignatureName] = useState('');
@@ -587,7 +591,7 @@ export default function ContractorInventoryPage() {
                                 onChange={(e) => setSelectedMonth(e.target.value)}
                                 className="bg-slate-900 text-slate-200 text-xs px-2.5 py-1 rounded-lg border border-slate-800 focus:outline-none font-bold"
                             >
-                                {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
+                                {MONTH_NAMES.map(m => (
                                     <option key={m} value={m}>{m}</option>
                                 ))}
                             </select>
@@ -611,8 +615,10 @@ export default function ContractorInventoryPage() {
                                     <th className="p-2.5 text-right">Opening</th>
                                     <th className="p-2.5 text-right text-emerald-400">+ Receipts</th>
                                     <th className="p-2.5 text-right text-rose-400">- SOD Closed</th>
-                                    <th className="p-2.5 text-right text-amber-400">- 5% Wastage</th>
+                                    <th className="p-2.5 text-right text-amber-400">- Wastage</th>
+                                    <th className="p-2.5 text-right text-sky-300">- Returned</th>
                                     <th className="p-2.5 text-right text-blue-400 font-bold">= Closing Stock</th>
+                                    <th className="p-2.5 text-right text-slate-200" title="What you hold now. It must equal all issues minus all used, wastage and returns.">In Hand</th>
                                     <th className="p-2.5 text-center">Status</th>
                                 </tr>
                             </thead>
@@ -627,9 +633,12 @@ export default function ContractorInventoryPage() {
                                         <td className="p-2.5 text-right text-emerald-400 font-bold">+{row.storeReceipts}</td>
                                         <td className="p-2.5 text-right text-rose-400 font-bold">-{row.sodConsumptions}</td>
                                         <td className="p-2.5 text-right text-amber-400">-{row.allowedWastage}</td>
+                                        <td className="p-2.5 text-right text-sky-300">-{row.returned ?? 0}</td>
                                         <td className="p-2.5 text-right text-blue-400 font-black text-xs">{row.closingBalance} {row.unit}</td>
+                                        <td className="p-2.5 text-right text-slate-100" title={row.variance ? `Differs from the documents by ${row.variance}` : undefined}>{row.inHand ?? 0}</td>
                                         <td className="p-2.5 text-center">
                                             <span className={`px-2 py-0.5 text-[9px] font-bold rounded uppercase font-sans border ${
+                                                row.status === 'MISMATCH' ? 'bg-rose-600/30 text-rose-200 border-rose-500/60' :
                                                 row.status === 'LOW_STOCK_WARNING' ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' :
                                                 row.status === 'HIGH_WASTAGE' ? 'bg-red-500/20 text-red-400 border-red-500/40' :
                                                 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'

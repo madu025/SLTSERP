@@ -2109,6 +2109,10 @@ export class SODSyncService {
                             tx,
                         });
 
+                        // Material rollback for DISAPPEARED: give the material back and reverse GL BEFORE the contractor is cleared.
+                        // The rollback returns stock to the order's contractor; with the contractor already cleared it went to the store.
+                        await SODMaterialService.rollbackMaterialUsage(tx, disappearedSod.id, 'PORTAL_SWEEP');
+                        await LedgerService.rollbackSodTransaction(tx, disappearedSod.id);
                         await tx.serviceOrder.update({
                             where: { id: disappearedSod.id },
                             data: {
@@ -2120,9 +2124,6 @@ export class SODSyncService {
                             },
                             select: { id: true }
                         });
-                        // Material rollback for DISAPPEARED: properly rollback usage, restore stock and reverse GL
-                        await SODMaterialService.rollbackMaterialUsage(tx, disappearedSod.id, 'PORTAL_SWEEP');
-                        await LedgerService.rollbackSodTransaction(tx, disappearedSod.id);
                     }));
                     if (disError) {
                         console.error(`[SYNC-DISAPPEARED] Failed to process disappeared SOD ${disappearedSod.soNum}:`, disError);

@@ -84,3 +84,6 @@ for local scripts (`.env.local`). pnpm only.
 - Production had a FRESH START on 27 Nov 2026 (see CHANGELOG): no journals, stock, procurement, logs or test masters before that date; SOD
   data and masters kept. Opening stock is not loaded yet. Backup of the old data: `/root/backups/sltserp-before-fresh-start-20261127.dump`.
   A reconciliation of AP-VEND must include supplier debit notes and contractor invoices, not only supplier invoices.
+- Contractor balance rule (28 Nov): issues not rejected - SOD lines WITH a batch - wastage notes - accepted returns = ContractorStock
+  (`src/lib/contractor-balance-rules.ts`). SOD lines without a batch (everything before the fresh start) never move stock, also not on rollback.
+  R-KX OPMC still points to a test store (ZZG6DAAL); test scripts that `connect` R-KX to their store must unlink it on cleanup.
